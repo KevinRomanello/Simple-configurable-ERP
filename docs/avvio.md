@@ -108,7 +108,7 @@ docker compose run --rm -v "$PWD/fonti:/app/fonti:ro" api pnpm reconcile -- --db
 | Riavviare in sottofondo                                       | `docker compose up -d`                                   |
 | Vedere lo stato                                               | `docker compose ps`                                      |
 | Leggere i log in diretta                                      | `docker compose logs -f api` (oppure `web`, `db`)    |
-| Lanciare i test | quattro comandi, vedi sotto la tabella |
+| Lanciare i test                                               | quattro comandi, vedi sotto la tabella                     |
 | Aprire il database a mano                                     | `docker compose exec db psql -U erp -d erp`              |
 | Dopo aver cambiato `package.json` o aggiunto una dipendenza | `docker compose up --build -d`                           |
 | **Cancellare anche il database** e ripartire da zero    | `docker compose down -v`, poi di nuovo i passi 3-5 (e 2) |
@@ -149,10 +149,10 @@ Il file nuovo compare in `apps/api/drizzle/`: va committato insieme allo schema.
 
 **Quali modifiche al codice si vedono subito?** Dipende dal contenitore: ognuno vede solo le cartelle che gli sono *condivise* con il tuo computer; di tutte le altre ha la copia fatta quando è stata costruita l'immagine.
 
-| Contenitore | Cartelle condivise (si aggiornano subito) |
-| --- | --- |
-| `api` | `apps/api/src`, `apps/api/drizzle`, `packages/calc/src`, `tools/import-xlsx/src` |
-| `web` | `apps/web/src`, `apps/web/index.html`, `packages/calc/src` |
+| Contenitore | Cartelle condivise (si aggiornano subito)                                                |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| `api`     | `apps/api/src`, `apps/api/drizzle`, `packages/calc/src`, `tools/import-xlsx/src` |
+| `web`     | `apps/web/src`, `apps/web/index.html`, `packages/calc/src`                         |
 
 Nell'`api` il server si riavvia da solo quando salvi; nel `web` il sito si aggiorna da solo. Per tutto il resto (dipendenze, `Dockerfile`, `docker-compose.yml`, configurazioni) serve `docker compose up --build -d`.
 
@@ -189,24 +189,24 @@ Se avvii l'API o il sito anche fuori da Docker mentre i contenitori sono accesi,
 
 ## Problemi comuni
 
-| Cosa vedi                                                      | Perché                                                                        | Cosa fare                                                                                        |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `Cannot connect to the Docker daemon`                        | Docker non è aperto                                                           | apri Docker Desktop e aspetta che sia pronto                                                     |
-| `port is already allocated` (3000, 5173 o 5432)              | un altro programma usa la porta (spesso un PostgreSQL installato sul computer) | ferma quel programma, oppure cambia il numero a sinistra dei due punti in `docker-compose.yml` |
-| Il sito dice `API or DB not reachable`, o ci sono errori 500 | tabelle non create, oppure API non partita                                     | passi 4 e 5; poi `docker compose logs api`                                                     |
-| `relation "..." does not exist`                              | le migrazioni non sono state applicate                                         | `docker compose exec api pnpm db:migrate`                                                      |
-| `Current season not found: run pnpm db:seed`                 | mancano i dati di base                                                         | `docker compose exec api pnpm db:seed`                                                         |
-| `The season already has N projects`                          | il caricamento non cancella senza permesso                                     | aggiungi `-- --replace` (cancella e ricarica)                                                  |
-| `ENOENT ... Budget 26-27.xlsx`                               | il file non c'è o non è stato montato                                        | controlla che sia in `fonti/` e di aver messo `-v "$PWD/fonti:/app/fonti:ro"`                |
-| `Cannot find matching keyid` lanciando `corepack`          | bug del corepack di alcune versioni di Node                                    | `npm install -g pnpm@12.14.0` e non usare corepack                                             |
-| Il sito non trova un pacchetto appena aggiunto, o l'API dice `Cannot find package '@fastify/cookie'` | l'immagine è vecchia                                                          | `docker compose up --build -d`                                                                 |
-| L'API non parte e cita `JWT_SECRET` o `PUBLIC_URL`             | il `.env` non ha il blocco Login                                               | copia il blocco `# --- Login ---` da `.env.example`                                              |
-| Si vede sempre la pagina **Sign in**                           | token scaduto (24 ore), persona disattivata o cookie cancellato                | rientra; se ti hanno disattivato, un altro admin ti riattiva da **Users** (l'ultimo admin non si può disattivare) |
-| `Cross-site request refused` quando si salva                   | hai aperto il sito da un indirizzo diverso da `PUBLIC_URL` (per esempio `127.0.0.1`) | apri `http://localhost:5173`, oppure cambia `PUBLIC_URL`                                    |
-| `You cannot change this area` / `Only an admin can do this`    | il tuo ruolo non lo permette (è il server a decidere)                          | un admin ti cambia ruolo o aree dalla pagina **Users**                                        |
-| Cambio un file e non succede niente, o un test usa codice vecchio | quel contenitore non condivide quella cartella (ha la copia dell'ultima costruzione) | vedi "Quali modifiche al codice si vedono subito?" e lancia il test nel contenitore giusto |
-| I test dell'API falliscono su `erp_test`                     | il database non è acceso o non è "healthy"                                   | `docker compose ps`; aspetta che `db` sia `healthy`                                        |
-| Dopo le prove i dati sono sporchi                              | hai modificato dati d'esempio                                                  | ricarica il foglio con `-- --replace`                                                          |
+| Cosa vedi                                                                                              | Perché                                                                                  | Cosa fare                                                                                                                |
+| ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `Cannot connect to the Docker daemon`                                                                | Docker non è aperto                                                                     | apri Docker Desktop e aspetta che sia pronto                                                                             |
+| `port is already allocated` (3000, 5173 o 5432)                                                      | un altro programma usa la porta (spesso un PostgreSQL installato sul computer)           | ferma quel programma, oppure cambia il numero a sinistra dei due punti in `docker-compose.yml`                         |
+| Il sito dice `API or DB not reachable`, o ci sono errori 500                                         | tabelle non create, oppure API non partita                                               | passi 4 e 5; poi `docker compose logs api`                                                                             |
+| `relation "..." does not exist`                                                                      | le migrazioni non sono state applicate                                                   | `docker compose exec api pnpm db:migrate`                                                                              |
+| `Current season not found: run pnpm db:seed`                                                         | mancano i dati di base                                                                   | `docker compose exec api pnpm db:seed`                                                                                 |
+| `The season already has N projects`                                                                  | il caricamento non cancella senza permesso                                               | aggiungi `-- --replace` (cancella e ricarica)                                                                          |
+| `ENOENT ... Budget 26-27.xlsx`                                                                       | il file non c'è o non è stato montato                                                  | controlla che sia in `fonti/` e di aver messo `-v "$PWD/fonti:/app/fonti:ro"`                                        |
+| `Cannot find matching keyid` lanciando `corepack`                                                  | bug del corepack di alcune versioni di Node                                              | `npm install -g pnpm@12.14.0` e non usare corepack                                                                     |
+| Il sito non trova un pacchetto appena aggiunto, o l'API dice `Cannot find package '@fastify/cookie'` | l'immagine è vecchia                                                                    | `docker compose up --build -d`                                                                                         |
+| L'API non parte e cita `JWT_SECRET` o `PUBLIC_URL`                                                 | il `.env` non ha il blocco Login                                                       | copia il blocco `# --- Login ---` da `.env.example`                                                                  |
+| Si vede sempre la pagina **Sign in**                                                             | token scaduto (24 ore), persona disattivata o cookie cancellato                          | rientra; se ti hanno disattivato, un altro admin ti riattiva da **Users** (l'ultimo admin non si può disattivare) |
+| `Cross-site request refused` quando si salva                                                         | hai aperto il sito da un indirizzo diverso da `PUBLIC_URL` (per esempio `127.0.0.1`) | apri `http://localhost:5173`, oppure cambia `PUBLIC_URL`                                                             |
+| `You cannot change this area` / `Only an admin can do this`                                        | il tuo ruolo non lo permette (è il server a decidere)                                   | un admin ti cambia ruolo o aree dalla pagina **Users**                                                             |
+| Cambio un file e non succede niente, o un test usa codice vecchio                                      | quel contenitore non condivide quella cartella (ha la copia dell'ultima costruzione)     | vedi "Quali modifiche al codice si vedono subito?" e lancia il test nel contenitore giusto                               |
+| I test dell'API falliscono su `erp_test`                                                             | il database non è acceso o non è "healthy"                                             | `docker compose ps`; aspetta che `db` sia `healthy`                                                                |
+| Dopo le prove i dati sono sporchi                                                                      | hai modificato dati d'esempio                                                            | ricarica il foglio con `-- --replace`                                                                                  |
 
 ## Provare i ruoli
 
