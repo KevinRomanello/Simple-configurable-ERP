@@ -1,12 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { date, money, month, monthOfDate, ratio } from "./format";
+import { date, money, moneyFromDecimal, moneyShort, month, monthOfDate, ratio } from "./format";
+
+const plain = (text: string) => text.replace(/ /g, " ");
 
 describe("format", () => {
-  it("formats cents as euros, optionally hiding zero", () => {
-    expect(money(122_000).replace(/\s/g, " ")).toBe("1.220,00 €");
+  it("formats cents as euros with the thousands always grouped", () => {
+    expect(plain(money(122_000))).toBe("1.220,00 €");
+    expect(plain(money(100_000_000))).toBe("1.000.000,00 €");
+    expect(plain(money(999))).toBe("9,99 €");
+    expect(plain(money(5))).toBe("0,05 €");
+    expect(plain(money(-550))).toBe("-5,50 €");
+  });
+
+  it("hides zero or missing amounts when asked", () => {
     expect(money(0, true)).toBe("");
-    expect(money(0)).toContain("0,00");
+    expect(plain(money(0))).toBe("0,00 €");
     expect(money(null)).toBe("");
+  });
+
+  it("formats decimal strings from the API exactly", () => {
+    expect(plain(moneyFromDecimal("1234.50"))).toBe("1.234,50 €");
+    expect(plain(moneyFromDecimal("10000.00"))).toBe("10.000,00 €");
+    expect(plain(moneyFromDecimal("0.07"))).toBe("0,07 €");
+    expect(plain(moneyFromDecimal("-12.3"))).toBe("-12,30 €");
+    expect(moneyFromDecimal(null)).toBe("");
+  });
+
+  it("rounds whole euros for chart axes", () => {
+    expect(plain(moneyShort(11272.8))).toBe("11.273 €");
+    expect(plain(moneyShort(-1500))).toBe("-1.500 €");
   });
 
   it("formats dates and months like the old sheet", () => {

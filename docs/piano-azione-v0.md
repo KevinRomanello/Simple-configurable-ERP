@@ -15,7 +15,7 @@ Proposta del 20 ottobre 2026, da confermare prima di iniziare (regola 5). Compri
 | B9 Grafici | fatto: a colonne, sulle viste dove il foglio li aveva |
 | Stile Figma | applicato (token, tipografia, componenti); navigazione, tabelle e grafici **non sono disegnati su Figma**: da rivedere ([stile-interfaccia.md](stile-interfaccia.md)) |
 
-Test: 148 (99 motore, 43 API, 3 importer, 3 interfaccia). `pnpm reconcile` (anche `-- --db`) confronta il motore con il foglio reale.
+Test: 151 (99 motore, 43 API, 3 importer, 6 interfaccia). `pnpm reconcile` (anche `-- --db`) confronta il motore con il foglio reale.
 
 **Fuori dalla v0, ancora da fare**: accesso con login e ruoli, storico delle modifiche, incolla multi-riga da Sheets, logo, test automatici dell'interfaccia, backup e deploy. L'app va usata solo in locale.
 

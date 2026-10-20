@@ -1,18 +1,35 @@
-// Italian does not group four-digit numbers by default ("1220,00 €"); a column of amounts reads
-// better when 1.220,00 € and 10.000,00 € look alike.
-const euro = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", useGrouping: "always" });
-const percent = new Intl.NumberFormat("it-IT", { style: "percent", maximumFractionDigits: 2 });
+// Amounts are formatted by hand from integer cents instead of with Intl.NumberFormat: how Intl
+// groups digits ("1220,00" or "1.220,00") depends on the engine's version, and a column of
+// amounts must look the same everywhere.
 
-/** Cents as euros. `blankZero` hides zeros, like the number format of the old sheet. */
+const NBSP = " ";
+
+/** "1220000" -> "1.220.000". */
+const group = (digits: string) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+/** Cents as euros ("1.220,00 €"). `blankZero` hides zeros, like the number format of the old sheet. */
 export function money(cents: number | null | undefined, blankZero = false): string {
   if (cents == null || (blankZero && cents === 0)) return "";
-  return euro.format(cents / 100);
+  const abs = Math.abs(cents);
+  const units = group(String(Math.floor(abs / 100)));
+  return `${cents < 0 ? "-" : ""}${units},${String(abs % 100).padStart(2, "0")}${NBSP}€`;
 }
 
-/** A decimal string from the API ("1234.50") as euros. */
-export function moneyFromDecimal(amount: string | null | undefined): string {
-  return amount == null ? "" : euro.format(Number(amount));
+/** Whole euros, for chart axes ("1.220 €"). */
+export function moneyShort(euros: number): string {
+  const rounded = Math.round(euros);
+  return `${rounded < 0 ? "-" : ""}${group(String(Math.abs(rounded)))}${NBSP}€`;
 }
+
+/** A decimal string from the API ("1234.50") as euros, without going through floating point. */
+export function moneyFromDecimal(amount: string | null | undefined): string {
+  if (amount == null) return "";
+  const [whole = "0", fraction = ""] = amount.replace("-", "").split(".");
+  const cents = Number(whole) * 100 + Number(`${fraction}00`.slice(0, 2));
+  return money(amount.startsWith("-") ? -cents : cents);
+}
+
+const percent = new Intl.NumberFormat("it-IT", { style: "percent", maximumFractionDigits: 2 });
 
 export const ratio = (value: number | null) => (value === null ? "" : percent.format(value));
 
@@ -31,5 +48,5 @@ export function month(key: string): string {
   return `${MONTHS[Number(m) - 1]} ${y?.slice(2)}`;
 }
 
-/** "2026-11-15" (a bank date) shown as a month, as the old sheet did. */
+/** "2026-10-15" (a bank date) shown as a month, as the old sheet did. */
 export const monthOfDate = (iso: string | null) => (iso ? month(iso.slice(0, 7)) : "");

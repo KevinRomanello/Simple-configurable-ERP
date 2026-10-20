@@ -1,3 +1,4 @@
+import { moneyShort, money } from "../lib/format";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export interface Series {
@@ -7,9 +8,6 @@ export interface Series {
 
 /** Series colours: the "Utility" palette of the design system, in order. */
 const COLOURS = ["var(--utility-1)", "var(--utility-2)", "var(--utility-3)", "var(--utility-4)", "var(--utility-5)", "var(--utility-6)"];
-
-const compact = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0, useGrouping: "always" });
-const full = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", useGrouping: "always" });
 
 /**
  * The column chart used by every view that had one in the old sheet. Values are in cents;
@@ -38,9 +36,9 @@ export function BarsChart({
         <BarChart data={euros} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
           <CartesianGrid stroke="var(--stroke-sub)" vertical={false} />
           <XAxis dataKey={xKey} stroke="var(--text-sub)" tick={{ fontSize: 11 }} />
-          <YAxis stroke="var(--text-sub)" tick={{ fontSize: 11 }} tickFormatter={(v: number) => compact.format(v)} width={84} />
+          <YAxis stroke="var(--text-sub)" tick={{ fontSize: 11 }} tickFormatter={(v: number) => moneyShort(v)} width={84} />
           <Tooltip
-            formatter={(value) => full.format(Number(value))}
+            formatter={(value) => money(Math.round(Number(value) * 100))}
             contentStyle={{ background: "var(--bg-soft)", border: "1px solid var(--stroke-sub)", borderRadius: 2, color: "var(--text-strong)", fontSize: 12 }}
             cursor={{ fill: "var(--bg-soft)" }}
           />
