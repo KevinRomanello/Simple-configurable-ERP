@@ -1,7 +1,7 @@
 # Development image shared by the api and web services.
 # Dependencies are installed here; source folders are bind-mounted by docker-compose.yml
 # so edits on the host reload the running container without a rebuild.
-FROM node:24-slim
+FROM node:26-slim
 
 RUN npm install -g pnpm@12.14.0
 
