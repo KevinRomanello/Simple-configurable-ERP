@@ -16,7 +16,8 @@ Gestionale custom per budget e inventario del team: sostituisce il foglio Google
 - Codice, tabelle e campi in inglese; documenti in italiano; l'interfaccia mantiene i termini del foglio (CASH FROM, BOUGHT FROM, outflow…).
 - Soldi: centesimi interi nel codice, `numeric` nel database, mai virgola mobile. Date come stringhe ISO (`YYYY-MM-DD`), mai `Date` locali nel calcolo.
 - `packages/calc` è puro: nessun I/O e nessun import da `apps/*`. I valori hardcoded gli arrivano dallo snapshot, che li ottiene chiamando le funzioni-API (regola 4).
+- `fonti/` è ignorata da git e contiene dati reali (nomi di persone e sponsor, importi). Non copiare mai dati reali in file tracciati (docs, test, seed, fixture): lì solo dati sintetici. I test che leggono `fonti/` devono saltarsi se la cartella manca.
 
 ## Stato
 
-v0 = parità con lo script attuale, ma su database: [docs/piano-azione-v0.md](docs/piano-azione-v0.md). Riferimenti: `script attuale` (il comportamento da replicare) e `Piano d'azione — Budget e Inventario custom.md` (visione completa, domande per il tesoriere).
+v0 = parità con lo script attuale, ma su database: [docs/piano-azione-v0.md](docs/piano-azione-v0.md). Materiale di partenza in `fonti/` (locale, non nel repository): `fonti/script attuale` (il comportamento da replicare), `fonti/Budget 26-27.xlsx` (foglio reale: dati d'esempio e oracolo per i test di riconciliazione) e `fonti/Piano d'azione — Budget e Inventario custom.md` (visione completa, domande per il tesoriere).
