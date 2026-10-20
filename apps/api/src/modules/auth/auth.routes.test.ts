@@ -169,32 +169,34 @@ describe("signing in with Google", () => {
     expect((await db.select().from(appUser).where(sql`lower(${appUser.email}) = 'newcomer@team.test'`))).toHaveLength(1);
   });
 
+  /** The sign-in failed: back to the home page with a fixed word and no session. */
   const failure = (reply: { status: number; headers: Record<string, any> }) => {
     expect(reply.status).toBe(302);
     expect(cookieNamed(reply.headers, "erp_token")).toBeUndefined();
-    return decodeURIComponent(String(reply.headers.location).split("login_error=")[1] ?? "");
+    return String(reply.headers.location).replace(/^\/\?login_error=/, "");
   };
 
-  it("goes back to the home page with a message when something is wrong", async () => {
-    expect(failure(await signIn("someone-elses-state"))).toMatch(/expired/);
+  it("goes back to the home page with a fixed word when something is wrong", async () => {
+    expect(failure(await signIn("someone-elses-state"))).toBe("expired");
+    expect(failure(await api.anonymous().get("/api/auth/callback?code=abc&state=x"))).toBe("expired"); // no login cookie
+    expect(failure(await api.anonymous().get("/api/auth/callback?error=access_denied"))).toBe("cancelled");
+    expect(failure(await api.anonymous().get("/api/auth/callback"))).toBe("cancelled");
 
-    expect(failure(await api.anonymous().get("/api/auth/callback?code=abc&state=x"))).toMatch(/expired/); // no login cookie
-    expect(failure(await api.anonymous().get("/api/auth/callback?error=access_denied"))).toMatch(/cancelled/);
-    expect(failure(await api.anonymous().get("/api/auth/callback"))).toMatch(/cancelled/);
+    identity = forbidden("Only team.test accounts can sign in", "domain");
+    expect(failure(await signIn())).toBe("domain");
 
-    identity = forbidden("Only team.test accounts can sign in");
-    expect(failure(await signIn())).toBe("Only team.test accounts can sign in");
-
-    // Anything that is not an AppError must not leak its message.
+    // Anything else, even a message that looks helpful, is hidden behind one word.
+    identity = new AppError(401, "Google refused the login");
+    expect(failure(await signIn())).toBe("failed");
     identity = { get email(): string { throw new Error("boom"); } } as unknown as GoogleIdentity;
-    expect(failure(await signIn())).toBe("Sign-in failed: try again");
+    expect(failure(await signIn())).toBe("failed");
   });
 
   it("refuses a deactivated account", async () => {
     const gone = await createUser({ email: "gone@team.test", role: "viewer" });
     await db.update(appUser).set({ active: false }).where(eq(appUser.id, gone.id));
     identity = { email: "gone@team.test", name: "Gone" };
-    expect(failure(await signIn())).toMatch(/deactivated/);
+    expect(failure(await signIn())).toBe("deactivated");
   });
 
   it("is unavailable when Google is not configured", async () => {

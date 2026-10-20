@@ -1,0 +1,19 @@
+# Weekly pull requests for out-of-date dependencies, so security fixes do not wait for someone to
+# remember. Each ecosystem gets one grouped pull request per week to keep the noise low.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

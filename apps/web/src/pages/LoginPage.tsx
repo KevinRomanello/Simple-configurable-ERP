@@ -2,6 +2,7 @@ import { faRightToBracket, faTriangleExclamation } from "@fortawesome/free-solid
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
+import { loginProblem } from "../lib/loginProblem";
 
 /**
  * Shown when nobody is signed in. Sign-in is with the team's Google account only; the developer
@@ -10,8 +11,9 @@ import { api } from "../api/client";
  */
 export function LoginPage() {
   const options = useQuery({ queryKey: ["sign-in-options"], queryFn: api.signInOptions });
-  // The server sends the person back to "/?login_error=..." when Google sign-in did not work.
-  const problem = new URLSearchParams(window.location.search).get("login_error");
+  // The server sends the person back to "/?login_error=<word>" when Google sign-in did not work.
+  // The words are worded here: text taken from the address is never shown.
+  const problem = loginProblem(new URLSearchParams(window.location.search).get("login_error"), options.data?.domain);
 
   return (
     <main className="login">

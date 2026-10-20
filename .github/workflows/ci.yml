@@ -40,7 +40,8 @@ jobs:
           --health-retries 10
 
     env:
-      DATABASE_URL: postgres://erp:ci_password@localhost:5432/erp
+      # The owner: the tests create their own database and the API's limited user on this server.
+      DATABASE_OWNER_URL: postgres://erp:ci_password@localhost:5432/erp
 
     steps:
       - uses: actions/checkout@v4
@@ -67,6 +68,11 @@ jobs:
       # --frozen-lockfile: install exactly what pnpm-lock.yaml says, fail if it is out of date.
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Known vulnerabilities in what ships (development tools are left out). Only "high" or worse
+      # stops the build, so an advisory on an unrelated dependency does not block every change.
+      - name: Audit dependencies
+        run: pnpm audit --prod --audit-level=high
 
       - name: Type check
         run: pnpm typecheck

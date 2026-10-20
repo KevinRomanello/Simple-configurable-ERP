@@ -32,7 +32,7 @@ cd ~/Documents/Eagle/Simple-configurable-ERP
 
 **Passo 2 — crea il file di configurazione locale.** `.env.example` contiene i valori di sviluppo (nome e password del database locale, segreto dei token, accesso di sviluppo); `.env` è la tua copia, ignorata da git. Si fa una volta sola.
 
-Se avevi già un `.env` di prima dell'arrivo del login, **aggiungi il blocco `# --- Login ---`** di `.env.example` (`JWT_SECRET`, `PUBLIC_URL`, `ADMIN_EMAILS`, `DEV_LOGIN_EMAIL`, …): senza, l'API non parte e dice quale variabile manca.
+Se avevi già un `.env` di prima dell'arrivo del login, **aggiungi il blocco `# --- Login ---`** di `.env.example` (`JWT_SECRET`, `PUBLIC_URL`, `ADMIN_EMAILS`, `DEV_LOGIN_EMAIL`, …): senza, l'API non parte e dice quale variabile manca. Lo stesso vale per le righe nuove del database (`APP_DB_PASSWORD`, `DATABASE_URL` con l'utente `erp_app`, `DATABASE_OWNER_URL`, `TRUST_PROXY`): copiale da `.env.example`, poi lancia `db:migrate` e `db:roles` (passo 4).
 
 ```bash
 cp .env.example .env
@@ -50,6 +50,12 @@ docker compose up --build
 
 ```bash
 docker compose exec api pnpm db:migrate
+```
+
+Poi crea l'**utente del database dell'API**. Il programma si collega a PostgreSQL con un utente suo (`erp_app`), che può leggere e scrivere i dati ma non cambiare la struttura né riscrivere lo storico; le migrazioni invece le fa il proprietario (`erp`). Si lancia dopo le migrazioni e si può ripetere (serve anche a cambiare la password):
+
+```bash
+docker compose exec api pnpm db:roles
 ```
 
 **Passo 5 — inserisci i dati di base** (la stagione 2026-2027, le sei aree, il "Team's fund"). Anche questo si può ripetere senza danni.
@@ -131,7 +137,7 @@ docker compose exec web pnpm --filter @erp/web test
 docker compose exec api pnpm --filter @erp/import-xlsx test
 ```
 
-Risultati attesi: 99 (motore), 108 (API), 10 (sito), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
+Risultati attesi: 99 (motore), 129 (API), 13 (sito), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
 
 Dentro `psql` (il terminale del database) servono pochi comandi: `\dt` elenca le tabelle, `select * from fund;` mostra i fondi, `\q` esce.
 
@@ -181,7 +187,7 @@ Comandi utili, tutti dalla cartella principale:
 | --------------------------------------- | --------------------------------------------------- |
 | `pnpm test`                           | tutti i test (motore, API, importer, formattazione) |
 | `pnpm typecheck`                      | controlla i tipi di tutto il codice                 |
-| `pnpm db:migrate`, `pnpm db:seed`   | come nei passi 4 e 5, ma da fuori                   |
+| `pnpm db:migrate`, `pnpm db:roles`, `pnpm db:seed` | come nei passi 4 e 5, ma da fuori            |
 | `pnpm reconcile -- --db`              | la riconciliazione con il foglio, senza Docker      |
 | `pnpm --filter @erp/import-xlsx load` | il caricamento del foglio, senza Docker             |
 
@@ -194,6 +200,9 @@ Se avvii l'API o il sito anche fuori da Docker mentre i contenitori sono accesi,
 | `Cannot connect to the Docker daemon`                                                                | Docker non è aperto                                                                     | apri Docker Desktop e aspetta che sia pronto                                                                             |
 | `port is already allocated` (3000, 5173 o 5432)                                                      | un altro programma usa la porta (spesso un PostgreSQL installato sul computer)           | ferma quel programma, oppure cambia il numero a sinistra dei due punti in `docker-compose.yml`                         |
 | Il sito dice `API or DB not reachable`, o ci sono errori 500                                         | tabelle non create, oppure API non partita                                               | passi 4 e 5; poi `docker compose logs api`                                                                             |
+| `password authentication failed for user "erp_app"`, o l'health dice `db: false` dopo un aggiornamento | manca l'utente del database dell'API (o la password nel `.env` non è quella usata) | `docker compose exec api pnpm db:migrate` e poi `docker compose exec api pnpm db:roles` |
+| `permission denied for table …` | l'API sta provando a fare ciò che il suo utente non può (cambiare la struttura, scrivere lo storico) | è un errore nel codice o in una migrazione: la struttura si cambia solo da migrazione, con il proprietario |
+| `Too many requests: wait a minute and try again` (429) | troppe richieste dallo stesso indirizzo (10 al minuto per l'accesso) | aspetta un minuto |
 | `relation "..." does not exist`                                                                      | le migrazioni non sono state applicate                                                   | `docker compose exec api pnpm db:migrate`                                                                              |
 | `Current season not found: run pnpm db:seed`                                                         | mancano i dati di base                                                                   | `docker compose exec api pnpm db:seed`                                                                                 |
 | `The season already has N projects`                                                                  | il caricamento non cancella senza permesso                                               | aggiungi `-- --replace` (cancella e ricarica)                                                                          |

@@ -10,6 +10,8 @@ import { newLoginAttempt, type GoogleClient } from "./google";
 import { SESSION_HOURS, signLoginState, signSessionToken, verifyLoginState, verifySessionToken } from "./tokens";
 
 export const SESSION_COOKIE = "erp_token";
+/** What the sign-in page can be told when Google sign-in did not work (`/?login_error=<word>`). */
+type LoginProblem = "cancelled" | "expired" | "domain" | "deactivated" | "failed";
 const LOGIN_COOKIE = "erp_login";
 
 /** The only API paths that do not need a signed-in user. */
@@ -114,12 +116,14 @@ export async function authRoutes(app: FastifyInstance, { config, google }: AuthO
     const query = z
       .object({ code: z.string().optional(), state: z.string().optional(), error: z.string().optional() })
       .parse(request.query);
-    const back = (message: string) => reply.redirect(`/?login_error=${encodeURIComponent(message)}`);
+    // Only a fixed word goes back to the page, which words it itself: never text taken from the
+    // request or from Google, so a crafted link cannot put a message of its own on our page.
+    const back = (problem: LoginProblem) => reply.redirect(`/?login_error=${problem}`);
 
     try {
-      if (!google || query.error || !query.code || !query.state) return back("Sign-in was cancelled");
+      if (!google || query.error || !query.code || !query.state) return back("cancelled");
       const saved = await verifyLoginState(request.cookies[LOGIN_COOKIE] ?? "", config.jwtSecret);
-      if (!saved || saved.state !== query.state) return back("Sign-in expired: try again");
+      if (!saved || saved.state !== query.state) return back("expired");
 
       const identity = await google.identify({ code: query.code, verifier: saved.verifier });
       const user = await loginWithIdentity(identity, config.adminEmails);
@@ -127,9 +131,9 @@ export async function authRoutes(app: FastifyInstance, { config, google }: AuthO
       await startSession(reply, user);
       return reply.redirect("/");
     } catch (error) {
-      if (error instanceof AppError) return back(error.message);
+      if (error instanceof AppError && (error.code === "domain" || error.code === "deactivated")) return back(error.code);
       request.log.error(error);
-      return back("Sign-in failed: try again");
+      return back("failed");
     }
   });
 

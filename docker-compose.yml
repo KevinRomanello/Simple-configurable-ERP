@@ -24,7 +24,10 @@ services:
     build: .
     command: pnpm --filter @erp/api dev
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # the API's own user (created by `pnpm db:roles`) and the owner of the tables (migrations, seed)
+      DATABASE_URL: postgres://erp_app:${APP_DB_PASSWORD:-erp_app_dev_password}@db:5432/${POSTGRES_DB}
+      DATABASE_OWNER_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
       PORT: "3000"
       JWT_SECRET: ${JWT_SECRET}
       PUBLIC_URL: ${PUBLIC_URL}

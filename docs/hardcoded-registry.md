@@ -34,7 +34,7 @@ Non sono hardcode di funzioni-API, ma esistono solo in sviluppo e vanno tolti o 
 | Cosa | Dove | Come si spegne |
 | --- | --- | --- |
 | Accesso «Sign in as developer» | `GET /api/auth/dev-login` (auth), attivo solo se `DEV_LOGIN_EMAIL` è impostata | togli la variabile; **in produzione il server non parte** se c'è |
-| `JWT_SECRET` e password del database di esempio | `.env.example` | in produzione si usano valori lunghi e casuali |
+| `JWT_SECRET` e password del database di esempio (proprietario ed `erp_app`) | `.env.example` | in produzione si usano valori lunghi e casuali; l'API in produzione rifiuta di partire come superutente |
 
 ## Predisposizioni vuote
 

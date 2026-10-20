@@ -2,7 +2,9 @@ import cookie from "@fastify/cookie";
 import Fastify from "fastify";
 import { ZodError } from "zod";
 import { loadAuthConfig, type AuthConfig } from "./core/auth-config";
+import { env } from "./core/env";
 import { AppError, postgresCode } from "./core/errors";
+import { addSecurity, DEFAULT_RATE_LIMITS, type RateLimits } from "./core/security";
 import { addAuthHook, authRoutes } from "./modules/auth/auth.routes";
 import { createGoogleClient, type GoogleClient } from "./modules/auth/google";
 import { auditRoutes } from "./modules/audit/audit.routes";
@@ -21,6 +23,10 @@ export interface AppOptions {
   config?: AuthConfig;
   /** Defaults to the real Google when it is configured, none otherwise. Tests pass a fake. */
   google?: GoogleClient | null;
+  /** Requests per minute per address; `false` turns the limit off (most tests do). */
+  rateLimits?: RateLimits | false;
+  /** Take the client address from X-Forwarded-For. Defaults to TRUST_PROXY. */
+  trustProxy?: boolean;
 }
 
 // Built separately from main.ts so tests can call app.inject() without opening a port.
@@ -32,7 +38,8 @@ export function buildApp(options: AppOptions = {}) {
       : config.google
         ? createGoogleClient({ ...config.google, redirectUri: new URL("/api/auth/callback", config.publicUrl).toString() })
         : null;
-  const app = Fastify({ logger: process.env.NODE_ENV !== "test" });
+  const app = Fastify({ logger: process.env.NODE_ENV !== "test", trustProxy: options.trustProxy ?? env.TRUST_PROXY });
+  addSecurity(app, options.rateLimits ?? DEFAULT_RATE_LIMITS);
   app.register(cookie);
 
   // One place that turns failures into HTTP answers: expected errors keep their status,

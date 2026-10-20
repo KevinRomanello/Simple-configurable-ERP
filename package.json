@@ -12,6 +12,7 @@
     "db:generate": "pnpm --filter @erp/api db:generate",
     "db:migrate": "pnpm --filter @erp/api db:migrate",
     "db:seed": "pnpm --filter @erp/api db:seed",
+    "db:roles": "pnpm --filter @erp/api db:roles",
     "reconcile": "pnpm --filter @erp/import-xlsx reconcile"
   }
 }

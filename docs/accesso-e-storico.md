@@ -41,7 +41,7 @@ sequenceDiagram
 5. Trova l'utente per email (senza distinzione di maiuscole) o lo crea come `viewer`. Se è disattivato, rifiuta.
 6. Emette il **JWT di sessione**: algoritmo HS256 firmato con `JWT_SECRET`, `sub` = id dell'utente, scadenza 24 ore. Va al browser in un cookie `erp_token`: `HttpOnly` (JavaScript non lo legge), `SameSite=Lax`, `Path=/api`, `Secure` quando `PUBLIC_URL` è https.
 
-Se qualcosa va storto (annullato, scaduto, dominio sbagliato, account disattivato) la persona torna sulla pagina di accesso con un messaggio (`/?login_error=…`); un errore imprevisto è registrato nei log del server e alla persona dice solo "Sign-in failed: try again".
+Se qualcosa va storto (annullato, scaduto, dominio sbagliato, account disattivato) la persona torna sulla pagina di accesso con **una parola** nell'indirizzo (`/?login_error=cancelled|expired|domain|deactivated|failed`), che è il sito a tradurre in un messaggio. Mai testo preso dall'indirizzo o da Google: un link costruito non può far scrivere frasi a piacere nella nostra pagina (parola sconosciuta = messaggio generico). Il dettaglio dell'errore va nei log del server.
 
 ### Il JWT porta solo l'id, non il ruolo
 
@@ -64,6 +64,9 @@ Ruolo, aree e stato "attivo" si **rileggono dal database a ogni richiesta** (una
 - **`getCurrentUser()` resta senza argomenti**: l'utente della richiesta viene messo in un contesto asincrono di Node (`AsyncLocalStorage`, `auth.context.ts`) dal controllo comune, e la funzione lo legge da lì. I servizi non sono cambiati.
 - **I permessi si applicano nel server**, nei servizi, prima di ogni scrittura. L'interfaccia nasconde i comandi a chi non può usarli, ma è una comodità: i test provano che il server rifiuta (**403**) anche se qualcuno chiama l'API a mano.
 - **CSRF** (un altro sito che manda richieste a nome tuo): `SameSite=Lax` blocca i cookie nelle richieste cross-site di scrittura; in più, una richiesta che modifica dati con intestazione `Origin` è accettata solo se l'`Origin` è l'indirizzo pubblico (`PUBLIC_URL`) o l'host a cui è stata indirizzata la richiesta. *Si confronta con `PUBLIC_URL` e non solo con `Host` perché un proxy davanti all'API (quello di sviluppo di Vite, nginx…) riscrive `Host`: è un problema reale incontrato provando l'app nel browser, ora coperto da un test.* Le richieste senza `Origin` (curl, script) passano: senza un browser un altro sito non può usare i tuoi cookie.
+- **Intestazioni di sicurezza e niente cache** (`core/security.ts`, `@fastify/helmet`): CSP `default-src 'none'` e `frame-ancestors 'none'` (l'API risponde solo JSON o redirect), `nosniff`, `X-Frame-Options`, `Referrer-Policy`, HSTS; `Cache-Control: no-store` su ogni risposta.
+- **Limite di richieste** per indirizzo (`@fastify/rate-limit`, in memoria): 1.200 al minuto su tutta l'API e **10 al minuto** sulle rotte di accesso (`login`, `callback`, `dev-login`, con contatore a parte); `/api/health` escluso. Superato: **429**. Dietro un proxy tutti arrivano con l'indirizzo del proxy: con `TRUST_PROXY=true` si usa `X-Forwarded-For`, **solo se l'API è raggiungibile unicamente dal proxy** (altrimenti l'intestazione si può inventare e il limite si aggira; un test lo prova).
+- **Utente del database dell'API limitato** (vedi §8.2): chi ruba le credenziali dell'API non può cambiare la struttura né riscrivere lo storico.
 - Il sito: `GET /api/me` dice chi sei e cosa puoi fare (`permissions`); se risponde 401 mostra la pagina di accesso. Un 401 in qualunque momento (token scaduto, persona disattivata) riporta lì.
 
 ## 4. Sviluppo senza Google
@@ -81,6 +84,9 @@ Per provare gli altri ruoli in locale: `DEV_LOGIN_EMAIL=altra@localhost.test doc
 | `ADMIN_EMAILS` | email (separate da virgola) che sono sempre `admin`: il primo admin, e la via di rientro se tutti fossero stati retrocessi | le email dei tesorieri |
 | `DEV_LOGIN_EMAIL` | accesso senza Google, solo sviluppo | **vietata** |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_ALLOWED_DOMAIN` | accesso con Google e dominio ammesso | tutte e tre obbligatorie |
+| `DATABASE_URL`, `APP_DB_PASSWORD` | l'utente del database **dell'API** (`erp_app`): legge e scrive i dati, nient'altro | password lunga e casuale; l'API non parte se è un superutente |
+| `DATABASE_OWNER_URL` | il **proprietario** delle tabelle: migrazioni, seed e `pnpm db:roles`; l'API non lo usa mai | password lunga e casuale, solo per i rilasci |
+| `TRUST_PROXY` | prendere l'indirizzo del visitatore da `X-Forwarded-For` (per il limite di richieste) | `true` solo dietro un proxy |
 
 Le variabili sono lette e validate quando si costruisce l'API (`core/auth-config.ts`): una configurazione sbagliata ferma l'avvio con un messaggio chiaro, invece di fallire alla prima richiesta. I comandi che non avviano l'API (migrazioni, seed, importer) non ne hanno bisogno.
 
@@ -144,6 +150,8 @@ Lo scrive una funzione PostgreSQL unica, `audit_row()`, agganciata con un **trig
 - una richiesta che fallisce (rollback) **non lascia traccia**;
 - senza attore (il seed, l'importer, la creazione di un account al primo accesso) `actor_id` è nullo e la pagina mostra "system". Il caricamento del foglio scrive quindi molte righe "system": è normale.
 
+Il trigger gira con i diritti del **proprietario** delle tabelle (`SECURITY DEFINER`, migrazione `0003_audit_definer.sql`), mentre l'API si collega con un altro utente (`erp_app`) che di `audit_log` può **solo leggere**: con le credenziali dell'API non si può né aggiungere né modificare né cancellare lo storico, né spegnere il trigger. Chi ha le credenziali del proprietario sì: sono quelle da tenere al sicuro (solo per i rilasci). L'utente dell'API lo crea `pnpm db:roles` (dopo le migrazioni; si può ripetere, e cambia la password); `src/db/app-role.test.ts` elenca ciò che gli è vietato.
+
 Non sa *perché* è stato modificato, vede solo i valori. Per un bilancio basta.
 
 ### 8.3 Come si legge
@@ -161,7 +169,7 @@ Non sa *perché* è stato modificato, vede solo i valori. Per un bilancio basta.
 | ruoli con aree, pagine Users e History, interfaccia che segue i permessi (provata nel browser con admin, pm e viewer) | **layout** di accesso, Users e History **non progettati su Figma**: usano solo token e componenti del design system; da rivedere quando ci sarà il disegno |
 | storico con trigger, lettura con filtri e paginazione | server, HTTPS, proxy, rilascio, backup ([produzione.md](produzione.md)) |
 
-Non c'è ancora un **limite di richieste** sul login (serve in produzione, nel server web davanti all'app).
+Il limite di richieste e le intestazioni dell'API ci sono; mancano HTTPS e le intestazioni delle pagine del sito (le serve il proxy, da decidere: [produzione.md](produzione.md)).
 
 ## 10. Le migrazioni restano
 
@@ -177,4 +185,7 @@ Le migrazioni *creano* le tabelle (e le cambiano nel tempo); il caricamento del 
 | `modules/auth/roles.test.ts` | la matrice dei ruoli su tutte le scritture (viewer, pm della propria area e di un'altra, pm senza aree, admin) |
 | `modules/users/users.routes.test.ts` | elenco, cambio di ruolo/aree/attivo, effetto immediato, ultimo admin, input sbagliato |
 | `modules/audit/audit.routes.test.ts` | cosa viene registrato (insert/update/delete, cascata, rollback, nessun attore), permessi di lettura, filtri, paginazione |
-| `apps/web/src/lib/permissions.test.ts` | la regola "chi può modificare quest'area" dell'interfaccia |
+| `modules/auth/auth.routes.test.ts` (login) | anche le parole di `login_error`: mai testo libero |
+| `src/db/app-role.test.ts` | l'utente dell'API: non è superutente, legge e scrive i dati, **non può** scrivere `audit_log`, cambiare la struttura, spegnere il trigger, vedere le migrazioni; `ensureAppRole` ripetibile e con nomi/password qualunque |
+| `src/security.test.ts` | SQL injection (nessun `sql.raw`, solo modelli `sql` in `execute()`/`query()`, 8 payload in tutti i campi di testo, richieste ostili su id e query string, campi extra ignorati), intestazioni di sicurezza, limite di richieste (per indirizzo, accesso più severo, salute esclusa, `X-Forwarded-For` finto) |
+| `apps/web/src/lib/permissions.test.ts`, `loginProblem.test.ts` | la regola "chi può modificare quest'area" e le parole di errore dell'accesso |

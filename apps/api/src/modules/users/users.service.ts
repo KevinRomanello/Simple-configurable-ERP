@@ -40,7 +40,7 @@ export async function loginWithIdentity(
         .returning();
       return withAreas(tx, created!);
     }
-    if (!existing.active) throw forbidden("This account has been deactivated");
+    if (!existing.active) throw forbidden("This account has been deactivated", "deactivated");
 
     // Only write when something changed: every write is recorded in the history.
     const patch: Partial<typeof appUser.$inferInsert> = {};

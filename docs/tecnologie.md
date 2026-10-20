@@ -578,8 +578,14 @@ function normalise(value: CellValue | undefined): Plain {
 | validazione delle variabili d'ambiente | Zod | `core/auth-config.ts` |
 | l'utente della richiesta | `AsyncLocalStorage` | `modules/auth/auth.context.ts` |
 | lo storico | funzione e trigger SQL in una migrazione scritta a mano | `apps/api/drizzle/0002_audit_triggers.sql` |
+| intestazioni di sicurezza, niente cache | `@fastify/helmet` | `core/security.ts` |
+| limite di richieste per indirizzo | `@fastify/rate-limit` | `core/security.ts` |
+| utente del database limitato | ruoli e permessi di PostgreSQL, `SECURITY DEFINER` | `db/app-role.ts`, migrazione `0003_audit_definer.sql` |
 
 Non abbiamo usato una libreria di login completa (Passport, Auth.js, un servizio come Auth0): per un solo provider e tre ruoli il flusso sono poche decine di righe, tutte provate dai test con un Google finto, e nessuna dipendenza decide al posto nostro come funziona la sessione.
+
+- **Ruoli di PostgreSQL.** Un database ha utenti con permessi diversi. Il *proprietario* delle tabelle può tutto su di esse (anche cancellarle o spegnere un trigger); un utente ordinario ha solo i permessi che gli si danno con `GRANT`. L'API usa un utente ordinario (`erp_app`: leggere e scrivere i dati, leggere lo storico), così se le sue credenziali trapelano il danno è limitato. `SECURITY DEFINER` su una funzione la fa girare con i diritti di chi l'ha creata: è per questo che il trigger può scrivere lo storico anche se l'utente dell'API non può.
+- **Limite di richieste.** Un contatore per indirizzo e per finestra di tempo: oltre la soglia l'API risponde 429 senza nemmeno guardare chi sei. Ferma chi prova a indovinare o a martellare il login.
 
 **Le trappole.**
 
@@ -587,6 +593,8 @@ Non abbiamo usato una libreria di login completa (Passport, Auth.js, un servizio
 - **I numeri nello storico sono JSON**, non stringhe esatte: vanno bene per leggere, non per calcolare.
 - **Cambiare `JWT_SECRET` disconnette tutti**; è anche l'unico modo di revocare *tutti* i token insieme.
 - **Il cookie ha `Path=/api`**: il browser lo manda solo alle richieste dell'API, non alle pagine del sito.
+- **Dietro un proxy tutti hanno lo stesso indirizzo**, e un limite per indirizzo bloccherebbe tutti insieme. `TRUST_PROXY=true` dice di fidarsi di `X-Forwarded-For`, ma solo se l'API è raggiungibile unicamente dal proxy: altrimenti chiunque può inventarsi quell'intestazione e aggirare il limite.
+- **I permessi si danno dopo le migrazioni** (`pnpm db:roles`): una tabella nuova, creata da una migrazione, riceve i permessi base dell'utente dell'API grazie ai privilegi predefiniti, ma le eccezioni (come `audit_log`) vanno ricordate in `db/app-role.ts`.
 - **Una migrazione "personalizzata"** (drizzle-kit `generate --custom`) non è generata dallo schema: i trigger vanno scritti a mano e committati come le altre.
 
 **Dove guardare:** [accesso-e-storico.md](accesso-e-storico.md) (il disegno completo), `apps/api/src/modules/auth/` e i test `google.test.ts`, `auth.routes.test.ts`, `roles.test.ts`, `audit.routes.test.ts`.

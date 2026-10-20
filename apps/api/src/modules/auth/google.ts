@@ -102,7 +102,7 @@ export function createGoogleClient(options: GoogleOptions, deps: GoogleDeps = {}
 
       // `hd` is the Workspace domain of the account; it is absent for ordinary Gmail accounts.
       const belongs = claims.hd === domain && email.endsWith(`@${domain}`);
-      if (!belongs) throw forbidden(`Only ${domain} accounts can sign in`);
+      if (!belongs) throw forbidden(`Only ${domain} accounts can sign in`, "domain");
 
       return { email, name: typeof claims.name === "string" && claims.name ? claims.name : email.split("@")[0]! };
     },

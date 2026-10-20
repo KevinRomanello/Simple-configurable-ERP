@@ -1,13 +1,16 @@
 import { eq, sql } from "drizzle-orm";
+import pg from "pg";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app";
 import { loadAuthConfig } from "../src/core/auth-config";
+import type { RateLimits } from "../src/core/security";
 import { db, pool } from "../src/db/client";
 import { appUser, area, fund, userArea } from "../src/db/schema";
 import type { User } from "../src/modules/auth/auth.service";
 import { SESSION_COOKIE } from "../src/modules/auth/auth.routes";
 import type { GoogleClient } from "../src/modules/auth/google";
 import { signSessionToken } from "../src/modules/auth/tokens";
+import { testOwnerUrl } from "./db-urls";
 
 export interface Reply {
   status: number;
@@ -58,8 +61,16 @@ export async function cookieFor(userId: number): Promise<string> {
  * An app plus a tiny JSON client. By default it is signed in as an admin; `as(person)` gives a
  * client for somebody else, `anonymous()` one that is not signed in.
  */
-export function testApp(options: { google?: GoogleClient | null; config?: typeof testConfig } = {}) {
-  const app: FastifyInstance = buildApp({ config: options.config ?? testConfig, google: options.google ?? null });
+export function testApp(
+  options: { google?: GoogleClient | null; config?: typeof testConfig; rateLimits?: RateLimits; trustProxy?: boolean } = {},
+) {
+  // The request limit is off unless a test asks for it: tests send far more than a person would.
+  const app: FastifyInstance = buildApp({
+    config: options.config ?? testConfig,
+    google: options.google ?? null,
+    rateLimits: options.rateLimits ?? false,
+    trustProxy: options.trustProxy ?? false,
+  });
 
   function client(person: Person | null) {
     let cookie: Promise<string | null> | undefined;
@@ -110,14 +121,18 @@ export function testApp(options: { google?: GoogleClient | null; config?: typeof
     async close() {
       await app.close();
       await pool.end();
+      await ownerPool.end();
     },
   };
 }
 
+// The tests run as the API's limited user, which cannot truncate: emptying the tables is done as the owner.
+const ownerPool = new pg.Pool({ connectionString: testOwnerUrl });
+
 /** Empties everything a test can create, keeping the seed (season, areas, team fund) and the users. */
 export async function resetData() {
-  await db.execute(
-    sql`truncate table line_figures, budget_line, project, fund_contract, team_inflow, bank_snapshot, supplier, audit_log restart identity cascade`,
+  await ownerPool.query(
+    "truncate table line_figures, budget_line, project, fund_contract, team_inflow, bank_snapshot, supplier, audit_log restart identity cascade",
   );
   await db.delete(fund).where(eq(fund.kind, "external"));
 }

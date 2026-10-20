@@ -110,20 +110,21 @@ describe("identify", () => {
     expect((await identify(google)).name).toBe("ann");
   });
 
-  const refused = async (answer: Parameters<typeof client>[0], status: number, message?: RegExp) => {
+  const refused = async (answer: Parameters<typeof client>[0], status: number, message?: RegExp, code?: string) => {
     const error = await identify(client(answer).google).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(AppError);
     expect((error as AppError).status).toBe(status);
     if (message) expect((error as AppError).message).toMatch(message);
+    expect((error as AppError).code).toBe(code);
   };
 
   it("refuses an account of another domain, and one with no domain (plain Gmail)", async () => {
-    await refused({ token: await idToken({ hd: "other.org", email: "ann@other.org" }) }, 403, /example\.org/);
-    await refused({ token: await idToken({ hd: undefined, email: "ann@gmail.com" }) }, 403);
+    await refused({ token: await idToken({ hd: "other.org", email: "ann@other.org" }) }, 403, /example\.org/, "domain");
+    await refused({ token: await idToken({ hd: undefined, email: "ann@gmail.com" }) }, 403, undefined, "domain");
   });
 
   it("refuses an email that claims the right domain but is not of that domain", async () => {
-    await refused({ token: await idToken({ email: "ann@evil.org" }) }, 403);
+    await refused({ token: await idToken({ email: "ann@evil.org" }) }, 403, undefined, "domain");
   });
 
   it("refuses an unverified email", async () => {

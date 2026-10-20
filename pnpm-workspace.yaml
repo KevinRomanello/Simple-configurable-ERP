@@ -4,3 +4,10 @@ packages:
   - tools/*
 allowBuilds:
   esbuild: true
+# Security fixes for dependencies of development tools that have not released one yet.
+# Check them again when exceljs or drizzle-kit are updated, then remove what is no longer needed.
+overrides:
+  # exceljs asks for uuid 8 (bounds check bug with a buffer argument); 11 has the same v4() it uses
+  uuid: ^11.1.1
+  # drizzle-kit asks for an old esbuild through @esbuild-kit (the dev server flaw)
+  "@esbuild-kit/core-utils>esbuild": ^0.25.4

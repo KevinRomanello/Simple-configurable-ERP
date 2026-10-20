@@ -17,6 +17,7 @@
 | Passo | Cosa fa | Se fallisce |
 | --- | --- | --- |
 | Install dependencies | `pnpm install --frozen-lockfile`: installa esattamente le versioni di `pnpm-lock.yaml` | hai cambiato `package.json` senza aggiornare il lockfile: lancia `pnpm install` e committa `pnpm-lock.yaml` |
+| Audit dependencies | `pnpm audit --prod --audit-level=high`: vulnerabilità note in ciò che va in produzione (gli strumenti di sviluppo restano fuori; solo "high" o peggio ferma la build) | aggiorna la dipendenza o, se non c'è ancora una versione corretta, aggiungi un `override` in `pnpm-workspace.yaml` e annotalo |
 | Type check | `pnpm typecheck`: i tipi di tutto il codice | c'è un errore di tipo: lo stesso comando lo mostra in locale |
 | Tests | `pnpm test`: motore, API (con il database), importer, sito | un test è rosso: lancialo in locale (vedi [avvio.md](avvio.md)) |
 | Build the web app | `pnpm --filter @erp/web build`: il sito compilato per la produzione | un import sbagliato o un errore che il server di sviluppo tollerava |
@@ -28,7 +29,7 @@
 | The Compose file is valid | `docker compose config --quiet` sul `docker-compose.yml` |
 | The image builds | `docker build .`: il `Dockerfile` funziona con il lockfile attuale |
 
-I due job girano in parallelo; la riconciliazione col foglio (`pnpm reconcile`) **non** gira in CI, perché dipende da `fonti/` (dati reali, mai su GitHub).
+I due job girano in parallelo. In più **Dependabot** (`.github/dependabot.yml`) apre ogni settimana una pull request con gli aggiornamenti di npm, delle azioni di GitHub e del `Dockerfile`. I test del database usano `DATABASE_OWNER_URL` (il proprietario: crea il database di prova e l'utente limitato con cui poi gira tutta la suite); la riconciliazione col foglio (`pnpm reconcile`) **non** gira in CI, perché dipende da `fonti/` (dati reali, mai su GitHub).
 
 ## Provarlo in locale
 

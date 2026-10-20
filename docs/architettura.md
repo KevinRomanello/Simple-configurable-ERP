@@ -34,8 +34,8 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   │   ├── test/             # database di test ricreato a ogni esecuzione
 │   │   └── src/
 │   │       ├── main.ts           # avvio Fastify, registra i moduli
-│   │       ├── db/               # schema.ts, client.ts, migrate.ts, seed-base.ts, seed.ts
-│   │       ├── core/             # tx.ts (runWrite), errors.ts, money.ts (numeric ↔ centesimi), auth-config.ts
+│   │       ├── db/               # schema.ts, client.ts (utente dell'API), owner.ts (proprietario), migrate.ts, roles.ts + app-role.ts, seed-base.ts, seed.ts
+│   │       ├── core/             # tx.ts (runWrite), errors.ts, money.ts (numeric ↔ centesimi), auth-config.ts, security.ts (intestazioni, limite di richieste)
 │   │       ├── snapshot.ts       # loadSnapshot(): dal DB al formato di calc
 │   │       └── modules/
 │   │           ├── auth/         # login Google, JWT, controllo delle richieste, ruoli e permessi
@@ -185,10 +185,13 @@ Gli stessi endpoint `/views/*` sono la fonte per le analisi esterne (script Pyth
 
 `docker-compose.yml`: `db` (postgres:16, volume nominato, pubblicato solo su 127.0.0.1), `api` (porta 3000, sorgenti montati, ricarica automatica), `web` (Vite, porta 5173). Configurazione in `.env` (con `.env.example` nel repository).
 
+**Due utenti del database**, come in produzione: il *proprietario* (`erp`) crea e cambia le tabelle (migrazioni, seed, `db:roles`: `DATABASE_OWNER_URL`); l'*utente dell'API* (`erp_app`: `DATABASE_URL`) legge e scrive i dati e basta. Vedi [accesso-e-storico.md](accesso-e-storico.md#82-come-si-scrive-un-trigger).
+
 ```bash
 cp .env.example .env               # una volta sola: valori di sviluppo per il DB locale
 docker compose up --build          # avvia db, api (3000), web (5173)
-pnpm db:migrate                    # applica le migrazioni
+pnpm db:migrate                    # applica le migrazioni (come proprietario delle tabelle)
+pnpm db:roles                      # crea l'utente del database dell'API (dopo le migrazioni)
 pnpm db:seed                       # stagione, 6 aree, Team's fund
 pnpm test                          # calc, API e importer
 pnpm reconcile                     # confronta il motore col foglio reale (richiede fonti/)

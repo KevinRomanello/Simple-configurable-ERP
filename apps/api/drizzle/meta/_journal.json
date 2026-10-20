@@ -22,6 +22,13 @@
       "when": 1792526409521,
       "tag": "0002_audit_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792529678803,
+      "tag": "0003_audit_definer",
+      "breakpoints": true
     }
   ]
 }
