@@ -122,6 +122,22 @@ Soldi in `numeric` nel database e in interi nel codice: importi in centesimi, qu
 
 Vincoli, applicati dal servizio con messaggi chiari: quantità e costi ≥ 0; aliquota tra `listVatRates()`; sponsor parziale con 0 < valore ≤ netto; sponsor totale ignora il valore inserito; fondo o fornitore in uso → eliminazione rifiutata (409); `PATCH` di una riga con `version` vecchia → 409.
 
+**Limiti dell'input** (un solo posto: `apps/api/src/core/validation.ts`; chi li supera riceve 400 con il campo e il motivo, mai un 500). Servono a tenere ogni importo — e ogni somma di importi — esatto: i conti sono in centesimi interi, che smettono di essere esatti sopra circa 9 × 10¹⁵.
+
+| Cosa | Limite |
+| --- | --- |
+| quantità di una voce | fino a 1.000.000 unità |
+| costo unitario netto | fino a 10.000.000 € |
+| costo netto di una voce (quantità × costo) e sponsor parziale | fino a 100.000.000 € |
+| contratto, ingresso, BANK | fino a 1.000.000.000 € |
+| date | giorni veri tra il 2000 e il 2100 (`YYYY-MM-DD`) |
+| id, versione | numeri interi in cifre, da 1 a 2.147.483.647 (il massimo di una colonna `integer`) |
+| nomi, voci, fornitori… | 1–200 caratteri (la voce fino a 500), tagliati agli estremi; non vuoti |
+| note | fino a 5.000 caratteri |
+| ogni testo | niente carattere NUL (il database non lo sa conservare) |
+
+Se un valore supera la validazione e il database lo rifiuta lo stesso (numero fuori misura, testo troppo lungo, carattere o data che non sa conservare), il gestore degli errori risponde comunque 400 (`badValueMessage`, `core/errors.ts`): un errore del 500 vuol dire sempre un difetto da correggere.
+
 ## Web app
 
 - **Dati**: ogni pagina legge con TanStack Query (`['sheet', area]`, `['gantt', fase]`…) e non calcola nulla: i numeri arrivano dall'API.

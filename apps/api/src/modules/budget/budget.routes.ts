@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { id } from "../../core/validation";
+import { id, lookupCode } from "../../core/validation";
 import {
   createLineInput, createProjectInput, updateLineInput, updateProjectInput,
 } from "./budget.schema";
@@ -14,7 +14,7 @@ const idParam = z.object({ id });
 export async function budgetRoutes(app: FastifyInstance) {
   app.get("/areas", () => listAreas());
   app.get("/areas/:code/sheet", (request) => {
-    const { code } = z.object({ code: z.string() }).parse(request.params);
+    const { code } = z.object({ code: lookupCode }).parse(request.params);
     return getAreaSheet(code);
   });
 

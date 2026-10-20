@@ -1,7 +1,7 @@
 import { PHASES } from "@erp/calc";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { decimal, id, isoDate } from "../../core/validation";
+import { decimal, id, isoDate, LIMITS, shortText } from "../../core/validation";
 import { clearBank, createInflow, deleteInflow, getBank, listInflows, setBank } from "./cashflow.service";
 
 const phase = z.enum(PHASES);
@@ -12,7 +12,7 @@ export async function cashflowRoutes(app: FastifyInstance) {
     reply.code(201).send(
       await createInflow(
         z
-          .object({ phase, sourceName: z.string().trim().min(1), amount: decimal(2), inflowDate: isoDate.nullish() })
+          .object({ phase, sourceName: shortText(), amount: decimal(2, LIMITS.money), inflowDate: isoDate.nullish() })
           .parse(request.body),
       ),
     ),
@@ -24,7 +24,7 @@ export async function cashflowRoutes(app: FastifyInstance) {
 
   app.get("/bank", () => getBank());
   app.put("/bank", (request) =>
-    setBank(z.object({ amount: decimal(2), asOfDate: isoDate.nullish() }).parse(request.body)),
+    setBank(z.object({ amount: decimal(2, LIMITS.money), asOfDate: isoDate.nullish() }).parse(request.body)),
   );
   app.delete("/bank", async (_request, reply) => {
     await clearBank();

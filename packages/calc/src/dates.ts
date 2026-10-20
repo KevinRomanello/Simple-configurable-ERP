@@ -20,9 +20,19 @@ export function toIso({ year, month, day }: Ymd): string {
   return `${pad(year, 4)}-${pad(month, 2)}-${pad(day, 2)}`;
 }
 
+/**
+ * Milliseconds since the epoch of a calendar day (month 1-12; a day or month out of range rolls
+ * over). `Date.UTC` reads the years 0-99 as 1900-1999, so the year is set separately.
+ */
+function utc(year: number, month: number, day: number): number {
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  return date.getTime();
+}
+
 function toUtc(iso: string): number {
   const { year, month, day } = parseIso(iso);
-  return Date.UTC(year, month - 1, day);
+  return utc(year, month, day);
 }
 
 /** 0 = Sunday ... 6 = Saturday. */
@@ -98,7 +108,7 @@ const MONTHS_IT = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set"
 
 function isRealDate({ year, month, day }: Ymd): boolean {
   if (month < 1 || month > 12 || day < 1) return false;
-  return day <= new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return day <= new Date(utc(year, month + 1, 0)).getUTCDate();
 }
 
 /**

@@ -77,16 +77,22 @@ export async function listContracts(phase: Phase) {
 }
 
 async function fundNamed(tx: Tx, seasonId: number, name: string) {
-  const [existing] = await tx
-    .select()
-    .from(fund)
-    .where(and(eq(fund.seasonId, seasonId), sql`lower(${fund.name}) = lower(${name})`));
-  if (existing) {
-    if (existing.kind === "team") throw invalid("The team fund has no contracts: it is the team's own money");
-    return existing;
+  const find = async () => {
+    const [found] = await tx
+      .select()
+      .from(fund)
+      .where(and(eq(fund.seasonId, seasonId), sql`lower(${fund.name}) = lower(${name})`));
+    return found;
+  };
+  let owner = await find();
+  if (!owner) {
+    // If another request creates the same fund at this very moment, the insert does nothing and
+    // the second look finds theirs: both requests then add their contract to the same fund.
+    await tx.insert(fund).values({ seasonId, name, kind: "external" }).onConflictDoNothing();
+    owner = (await find())!;
   }
-  const [created] = await tx.insert(fund).values({ seasonId, name, kind: "external" }).returning();
-  return created!;
+  if (owner.kind === "team") throw invalid("The team fund has no contracts: it is the team's own money");
+  return owner;
 }
 
 /** Adds a contract; the fund is created on the first contract of a new name ("INSERT COMPANY"). */

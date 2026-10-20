@@ -3,7 +3,7 @@ import Fastify from "fastify";
 import { ZodError } from "zod";
 import { loadAuthConfig, type AuthConfig } from "./core/auth-config";
 import { env } from "./core/env";
-import { AppError, postgresCode } from "./core/errors";
+import { AppError, badValueMessage, postgresCode } from "./core/errors";
 import { addSecurity, DEFAULT_RATE_LIMITS, type RateLimits } from "./core/security";
 import { addAuthHook, authRoutes } from "./modules/auth/auth.routes";
 import { createGoogleClient, type GoogleClient } from "./modules/auth/google";
@@ -54,6 +54,8 @@ export function buildApp(options: AppOptions = {}) {
     if (code === "23505") return reply.code(409).send({ error: "This value already exists" });
     if (code === "23503") return reply.code(409).send({ error: "This item is still in use, or refers to something that does not exist" });
     if (code === "23514") return reply.code(400).send({ error: "A value is out of its allowed range" });
+    const badValue = badValueMessage(code);
+    if (badValue) return reply.code(400).send({ error: badValue });
     const status = (error as { statusCode?: number }).statusCode ?? 500;
     if (status < 500) return reply.code(status).send({ error: (error as Error).message });
     request.log.error(error);

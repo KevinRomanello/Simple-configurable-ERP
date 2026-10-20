@@ -41,6 +41,7 @@ export function App() {
                 <Route path="analysis/items" element={<ItemsPage />} />
                 <Route path="users" element={<UsersPage />} />
                 <Route path="history" element={<HistoryPage />} />
+                <Route path="*" element={<p className="empty">This page does not exist.</p>} />
               </Route>
             </Routes>
           </BrowserRouter>

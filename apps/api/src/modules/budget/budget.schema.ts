@@ -1,15 +1,15 @@
 import { PRIORITIES, SPONSOR_TYPES } from "@erp/calc";
 import { z } from "zod";
-import { decimal, id, isoDate } from "../../core/validation";
+import { decimal, id, isoDate, LIMITS, longText, lookupCode, shortText, version } from "../../core/validation";
 
 // Input shapes of the budget endpoints. In `figures` every field is optional: a missing field is
 // left as it is, `null` clears it. Money and quantities are decimals in euros / units.
 export const figuresInput = z
   .object({
-    quantity: decimal(3),
-    unitNetCost: decimal(4),
+    quantity: decimal(3, LIMITS.quantity),
+    unitNetCost: decimal(4, LIMITS.unitCost),
     sponsorType: z.enum(SPONSOR_TYPES).nullable(),
-    sponsorValue: decimal(2).nullable(),
+    sponsorValue: decimal(2, LIMITS.netCost).nullable(),
     vatRate: z.number().min(0).max(100).nullable(),
     fundId: id.nullable(),
     supplierId: id.nullable(),
@@ -22,20 +22,20 @@ export type FiguresInput = z.infer<typeof figuresInput>;
 const figuresByPhase = z.object({ estimate: figuresInput, actual: figuresInput }).partial();
 
 const lineFields = {
-  item: z.string().trim().min(1),
-  category: z.string().nullable(),
+  item: shortText(500),
+  category: lookupCode.nullable(),
   priority: z.enum(PRIORITIES).nullable(),
-  note: z.string().nullable(),
+  note: longText.nullable(),
   figures: figuresByPhase,
 };
 
 export const createProjectInput = z.object({
-  areaCode: z.string(),
-  name: z.string().trim().min(1),
-  ownerName: z.string().trim().min(1).nullish(),
+  areaCode: lookupCode,
+  name: shortText(),
+  ownerName: shortText().nullish(),
 });
 export const updateProjectInput = z
-  .object({ name: z.string().trim().min(1), ownerName: z.string().trim().min(1).nullable() })
+  .object({ name: shortText(), ownerName: shortText().nullable() })
   .partial();
 
 export const createLineInput = z.object({ item: lineFields.item }).extend({
@@ -45,7 +45,7 @@ export const createLineInput = z.object({ item: lineFields.item }).extend({
   figures: lineFields.figures.optional(),
 });
 export const updateLineInput = z
-  .object({ version: z.number().int().positive() })
+  .object({ version })
   .extend(z.object(lineFields).partial().shape);
 
 export type CreateLineInput = z.infer<typeof createLineInput>;

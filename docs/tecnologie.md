@@ -474,7 +474,9 @@ Il `valueSetter` non scrive nella riga: chiama `commit`, che spedisce `PATCH /ap
 - **Una griglia per progetto**: AG Grid Community non ha il raggruppamento di righe (è nella versione a pagamento, Enterprise), quindi ogni progetto ha la sua griglia con i suoi subtotali. L'incolla di più righe da Google Sheets nella versione Community non è garantita: è da verificare.
 - `getRowId`: dà a ogni riga un'identità stabile, così dopo il ricaricamento la griglia aggiorna le righe invece di ridisegnarle e perdere la posizione.
 
-**Trappole.** Le celle calcolate sono semplici `valueGetter` senza editor. Il numero di colonne per fase (15) è il motivo per cui la tabella scorre in orizzontale; la colonna `ITEM` è fissata a sinistra.
+**Trappole.** Le celle calcolate sono semplici `valueGetter` senza editor. Il numero di colonne per fase (15) è il motivo per cui la tabella scorre in orizzontale; la colonna `ITEM` è fissata a sinistra (quando si scorre, le colonne passano *sotto* quella fissa: per cliccare una cella nascosta si scorre ancora un po').
+
+Anche le **barre di scorrimento** sono un caso: AG Grid imposta di suo `color-scheme: light`, quindi in modo scuro la barra orizzontale usciva con la pista bianca, diversa da quella delle tabelle. Il parametro `browserColorScheme: "inherit"` in `theme/grid.ts` le fa seguire lo schema dell'app (chiaro o scuro), identiche alle altre.
 
 **Dove guardare:** `apps/web/src/pages/areaColumns.tsx`, `AreaPage.tsx`, `theme/grid.ts`.
 

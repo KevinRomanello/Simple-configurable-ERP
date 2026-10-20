@@ -190,6 +190,8 @@ Per ogni rilascio:
 - [ ] Dati personali minimi: solo nome ed email dei membri; chi lascia il team si disattiva, non si cancella (per non rompere lo storico).
 - [ ] Mai lanciare i test o l'importer contro il database di produzione.
 
+Il collaudo di robustezza (numeri e testi fuori misura, richieste simultanee, date estreme) è in [collaudo.md](collaudo.md).
+
 **Verifiche iniziali del 20 ottobre 2026** (lo stato di partenza; sotto cosa è cambiato):
 
 | Cosa | Esito |

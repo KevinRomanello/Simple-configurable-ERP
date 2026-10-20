@@ -113,7 +113,8 @@ function ProjectPanel({ project, columns, canEdit }: { project: SheetProject; co
     if (await act(() => api.createLine(project.id, newItem.trim()))) setNewItem("");
   };
   const remove = () => {
-    if (window.confirm(`Delete project "${project.name}" with all its ${project.lines.length} lines?`)) {
+    const count = project.lines.length;
+    if (window.confirm(`Delete project "${project.name}" with all its ${count} ${count === 1 ? "line" : "lines"}?`)) {
       void act(() => api.deleteProject(project.id));
     }
   };

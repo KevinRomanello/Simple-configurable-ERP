@@ -16,6 +16,19 @@ export class ApiError extends Error {
 /** The session is missing, expired or was revoked: the person has to sign in again. */
 export const isUnauthorized = (error: unknown) => error instanceof ApiError && error.status === 401;
 
+/**
+ * What to tell the person about a refused request: the server's sentence and, for input that did
+ * not pass validation, which field and why ("amount: The value cannot be more than 1,000,000,000").
+ */
+export function errorMessage(payload: unknown, fallback: string): string {
+  const body = payload as { error?: unknown; issues?: { path?: unknown[]; message?: unknown }[] } | null;
+  const issue = body?.issues?.[0];
+  const reason = typeof issue?.message === "string" ? issue.message : null;
+  const field = issue?.path?.length ? `${issue.path.join(".")}: ` : "";
+  if (reason) return `${field}${reason}`;
+  return typeof body?.error === "string" ? body.error : fallback;
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(`/api${path}`, {
     method,
@@ -24,7 +37,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   });
   if (response.status === 204) return undefined as T;
   const payload = await response.json().catch(() => null);
-  if (!response.ok) throw new ApiError(response.status, payload?.error ?? response.statusText);
+  if (!response.ok) throw new ApiError(response.status, errorMessage(payload, response.statusText));
   return payload as T;
 }
 

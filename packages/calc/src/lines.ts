@@ -106,7 +106,8 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
     (a, b) =>
       a.areaPosition - b.areaPosition ||
       a.projectPosition - b.projectPosition ||
-      a.line.position - b.line.position,
+      a.line.position - b.line.position ||
+      a.line.id - b.line.id,
   );
   return calculated.map((entry) => entry.line);
 }

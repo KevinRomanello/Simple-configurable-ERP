@@ -29,6 +29,18 @@ describe("the code cannot build SQL out of text", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("never accepts free text without a maximum length in a route or schema", () => {
+    const inputs = files.filter((file) => /\.(routes|schema)\.ts$/.test(file));
+    expect(inputs.length).toBeGreaterThan(5);
+    const unbounded = inputs.flatMap((file) =>
+      readFileSync(file, "utf8")
+        .split("\n")
+        .filter((line) => line.includes("z.string()") && !line.includes(".max("))
+        .map((line) => `${file}: ${line.trim()}`),
+    );
+    expect(unbounded).toEqual([]); // use shortText(), longText or lookupCode from core/validation.ts
+  });
+
   it("finds the files it is supposed to read", () => {
     expect(files.length).toBeGreaterThan(30); // a path mistake must not make the checks pass for free
   });

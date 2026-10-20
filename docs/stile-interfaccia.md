@@ -63,5 +63,5 @@ Quando esistono frame per queste parti, si passano i link e si allinea il codice
 ## Come si applica
 
 1. I valori stanno solo in `theme/tokens.css`; i componenti usano `var(--…)`.
-2. La griglia (AG Grid) prende il tema dagli stessi token (`theme/grid.ts`), così chiaro e scuro cambiano insieme.
+2. La griglia (AG Grid) prende il tema dagli stessi token (`theme/grid.ts`), così chiaro e scuro cambiano insieme; con `browserColorScheme: "inherit"` anche le sue barre di scorrimento seguono lo schema dell'app e sono uguali a quelle delle tabelle (AG Grid altrimenti le disegna chiare anche in modo scuro).
 3. Se per ciò che si costruisce non c'è un riferimento su Figma, si chiede prima di improvvisare (regola 6).

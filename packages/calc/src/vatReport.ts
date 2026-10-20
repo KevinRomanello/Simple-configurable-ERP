@@ -46,7 +46,7 @@ export function vatReport(snapshot: Snapshot, areaCode: string): VatReport {
 
   const projects = snapshot.projects
     .filter((p) => p.areaId === area.id)
-    .sort((a, b) => a.position - b.position)
+    .sort((a, b) => a.position - b.position || a.id - b.id)
     .map((project) => {
       const projectLines = lines.filter((l) => l.projectId === project.id);
       const sumOn = (phase: "estimate" | "actual") =>

@@ -1,7 +1,7 @@
 import { PHASES } from "@erp/calc";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { decimal, id, isoDate } from "../../core/validation";
+import { decimal, id, isoDate, LIMITS, shortText } from "../../core/validation";
 import {
   createContract, deleteContract, deleteFund, listContracts, listFunds, updateFund,
 } from "./funds.service";
@@ -33,8 +33,8 @@ export async function fundsRoutes(app: FastifyInstance) {
         z
           .object({
             phase,
-            fundName: z.string().trim().min(1),
-            amount: decimal(2),
+            fundName: shortText(),
+            amount: decimal(2, LIMITS.money),
             inflowDate: isoDate.nullish(),
           })
           .parse(request.body),

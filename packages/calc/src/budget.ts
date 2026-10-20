@@ -38,7 +38,7 @@ export function areaSheet(snapshot: Snapshot, areaCode: string): AreaSheet {
   const lines = computeLines(snapshot).filter((l) => l.areaId === area.id);
   const projects = snapshot.projects
     .filter((p) => p.areaId === area.id)
-    .sort((a, b) => a.position - b.position)
+    .sort((a, b) => a.position - b.position || a.id - b.id) // same position (a race): oldest first
     .map((p) => {
       const projectLines = lines.filter((l) => l.projectId === p.id);
       return {

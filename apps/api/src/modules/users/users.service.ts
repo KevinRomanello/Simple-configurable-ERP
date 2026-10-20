@@ -87,6 +87,9 @@ export async function updateUser(
   }
 
   await runWrite(actor, async (tx) => {
+    // Two admins stepping down at the same moment must not both pass the check below: whoever
+    // comes second waits here and then sees the first one's change.
+    await tx.select({ id: appUser.id }).from(appUser).where(eq(appUser.role, "admin")).orderBy(asc(appUser.id)).for("update");
     const [target] = await tx.select().from(appUser).where(eq(appUser.id, userId));
     if (!target) throw notFound("User");
 

@@ -5,6 +5,9 @@ import { AllCommunityModule, ModuleRegistry, themeQuartz } from "ag-grid-communi
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 export const gridTheme = themeQuartz.withParams({
+  // AG Grid forces a light browser colour scheme by default, which paints its scrollbars white in
+  // dark mode. "inherit" keeps the page's scheme, so they look like the scrollbars of the tables.
+  browserColorScheme: "inherit",
   fontFamily: "var(--font)",
   fontSize: 13,
   backgroundColor: "var(--bg-weak)",

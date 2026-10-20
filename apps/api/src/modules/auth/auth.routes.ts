@@ -114,7 +114,7 @@ export async function authRoutes(app: FastifyInstance, { config, google }: AuthO
 
   app.get("/auth/callback", async (request, reply) => {
     const query = z
-      .object({ code: z.string().optional(), state: z.string().optional(), error: z.string().optional() })
+      .object({ code: z.string().max(2048).optional(), state: z.string().max(2048).optional(), error: z.string().max(200).optional() })
       .parse(request.query);
     // Only a fixed word goes back to the page, which words it itself: never text taken from the
     // request or from Google, so a crafted link cannot put a message of its own on our page.

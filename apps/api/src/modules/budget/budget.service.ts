@@ -2,6 +2,7 @@ import { areaSheet, netCents, type AreaSheet, type Phase } from "@erp/calc";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { toCents, toScaled } from "../../core/money";
+import { LIMITS } from "../../core/validation";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { area, budgetLine, lineFigures, project } from "../../db/schema";
@@ -42,6 +43,8 @@ export async function createProject(input: { areaCode: string; name: string; own
     const [target] = await tx.select().from(area).where(eq(area.code, input.areaCode));
     if (!target) throw notFound(`Area "${input.areaCode}"`);
     await assertCanWrite(actor, target.id);
+    // Two projects added at the same moment must not get the same position: take turns on the area.
+    await tx.select({ id: area.id }).from(area).where(eq(area.id, target.id)).for("update");
     const [last] = await tx
       .select({ position: sql<number>`coalesce(max(${project.position}), 0)::int` })
       .from(project)
@@ -110,8 +113,13 @@ async function saveFigures(tx: Tx, lineId: number, phase: Phase, patch: FiguresI
   if (merged.vatRate !== null && !(await listVatRates()).includes(merged.vatRate)) {
     throw invalid(`VAT rate ${merged.vatRate}% is not one of the allowed rates`);
   }
+  // quantity and unit cost are each limited on their own; together they must stay within the range
+  // the calculations can add up exactly
+  const net = netCents(toScaled(merged.quantity, 3), toScaled(merged.unitNetCost, 4));
+  if (net > LIMITS.netCost * 100) {
+    throw invalid(`The net cost of a line cannot be more than ${LIMITS.netCost.toLocaleString("en-US")} euros`);
+  }
   if (merged.sponsorType === "partial" && merged.sponsorValue !== null) {
-    const net = netCents(toScaled(merged.quantity, 3), toScaled(merged.unitNetCost, 4));
     const sponsor = toCents(merged.sponsorValue);
     if (sponsor <= 0 || sponsor > net) {
       throw invalid("A partial sponsor must be above zero and at most the net cost of the line");
@@ -143,6 +151,8 @@ export async function createLine(projectId: number, input: CreateLineInput) {
   await checkCategory(input.category);
   return runWrite(actor, async (tx) => {
     await assertCanWrite(actor, (await projectOf(tx, projectId)).areaId);
+    // Same as for projects: lines added at the same moment take turns on their project.
+    await tx.select({ id: project.id }).from(project).where(eq(project.id, projectId)).for("update");
     const [last] = await tx
       .select({ position: sql<number>`coalesce(max(${budgetLine.position}), 0)::int` })
       .from(budgetLine)
