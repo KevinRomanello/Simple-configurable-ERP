@@ -397,3 +397,67 @@
   grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
   gap: var(--space-m);
 }
+
+/* --- sign-in, user menu, users and history (not designed in Figma yet) -------------------------- */
+.btn {
+  text-decoration: none;
+}
+.login {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: var(--space-l);
+  background: var(--bg-weak);
+}
+.login-card {
+  width: min(360px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-m);
+  padding: var(--space-l);
+  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-3xs);
+  background: var(--bg-null);
+}
+.login-card .brand {
+  padding: 0;
+}
+.sidebar-footer {
+  position: sticky;
+  bottom: calc(-1 * var(--space-l));
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: var(--space-s) var(--space-xs);
+  border-top: 1px solid var(--stroke-sub);
+  background: var(--bg-soft);
+}
+.sidebar-footer .who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sidebar-footer .who strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.area-boxes {
+  display: flex;
+  gap: var(--space-xs) var(--space-m);
+  flex-wrap: wrap;
+}
+.data-table tr.inactive td {
+  color: var(--text-soft);
+}
+.data-table.history td {
+  white-space: normal;
+  vertical-align: top;
+}
+.changes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

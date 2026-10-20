@@ -1,11 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
+import { isUnauthorized } from "../api/client";
 import { useNotify } from "../components/Notice";
+import { forgetUser } from "./auth";
 
 /**
- * Runs a write: a refused one (validation, conflict, in use) becomes a message in the corner,
- * and in every case the screen reloads its data so it shows what the server really has.
- * Returns true when the write went through.
+ * Runs a write: a refused one (validation, conflict, in use, not allowed) becomes a message in
+ * the corner, and in every case the screen reloads its data so it shows what the server really
+ * has. An expired session sends the person back to the sign-in page. Returns true when the write
+ * went through.
  */
 export function useAction() {
   const queryClient = useQueryClient();
@@ -16,7 +19,8 @@ export function useAction() {
         await work();
         return true;
       } catch (error) {
-        notify("error", error instanceof Error ? error.message : "Something went wrong");
+        if (isUnauthorized(error)) forgetUser(queryClient);
+        else notify("error", error instanceof Error ? error.message : "Something went wrong");
         return false;
       } finally {
         await queryClient.invalidateQueries();

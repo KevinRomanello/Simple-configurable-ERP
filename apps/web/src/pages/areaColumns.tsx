@@ -196,12 +196,27 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit): ColDe
   ];
 }
 
+type Columns = (ColDef<Row> | ColGroupDef<Row>)[];
+
+/** The same columns for someone who may only look: nothing editable, no delete button. */
+function readOnly(columns: Columns): Columns {
+  return columns
+    .filter((c) => !("colId" in c && c.colId === "remove"))
+    .map((c) => ("children" in c ? { ...c, children: readOnly(c.children as Columns) as ColDef<Row>[] } : { ...c, editable: false }));
+}
+
 /** The columns of a project grid, in the order of the old area sheets. */
 export function areaColumns(
   lookups: GridLookups,
   commit: Commit,
   remove: (line: CalcLine) => void,
-): (ColDef<Row> | ColGroupDef<Row>)[] {
+  canEdit: boolean,
+): Columns {
+  const columns = editableColumns(lookups, commit, remove);
+  return canEdit ? columns : readOnly(columns);
+}
+
+function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: CalcLine) => void): Columns {
   return [
     {
       colId: "status",

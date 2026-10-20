@@ -7,6 +7,7 @@ import { BarsChart } from "../components/BarsChart";
 import { Button, IconButton } from "../components/Button";
 import { MoneyCard } from "../components/Cards";
 import { date, money, moneyFromDecimal, month } from "../lib/format";
+import { useMe } from "../lib/auth";
 import { useAction } from "../lib/useAction";
 
 const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
@@ -34,6 +35,7 @@ export function CashFlowPage() {
 
 function BankBox() {
   const act = useAction();
+  const canEdit = useMe().permissions.canEditShared;
   const bank = useQuery({ queryKey: ["bank"], queryFn: api.bank });
   const [amount, setAmount] = useState("");
   const [day, setDay] = useState("");
@@ -51,24 +53,34 @@ function BankBox() {
   return (
     <section className="panel">
       <h2>BANK</h2>
-      <form className="inline-form" onSubmit={save}>
-        <div className="field">
-          <label htmlFor="bank-amount">Cash value</label>
-          <input id="bank-amount" className="input small" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="bank-date">In date</label>
-          <input id="bank-date" className="input small" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
-        </div>
-        <Button small type="submit" disabled={amount === ""}>Save BANK</Button>
-        <Button small variant="ghost" disabled={!bank.data} onClick={() => act(() => api.clearBank())}>Clear</Button>
-      </form>
+      {!canEdit && (
+        <p>
+          {bank.data
+            ? `${moneyFromDecimal(bank.data.amount)}${bank.data.asOfDate ? ` on ${date(bank.data.asOfDate)}` : ""}`
+            : "Not set"}
+        </p>
+      )}
+      {canEdit && (
+        <form className="inline-form" onSubmit={save}>
+          <div className="field">
+            <label htmlFor="bank-amount">Cash value</label>
+            <input id="bank-amount" className="input small" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="bank-date">In date</label>
+            <input id="bank-date" className="input small" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
+          </div>
+          <Button small type="submit" disabled={amount === ""}>Save BANK</Button>
+          <Button small variant="ghost" disabled={!bank.data} onClick={() => act(() => api.clearBank())}>Clear</Button>
+        </form>
+      )}
     </section>
   );
 }
 
 function PhaseCashFlow({ phase }: { phase: Phase }) {
   const act = useAction();
+  const canEdit = useMe().permissions.canEditShared;
   const inflows = useQuery({ queryKey: ["inflows", phase], queryFn: () => api.inflows(phase) });
   const view = useQuery({ queryKey: ["cashflow"], queryFn: api.cashFlow });
   const [name, setName] = useState("");
@@ -100,21 +112,23 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
         </div>
       )}
 
-      <form className="inline-form" onSubmit={add}>
-        <div className="field">
-          <label htmlFor={`inflow-name-${phase}`}>Company</label>
-          <input id={`inflow-name-${phase}`} className="input small" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor={`inflow-amount-${phase}`}>Contract value</label>
-          <input id={`inflow-amount-${phase}`} className="input small" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor={`inflow-day-${phase}`}>Inflow date</label>
-          <input id={`inflow-day-${phase}`} className="input small" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
-        </div>
-        <Button small icon={faPlus} type="submit" disabled={name.trim() === "" || amount === ""}>Add inflow</Button>
-      </form>
+      {canEdit && (
+        <form className="inline-form" onSubmit={add}>
+          <div className="field">
+            <label htmlFor={`inflow-name-${phase}`}>Company</label>
+            <input id={`inflow-name-${phase}`} className="input small" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor={`inflow-amount-${phase}`}>Contract value</label>
+            <input id={`inflow-amount-${phase}`} className="input small" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor={`inflow-day-${phase}`}>Inflow date</label>
+            <input id={`inflow-day-${phase}`} className="input small" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
+          </div>
+          <Button small icon={faPlus} type="submit" disabled={name.trim() === "" || amount === ""}>Add inflow</Button>
+        </form>
+      )}
 
       <div className="table-wrap">
         <table className="data-table">
@@ -127,7 +141,9 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
                 <td>{i.sourceName}</td>
                 <td className="num">{moneyFromDecimal(i.amount)}</td>
                 <td>{date(i.inflowDate)}</td>
-                <td className="num"><IconButton icon={faTrash} label="Delete inflow" danger onClick={() => act(() => api.deleteInflow(i.id))} /></td>
+                <td className="num">
+                  {canEdit && <IconButton icon={faTrash} label="Delete inflow" danger onClick={() => act(() => api.deleteInflow(i.id))} />}
+                </td>
               </tr>
             ))}
             {inflows.data?.length === 0 && <tr><td colSpan={4} className="empty">No inflows yet</td></tr>}

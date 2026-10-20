@@ -3,11 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api } from "../api/client";
 import { Button, IconButton } from "../components/Button";
+import { useMe } from "../lib/auth";
 import { useAction } from "../lib/useAction";
 
 /** BOUGHT FROM: the single list of suppliers used by the dropdowns of every area. */
 export function SuppliersPage() {
   const act = useAction();
+  const canManage = useMe().permissions.canManageSuppliers;
   const suppliers = useQuery({ queryKey: ["suppliers"], queryFn: api.suppliers });
   const [name, setName] = useState("");
 
@@ -23,13 +25,15 @@ export function SuppliersPage() {
           <h1>BOUGHT FROM</h1>
           <p className="muted">One list of suppliers. A supplier that budget lines use cannot be deleted.</p>
         </div>
-        <form className="inline-form" onSubmit={add}>
-          <div className="field">
-            <label htmlFor="supplier-name">New supplier</label>
-            <input id="supplier-name" className="input small" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <Button small icon={faPlus} type="submit" disabled={name.trim() === ""}>Add supplier</Button>
-        </form>
+        {canManage && (
+          <form className="inline-form" onSubmit={add}>
+            <div className="field">
+              <label htmlFor="supplier-name">New supplier</label>
+              <input id="supplier-name" className="input small" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <Button small icon={faPlus} type="submit" disabled={name.trim() === ""}>Add supplier</Button>
+          </form>
+        )}
       </header>
 
       <div className="table-wrap" style={{ maxWidth: 480 }}>
@@ -41,7 +45,9 @@ export function SuppliersPage() {
             {suppliers.data?.map((s) => (
               <tr key={s.id}>
                 <td>{s.name}</td>
-                <td className="num"><IconButton icon={faTrash} label={`Delete ${s.name}`} danger onClick={() => act(() => api.deleteSupplier(s.id))} /></td>
+                <td className="num">
+                  {canManage && <IconButton icon={faTrash} label={`Delete ${s.name}`} danger onClick={() => act(() => api.deleteSupplier(s.id))} />}
+                </td>
               </tr>
             ))}
             {suppliers.data?.length === 0 && <tr><td colSpan={2} className="empty">No suppliers yet</td></tr>}

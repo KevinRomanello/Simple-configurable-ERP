@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { date, money, moneyFromDecimal, moneyShort, month, monthOfDate, ratio } from "./format";
+import { date, dateTime, money, moneyFromDecimal, moneyShort, month, monthOfDate, ratio } from "./format";
 
 const plain = (text: string) => text.replace(/ /g, " ");
 
@@ -36,6 +36,11 @@ describe("format", () => {
     expect(date(null)).toBe("");
     expect(month("2026-11")).toBe("nov 26");
     expect(monthOfDate("2026-10-15")).toBe("oct 26");
+  });
+
+  it("formats an instant as local date and time", () => {
+    expect(dateTime(new Date(2026, 10, 20, 14, 5).toISOString())).toBe("20/11/26 14:05");
+    expect(dateTime(new Date(2026, 0, 3, 9, 0).toISOString())).toBe("03/01/26 09:00");
   });
 
   it("formats ratios as percentages", () => {

@@ -30,7 +30,9 @@ docker compose version
 cd ~/Documents/Eagle/Simple-configurable-ERP
 ```
 
-**Passo 2 — crea il file di configurazione locale.** `.env.example` contiene i valori di sviluppo (nome e password del database locale); `.env` è la tua copia, ignorata da git. Si fa una volta sola.
+**Passo 2 — crea il file di configurazione locale.** `.env.example` contiene i valori di sviluppo (nome e password del database locale, segreto dei token, accesso di sviluppo); `.env` è la tua copia, ignorata da git. Si fa una volta sola.
+
+Se avevi già un `.env` di prima dell'arrivo del login, **aggiungi il blocco `# --- Login ---`** di `.env.example` (`JWT_SECRET`, `PUBLIC_URL`, `ADMIN_EMAILS`, `DEV_LOGIN_EMAIL`, …): senza, l'API non parte e dice quale variabile manca.
 
 ```bash
 cp .env.example .env
@@ -61,7 +63,9 @@ docker compose exec api pnpm db:seed
 - Il sito: [http://localhost:5173](http://localhost:5173)
 - Controllo di salute dell'API: [http://localhost:3000/api/health](http://localhost:3000/api/health) deve rispondere `{"ok":true,"db":true}`
 
-A questo punto vedi le sei aree, ma vuote. Se apri il sito **prima** dei passi 4 e 5 vedrai errori: è normale, le tabelle non esistono ancora.
+La prima schermata è **Sign in**. In sviluppo non serve Google: premi **Sign in as developer** (entri come `dev@localhost.test`, che è admin perché sta in `ADMIN_EMAILS`). Poi vedi le sei aree, ma vuote. Se apri il sito **prima** dei passi 4 e 5 vedrai errori: è normale, le tabelle non esistono ancora.
+
+**Apri sempre `http://localhost:5173`** (non `127.0.0.1`): è l'indirizzo scritto in `PUBLIC_URL`, e l'API rifiuta le scritture che arrivano da un altro indirizzo.
 
 ## 2. Caricare il foglio reale (facoltativo)
 
@@ -87,6 +91,7 @@ docker compose run --rm -v "$PWD/fonti:/app/fonti:ro" api pnpm reconcile -- --db
 
 ## 3. Un giro in cinque minuti
 
+0. **In basso a sinistra** vedi chi sei e il tuo ruolo; il pulsante accanto è l'uscita. Nel gruppo **Admin** del menu ci sono **Users** (ruoli e aree dei capi area, solo admin) e **History** (chi ha cambiato cosa, per admin e capi area).
 1. **MT + DMT** (menu a sinistra): vedi i progetti con le loro voci. Clicca una cella per modificarla (le celle grigie a destra sono calcolate, non si toccano). Cambia la quantità di una voce e guarda cambiare subito netto, IVA e totali.
 2. **Triangolo arancione** accanto a una voce: manca il tipo di sponsor o l'aliquota IVA, quindi l'IVA non è ancora contata.
 3. **Add project** e **Add item**: nuovi progetti e nuove voci. Il cestino in fondo alla riga elimina.
@@ -126,7 +131,7 @@ docker compose exec web pnpm --filter @erp/web test
 docker compose exec api pnpm --filter @erp/import-xlsx test
 ```
 
-Risultati attesi: 99 (motore), 43 (API), 6 (sito), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
+Risultati attesi: 99 (motore), 108 (API), 10 (sito), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
 
 Dentro `psql` (il terminale del database) servono pochi comandi: `\dt` elenca le tabelle, `select * from fund;` mostra i fondi, `\q` esce.
 
@@ -194,11 +199,29 @@ Se avvii l'API o il sito anche fuori da Docker mentre i contenitori sono accesi,
 | `The season already has N projects`                          | il caricamento non cancella senza permesso                                     | aggiungi `-- --replace` (cancella e ricarica)                                                  |
 | `ENOENT ... Budget 26-27.xlsx`                               | il file non c'è o non è stato montato                                        | controlla che sia in `fonti/` e di aver messo `-v "$PWD/fonti:/app/fonti:ro"`                |
 | `Cannot find matching keyid` lanciando `corepack`          | bug del corepack di alcune versioni di Node                                    | `npm install -g pnpm@12.14.0` e non usare corepack                                             |
-| Il sito non trova un pacchetto appena aggiunto                 | l'immagine è vecchia                                                          | `docker compose up --build -d`                                                                 |
+| Il sito non trova un pacchetto appena aggiunto, o l'API dice `Cannot find package '@fastify/cookie'` | l'immagine è vecchia                                                          | `docker compose up --build -d`                                                                 |
+| L'API non parte e cita `JWT_SECRET` o `PUBLIC_URL`             | il `.env` non ha il blocco Login                                               | copia il blocco `# --- Login ---` da `.env.example`                                              |
+| Si vede sempre la pagina **Sign in**                           | token scaduto (24 ore), persona disattivata o cookie cancellato                | rientra; se ti hanno disattivato, un altro admin ti riattiva da **Users** (l'ultimo admin non si può disattivare) |
+| `Cross-site request refused` quando si salva                   | hai aperto il sito da un indirizzo diverso da `PUBLIC_URL` (per esempio `127.0.0.1`) | apri `http://localhost:5173`, oppure cambia `PUBLIC_URL`                                    |
+| `You cannot change this area` / `Only an admin can do this`    | il tuo ruolo non lo permette (è il server a decidere)                          | un admin ti cambia ruolo o aree dalla pagina **Users**                                        |
 | Cambio un file e non succede niente, o un test usa codice vecchio | quel contenitore non condivide quella cartella (ha la copia dell'ultima costruzione) | vedi "Quali modifiche al codice si vedono subito?" e lancia il test nel contenitore giusto |
 | I test dell'API falliscono su `erp_test`                     | il database non è acceso o non è "healthy"                                   | `docker compose ps`; aspetta che `db` sia `healthy`                                        |
 | Dopo le prove i dati sono sporchi                              | hai modificato dati d'esempio                                                  | ricarica il foglio con `-- --replace`                                                          |
 
+## Provare i ruoli
+
+Gli utenti nascono al primo accesso come `viewer`. Per vedere l'app con gli altri ruoli, con un solo browser:
+
+1. Esci e rientra con un'altra email di sviluppo: `DEV_LOGIN_EMAIL=altra@localhost.test docker compose up -d api`, poi **Sign in as developer** (nasce `viewer`: tutto in sola lettura, nessun gruppo Admin).
+2. Torna admin: `docker compose up -d api` (senza la variabile; vale il `.env`), entra, apri **Users** e dai a quella persona il ruolo `pm` e qualche area.
+3. Rientra con quell'email: ora può modificare solo quelle aree, gestire i fornitori e leggere lo storico.
+
+Per togliere gli utenti di prova: `docker compose exec db psql -U erp -d erp -c "delete from app_user where email = 'altra@localhost.test'"`.
+
+## Accesso con Google vero
+
+Non serve in sviluppo. Quando il Workspace avrà un client OAuth: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_ALLOWED_DOMAIN` nel `.env` (e, se vuoi, togli `DEV_LOGIN_EMAIL`); i passi su Google Cloud sono in [accesso-e-storico.md](accesso-e-storico.md#cosa-serve-su-google-lo-fa-chi-amministra-il-workspace).
+
 ## Sicurezza
 
-Le porte sono pubblicate solo su `127.0.0.1`: l'app si raggiunge dal tuo computer e da nessun altro. **Non c'è ancora nessun login**: chi arriva alla pagina può cambiare i dati. Non esporre le porte su una rete finché non c'è l'accesso con Google (vedi `docs/piano-azione-v0.md`). La password del database nel `.env` è un valore di sviluppo, da non riusare altrove.
+Le porte sono pubblicate solo su `127.0.0.1`: l'app si raggiunge dal tuo computer e da nessun altro. C'è il login (Google; in sviluppo l'accesso "Sign in as developer"), un token di 24 ore e i ruoli applicati nel server, ma **non esporre le porte su una rete** finché non c'è la configurazione di produzione con HTTPS e backup ([produzione.md](produzione.md)). La password del database e il `JWT_SECRET` nel `.env.example` sono valori di sviluppo, pubblici: da non riusare altrove.

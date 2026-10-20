@@ -13,8 +13,6 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 | 3 | Regole delle scadenze IVA | `getVatRules` (lookups) ↔ `GET /api/lookups/vat-rules` | trimestre → 16/05, 20/08, 16/11, 16/02 dell'anno dopo; weekend → lunedì; nessuna festività né proroga | tabella `vat_rule` validata col commercialista (Q3) |
 | 4 | Impostazioni di calcolo | `getSettings` (lookups) ↔ `GET /api/lookups/settings` | vedi sotto | tabella `setting` o pagina admin |
 | 5 | Stagione corrente | `getCurrentSeason` (seasons) ↔ `GET /api/seasons/current` | 2026-2027 | elenco stagioni, selettore, creazione della nuova stagione |
-| 6 | Utente corrente | `getCurrentUser` (auth) ↔ `GET /api/me` | admin fisso | login Google (OIDC) limitato al dominio del team |
-| 7 | Permessi di scrittura | `canWrite` (auth) | sempre vero | ruoli admin / capo area / sola lettura, per area |
 
 ### Chiavi di `getSettings()`
 
@@ -27,13 +25,24 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 
 L'arrotondamento (Q7) non è un'impostazione: il motore lavora in interi e arrotonda l'IVA al centesimo riga per riga (`roundDiv` in `packages/calc/src/money.ts`). Cambiarlo vuol dire cambiare quella funzione.
 
+Le righe «utente corrente» e «permessi di scrittura» non ci sono più: sono **implementate** (login Google, JWT, ruoli per area: [accesso-e-storico.md](accesso-e-storico.md)).
+
+## Elementi temporanei dello sviluppo
+
+Non sono hardcode di funzioni-API, ma esistono solo in sviluppo e vanno tolti o spenti in produzione.
+
+| Cosa | Dove | Come si spegne |
+| --- | --- | --- |
+| Accesso «Sign in as developer» | `GET /api/auth/dev-login` (auth), attivo solo se `DEV_LOGIN_EMAIL` è impostata | togli la variabile; **in produzione il server non parte** se c'è |
+| `JWT_SECRET` e password del database di esempio | `.env.example` | in produzione si usano valori lunghi e casuali |
+
 ## Predisposizioni vuote
 
 Funzioni che esistono già ma oggi fanno il minimo; non sono hardcode, ma sono il punto dove si innesta la funzionalità.
 
 | Funzione | Oggi | Poi |
 | --- | --- | --- |
-| `runWrite(actor, fn)` (core) | apre la transazione | scrive `audit_log` e rigenera le tabelle `calc_*` nella stessa transazione |
+| `runWrite(actor, fn)` (core) | apre la transazione e dice al database chi scrive (per lo storico, scritto dai trigger) | rigenera le tabelle `calc_*` nella stessa transazione |
 | Aree | solo da seed | creazione di un'area (nel runbook) |
 
 ## Come si aggiunge una riga

@@ -3,11 +3,11 @@ import { conflict, forbidden, notFound } from "../../core/errors";
 import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
 import { lineFigures, supplier } from "../../db/schema";
-import { canWrite, getCurrentUser } from "../auth/auth.service";
+import { canManageSuppliers, getCurrentUser } from "../auth/auth.service";
 
-async function assertCanManageShared() {
+async function assertCanManageSuppliers() {
   const actor = await getCurrentUser();
-  if (!(await canWrite(actor, null))) throw forbidden("You cannot change suppliers");
+  if (!(await canManageSuppliers(actor))) throw forbidden("You cannot change suppliers");
   return actor;
 }
 
@@ -17,7 +17,7 @@ export async function listSuppliers() {
 }
 
 export async function createSupplier(name: string) {
-  const actor = await assertCanManageShared();
+  const actor = await assertCanManageSuppliers();
   return runWrite(actor, async (tx) => {
     const [existing] = await tx.select().from(supplier).where(sql`lower(${supplier.name}) = lower(${name})`);
     if (existing) throw conflict(`"${existing.name}" is already in the list`);
@@ -28,7 +28,7 @@ export async function createSupplier(name: string) {
 
 /** Deletes a supplier no budget line refers to. */
 export async function deleteSupplier(supplierId: number) {
-  const actor = await assertCanManageShared();
+  const actor = await assertCanManageSuppliers();
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(supplier).where(eq(supplier.id, supplierId));
     if (!target) throw notFound("Supplier");

@@ -6,7 +6,9 @@ import { useParams } from "react-router";
 import { api } from "../api/client";
 import type { AreaSheet, CalcLine, Phase } from "../api/types";
 import { Button, IconButton } from "../components/Button";
+import { useMe } from "../lib/auth";
 import { money } from "../lib/format";
+import { canEditArea } from "../lib/permissions";
 import { useAction } from "../lib/useAction";
 import { gridTheme } from "../theme/grid";
 import { areaColumns, type Commit, type GridLookups, type Row, type SubtotalRow } from "./areaColumns";
@@ -18,6 +20,7 @@ type SheetProject = AreaSheet["projects"][number];
 export function AreaPage() {
   const { code = "" } = useParams();
   const act = useAction();
+  const me = useMe();
   const sheet = useQuery({ queryKey: ["sheet", code], queryFn: () => api.sheet(code) });
   const categories = useQuery({ queryKey: ["categories"], queryFn: api.categories });
   const priorities = useQuery({ queryKey: ["priorities"], queryFn: api.priorities });
@@ -51,7 +54,8 @@ export function AreaPage() {
   const removeLine = (line: CalcLine) => {
     if (window.confirm(`Delete "${line.item}"?`)) void act(() => api.deleteLine(line.id));
   };
-  const columns = useMemo(() => (lookups ? areaColumns(lookups, commit, removeLine) : []), [lookups]); // eslint-disable-line react-hooks/exhaustive-deps
+  const canEdit = sheet.data ? canEditArea(me, sheet.data.area.id) : false;
+  const columns = useMemo(() => (lookups ? areaColumns(lookups, commit, removeLine, canEdit) : []), [lookups, canEdit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (sheet.isError) return <p className="empty">Area not found.</p>;
   if (!sheet.data || !lookups) return <p className="empty">Loading…</p>;
@@ -62,16 +66,20 @@ export function AreaPage() {
       <header className="page-header">
         <div>
           <h1>{data.area.name}</h1>
-          <p className="muted">Budget lines by project. Click a cell to edit it; amounts are calculated.</p>
+          <p className="muted">
+            {canEdit
+              ? "Budget lines by project. Click a cell to edit it; amounts are calculated."
+              : "Budget lines by project. You can look but not change this area."}
+          </p>
         </div>
-        <NewProjectForm areaCode={code} />
+        {canEdit && <NewProjectForm areaCode={code} />}
       </header>
 
       <AreaTotal total={data.total} />
 
-      {data.projects.length === 0 && <p className="empty">No projects yet: add the first one.</p>}
+      {data.projects.length === 0 && <p className="empty">{canEdit ? "No projects yet: add the first one." : "No projects yet."}</p>}
       {data.projects.map((project) => (
-        <ProjectPanel key={project.id} project={project} columns={columns} />
+        <ProjectPanel key={project.id} project={project} columns={columns} canEdit={canEdit} />
       ))}
 
       <VatReportTable areaCode={code} />
@@ -88,7 +96,7 @@ function subtotalRow(project: SheetProject): SubtotalRow {
   return { isSubtotal: true, item: "Subtotal", estimate: phase("estimate"), actual: phase("actual") };
 }
 
-function ProjectPanel({ project, columns }: { project: SheetProject; columns: ReturnType<typeof areaColumns> }) {
+function ProjectPanel({ project, columns, canEdit }: { project: SheetProject; columns: ReturnType<typeof areaColumns>; canEdit: boolean }) {
   const act = useAction();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(project.name);
@@ -124,11 +132,11 @@ function ProjectPanel({ project, columns }: { project: SheetProject; columns: Re
           <>
             <h2>{project.name}</h2>
             {project.ownerName && <span className="owner">{project.ownerName}</span>}
-            <IconButton icon={faPen} label="Rename project" onClick={() => setEditing(true)} />
+            {canEdit && <IconButton icon={faPen} label="Rename project" onClick={() => setEditing(true)} />}
           </>
         )}
         <span className="spacer" />
-        <IconButton icon={faTrash} label="Delete project" danger onClick={remove} />
+        {canEdit && <IconButton icon={faTrash} label="Delete project" danger onClick={remove} />}
       </div>
 
       <AgGridReact<Row>
@@ -145,12 +153,14 @@ function ProjectPanel({ project, columns }: { project: SheetProject; columns: Re
         singleClickEdit
       />
 
-      <form className="inline-form" onSubmit={addLine}>
-        <div className="field">
-          <input className="input small" value={newItem} placeholder="New item" onChange={(e) => setNewItem(e.target.value)} aria-label={`New item in ${project.name}`} />
-        </div>
-        <Button small icon={faPlus} type="submit" disabled={newItem.trim() === ""}>Add item</Button>
-      </form>
+      {canEdit && (
+        <form className="inline-form" onSubmit={addLine}>
+          <div className="field">
+            <input className="input small" value={newItem} placeholder="New item" onChange={(e) => setNewItem(e.target.value)} aria-label={`New item in ${project.name}`} />
+          </div>
+          <Button small icon={faPlus} type="submit" disabled={newItem.trim() === ""}>Add item</Button>
+        </form>
+      )}
     </section>
   );
 }

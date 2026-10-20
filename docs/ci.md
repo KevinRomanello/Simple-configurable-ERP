@@ -59,6 +59,6 @@ Sulla pagina del commit o della pull request, accanto alla croce rossa c'è "Det
 ## Cosa non c'è (ancora)
 
 - **Rilascio automatico** (CD): quando avremo il server si sceglierà tra rilascio manuale e automatico; vedi [produzione.md](produzione.md).
-- **Test dell'interfaccia nel browser** (Playwright): arriveranno con le schermate di login.
+- **Test dell'interfaccia nel browser** (Playwright): da fare; l'accesso e i ruoli sono stati provati a mano nel browser con admin, capo area e sola lettura, e i permessi sono coperti dai test dell'API.
 - **Aggiornamento automatico delle azioni** (`actions/checkout@v4`, ecc.): si può attivare con Dependabot; per ora le versioni sono fisse.
 - Si può **proteggere `main`**: su GitHub, *Settings → Branches → Branch protection rule*, "Require status checks to pass" scegliendo i due job, così non si può unire una modifica con la CI rossa.

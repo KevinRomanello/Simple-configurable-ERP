@@ -28,6 +28,7 @@ flowchart TB
 | ------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | **Dati**      | PostgreSQL, Drizzle, pg                                      | conserva ciò che le persone inseriscono, con regole che il database fa rispettare |
 | **Regole**    | Node, TypeScript, Fastify, Zod, il pacchetto `calc`        | validano ciò che arriva, calcolano i numeri, rispondono                           |
+| **Accesso**   | Google (OIDC), `jose` (JWT), `@fastify/cookie`, trigger PostgreSQL | chi sei, cosa puoi fare, cosa è cambiato ([sezione](#login-jwt-e-storico-jose-cookie-trigger)) |
 | **Schermo**   | React, Vite, React Router, TanStack Query, AG Grid, Recharts | mostrano e raccolgono le modifiche, senza fare conti                               |
 | **Involucro** | Docker, pnpm                                                 | fanno funzionare tutto uguale su ogni computer                                     |
 | **Contorno**  | Vitest, tsx, exceljs, Font Awesome, Fira Code, variabili CSS | test, esecuzione, lettura del foglio, aspetto                                      |
@@ -556,6 +557,42 @@ function normalise(value: CellValue | undefined): Plain {
 
 ---
 
+## Login, JWT e storico: jose, cookie, trigger
+
+**Il problema.** Una volta che l'app è raggiungibile da più persone servono tre risposte: *chi sei* (autenticazione), *cosa puoi fare* (autorizzazione) e *cosa è stato cambiato e da chi* (storico). Non vogliamo gestire password: usiamo gli account Google del team.
+
+**Come funziona (il modello mentale).**
+
+- **OpenID Connect con Google.** Non vediamo mai la password: mandiamo la persona a Google, che la autentica e ci rimanda indietro con un `code` monouso. Il nostro server lo scambia (da server a server, con un segreto che solo noi conosciamo) con un **ID token**: un documento firmato da Google che dice "questa è `ann@dominio.org`, email verificata". Controlliamo la firma con le chiavi pubbliche di Google, per chi è, quando scade e che il dominio sia quello del team. **PKCE** e `state` sono due protezioni contro codici intercettati e callback falsi.
+- **JWT (JSON Web Token).** Un pezzo di testo firmato con un segreto del server: dice "questo è l'utente 7, valido fino a domani a quest'ora". Chi non conosce il segreto non può fabbricarne o modificarne uno; il server lo verifica senza consultare nessuna tabella. Il prezzo: **un token già emesso non si può "ritirare"**. Per questo il nostro token porta solo l'id e ruolo/aree/attivo si **rileggono dal database a ogni richiesta**: disattivare una persona vale subito.
+- **Cookie `HttpOnly`.** Il token vive in un cookie che il browser rimanda da solo a ogni richiesta e che il JavaScript della pagina non può leggere: una pagina compromessa non può rubarlo. `SameSite=Lax` impedisce di inviarlo da altri siti nelle richieste che modificano dati; in più controlliamo l'intestazione `Origin`.
+- **`AsyncLocalStorage`** (Node). Un "contesto" legato alla richiesta in corso: il controllo comune vi mette l'utente e `getCurrentUser()` lo ritrova ovunque, senza passarlo di funzione in funzione. È ciò che ha permesso di non cambiare nessun servizio.
+- **Trigger PostgreSQL.** Una funzione del database che parte da sola a ogni inserimento, modifica o cancellazione di una tabella. Scrive in `audit_log` la riga prima e dopo, **nella stessa transazione** della modifica. Chi sta scrivendo glielo dice l'applicazione con `set_config('app.actor_id', …, true)`, un valore che vale solo per quella transazione.
+
+**Come lo usiamo qui.**
+
+| Pezzo | Libreria o strumento | Dove |
+| --- | --- | --- |
+| firma e verifica dei JWT, chiavi pubbliche di Google | `jose` (v6) | `modules/auth/tokens.ts`, `google.ts` |
+| lettura e scrittura dei cookie | `@fastify/cookie` | `modules/auth/auth.routes.ts` |
+| validazione delle variabili d'ambiente | Zod | `core/auth-config.ts` |
+| l'utente della richiesta | `AsyncLocalStorage` | `modules/auth/auth.context.ts` |
+| lo storico | funzione e trigger SQL in una migrazione scritta a mano | `apps/api/drizzle/0002_audit_triggers.sql` |
+
+Non abbiamo usato una libreria di login completa (Passport, Auth.js, un servizio come Auth0): per un solo provider e tre ruoli il flusso sono poche decine di righe, tutte provate dai test con un Google finto, e nessuna dipendenza decide al posto nostro come funziona la sessione.
+
+**Le trappole.**
+
+- **Dietro un proxy `Host` cambia.** Il controllo anti-CSRF confrontava `Origin` con `Host`: nel proxy di sviluppo di Vite, `Host` arriva come `api:3000` e ogni scrittura veniva rifiutata (visto provando nel browser). Ora si confronta con `PUBLIC_URL`.
+- **I numeri nello storico sono JSON**, non stringhe esatte: vanno bene per leggere, non per calcolare.
+- **Cambiare `JWT_SECRET` disconnette tutti**; è anche l'unico modo di revocare *tutti* i token insieme.
+- **Il cookie ha `Path=/api`**: il browser lo manda solo alle richieste dell'API, non alle pagine del sito.
+- **Una migrazione "personalizzata"** (drizzle-kit `generate --custom`) non è generata dallo schema: i trigger vanno scritti a mano e committati come le altre.
+
+**Dove guardare:** [accesso-e-storico.md](accesso-e-storico.md) (il disegno completo), `apps/api/src/modules/auth/` e i test `google.test.ts`, `auth.routes.test.ts`, `roles.test.ts`, `audit.routes.test.ts`.
+
+---
+
 ## Cosa non abbiamo usato (e perché)
 
 | Strumento                         | Perché non c'è                                                                                |
@@ -564,5 +601,6 @@ function normalise(value: CellValue | undefined): Plain {
 | Un ORM "pesante" (Prisma)         | Drizzle resta vicino all'SQL e non genera codice a parte                                        |
 | Redux o simili                    | TanStack Query tiene i dati del server; lo stato locale basta con `useState`                  |
 | Tailwind / librerie di componenti | i token di Figma sono già variabili CSS: due sistemi di stile sarebbero ridondanti             |
-| Login, ruoli, storico modifiche   | pianificati: `getCurrentUser`, `canWrite`, `runWrite` sono già i punti dove si innestano |
+| Sessioni nel database             | scelta dell'utente: un JWT di 24 ore basta; si revoca disattivando la persona                   |
+| Passport / Auth.js / Auth0        | un solo provider e tre ruoli: poche righe nostre, tutte provate dai test                        |
 | Caddy / HTTPS, backup             | arrivano col deploy                                                                             |

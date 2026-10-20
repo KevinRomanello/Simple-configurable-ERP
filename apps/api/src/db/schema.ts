@@ -1,14 +1,18 @@
 import { PHASES, SPONSOR_TYPES } from "@erp/calc";
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   date,
+  index,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
   text,
+  timestamp,
   unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -20,6 +24,7 @@ import {
 export const phaseEnum = pgEnum("phase", PHASES);
 export const sponsorTypeEnum = pgEnum("sponsor_type", SPONSOR_TYPES);
 export const fundKindEnum = pgEnum("fund_kind", ["team", "external"]);
+export const userRoleEnum = pgEnum("user_role", ["admin", "pm", "viewer"]);
 
 const id = () => integer().primaryKey().generatedAlwaysAsIdentity();
 
@@ -167,4 +172,62 @@ export const supplier = pgTable(
     name: text().notNull(),
   },
   (t) => [uniqueIndex("supplier_name_uq").on(sql`lower(${t.name})`)],
+);
+
+/**
+ * People who can sign in (always with a Google account of the team). A user is created at the
+ * first login, as `viewer`; an admin promotes them. People who leave are deactivated, never
+ * deleted, so the history keeps pointing at them.
+ */
+export const appUser = pgTable(
+  "app_user",
+  {
+    id: id(),
+    email: text().notNull(),
+    name: text().notNull(),
+    role: userRoleEnum().notNull().default("viewer"),
+    active: boolean().notNull().default(true),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("app_user_email_uq").on(sql`lower(${t.email})`)],
+);
+
+/** The areas a `pm` may change. Other roles ignore it. */
+export const userArea = pgTable(
+  "user_area",
+  {
+    id: id(),
+    userId: integer()
+      .notNull()
+      .references(() => appUser.id, { onDelete: "cascade" }),
+    areaId: integer()
+      .notNull()
+      .references(() => area.id),
+  },
+  (t) => [unique("user_area_user_area_uq").on(t.userId, t.areaId)],
+);
+
+/**
+ * Who changed what. Rows are written by a trigger (see the "audit_triggers" migration) in the
+ * same transaction as the change, so a change and its history can never disagree. `actor_id` has
+ * no foreign key on purpose: the history must outlive anything. Null actor = not a signed-in
+ * person (the seed, the importer).
+ */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    actorId: integer(),
+    tableName: text().notNull(),
+    rowId: integer().notNull(),
+    action: text().notNull(),
+    before: jsonb(),
+    after: jsonb(),
+  },
+  (t) => [
+    check("audit_log_action", sql`${t.action} in ('insert', 'update', 'delete')`),
+    index("audit_log_table_row").on(t.tableName, t.rowId),
+    index("audit_log_at").on(t.at),
+  ],
 );

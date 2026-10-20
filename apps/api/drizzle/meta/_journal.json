@@ -8,6 +8,20 @@
       "when": 1792518201773,
       "tag": "0000_illegal_spencer_smythe",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792526408885,
+      "tag": "0001_fantastic_bloodaxe",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792526409521,
+      "tag": "0002_audit_triggers",
+      "breakpoints": true
     }
   ]
 }

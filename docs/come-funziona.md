@@ -58,8 +58,8 @@ Clicchi la cella *Priority* di una voce e scegli "High".
 | 3 | `commit` (`AreaPage.tsx`) | `act(() => api.updateLine(id, { version, priority }))`: la `version` è quella che la riga aveva quando l'hai caricata |
 | 4 | Rete | `PATCH /api/lines/91` con corpo `{"version":1,"priority":"High"}` |
 | 5 | Fastify + Zod | `updateLineInput.parse(corpo)`: la versione deve essere un intero positivo, la priorità una delle tre |
-| 6 | `updateLine()` | chiede l'utente (`getCurrentUser`), valida la categoria e apre `runWrite(...)` |
-| 7 | `runWrite` | **apre la transazione**; il servizio trova la voce e la sua area e chiede `canWrite(utente, area)` |
+| 6 | `updateLine()` | chiede l'utente (`getCurrentUser`: il controllo comune l'aveva già ricavato dal cookie con il JWT e dal database), valida la categoria e apre `runWrite(...)` |
+| 7 | `runWrite` | **apre la transazione e dice al database chi sta scrivendo**; il servizio trova la voce e la sua area e chiede `canWrite(utente, area)`: un `viewer`, o un `pm` di un'altra area, ricevono **403** e la transazione si annulla |
 | 8 | Il database | esegue `UPDATE budget_line SET priority='High', version = version + 1 WHERE id = 91 AND version = 1` |
 | 9a | Se la riga è stata trovata | la versione passa a 2; se la richiesta portava anche cifre (`figures`) vengono salvate nella stessa transazione; la transazione si chiude (commit); risposta 200 |
 | 9b | Se **nessuna** riga è stata trovata (qualcuno l'aveva già cambiata: la versione ora è 2) | il servizio lancia `conflict(...)`; la transazione si annulla; il gestore degli errori risponde **409** |
@@ -204,8 +204,9 @@ Cosa la riconciliazione **non** copre: i dati reali sono semplici (IVA quasi sem
 | una **colonna nuova** su una voce | `schema.ts` → `pnpm db:generate` → `db:migrate` → Zod in `budget.schema.ts` → `saveFigures`/`updateLine` in `budget.service.ts` → tipo `Figures` in `calc/snapshot.ts` e `loadSnapshot` in `snapshot.ts` → colonna in `areaColumns.tsx` |
 | una **vista/analisi nuova** | funzione in `packages/calc/src/` con il suo test → `views.service.ts` + rotta in `views.routes.ts` → funzione in `api/client.ts` → pagina in `apps/web/src/pages/`, rotta in `App.tsx`, voce di menu in `Shell.tsx` |
 | un **endpoint nuovo** | `x.service.ts` + `x.routes.ts`, registrato in `app.ts`, funzione in `api/client.ts` |
-| il login e i permessi | `getCurrentUser()` e `canWrite()` in `modules/auth/auth.service.ts` |
-| lo storico delle modifiche | dentro `runWrite()` in `core/tx.ts` (è nella stessa transazione) |
+| i permessi dei ruoli | `canWrite()` e le funzioni vicine in `modules/auth/auth.service.ts` (+ il test `roles.test.ts`) |
+| il login e i token | `modules/auth/` ([accesso-e-storico.md](accesso-e-storico.md)) |
+| tracciare un'altra tabella nello storico | una migrazione che aggancia il trigger `audit_row()` (come `0002_audit_triggers.sql`) |
 | i dati per le analisi con script | gli endpoint `/api/views/*` restituiscono già JSON pronto per Python |
 | l'inventario | un modulo nuovo (`modules/inventory/`) con le sue tabelle, che punta a `budget_line.id` |
 
@@ -235,8 +236,8 @@ Cosa la riconciliazione **non** copre: i dati reali sono semplici (IVA quasi sem
 
 ## 11. Limiti attuali, da sapere
 
-- **Nessun login**: l'utente è sempre "Local admin". L'app va usata solo in locale.
-- **Nessuno storico** delle modifiche: la tabella `audit_log` arriverà dentro `runWrite`.
+- **Login e storico ci sono** ([accesso-e-storico.md](accesso-e-storico.md)), ma l'app va ancora usata solo in locale: mancano HTTPS, backup e deploy ([produzione.md](produzione.md)).
+- **Il token di accesso (24 ore) non si revoca da solo**: si disattiva la persona dalla pagina Users (vale dalla richiesta dopo) o si cambia `JWT_SECRET` (disconnette tutti).
 - **Dati per stagione**: oggi esiste solo la stagione 2026-2027, scelta dentro `getCurrentSeason()`.
 - **Incolla multi-riga da Sheets** non garantita nella griglia (versione Community).
 - **Sette domande aperte** per il tesoriere: il comportamento dello script è replicato com'è e ogni domanda è un'impostazione ([regole-script-attuale.md](regole-script-attuale.md), §15).

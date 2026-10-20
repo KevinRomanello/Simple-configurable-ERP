@@ -6,14 +6,14 @@ Stato al 20 ottobre 2026. **Nessun file di produzione è ancora nel repository**
 
 La v0 fa tutto ciò che faceva lo script, sui tuoi dati reali, e il motore coincide al centesimo col foglio (1.995 confronti). Ma è un **ambiente di sviluppo sul tuo computer**: funziona, non è ancora un servizio che altre persone possono usare in sicurezza.
 
-La differenza tra le due cose si riassume in sei parole: **chi sei, chi può fare cosa, cosa è successo, backup, HTTPS, aggiornamenti.** Oggi non c'è niente di tutto questo.
+La differenza tra le due cose si riassume in sei parole: **chi sei, chi può fare cosa, cosa è successo, backup, HTTPS, aggiornamenti.** Le prime tre ci sono (login con Google, ruoli per area, storico: [accesso-e-storico.md](accesso-e-storico.md)); mancano le altre tre.
 
 ## 2. Cosa è temporaneo (solo per lo sviluppo)
 
 | Cosa | Com'è oggi | Perché è solo sviluppo | In produzione |
 | --- | --- | --- | --- |
-| **Utente** | `getCurrentUser()` restituisce sempre "Local admin" | chiunque arrivi alla pagina può cambiare tutto | login con Google, utente vero in ogni richiesta |
-| **Permessi** | `canWrite()` risponde sempre `true` | un capo area potrebbe modificare un'altra area | admin / capo area (solo la sua area) / sola lettura |
+| **Accesso di sviluppo** | `DEV_LOGIN_EMAIL` fa comparire "Sign in as developer" senza Google | in produzione sarebbe una porta aperta | **il server non parte** in produzione se la variabile c'è; si entra solo con Google |
+| **Segreti di esempio** | `JWT_SECRET` e password del database sono valori pubblici in `.env.example` | chiunque li conosce | valori lunghi e casuali, solo sul server (`openssl rand -base64 48`) |
 | **Rete** | porte 3000, 5173 e **5432 (database)** aperte su `127.0.0.1` | comode per provare; il database non deve mai essere raggiungibile da fuori | solo 80/443 verso Internet; database raggiungibile solo dagli altri contenitori |
 | **Password del database** | `erp_dev_password` in `.env.example` | è pubblica, sta nel repository | segreto lungo e casuale, solo sul server |
 | **Server del sito** | Vite in modalità sviluppo (`vite`), con aggiornamento a caldo e proxy | lento, non ottimizzato, non pensato per il pubblico | `vite build` (2 MB di file statici) servito da un normale server web |
@@ -23,11 +23,10 @@ La differenza tra le due cose si riassume in sei parole: **chi sei, chi può far
 | **Migrazioni e dati di base** | si lanciano a mano (`db:migrate`, `db:seed`) | in produzione una dimenticanza = app rotta | passo automatico del rilascio, sempre prima dell'avvio |
 | **Stagione** | `getCurrentSeason()` cerca "2026-2027"; le date della stagione nel seed (1/9/26 – 31/8/27) sono una mia ipotesi | funziona con una stagione sola | elenco stagioni e selettore |
 | **Impostazioni** | categorie, aliquote, scadenze IVA, soglia ±15%, confronti con BANK sono nel codice (sono i `// HARDCODED:` del [registro](hardcoded-registry.md)) | cambiarle richiede di modificare il codice | tabelle e pagina di amministrazione, dopo le risposte del tesoriere |
-| **Storico delle modifiche** | non c'è | impossibile sapere chi ha cambiato cosa | `audit_log`, scritto in `runWrite` nella stessa transazione |
 | **Backup** | non ci sono | se il volume del database si perde, i dati finiscono | copia notturna fuori dal server + prova di ripristino mensile |
 | **Test dell'API** | `global-setup` cancella e ricrea il database `erp_test` con le credenziali di `DATABASE_URL` | ok in sviluppo; non va mai lanciato contro il database di produzione | i test girano solo in locale e in CI, mai sul server |
 | **Importer dal foglio** | `load -- --replace` cancella e ricarica | serve una volta per la migrazione; dopo, pericoloso | si usa una sola volta; poi viene tolto dal server o protetto |
-| **Sicurezza delle richieste** | nessun limite di richieste, nessuna intestazione di sicurezza | su Internet servono | limiti sul login, HSTS e intestazioni di base nel server web |
+| **Sicurezza delle richieste** | nessun limite di richieste, nessuna intestazione di sicurezza (c'è già il controllo CSRF e i cookie sicuri) | su Internet servono | limiti sul login, HSTS e intestazioni di base nel server web |
 | **Logging** | JSON su standard output, visto con `docker compose logs` | basta per un servizio piccolo | rotazione dei log (Docker la fa se configurata) e un controllo esterno di raggiungibilità |
 
 Non temporanei (restano così): gli importi in interi, la logica nel pacchetto `calc`, i vincoli del database, il pattern "rotta sottile + servizio", il blocco ottimistico sulle voci, la struttura delle tabelle.
@@ -40,9 +39,9 @@ Le stime sono mie e non misurate: **S** ≈ 1 ora, **M** ≈ 2 ore, **L** ≈ 3�
 
 | # | Cosa | Taglia | Note |
 | --- | --- | --- | --- |
-| A1 | **Login con Google** e utenti: tabella `app_user` (email, nome, ruolo, aree), accesso limitato al dominio del team, sessione con cookie sicuro | L | si implementa dentro `getCurrentUser()`; il primo admin si indica con una variabile d'ambiente |
-| A2 | **Ruoli per area**: `canWrite(utente, area)` vero; sola lettura per chi non è capo area | M | già chiamato prima di ogni scrittura: cambia solo il corpo |
-| A3 | **Storico delle modifiche** (`audit_log`: chi, quando, tabella, valore prima e dopo) | M | dentro `runWrite`, nella stessa transazione: nessuna scrittura può saltarlo |
+| A1 | **Login con Google** e utenti (JWT di 24 ore, dominio del team, primo admin da `ADMIN_EMAILS`) | L | **fatto** e provato con un Google finto; resta provarlo con le credenziali vere (dominio e client OAuth: serve chi amministra il Workspace) |
+| A2 | **Ruoli per area** (`admin`, `pm` per area, `viewer`) | M | **fatto**, applicati nel server e provati |
+| A3 | **Storico delle modifiche** (`audit_log`, trigger del database) | M | **fatto**: lo vedono admin e pm |
 | A4 | **Configurazione di produzione**: immagine a più stadi, `docker-compose.prod.yml`, server web con HTTPS, migrazioni automatiche, segreti da file | M | vedi §5 |
 | A5 | **Backup e ripristino** provato, con istruzioni scritte | M | vedi §5.6 |
 | A6 | **Integrazione continua** (GitHub Actions): tipi, test, compilazione dell'immagine a ogni modifica | S | **fatto**: `.github/workflows/ci.yml`, vedi [ci.md](ci.md) (da vedere girare al primo push) |
@@ -53,7 +52,7 @@ Le stime sono mie e non misurate: **S** ≈ 1 ora, **M** ≈ 2 ore, **L** ≈ 3�
 | --- | --- | --- |
 | B1 | Risposte del tesoriere alle **sette domande** (Q1–Q7) → impostazioni al posto degli hardcode (e dove serve, tabelle) | M |
 | B2 | **Revisione del layout con un designer**: menu, tabelle, griglia e grafici non sono disegnati su Figma; il logo | M |
-| B3 | **Pagina di amministrazione**: utenti e ruoli, categorie, aliquote IVA, scadenze, soglie | L |
+| B3 | **Pagina di amministrazione**: categorie, aliquote IVA, scadenze, soglie (utenti e ruoli ci sono già) | L |
 | B4 | **Test dell'interfaccia** (Playwright): i percorsi principali, per non rompere niente a ogni modifica | M |
 | B5 | **Parallelo con il foglio per due chiusure mensili** (dal piano originale): stessi dati sui due sistemi, differenze spiegate | attività del team |
 | B6 | Una **revisione del codice** da parte di una persona del team: gran parte è stato scritto con un assistente, e deve essere comprensibile a chi lo manterrà | attività del team |
@@ -85,9 +84,9 @@ Le stime sono mie e non misurate: **S** ≈ 1 ora, **M** ≈ 2 ore, **L** ≈ 3�
 | **A. Un VPS** (Hetzner, OVH, DigitalOcean, Contabo…) | pochi euro al mese (indicativamente 4–8 €), controllo totale, server in Europa, la ricetta di questo documento è scritta per questo | l'aggiornamento e la sicurezza del server sono compito vostro | **la scelta consigliata** per un servizio vero |
 | **B. Una VM dell'università o del dipartimento** | gratis, vicina al team | dipende dall'ufficio informatico (porte, dominio, HTTPS, regole); la ricetta è la stessa ma l'HTTPS potrebbe doverlo fare il loro sistema | se vi viene offerta: chiedete una VM Linux con Docker |
 | **C. PaaS** (Render, Railway, Fly.io) | niente server da amministrare | costa di più, i dati sono su una piattaforma esterna, Compose non si usa tale e quale | se nessuno vuole amministrare un server |
-| **D. Un computer in sede** (mini PC) **+ VPN** (Tailscale, WireGuard) | nessun costo, nessuna esposizione su Internet | disponibilità legata alla sede, backup comunque necessari | ottima per il **periodo pilota** e finché non c'è il login |
+| **D. Un computer in sede** (mini PC) **+ VPN** (Tailscale, WireGuard) | nessun costo, nessuna esposizione su Internet | disponibilità legata alla sede, backup comunque necessari | ottima per il **periodo pilota** |
 
-**Regola di sicurezza**: finché non esiste il login (A1) e l'accesso per ruoli (A2), l'app **non va esposta su Internet**. Chi la raggiunge può cambiare tutto. Per un pilota va bene l'opzione D, oppure un VPS raggiungibile solo via VPN.
+**Regola di sicurezza**: il login e i ruoli ci sono, ma finché mancano HTTPS, backup e configurazione di produzione (A4, A5) l'app **non va esposta su Internet**. Per un pilota va bene l'opzione D, oppure un server raggiungibile solo via VPN (Tailscale).
 
 ## 5. Come si ospita: la ricetta
 
@@ -147,7 +146,7 @@ La riga `try_files … /index.html` è necessaria: le "pagine" del sito sono nel
 3. **Firewall**: apri solo le porte 22 (SSH), 80 e 443.
 4. **Aggiornamenti di sicurezza automatici** (`unattended-upgrades`).
 5. **Installa Docker** (con Compose v2) e Git.
-6. Copia il progetto sul server (`git clone`) e crea `.env` con i segreti di produzione: password del database lunga e casuale, credenziali di Google per il login, chiave per le sessioni.
+6. Copia il progetto sul server (`git clone`) e crea `.env` con i segreti di produzione: password del database lunga e casuale, `PUBLIC_URL` (https), `JWT_SECRET`, `ADMIN_EMAILS`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_ALLOWED_DOMAIN` (tabella in [accesso-e-storico.md](accesso-e-storico.md#5-configurazione-variabili-dambiente)); **senza** `DEV_LOGIN_EMAIL`.
 
 ### 5.4 Primo avvio
 
@@ -177,8 +176,9 @@ Per ogni rilascio:
 
 ### 5.7 Sicurezza: la lista
 
-- [ ] Login con Google ristretto al dominio del team; sessioni con cookie `HttpOnly`, `Secure`, `SameSite`.
-- [ ] Ruoli applicati **nel server** (`canWrite`), mai solo nascondendo bottoni nell'interfaccia.
+- [x] Login con Google ristretto al dominio del team; cookie `HttpOnly`, `Secure` (con https), `SameSite=Lax`; JWT di 24 ore (da provare con le credenziali vere).
+- [x] Ruoli applicati **nel server** (`canWrite`), mai solo nascondendo bottoni nell'interfaccia; provati con test.
+- [ ] `JWT_SECRET` lungo e casuale solo sul server; se trapela, lo si cambia (tutti rifanno il login).
 - [ ] Database senza porte pubblicate; password lunga; utente dell'applicazione senza bisogno di essere amministratore del server.
 - [ ] HTTPS ovunque (Caddy), HSTS; intestazioni di sicurezza di base.
 - [ ] Limiti di richieste sul login.
@@ -204,10 +204,10 @@ Per ogni rilascio:
 
 | Tema | Decisione | Dove è sviluppata |
 | --- | --- | --- |
-| Accesso | **solo login con Google**, account del team; nessun login con password | [accesso-e-storico.md](accesso-e-storico.md) |
-| Ruoli | tre: `admin`, `pm`, `viewer`; da valutare se i `pm` sono legati alle aree (proposta: sì) | [accesso-e-storico.md](accesso-e-storico.md) |
-| Storico | in una tabella (proposta: tabella nel database, scritta nella stessa transazione) o in un file di log | [accesso-e-storico.md](accesso-e-storico.md) §4 |
-| Server | **vostri server Ubuntu**, raggiunti di solito con **Tailscale** (tranne il sito standard): è l'opzione "D/B" del §4 | domande 7–10 di [accesso-e-storico.md](accesso-e-storico.md) |
+| Accesso | **solo login con Google**, account del team; nessun login con password; **JWT di 24 ore, nessuna sessione nel database** | [accesso-e-storico.md](accesso-e-storico.md) |
+| Ruoli | tre: `admin` (il tesoriere), `pm` **per area**, `viewer`; primo accesso = `viewer`; i `pm` aggiungono fornitori | [accesso-e-storico.md](accesso-e-storico.md) §6 |
+| Storico | **tabella** nel database, scritta da trigger; lo vedono **admin e pm** | [accesso-e-storico.md](accesso-e-storico.md) §8 |
+| Server | **vostri server Ubuntu**, raggiunti di solito con **Tailscale** (tranne il sito standard): è l'opzione "D/B" del §4; il **deploy** si decide dopo | [produzione.md](produzione.md) §4 |
 | CI su GitHub | **fatta**, sul vostro repository | [ci.md](ci.md) |
 | Migrazioni del database | **restano**: il foglio si carica una volta sola, ma le tabelle vanno create e poi aggiornate | [accesso-e-storico.md](accesso-e-storico.md) §5 |
 
@@ -217,16 +217,16 @@ Per ogni rilascio:
 | --- | --- | --- |
 | 1 | **Quale server** dei vostri e come ci si arriva: Docker presente? porte 80/443 occupate dal sito standard? HTTPS con `tailscale serve` o con un sottodominio vostro? | cambia la procedura di rete e di HTTPS |
 | 2 | **Dominio**: quale sottodominio, e chi gestisce il DNS | per l'HTTPS e per il login con Google |
-| 3 | Il **dominio esatto** degli account Google del team e chi può creare il client OAuth su Google Cloud | il login si restringe a quel dominio |
+| 3 | Il **dominio esatto** degli account Google del team (esiste già, ne risponde qualcuno del team) e un **client OAuth** su Google Cloud: i passi sono in [accesso-e-storico.md](accesso-e-storico.md#cosa-serve-su-google-lo-fa-chi-amministra-il-workspace) | il login si restringe a quel dominio; senza, in produzione l'app non parte |
 | 4 | **Chi amministra il server** e chi fa i rilasci | aggiornamenti di sicurezza e backup hanno bisogno di un responsabile |
 | 5 | **Dove tenere i backup** (fuori dal server) | prima di andare online |
-| 6 | **Chi è admin, chi è capo area di quale area** | per i ruoli (A1, A2) |
+| 6 | Le **email dei primi admin** (`ADMIN_EMAILS`); poi i capi area li assegna l'admin dalla pagina Users | per il primo accesso in produzione |
 | 7 | Le due decisioni del §3C: voci senza categoria e outflow rosso nelle analisi | sono piccole ma toccano ciò che si vede |
 
 ## 7. Ordine di lavoro proposto
 
-1. **A1 + A2**: login con Google e ruoli (dentro `getCurrentUser` e `canWrite`).
-2. **A3**: storico delle modifiche (dentro `runWrite`).
+1. ~~**A1 + A2**: login con Google e ruoli~~ — fatto.
+2. ~~**A3**: storico delle modifiche~~ — fatto.
 3. **A4 + A5**: configurazione di produzione e backup, con il ripristino provato su una macchina di prova.
 4. **A6**: integrazione continua.
 5. **Messa online** (§5.3–5.4), prima con 2 persone.
@@ -234,4 +234,4 @@ Per ogni rilascio:
 7. **B5**: parallelo con il foglio per due chiusure.
 8. **D**: inventario e analisi.
 
-Il punto 1 è il più lungo; i punti 3 e 5 hanno attività che solo tu puoi fare (server, dominio, credenziali di Google).
+I punti 3 e 5 hanno attività che solo tu puoi fare (server, dominio, credenziali di Google).

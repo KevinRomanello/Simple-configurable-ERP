@@ -17,7 +17,7 @@ Proposta del 20 ottobre 2026, da confermare prima di iniziare (regola 5). Compri
 
 Test: 151 (99 motore, 43 API, 3 importer, 6 interfaccia). `pnpm reconcile` (anche `-- --db`) confronta il motore con il foglio reale.
 
-**Fuori dalla v0, ancora da fare** (dettaglio, priorità e come ospitarlo in [produzione.md](produzione.md)): accesso con login e ruoli, storico delle modifiche, incolla multi-riga da Sheets, logo, test automatici dell'interfaccia, backup e deploy. L'app va usata solo in locale.
+**Fuori dalla v0, ancora da fare** (dettaglio, priorità e come ospitarlo in [produzione.md](produzione.md)): incolla multi-riga da Sheets, logo, test automatici dell'interfaccia, backup e deploy. **Fatti dopo la parità**: login con Google, ruoli e storico delle modifiche ([accesso-e-storico.md](accesso-e-storico.md)). L'app va ancora usata solo in locale finché non c'è il deploy.
 
 ## Obiettivo
 
@@ -57,7 +57,8 @@ Non è difficile: è **grande**. Il rischio è il tempo, non la fattibilità.
 | Stile Figma | Indispensabile, ma bloccato | servono i link ai file ([stile-interfaccia.md](stile-interfaccia.md)); intanto token neutri in un unico punto |
 | Grafici | Se avanza tempo | una volta che le tabelle sono giuste |
 | Incolla multi-riga da Sheets | Dopo | verifica su AG Grid Community, come nel piano originale |
-| Login Google e ruoli, storico modifiche, backup, deploy | Fuori | funzioni predisposte con valori fissi ([hardcoded-registry.md](hardcoded-registry.md)); l'app per ora va usata solo in locale |
+| Login Google e ruoli, storico modifiche | Fatti dopo la parità | [accesso-e-storico.md](accesso-e-storico.md) |
+| Backup, deploy | Fuori | [produzione.md](produzione.md); l'app per ora va usata solo in locale |
 | Inventario, tabelle `calc_*` e notebook Python, multi-stagione | Fuori | nel piano originale, dopo la parità |
 | Risposte alle sette domande per il tesoriere | Fuori | il comportamento dello script è portato così com'è, ogni domanda è un'impostazione ([regole §15](regole-script-attuale.md#15-domande-aperte--dove-sono-isolate)) |
 
@@ -101,7 +102,7 @@ Somma indicativa: circa 19 ore in serie. Il cammino critico (B0 → B1 → B2 �
 | Tabella "Team's fund" EXPECTED del foglio vuota | nessun valore atteso per quel pezzo | si verifica con i casi del §17; segnalo anche l'errore silenzioso dello script |
 | Griglia meno comoda del foglio | gli utenti tornano a Sheets | AG Grid con tastiera e tendine; incolla multi-riga da verificare dopo |
 | Figma non leggibile | stile in ritardo | token neutri in `theme/`, sostituibili senza toccare i componenti |
-| App senza login | accesso a chiunque la raggiunga | solo in locale finché non c'è l'accesso con Google |
+| Esposizione di rete | login e ruoli ci sono, ma mancano HTTPS, backup e configurazione di produzione | solo in locale finché non c'è il deploy ([produzione.md](produzione.md)) |
 | Dati reali nel repository | fuga di nomi e importi | `fonti/` ignorata da git, fixture solo sintetiche (convenzione in `CLAUDE.md`) |
 
 ## Cosa mi serve da te
@@ -113,4 +114,4 @@ Somma indicativa: circa 19 ore in serie. Il cammino critico (B0 → B1 → B2 �
 
 ## Dopo la v0
 
-In quest'ordine, riprendendo le fasi del piano originale: risposte del tesoriere (si cambia `getSettings()`), poi login Google e ruoli per area e storico modifiche (fase 2), inventario (fase 6), analisi esterne dagli endpoint `/views/*` o dalle tabelle `calc_*` (fase 5), backup, runbook e deploy (fasi 7 e sicurezza).
+In quest'ordine, riprendendo le fasi del piano originale: risposte del tesoriere (si cambia `getSettings()`), poi inventario (fase 6), analisi esterne dagli endpoint `/views/*` o dalle tabelle `calc_*` (fase 5), backup, runbook e deploy (fasi 7 e sicurezza).

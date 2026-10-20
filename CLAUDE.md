@@ -20,4 +20,4 @@ Gestionale custom per budget e inventario del team: sostituisce il foglio Google
 
 ## Stato
 
-v0 = parità con lo script attuale, ma su database: [docs/piano-azione-v0.md](docs/piano-azione-v0.md). Materiale di partenza in `fonti/` (locale, non nel repository): `fonti/script attuale` (il comportamento da replicare), `fonti/Budget 26-27.xlsx` (foglio reale: dati d'esempio e oracolo per i test di riconciliazione) e `fonti/Piano d'azione — Budget e Inventario custom.md` (visione completa, domande per il tesoriere).
+v0 = parità con lo script attuale, ma su database: [docs/piano-azione-v0.md](docs/piano-azione-v0.md). Sopra la v0 ci sono il login con Google (JWT di 24 ore), i ruoli `admin`/`pm`/`viewer` e lo storico delle modifiche: [docs/accesso-e-storico.md](docs/accesso-e-storico.md). Materiale di partenza in `fonti/` (locale, non nel repository): `fonti/script attuale` (il comportamento da replicare), `fonti/Budget 26-27.xlsx` (foglio reale: dati d'esempio e oracolo per i test di riconciliazione) e `fonti/Piano d'azione — Budget e Inventario custom.md` (visione completa, domande per il tesoriere).

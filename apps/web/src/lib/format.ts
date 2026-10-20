@@ -40,6 +40,13 @@ export function date(iso: string | null | undefined): string {
   return `${d}/${m}/${y?.slice(2)}`;
 }
 
+/** An instant as local time: 20/11/26 14:05. */
+export function dateTime(iso: string): string {
+  const moment = new Date(iso);
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${two(moment.getDate())}/${two(moment.getMonth() + 1)}/${String(moment.getFullYear()).slice(2)} ${two(moment.getHours())}:${two(moment.getMinutes())}`;
+}
+
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
 /** 2026-11 -> nov 26. */

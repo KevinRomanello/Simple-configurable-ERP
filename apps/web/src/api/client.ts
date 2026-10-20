@@ -1,6 +1,6 @@
 import type {
-  Analysis, Area, AreaSheet, Bank, CashFlowSummary, Contract, Fund, FundSummaryRow, Gantt, Inflow,
-  ItemsView, MonthlyInflow, Phase, Supplier, Totals, VatReport,
+  Analysis, Area, AreaSheet, Bank, CashFlowSummary, Contract, Fund, FundSummaryRow, Gantt, HistoryPage,
+  Inflow, ItemsView, Me, MonthlyInflow, Phase, Role, SignInOptions, Supplier, Totals, UserRow, VatReport,
 } from "./types";
 
 /** An error answer of the API: carries the HTTP status so screens can react to a 409. */
@@ -12,6 +12,9 @@ export class ApiError extends Error {
     super(message);
   }
 }
+
+/** The session is missing, expired or was revoked: the person has to sign in again. */
+export const isUnauthorized = (error: unknown) => error instanceof ApiError && error.status === 401;
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(`/api${path}`, {
@@ -53,6 +56,30 @@ export interface LinePatch {
 }
 
 export const api = {
+  // sign-in
+  signInOptions: () => get<SignInOptions>("/auth/config"),
+  /** The signed-in person, or null when nobody is signed in. */
+  me: async (): Promise<Me | null> => {
+    try {
+      return await get<Me>("/me");
+    } catch (error) {
+      if (isUnauthorized(error)) return null;
+      throw error;
+    }
+  },
+  signOut: () => post<void>("/auth/logout", {}),
+
+  // users and history
+  users: () => get<UserRow[]>("/users"),
+  updateUser: (id: number, body: { role?: Role; active?: boolean; areaIds?: number[] }) =>
+    patch<UserRow>(`/users/${id}`, body),
+  history: (query: { table?: string; before?: number }) => {
+    const params = new URLSearchParams({ limit: "50" });
+    if (query.table) params.set("table", query.table);
+    if (query.before) params.set("before", String(query.before));
+    return get<HistoryPage>(`/audit?${params}`);
+  },
+
   // lookups
   categories: () => get<string[]>("/lookups/categories"),
   priorities: () => get<string[]>("/lookups/priorities"),

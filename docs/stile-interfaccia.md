@@ -55,6 +55,7 @@ Nel file non esiste nessuna schermata dell'app: niente navigazione laterale, tab
 | Navigazione laterale (voce attiva in giallo) | composta con i token | **da confermare**: non disegnata |
 | Tabelle, griglia delle aree (AG Grid), riquadri dei totali, "chip" dei blocchi | composte con i token | **da confermare**: non disegnate |
 | Grafici | colonne con i colori "Utility" | **da confermare**: non disegnati |
+| Pagina di accesso, pagine **Users** e **History**, blocco utente in fondo al menu (nome, ruolo, uscita) | composte con i token, il pulsante e i campi del design system | **da confermare**: non disegnate; fatte per non bloccare il lavoro sull'accesso, vanno riviste con un disegno |
 | Logo E-Agle | non ancora usato (file Figma: *Foundations → Images → E-Agle Logo*, nodo `509:5495`) | da fare |
 
 Quando esistono frame per queste parti, si passano i link e si allinea il codice.

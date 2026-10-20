@@ -7,7 +7,7 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 1. **API-first.** Ogni capacità è una funzione di servizio tipizzata; la route Fastify che la espone non contiene logica. Il web app parla solo con l'API.
 2. **Il calcolo è puro.** `packages/calc` riceve dati semplici e restituisce dati semplici: nessun database, nessuna rete, nessun orologio. Si testa senza infrastruttura e può girare anche nel browser.
 3. **Hardcode dentro la funzione-API** (regola 4 di `CLAUDE.md`). Ciò che oggi è fisso ma domani sarà configurabile vive nel corpo di una funzione di servizio che è già l'API futura (vedi sotto e [hardcoded-registry.md](hardcoded-registry.md)).
-4. **Semplice.** Nessun livello che non serva oggi. Dove c'è una predisposizione (`runWrite`, `getCurrentUser`, `canWrite`) è perché il piano la richiede e costa poche righe.
+4. **Semplice.** Nessun livello che non serva oggi. Dove c'è una predisposizione (`runWrite`) è perché il piano la richiede e costa poche righe.
 
 ## Stack
 
@@ -35,10 +35,12 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   │   └── src/
 │   │       ├── main.ts           # avvio Fastify, registra i moduli
 │   │       ├── db/               # schema.ts, client.ts, migrate.ts, seed-base.ts, seed.ts
-│   │       ├── core/             # tx.ts (runWrite), errors.ts, money.ts (numeric ↔ centesimi)
+│   │       ├── core/             # tx.ts (runWrite), errors.ts, money.ts (numeric ↔ centesimi), auth-config.ts
 │   │       ├── snapshot.ts       # loadSnapshot(): dal DB al formato di calc
 │   │       └── modules/
-│   │           ├── auth/         # getCurrentUser, canWrite          (HARDCODED)
+│   │           ├── auth/         # login Google, JWT, controllo delle richieste, ruoli e permessi
+│   │           ├── users/        # utenti, ruoli, aree dei pm
+│   │           ├── audit/        # lettura dello storico delle modifiche
 │   │           ├── lookups/      # categorie, aliquote, regole IVA, impostazioni (HARDCODED)
 │   │           ├── seasons/      # stagione corrente (HARDCODED)
 │   │           ├── budget/       # aree, progetti, righe
@@ -49,9 +51,9 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   └── web/src/
 │       ├── theme/            # tokens.css (token Figma), base.css (tipografia), components.css, grid.ts
 │       ├── api/              # client.ts (una funzione per endpoint), types.ts
-│       ├── lib/              # format.ts (soldi, date), useAction.ts (scritture + ricarica)
+│       ├── lib/              # format.ts (soldi, date), useAction.ts (scritture + ricarica), auth.tsx (chi è dentro), permissions.ts
 │       ├── components/       # Shell, Button, Chips, Cards, BarsChart, Notice
-│       └── pages/            # una pagina per foglio del vecchio file
+│       └── pages/            # una pagina per foglio del vecchio file, più Login, Users, History
 ├── packages/calc/src/        # funzioni pure + test
 └── tools/import-xlsx/        # legge l'xlsx reale: riconciliazione col foglio e caricamento nel DB (usa fonti/)
 ```
@@ -73,12 +75,13 @@ flowchart LR
   N --> L
 ```
 
-- **Scrittura**: route → service → `runWrite(actor, fn)` (apre la transazione) → Drizzle. Il service chiama `canWrite(actor, area)` prima di scrivere.
+- **Ogni richiesta** (tranne health e login): un controllo comune legge il cookie con il JWT, ricarica l'utente dal database (attivo, ruolo, aree) e lo mette nel contesto della richiesta; senza token valido risponde 401. Vedi [accesso-e-storico.md](accesso-e-storico.md).
+- **Scrittura**: route → service → `getCurrentUser()` e `canWrite(utente, area)` → `runWrite(actor, fn)` (apre la transazione e dice al database chi scrive; i trigger registrano la modifica in `audit_log`) → Drizzle.
 - **Lettura di una vista**: route → service della vista → `loadSnapshot()` (carica stagione, aree, progetti, righe con le due fasi, fondi, contratti, ingressi, fornitori, BANK **e** i valori di `lookups`) → funzione di `calc` → JSON. Niente tabelle di risultati salvate: i conti si rifanno a ogni lettura (qualche centinaio di righe: un istante) e non possono mai essere vecchi.
 
 ## Il pattern "hardcode nella funzione-API"
 
-Cosa oggi è fisso e domani non lo sarà? Le categorie, le aliquote IVA, le regole delle scadenze, la soglia di scostamento, l'utente corrente. Ognuna ha già la sua funzione di servizio e la sua route; **il valore è scritto nel corpo della funzione** e nessun altro file lo conosce:
+Cosa oggi è fisso e domani non lo sarà? Le categorie, le aliquote IVA, le regole delle scadenze, la soglia di scostamento, la stagione corrente. Ognuna ha già la sua funzione di servizio e la sua route; **il valore è scritto nel corpo della funzione** e nessun altro file lo conosce:
 
 ```ts
 // apps/api/src/modules/lookups/lookups.service.ts
@@ -113,6 +116,9 @@ Soldi in `numeric` nel database e in interi nel codice: importi in centesimi, qu
 | `team_inflow`   | id, season_id, phase, source_name, amount, inflow_date                                                                                | Le tabelle CASH FLOW                                                                                                       |
 | `bank_snapshot` | id, season_id (unico), amount, as_of_date                                                                                             | Il BANK, valido per le due fasi                                                                                            |
 | `supplier`      | id, name                                                                                                                              | Lista unica, senza stagione (servirà all'inventario)                                                                      |
+| `app_user`      | id, email (unica, senza maiuscole), name, role (`admin`/`pm`/`viewer`), active, created_at                                            | Chi può entrare; creato al primo accesso come `viewer`; si disattiva, non si cancella                                      |
+| `user_area`     | id, user_id, area_id                                                                                                                  | Le aree che un `pm` può modificare                                                                                         |
+| `audit_log`     | id, at, actor_id (senza chiave esterna), table_name, row_id, action, before, after (jsonb)                                            | Scritta dai trigger; attore nullo = seed, importer, creazione account                                                      |
 
 Vincoli, applicati dal servizio con messaggi chiari: quantità e costi ≥ 0; aliquota tra `listVatRates()`; sponsor parziale con 0 < valore ≤ netto; sponsor totale ignora il valore inserito; fondo o fornitore in uso → eliminazione rifiutata (409); `PATCH` di una riga con `version` vecchia → 409.
 
@@ -146,11 +152,14 @@ I confronti con la data BANK passano da un solo helper, `isAfterBank(date, bankD
 
 ## API (v0)
 
-Prefisso `/api`. Tutte le scritture passano da `runWrite` e `canWrite`.
+Prefisso `/api`. Tutto richiede un utente che ha fatto il login, tranne `/health` e `/auth/*`. Tutte le scritture passano da `canWrite` (o dai controlli di fornitori e utenti) e da `runWrite`.
 
 | Endpoint                                                                                    | Funzione (modulo)                                                                                    | Note                                                                 |
 | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `GET /me`                                                                                 | `getCurrentUser` (auth)                                                                            | HARDCODED: admin                                                     |
+| `GET /auth/config`, `/auth/login`, `/auth/callback`, `/auth/dev-login`, `POST /auth/logout` | `authRoutes` (auth)                                                                              | pubblici; dev-login esiste solo con `DEV_LOGIN_EMAIL`                |
+| `GET /me`                                                                                 | `getCurrentUser`, `permissionsOf` (auth)                                                           | chi sei, ruolo, aree, cosa puoi fare                                 |
+| `GET /users`, `PATCH /users/:id`                                                          | `listUsers`, `updateUser` (users)                                                                  | solo admin: ruolo, attivo, aree                                      |
+| `GET /audit?table=&rowId=&actorId=&before=&limit=`                                        | `listHistory` (audit)                                                                              | admin e pm: storico, più recente prima, paginato                     |
 | `GET /lookups/categories`, `/priorities`, `/vat-rates`, `/vat-rules`, `/settings` | `listCategories`, `listPriorities`, `listVatRates`, `getVatRules`, `getSettings` (lookups) | HARDCODED (le priorità sono fisse)                                  |
 | `GET /seasons/current`                                                                    | `getCurrentSeason` (seasons)                                                                       | HARDCODED: 2026-2027                                                 |
 | `GET /areas`                                                                              | `listAreas` (budget)                                                                               | dal DB                                                               |
@@ -188,14 +197,14 @@ pnpm --filter @erp/import-xlsx load            # carica il foglio reale nel DB (
 
 Prerequisiti sul computer: Node 24 o più recente, Docker, pnpm. Se `pnpm` non c'è, `npm install -g pnpm@12.14.0` (il `corepack` incluso in alcune versioni di Node 26 ha un bug di verifica delle firme). I contenitori usano la propria installazione.
 
-**Sicurezza della v0**: nessun login (`getCurrentUser()` restituisce l'admin). L'app va usata solo in locale; non esporla su una rete finché non c'è l'accesso con Google.
+**Sicurezza**: login solo con Google (in sviluppo, l'accesso "Sign in as developer"), JWT di 24 ore, ruoli applicati nel server, storico delle modifiche: tutto in [accesso-e-storico.md](accesso-e-storico.md). Le porte restano pubblicate solo su `127.0.0.1`; per esporre l'app serve ancora il lavoro di [produzione.md](produzione.md) (HTTPS, server, backup).
 
 ## Test
 
 | Livello          | Cosa                                                                                                                                                                                                                                                     | Dati                                                                                         |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | Unitari `calc` | ogni regola di [regole-script-attuale.md](regole-script-attuale.md), compresi i casi del §17                                                                                                                                                             | sintetici                                                                                    |
-| Integrazione API | CRUD, versione, blocchi di eliminazione, viste su uno snapshot noto                                                                                                                                                                                      | sintetici, Postgres di test                                                                  |
+| Integrazione API | CRUD, versione, blocchi di eliminazione, viste su uno snapshot noto, **accesso, ruoli e storico** ([accesso-e-storico.md](accesso-e-storico.md#11-test))                                                                                                                                                                                      | sintetici, Postgres di test                                                                  |
 | Riconciliazione  | `pnpm reconcile`: legge `fonti/Budget 26-27.xlsx`, calcola con il motore e confronta ogni valore salvato dal foglio (righe, IVA del team, saldi dei fondi, CASH FLOW, TOTAL, report IVA, tabelle Gantt, analisi, CATEGORY ANALYSES: 1.995 confronti) | reali, è uno script e non gira senza `fonti/`; nessun dato reale entra nei file tracciati |
 
 ## Come si estende
@@ -205,8 +214,8 @@ Prerequisiti sul computer: Node 24 o più recente, Docker, pnpm. Se `pnpm` non c
 | trasformare un hardcode in funzionalità        | trova la riga in [hardcoded-registry.md](hardcoded-registry.md); cambia il corpo della funzione; aggiungi tabella, migrazione e route di scrittura; togli la riga dal registro |
 | aggiungere un campo a una riga                  | `schema.ts` → migrazione → Zod nel modulo → tipo in `calc` → colonna nella griglia                                                                                    |
 | aggiungere un'analisi                           | funzione pura in `calc` + `GET /views/<nome>` in `views` (+ pagina, se serve)                                                                                           |
-| login con Google e ruoli                        | corpo di `getCurrentUser()` e `canWrite()`                                                                                                                                |
-| storico delle modifiche                         | dentro `runWrite()`: scrive `audit_log` nella stessa transazione                                                                                                          |
+| un permesso nuovo o un ruolo                    | `canWrite()` e le funzioni vicine in `modules/auth/auth.service.ts`; i test in `roles.test.ts`                                                                          |
+| tracciare una tabella nello storico             | una migrazione con `create trigger … execute function audit_row()` (vedi `0002_audit_triggers.sql`)                                                                      |
 | tabelle `calc_*` e viste SQL per gli analisti | dentro `runWrite()`: rigenera con `calc` dopo la scrittura                                                                                                                |
 | inventario                                      | nuovo modulo `inventory` con `inventory_unit` e `inventory_movement`; `budget_line_id` facoltativo; non tocca il resto                                                |
 
@@ -216,7 +225,7 @@ Prerequisiti sul computer: Node 24 o più recente, Docker, pnpm. Se `pnpm` non c
 | ----------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Tabelle `calc_*` ricalcolate a ogni scrittura | calcolo alla lettura                                                                   | più semplice e mai incoerente; le tabelle si aggiungono in `runWrite()` quando servono agli analisti |
 | Analisi su viste SQL `reporting`              | anche gli endpoint `/views/*` come fonte JSON                                        | stessa logica, nessuna copia                                                                            |
-| Login Google, ruoli per area, audit log         | funzioni predisposte (`getCurrentUser`, `canWrite`, `runWrite`) con valori fissi | dopo la parità                                                                                         |
+| Login Google, ruoli per area, audit log         | **fatti** dopo la parità, con un JWT di 24 ore al posto delle sessioni nel database | scelta dell'utente: [accesso-e-storico.md](accesso-e-storico.md)                                      |
 | Un solo flag "paga IVA" per fondo               | due flag, uno per fase                                                                 | parità col foglio finché Q5 è aperta                                                                 |
 | Importer in fase 1                              | importer e riconciliazione appena c'è il motore (B3)                                  | l'xlsx reale è l'oracolo e prova il motore prima dell'interfaccia                                      |
 | `project` senza responsabile                  | `owner_name`                                                                         | il foglio reale lo contiene                                                                             |

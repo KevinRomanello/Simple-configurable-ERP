@@ -6,6 +6,7 @@ import type { Phase } from "../api/types";
 import { BarsChart } from "../components/BarsChart";
 import { Button, IconButton } from "../components/Button";
 import { date, money, moneyFromDecimal, month } from "../lib/format";
+import { useMe } from "../lib/auth";
 import { useAction } from "../lib/useAction";
 
 const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
@@ -30,6 +31,7 @@ export function FundsPage() {
 
 function PhaseFunds({ phase }: { phase: Phase }) {
   const act = useAction();
+  const canEdit = useMe().permissions.canEditShared;
   const contracts = useQuery({ queryKey: ["contracts", phase], queryFn: () => api.contracts(phase) });
   const summary = useQuery({ queryKey: ["funds-summary", phase], queryFn: () => api.fundsSummary(phase) });
   const funds = useQuery({ queryKey: ["funds"], queryFn: () => api.funds() });
@@ -55,24 +57,26 @@ function PhaseFunds({ phase }: { phase: Phase }) {
     <section className="panel">
       <h2>{TITLE[phase]}</h2>
 
-      <form className="inline-form" onSubmit={add}>
-        <div className="field">
-          <label htmlFor={`fund-${phase}`}>Company</label>
-          <input id={`fund-${phase}`} className="input small" list={`funds-${phase}`} value={name} onChange={(e) => setName(e.target.value)} />
-          <datalist id={`funds-${phase}`}>
-            {funds.data?.filter((f) => f.kind === "external").map((f) => <option key={f.id} value={f.name} />)}
-          </datalist>
-        </div>
-        <div className="field">
-          <label htmlFor={`amount-${phase}`}>Contract value</label>
-          <input id={`amount-${phase}`} className="input small" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor={`day-${phase}`}>Inflow date</label>
-          <input id={`day-${phase}`} className="input small" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
-        </div>
-        <Button small icon={faPlus} type="submit" disabled={name.trim() === "" || amount === ""}>Add contract</Button>
-      </form>
+      {canEdit && (
+        <form className="inline-form" onSubmit={add}>
+          <div className="field">
+            <label htmlFor={`fund-${phase}`}>Company</label>
+            <input id={`fund-${phase}`} className="input small" list={`funds-${phase}`} value={name} onChange={(e) => setName(e.target.value)} />
+            <datalist id={`funds-${phase}`}>
+              {funds.data?.filter((f) => f.kind === "external").map((f) => <option key={f.id} value={f.name} />)}
+            </datalist>
+          </div>
+          <div className="field">
+            <label htmlFor={`amount-${phase}`}>Contract value</label>
+            <input id={`amount-${phase}`} className="input small" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor={`day-${phase}`}>Inflow date</label>
+            <input id={`day-${phase}`} className="input small" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
+          </div>
+          <Button small icon={faPlus} type="submit" disabled={name.trim() === "" || amount === ""}>Add contract</Button>
+        </form>
+      )}
 
       <div className="table-wrap">
         <table className="data-table">
@@ -85,7 +89,9 @@ function PhaseFunds({ phase }: { phase: Phase }) {
                 <td>{c.fundName}</td>
                 <td className="num">{moneyFromDecimal(c.amount)}</td>
                 <td>{date(c.inflowDate)}</td>
-                <td className="num"><IconButton icon={faTrash} label="Delete contract" danger onClick={() => act(() => api.deleteContract(c.id))} /></td>
+                <td className="num">
+                  {canEdit && <IconButton icon={faTrash} label="Delete contract" danger onClick={() => act(() => api.deleteContract(c.id))} />}
+                </td>
               </tr>
             ))}
             {contracts.data?.length === 0 && <tr><td colSpan={4} className="empty">No contracts yet</td></tr>}
@@ -106,7 +112,7 @@ function PhaseFunds({ phase }: { phase: Phase }) {
                 <td className={`num${row.leftCents < 0 ? " cell-negative" : ""}`}>{money(row.leftCents)}</td>
                 <td>
                   <label className="checkbox">
-                    <input type="checkbox" checked={row.paysVat} onChange={(e) => flag(row.fundId, e.target.checked)} />
+                    <input type="checkbox" checked={row.paysVat} disabled={!canEdit} onChange={(e) => flag(row.fundId, e.target.checked)} />
                     {row.paysVat ? "yes" : "no: the team pays it"}
                   </label>
                 </td>
