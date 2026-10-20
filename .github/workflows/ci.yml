@@ -1,0 +1,93 @@
+# Continuous integration: on every push to main and on every pull request, check that the
+# project still type-checks, passes all its tests, builds, and that the Docker image builds.
+# Nothing here deploys anything and no secret is needed.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch makes an older, still running check pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Types, tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # The API tests talk to a real PostgreSQL. They create (and drop) their own database,
+    # "erp_test", so the same user and server as the development setup is all they need.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: erp
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: erp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp -d erp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://erp:ci_password@localhost:5432/erp
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # The exact pnpm version of package.json ("packageManager"), installed with npm
+      # because corepack in some Node versions fails to verify signatures.
+      - name: Install pnpm
+        run: npm install -g pnpm@12.14.0
+
+      - name: Find the pnpm store
+        id: pnpm-store
+        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      # --frozen-lockfile: install exactly what pnpm-lock.yaml says, fail if it is out of date.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Tests (engine, API, importer, web)
+        run: pnpm test
+
+      - name: Build the web app
+        run: pnpm --filter @erp/web build
+
+  image:
+    name: Docker image and Compose file
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The Compose file is valid
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+
+      - name: The image builds
+        run: docker build --tag erp-dev .

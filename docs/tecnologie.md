@@ -24,13 +24,13 @@ flowchart TB
   F --> C
 ```
 
-| Livello | Tecnologie | Cosa fa |
-| --- | --- | --- |
-| **Dati** | PostgreSQL, Drizzle, pg | conserva ciò che le persone inseriscono, con regole che il database fa rispettare |
-| **Regole** | Node, TypeScript, Fastify, Zod, il pacchetto `calc` | validano ciò che arriva, calcolano i numeri, rispondono |
-| **Schermo** | React, Vite, React Router, TanStack Query, AG Grid, Recharts | mostrano e raccolgono le modifiche, senza fare conti |
-| **Involucro** | Docker, pnpm | fanno funzionare tutto uguale su ogni computer |
-| **Contorno** | Vitest, tsx, exceljs, Font Awesome, Fira Code, variabili CSS | test, esecuzione, lettura del foglio, aspetto |
+| Livello             | Tecnologie                                                   | Cosa fa                                                                            |
+| ------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| **Dati**      | PostgreSQL, Drizzle, pg                                      | conserva ciò che le persone inseriscono, con regole che il database fa rispettare |
+| **Regole**    | Node, TypeScript, Fastify, Zod, il pacchetto `calc`        | validano ciò che arriva, calcolano i numeri, rispondono                           |
+| **Schermo**   | React, Vite, React Router, TanStack Query, AG Grid, Recharts | mostrano e raccolgono le modifiche, senza fare conti                               |
+| **Involucro** | Docker, pnpm                                                 | fanno funzionare tutto uguale su ogni computer                                     |
+| **Contorno**  | Vitest, tsx, exceljs, Font Awesome, Fira Code, variabili CSS | test, esecuzione, lettura del foglio, aspetto                                      |
 
 ---
 
@@ -163,11 +163,11 @@ lineAmounts(figures, "abc");               // errore PRIMA di eseguire: "abc" no
 
 **Come lo usiamo.**
 
-| Pacchetto | Cos'è |
-| --- | --- |
-| `@erp/calc` (`packages/calc`) | il motore di calcolo |
-| `@erp/api` (`apps/api`) | il server |
-| `@erp/web` (`apps/web`) | il sito |
+| Pacchetto                                    | Cos'è                |
+| -------------------------------------------- | --------------------- |
+| `@erp/calc` (`packages/calc`)            | il motore di calcolo  |
+| `@erp/api` (`apps/api`)                  | il server             |
+| `@erp/web` (`apps/web`)                  | il sito               |
 | `@erp/import-xlsx` (`tools/import-xlsx`) | legge il foglio Excel |
 
 `pnpm -r test` = in tutti i pacchetti; `pnpm --filter @erp/api test` = solo in uno. Nota: `@erp/calc` esporta direttamente i sorgenti `.ts` (`"exports": "./src/index.ts"`), niente fase di compilazione: Vite, tsx e Vitest sanno leggerli.
@@ -383,6 +383,7 @@ export default defineConfig({
 ```
 
   Il browser parla *sempre* con Vite, e Vite inoltra le richieste che iniziano per `/api`. Nessun problema di CORS, nessun indirizzo scritto nel codice del sito.
+
 - `vite build` produrrà i file finali per la produzione (non lo usiamo ancora).
 
 **Dove guardare:** `apps/web/vite.config.ts`, `apps/web/index.html`.
@@ -557,11 +558,11 @@ function normalise(value: CellValue | undefined): Plain {
 
 ## Cosa non abbiamo usato (e perché)
 
-| Strumento | Perché non c'è |
-| --- | --- |
-| MongoDB | dati relazionali con soldi: vedi la sezione PostgreSQL |
-| Un ORM "pesante" (Prisma) | Drizzle resta vicino all'SQL e non genera codice a parte |
-| Redux o simili | TanStack Query tiene i dati del server; lo stato locale basta con `useState` |
-| Tailwind / librerie di componenti | i token di Figma sono già variabili CSS: due sistemi di stile sarebbero ridondanti |
-| Login, ruoli, storico modifiche | pianificati: `getCurrentUser`, `canWrite`, `runWrite` sono già i punti dove si innestano |
-| Caddy / HTTPS, backup | arrivano col deploy |
+| Strumento                         | Perché non c'è                                                                                |
+| --------------------------------- | ----------------------------------------------------------------------------------------------- |
+| MongoDB                           | dati relazionali con soldi: vedi la sezione PostgreSQL                                          |
+| Un ORM "pesante" (Prisma)         | Drizzle resta vicino all'SQL e non genera codice a parte                                        |
+| Redux o simili                    | TanStack Query tiene i dati del server; lo stato locale basta con `useState`                  |
+| Tailwind / librerie di componenti | i token di Figma sono già variabili CSS: due sistemi di stile sarebbero ridondanti             |
+| Login, ruoli, storico modifiche   | pianificati: `getCurrentUser`, `canWrite`, `runWrite` sono già i punti dove si innestano |
+| Caddy / HTTPS, backup             | arrivano col deploy                                                                             |

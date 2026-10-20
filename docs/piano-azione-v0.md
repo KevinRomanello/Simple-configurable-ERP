@@ -17,7 +17,7 @@ Proposta del 20 ottobre 2026, da confermare prima di iniziare (regola 5). Compri
 
 Test: 151 (99 motore, 43 API, 3 importer, 6 interfaccia). `pnpm reconcile` (anche `-- --db`) confronta il motore con il foglio reale.
 
-**Fuori dalla v0, ancora da fare**: accesso con login e ruoli, storico delle modifiche, incolla multi-riga da Sheets, logo, test automatici dell'interfaccia, backup e deploy. L'app va usata solo in locale.
+**Fuori dalla v0, ancora da fare** (dettaglio, priorità e come ospitarlo in [produzione.md](produzione.md)): accesso con login e ruoli, storico delle modifiche, incolla multi-riga da Sheets, logo, test automatici dell'interfaccia, backup e deploy. L'app va usata solo in locale.
 
 ## Obiettivo
 

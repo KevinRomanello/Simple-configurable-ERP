@@ -10,5 +10,8 @@
 | [avvio.md](avvio.md) | **Tutorial**: dal computer vuoto all'app funzionante, comandi di ogni giorno, problemi comuni |
 | [tecnologie.md](tecnologie.md) | Cosa fa ogni tecnologia usata (Docker, PostgreSQL, Drizzle, Fastify, Zod, React, AG Grid…), spiegata dal problema che risolve |
 | [come-funziona.md](come-funziona.md) | Il funzionamento passo per passo: aprire una pagina, modificare una cella, la vita di un importo, dove mettere le mani |
+| [produzione.md](produzione.md) | Cosa manca, cosa è solo per lo sviluppo, come ospitarlo su un server (opzioni, procedura, backup, sicurezza) |
+| [accesso-e-storico.md](accesso-e-storico.md) | **Proposta**: login con Google, ruoli `admin`/`pm`/`viewer`, storico delle modifiche; domande aperte |
+| [ci.md](ci.md) | La CI su GitHub: cosa controlla, come leggerla, come provarla in locale |
 
 Materiale di partenza, in `fonti/` (locale, ignorata da git): `script attuale`, `Budget 26-27.xlsx`, `Piano d'azione — Budget e Inventario custom.md` (visione completa in 8 fasi e sette domande per il tesoriere).
