@@ -189,6 +189,25 @@ Per ogni rilascio:
 - [ ] Dati personali minimi: solo nome ed email dei membri; chi lascia il team si disattiva, non si cancella (per non rompere lo storico).
 - [ ] Mai lanciare i test o l'importer contro il database di produzione.
 
+**Verifiche fatte il 20 ottobre 2026** (a mano, non ancora automatiche):
+
+| Cosa | Esito |
+| --- | --- |
+| **SQL injection**: ogni query passa da Drizzle (valori sempre come parametri); nessun `sql.raw` né testo SQL costruito a pezzi; ogni input passa prima da Zod (id numerici, enum, date, decimali con regex, campi sconosciuti scartati) | **nessun punto vulnerabile trovato**. Prova con 8 payload classici in tutti i campi di testo (restano testo, le tabelle restano) e 17 richieste ostili su id, percorsi, query string, corpi e callback di login: nessuna risposta 500, nessun effetto |
+| Mass assignment (campi extra come `projectId` o `id` in una modifica) | scartati da Zod, la riga non cambia |
+| Dipendenze (`pnpm audit`) | 2 avvisi *moderati*, entrambi in strumenti di sviluppo: `esbuild` via `drizzle-kit` (riguarda il suo server di sviluppo, che non usiamo) e `uuid` via `exceljs` (importer, funzione che non usiamo). Non raggiungibili dall'API |
+| Utente del database | l'app si collega come **superutente** PostgreSQL (`erp`): in produzione vanno due ruoli (vedi sotto) |
+
+**Cosa manca ancora** (in ordine di importanza prima di esporre l'app):
+
+- [ ] **Ruoli del database**: uno per le migrazioni (proprietario delle tabelle) e uno per l'app, con solo `SELECT/INSERT/UPDATE/DELETE` sui dati e solo `SELECT/INSERT` su `audit_log`. Oggi chi ha le credenziali dell'app può anche riscrivere lo storico.
+- [ ] **Limite di richieste** (login e API): non c'è; va nel server web o con `@fastify/rate-limit`, e con `trustProxy` impostato bene dietro un proxy.
+- [ ] **Intestazioni di sicurezza** (`Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options`/`frame-ancestors`, `nosniff`): non ci sono; vanno nel server web davanti all'app.
+- [ ] **HTTPS** (senza, i cookie non sono `Secure`) e immagine di produzione (oggi gira come `root` con gli strumenti di sviluppo).
+- [ ] **`?login_error=` mostra testo preso dall'indirizzo**: React lo mostra come semplice testo (niente XSS), ma un link costruito può far scrivere un messaggio a piacere nella nostra pagina. Si risolve mandando un codice e traducendolo nel sito. Rischio basso.
+- [ ] **Controllo automatico** delle dipendenze (Dependabot o `pnpm audit` in CI) e di `sql.raw` (un controllo che fallisca se compare).
+- [ ] Autenticazione a due fattori: la decide il Workspace Google (da imporre dall'amministratore), non l'app.
+
 ### 5.8 Costi indicativi (da verificare)
 
 | Voce | Costo |
