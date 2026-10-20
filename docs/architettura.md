@@ -11,14 +11,14 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 
 ## Stack
 
-| Livello | Scelta | Nota |
-| --- | --- | --- |
-| Database | PostgreSQL 16 | Non Mongo: i dati sono relazionali (riga → progetto → area, riga → fondo/fornitore), i soldi vogliono `numeric` e transazioni. La flessibilità che serve all'inventario (attributi diversi per tipo di pezzo) arriva con una colonna JSONB |
-| API | Node (LTS), Fastify, Drizzle ORM, Zod | Zod valida gli input una volta sola |
-| Calcolo | TypeScript puro, Vitest | `packages/calc` |
-| Web | React + Vite, AG Grid Community | Stili da Figma ([stile-interfaccia.md](stile-interfaccia.md)). Incolla multi-riga da Sheets non garantito in Community: verifica dopo la v0 |
-| Monorepo | pnpm workspaces | Niente altri strumenti di build |
-| Ambienti | Docker Compose: `db`, `api`, `web` | Caddy e HTTPS arrivano col deploy (dopo) |
+| Livello  | Scelta                                                                                | Nota                                                                                                                                                                                                                                             |
+| -------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Database | PostgreSQL 16                                                                         | Non Mongo: i dati sono relazionali (riga → progetto → area, riga → fondo/fornitore), i soldi vogliono `numeric` e transazioni. La flessibilità che serve all'inventario (attributi diversi per tipo di pezzo) arriva con una colonna JSONB |
+| API      | Node (LTS), Fastify, Drizzle ORM, Zod                                                 | Zod valida gli input una volta sola                                                                                                                                                                                                              |
+| Calcolo  | TypeScript puro, Vitest                                                               | `packages/calc`                                                                                                                                                                                                                                |
+| Web      | React + Vite, AG Grid Community, TanStack Query, React Router, Recharts, Font Awesome | Stili da Figma ([stile-interfaccia.md](stile-interfaccia.md)). Incolla multi-riga da Sheets non garantito in Community: verifica dopo la v0                                                                                                       |
+| Monorepo | pnpm workspaces                                                                       | Niente altri strumenti di build                                                                                                                                                                                                                  |
+| Ambienti | Docker Compose: `db`, `api`, `web`                                              | Caddy e HTTPS arrivano col deploy (dopo)                                                                                                                                                                                                         |
 
 ## Struttura del repository
 
@@ -27,28 +27,33 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 ├── CLAUDE.md
 ├── docs/
 ├── fonti/                    # locale, ignorata da git: script, xlsx reale, piano originale
-├── docker-compose.yml
+├── docker-compose.yml, Dockerfile, .env.example
 ├── apps/
-│   ├── api/src/
-│   │   ├── main.ts           # avvio Fastify, registra i moduli
-│   │   ├── db/               # schema.ts, client.ts, migrations/, seed.ts (dati sintetici)
-│   │   ├── core/             # tx.ts (runWrite), errors.ts, money.ts (numeric ↔ centesimi)
-│   │   ├── snapshot.ts       # loadSnapshot(): dal DB al formato di calc
-│   │   └── modules/
-│   │       ├── auth/         # getCurrentUser, canWrite          (HARDCODED)
-│   │       ├── lookups/      # categorie, aliquote, regole IVA, impostazioni (HARDCODED)
-│   │       ├── budget/       # aree, progetti, righe
-│   │       ├── funds/        # fondi e contratti
-│   │       ├── suppliers/
-│   │       ├── cashflow/     # ingressi del team e BANK
-│   │       └── views/        # una funzione per vista (Gantt, Total, analisi…)
+│   ├── api/
+│   │   ├── drizzle/          # migrazioni SQL generate (si committano)
+│   │   ├── test/             # database di test ricreato a ogni esecuzione
+│   │   └── src/
+│   │       ├── main.ts           # avvio Fastify, registra i moduli
+│   │       ├── db/               # schema.ts, client.ts, migrate.ts, seed-base.ts, seed.ts
+│   │       ├── core/             # tx.ts (runWrite), errors.ts, money.ts (numeric ↔ centesimi)
+│   │       ├── snapshot.ts       # loadSnapshot(): dal DB al formato di calc
+│   │       └── modules/
+│   │           ├── auth/         # getCurrentUser, canWrite          (HARDCODED)
+│   │           ├── lookups/      # categorie, aliquote, regole IVA, impostazioni (HARDCODED)
+│   │           ├── seasons/      # stagione corrente (HARDCODED)
+│   │           ├── budget/       # aree, progetti, righe
+│   │           ├── funds/        # fondi e contratti
+│   │           ├── suppliers/
+│   │           ├── cashflow/     # ingressi del team e BANK
+│   │           └── views/        # una funzione per vista (Gantt, Total, analisi…)
 │   └── web/src/
-│       ├── theme/            # token estratti da Figma (unico punto)
-│       ├── api/              # client tipizzato, una funzione per endpoint
-│       ├── components/
+│       ├── theme/            # tokens.css (token Figma), base.css (tipografia), components.css, grid.ts
+│       ├── api/              # client.ts (una funzione per endpoint), types.ts
+│       ├── lib/              # format.ts (soldi, date), useAction.ts (scritture + ricarica)
+│       ├── components/       # Shell, Button, Chips, Cards, BarsChart, Notice
 │       └── pages/            # una pagina per foglio del vecchio file
 ├── packages/calc/src/        # funzioni pure + test
-└── tools/import-xlsx/        # importer una tantum + riconciliazione (usa fonti/)
+└── tools/import-xlsx/        # legge l'xlsx reale: riconciliazione col foglio e caricamento nel DB (usa fonti/)
 ```
 
 Ogni modulo API ha gli stessi tre file: `*.service.ts` (le funzioni, cioè l'API), `*.routes.ts` (wrapper Fastify + Zod), `*.test.ts`.
@@ -94,40 +99,48 @@ Fisso per sempre (enum nel codice, non registrati come hardcode): fasi `estimate
 
 ## Modello dati (v0)
 
-Soldi in `numeric` nel database e in centesimi interi nel codice (`core/money.ts` è l'unico punto di conversione); date come `date` ISO. I nomi si confrontano senza distinzione di maiuscole (indice unico su `lower(name)`).
+Soldi in `numeric` nel database e in interi nel codice: importi in centesimi, quantità in millesimi, costi unitari in decimillesimi di euro (`apps/api/src/core/money.ts` è l'unico punto di conversione, senza mai passare dai decimali binari); date come `date` ISO. Il VAT si arrotonda al centesimo riga per riga (Q7) in `calc/money.ts`. Le colonne SQL sono in `snake_case` (comodo per chi analizza). I nomi si confrontano senza distinzione di maiuscole (indice unico su `lower(name)`).
 
-| Tabella | Campi | Note |
-| --- | --- | --- |
-| `season` | id, name, starts_on, ends_on | Una sola riga (2026-2027); tutto il budget appartiene a una stagione |
-| `area` | id, code, name, position | Seed: MT + DMT, SW, HW, CM, MGT, RT |
-| `project` | id, season_id, area_id, name, owner_name, position | `owner_name` = la persona nella riga gialla del foglio |
-| `budget_line` | id, project_id, position, item, category, priority, note, version | `category` e `priority` testo validato dal servizio (diventerà chiave esterna); `version` per il blocco ottimistico |
-| `line_figures` | id, line_id, phase, quantity, unit_net_cost, sponsor_type, sponsor_value, vat_rate, fund_id, supplier_id, purchase_date, arrival_date | Unico per (line_id, phase); fase mancante = tutto zero. Tipo sponsor o aliquota nulli = riga incompleta |
-| `fund` | id, season_id, name, kind (`team`/`external`), pays_vat_estimate, pays_vat_actual | "Team's fund" è un fondo `team`, seed, non eliminabile. Due flag per parità col foglio (⚠ Q5) |
-| `fund_contract` | id, fund_id, phase, amount, inflow_date | Le tabelle CASH FROM. `inflow_date` può mancare |
-| `team_inflow` | id, season_id, phase, source_name, amount, inflow_date | Le tabelle CASH FLOW |
-| `bank_snapshot` | id, season_id (unico), amount, as_of_date | Il BANK, valido per le due fasi |
-| `supplier` | id, name | Lista unica, senza stagione (servirà all'inventario) |
+| Tabella           | Campi                                                                                                                                 | Note                                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `season`        | id, name, starts_on, ends_on                                                                                                          | Una sola riga (2026-2027); tutto il budget appartiene a una stagione                                                       |
+| `area`          | id, code, name, position                                                                                                              | Seed: MT + DMT, SW, HW, CM, MGT, RT                                                                                        |
+| `project`       | id, season_id, area_id, name, owner_name, position                                                                                    | `owner_name` = la persona nella riga gialla del foglio                                                                   |
+| `budget_line`   | id, project_id, position, item, category, priority, note, version                                                                     | `category` e `priority` testo validato dal servizio (diventerà chiave esterna); `version` per il blocco ottimistico |
+| `line_figures`  | id, line_id, phase, quantity, unit_net_cost, sponsor_type, sponsor_value, vat_rate, fund_id, supplier_id, purchase_date, arrival_date | Unico per (line_id, phase); fase mancante = tutto zero. Tipo sponsor o aliquota nulli = riga incompleta                    |
+| `fund`          | id, season_id, name, kind (`team`/`external`), pays_vat_estimate, pays_vat_actual                                                 | "Team's fund" è un fondo `team`, seed, non eliminabile. Due flag per parità col foglio (⚠ Q5)                         |
+| `fund_contract` | id, fund_id, phase, amount, inflow_date                                                                                               | Le tabelle CASH FROM. `inflow_date` può mancare                                                                         |
+| `team_inflow`   | id, season_id, phase, source_name, amount, inflow_date                                                                                | Le tabelle CASH FLOW                                                                                                       |
+| `bank_snapshot` | id, season_id (unico), amount, as_of_date                                                                                             | Il BANK, valido per le due fasi                                                                                            |
+| `supplier`      | id, name                                                                                                                              | Lista unica, senza stagione (servirà all'inventario)                                                                      |
 
 Vincoli, applicati dal servizio con messaggi chiari: quantità e costi ≥ 0; aliquota tra `listVatRates()`; sponsor parziale con 0 < valore ≤ netto; sponsor totale ignora il valore inserito; fondo o fornitore in uso → eliminazione rifiutata (409); `PATCH` di una riga con `version` vecchia → 409.
+
+## Web app
+
+- **Dati**: ogni pagina legge con TanStack Query (`['sheet', area]`, `['gantt', fase]`…) e non calcola nulla: i numeri arrivano dall'API.
+- **Scritture**: ogni modifica passa da `useAction()`, che esegue la chiamata, mostra in un angolo un eventuale rifiuto del server (validazione, conflitto di versione, elemento in uso) e **in ogni caso ricarica tutto**: la schermata mostra sempre ciò che il server ha davvero.
+- **Pagina di un'area**: un AG Grid per progetto; la riga dei subtotali è una riga fissata in fondo; le celle non scrivono nei dati della griglia ma chiamano `PATCH /lines/:id` con la `version` letta (`pages/areaColumns.tsx` dice quale colonna manda cosa). Il triangolo arancione segnala una riga "incompleta" (tipo di sponsor o aliquota mancanti).
+- **Altre pagine**: tabelle semplici con "chip" per scegliere il blocco (ALL ITEMS o una categoria) e grafici a colonne (`BarsChart`) dove li aveva il foglio.
+- **Tipi**: le risposte del motore usano i tipi di `@erp/calc` (solo tipi: nessun codice del motore finisce nel browser).
 
 ## Pacchetto `calc`
 
 Funzioni pure, input = `Snapshot` (JSON), output = JSON. Una per vista, più i mattoni:
 
-| File | Funzioni |
-| --- | --- |
+| File                       | Funzioni                                                                                                        |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `money.ts`, `dates.ts` | arrotondamento, chiave di mese, giorno della settimana, `nextBusinessDay`, parser flessibile (per l'importer) |
-| `line.ts` | `lineAmounts(figures, settings)` → netto, IVA, lordo, sponsor, outflow |
-| `vat.ts` | `vatDeadline(date, rules)`, `teamVat(line, fund, phase)` |
-| `budget.ts` | `areaSheet(snapshot, areaCode)` (righe, subtotali di progetto, totale area) |
-| `vatReport.ts` | `vatReport(snapshot, areaCode)` |
-| `funds.ts` | `fundSummary(snapshot, phase)`, `inflowsByMonth(rows)` |
-| `cashflow.ts` | `cashFlowSummary(snapshot, phase)` |
-| `gantt.ts` | `gantt(snapshot, phase)` (tabelle per blocco + tabella "Team's fund") |
-| `totals.ts` | `totals(snapshot)` |
-| `analysis.ts` | `analysisByFund`, `analysisBySupplier` |
-| `items.ts` | `itemsView(snapshot, filters)` (CATEGORY ANALYSES) |
+| `line.ts`                | `lineAmounts(figures, settings)` → netto, IVA, lordo, sponsor, outflow                                       |
+| `vat.ts`                 | `vatDeadline(date, rules)`, `teamVat(line, fund, phase)`                                                    |
+| `budget.ts`              | `areaSheet(snapshot, areaCode)` (righe, subtotali di progetto, totale area)                                   |
+| `vatReport.ts`           | `vatReport(snapshot, areaCode)`                                                                               |
+| `funds.ts`               | `fundSummary(snapshot, phase)`, `inflowsByMonth(rows)`                                                      |
+| `cashflow.ts`            | `cashFlowSummary(snapshot, phase)`                                                                            |
+| `gantt.ts`               | `gantt(snapshot, phase)` (tabelle per blocco + tabella "Team's fund")                                         |
+| `totals.ts`              | `totals(snapshot)`                                                                                            |
+| `analysis.ts`            | `analysisByFund`, `analysisBySupplier`                                                                      |
+| `items.ts`               | `itemsView(snapshot, filters)` (CATEGORY ANALYSES)                                                            |
 
 I confronti con la data BANK passano da un solo helper, `isAfterBank(date, bankDate, mode)` con `mode` = `day` o `month`, scelto da `settings.bankCompare`.
 
@@ -135,71 +148,76 @@ I confronti con la data BANK passano da un solo helper, `isAfterBank(date, bankD
 
 Prefisso `/api`. Tutte le scritture passano da `runWrite` e `canWrite`.
 
-| Endpoint | Funzione (modulo) | Note |
-| --- | --- | --- |
-| `GET /me` | `getCurrentUser` (auth) | HARDCODED: admin |
-| `GET /lookups/categories`, `/vat-rates`, `/vat-rules`, `/settings`, `/seasons/current` | `listCategories`, `listVatRates`, `getVatRules`, `getSettings`, `getCurrentSeason` (lookups) | HARDCODED |
-| `GET /areas` | `listAreas` (budget) | dal DB |
-| `GET /areas/:code/sheet` | `getAreaSheet` (budget) | righe + subtotali + IVA del team |
-| `POST /projects`, `PATCH /projects/:id`, `DELETE /projects/:id` | `createProject`… (budget) | "Add New Project" |
-| `POST /projects/:id/lines`, `PATCH /lines/:id`, `DELETE /lines/:id` | `createLine`… (budget) | `PATCH` con `version`, accetta anche `figures.estimate/actual` |
-| `GET /funds`, `PATCH /funds/:id` | `listFunds`, `updateFund` (funds) | flag "paga IVA" |
-| `GET/POST/DELETE /funds/contracts` | `listContracts`… (funds) | CASH FROM, per fase |
-| `GET/POST/DELETE /suppliers` | `listSuppliers`… (suppliers) | BOUGHT FROM |
-| `GET/POST/DELETE /inflows` | `listInflows`… (cashflow) | CASH FLOW, per fase |
-| `GET/PUT /bank` | `getBank`, `setBank` (cashflow) | |
-| `GET /views/funds-summary?phase=` | `getFundsSummary` (views) | riepilogo + mensile |
-| `GET /views/cashflow` | `getCashFlowView` | stima e consuntivo |
-| `GET /views/gantt?phase=` | `getGantt` | |
-| `GET /views/totals` | `getTotals` | |
-| `GET /views/analysis/funds`, `/analysis/suppliers` | `getFundAnalysis`, `getSupplierAnalysis` | |
-| `GET /views/items?categories=&priority=&sort=` | `getItemsView` | CATEGORY ANALYSES |
-| `GET /views/vat-report?area=` | `getVatReport` | |
+| Endpoint                                                                                    | Funzione (modulo)                                                                                    | Note                                                                 |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `GET /me`                                                                                 | `getCurrentUser` (auth)                                                                            | HARDCODED: admin                                                     |
+| `GET /lookups/categories`, `/priorities`, `/vat-rates`, `/vat-rules`, `/settings` | `listCategories`, `listPriorities`, `listVatRates`, `getVatRules`, `getSettings` (lookups) | HARDCODED (le priorità sono fisse)                                  |
+| `GET /seasons/current`                                                                    | `getCurrentSeason` (seasons)                                                                       | HARDCODED: 2026-2027                                                 |
+| `GET /areas`                                                                              | `listAreas` (budget)                                                                               | dal DB                                                               |
+| `GET /areas/:code/sheet`                                                                  | `getAreaSheet` (budget)                                                                            | righe + subtotali + IVA del team                                     |
+| `POST /projects`, `PATCH /projects/:id`, `DELETE /projects/:id`                       | `createProject`… (budget)                                                                         | "Add New Project"                                                    |
+| `POST /projects/:id/lines`, `PATCH /lines/:id`, `DELETE /lines/:id`                   | `createLine`… (budget)                                                                            | `PATCH` con `version`, accetta anche `figures.estimate/actual` |
+| `GET /funds`, `PATCH /funds/:id`                                                        | `listFunds`, `updateFund` (funds)                                                                | flag "paga IVA"                                                      |
+| `GET/POST/DELETE /funds/contracts`                                                        | `listContracts`… (funds)                                                                          | CASH FROM, per fase                                                  |
+| `GET/POST/DELETE /suppliers`                                                              | `listSuppliers`… (suppliers)                                                                      | BOUGHT FROM                                                          |
+| `GET/POST/DELETE /inflows`                                                                | `listInflows`… (cashflow)                                                                         | CASH FLOW, per fase                                                  |
+| `GET/PUT /bank`                                                                           | `getBank`, `setBank` (cashflow)                                                                  |                                                                      |
+| `GET /views/funds-summary?phase=`                                                         | `getFundsSummary` (views)                                                                          | riepilogo + mensile                                                  |
+| `GET /views/cashflow`                                                                     | `getCashFlowView`                                                                                  | stima e consuntivo                                                   |
+| `GET /views/gantt?phase=`                                                                 | `getGantt`                                                                                         |                                                                      |
+| `GET /views/totals`                                                                       | `getTotals`                                                                                        |                                                                      |
+| `GET /views/analysis/funds`, `/analysis/suppliers`                                      | `getFundAnalysis`, `getSupplierAnalysis`                                                         |                                                                      |
+| `GET /views/items?categories=&priority=&sort=`                                            | `getItemsView`                                                                                     | CATEGORY ANALYSES                                                    |
+| `GET /views/vat-report?area=`                                                             | `getVatReport`                                                                                     |                                                                      |
 
 Gli stessi endpoint `/views/*` sono la fonte per le analisi esterne (script Python con `requests` + pandas): una sola logica, nessuna copia in SQL.
 
 ## Docker e comandi
 
-`docker-compose.yml` (creato nel blocco B0): `db` (postgres:16, volume nominato, non pubblicato fuori da localhost), `api` (porta 3000, sorgenti montati, ricarica automatica), `web` (Vite, porta 5173). Configurazione in `.env` (con `.env.example` nel repository).
+`docker-compose.yml`: `db` (postgres:16, volume nominato, pubblicato solo su 127.0.0.1), `api` (porta 3000, sorgenti montati, ricarica automatica), `web` (Vite, porta 5173). Configurazione in `.env` (con `.env.example` nel repository).
 
 ```bash
-docker compose up --build          # avvia db, api, web
+cp .env.example .env               # una volta sola: valori di sviluppo per il DB locale
+docker compose up --build          # avvia db, api (3000), web (5173)
 pnpm db:migrate                    # applica le migrazioni
-pnpm db:seed                       # aree, stagione, Team's fund, dati sintetici
-pnpm test                          # calc + API
-pnpm reconcile                     # importer + confronto col foglio reale (richiede fonti/)
+pnpm db:seed                       # stagione, 6 aree, Team's fund
+pnpm test                          # calc, API e importer
+pnpm reconcile                     # confronta il motore col foglio reale (richiede fonti/)
+pnpm --filter @erp/import-xlsx load            # carica il foglio reale nel DB (--replace per ricaricare)
 ```
+
+Prerequisiti sul computer: Node 24 o più recente, Docker, pnpm. Se `pnpm` non c'è, `npm install -g pnpm@12.14.0` (il `corepack` incluso in alcune versioni di Node 26 ha un bug di verifica delle firme). I contenitori usano la propria installazione.
 
 **Sicurezza della v0**: nessun login (`getCurrentUser()` restituisce l'admin). L'app va usata solo in locale; non esporla su una rete finché non c'è l'accesso con Google.
 
 ## Test
 
-| Livello | Cosa | Dati |
-| --- | --- | --- |
-| Unitari `calc` | ogni regola di [regole-script-attuale.md](regole-script-attuale.md), compresi i casi del §17 | sintetici |
-| Integrazione API | CRUD, versione, blocchi di eliminazione, viste su uno snapshot noto | sintetici, Postgres di test |
-| Riconciliazione | importa `fonti/Budget 26-27.xlsx` e confronta con i valori calcolati dal foglio (TOTAL, saldi dei fondi, CASH FLOW, scadenze IVA) | reali, si salta se `fonti/` manca; nessun dato reale entra nei file tracciati |
+| Livello          | Cosa                                                                                                                                                                                                                                                     | Dati                                                                                         |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Unitari `calc` | ogni regola di [regole-script-attuale.md](regole-script-attuale.md), compresi i casi del §17                                                                                                                                                             | sintetici                                                                                    |
+| Integrazione API | CRUD, versione, blocchi di eliminazione, viste su uno snapshot noto                                                                                                                                                                                      | sintetici, Postgres di test                                                                  |
+| Riconciliazione  | `pnpm reconcile`: legge `fonti/Budget 26-27.xlsx`, calcola con il motore e confronta ogni valore salvato dal foglio (righe, IVA del team, saldi dei fondi, CASH FLOW, TOTAL, report IVA, tabelle Gantt, analisi, CATEGORY ANALYSES: 1.995 confronti) | reali, è uno script e non gira senza `fonti/`; nessun dato reale entra nei file tracciati |
 
 ## Come si estende
 
-| Voglio… | Si fa così |
-| --- | --- |
-| trasformare un hardcode in funzionalità | trova la riga in [hardcoded-registry.md](hardcoded-registry.md); cambia il corpo della funzione; aggiungi tabella, migrazione e route di scrittura; togli la riga dal registro |
-| aggiungere un campo a una riga | `schema.ts` → migrazione → Zod nel modulo → tipo in `calc` → colonna nella griglia |
-| aggiungere un'analisi | funzione pura in `calc` + `GET /views/<nome>` in `views` (+ pagina, se serve) |
-| login con Google e ruoli | corpo di `getCurrentUser()` e `canWrite()` |
-| storico delle modifiche | dentro `runWrite()`: scrive `audit_log` nella stessa transazione |
-| tabelle `calc_*` e viste SQL per gli analisti | dentro `runWrite()`: rigenera con `calc` dopo la scrittura |
-| inventario | nuovo modulo `inventory` con `inventory_unit` e `inventory_movement`; `budget_line_id` facoltativo; non tocca il resto |
+| Voglio…                                        | Si fa così                                                                                                                                                                   |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| trasformare un hardcode in funzionalità        | trova la riga in [hardcoded-registry.md](hardcoded-registry.md); cambia il corpo della funzione; aggiungi tabella, migrazione e route di scrittura; togli la riga dal registro |
+| aggiungere un campo a una riga                  | `schema.ts` → migrazione → Zod nel modulo → tipo in `calc` → colonna nella griglia                                                                                    |
+| aggiungere un'analisi                           | funzione pura in `calc` + `GET /views/<nome>` in `views` (+ pagina, se serve)                                                                                           |
+| login con Google e ruoli                        | corpo di `getCurrentUser()` e `canWrite()`                                                                                                                                |
+| storico delle modifiche                         | dentro `runWrite()`: scrive `audit_log` nella stessa transazione                                                                                                          |
+| tabelle `calc_*` e viste SQL per gli analisti | dentro `runWrite()`: rigenera con `calc` dopo la scrittura                                                                                                                |
+| inventario                                      | nuovo modulo `inventory` con `inventory_unit` e `inventory_movement`; `budget_line_id` facoltativo; non tocca il resto                                                |
 
 ## Differenze dal piano originale
 
-| Piano originale | v0 | Perché |
-| --- | --- | --- |
-| Tabelle `calc_*` ricalcolate a ogni scrittura | calcolo alla lettura | più semplice e mai incoerente; le tabelle si aggiungono in `runWrite()` quando servono agli analisti |
-| Analisi su viste SQL `reporting` | anche gli endpoint `/views/*` come fonte JSON | stessa logica, nessuna copia |
-| Login Google, ruoli per area, audit log | funzioni predisposte (`getCurrentUser`, `canWrite`, `runWrite`) con valori fissi | dopo la parità |
-| Un solo flag "paga IVA" per fondo | due flag, uno per fase | parità col foglio finché Q5 è aperta |
-| Importer in fase 1 | importer e riconciliazione appena c'è il motore (B3) | l'xlsx reale è l'oracolo e prova il motore prima dell'interfaccia |
-| `project` senza responsabile | `owner_name` | il foglio reale lo contiene |
-| Date d'incasso e BANK come mese | date intere, mostrate come mese | il foglio reale ha il giorno |
+| Piano originale                                 | v0                                                                                     | Perché                                                                                                 |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Tabelle `calc_*` ricalcolate a ogni scrittura | calcolo alla lettura                                                                   | più semplice e mai incoerente; le tabelle si aggiungono in `runWrite()` quando servono agli analisti |
+| Analisi su viste SQL `reporting`              | anche gli endpoint `/views/*` come fonte JSON                                        | stessa logica, nessuna copia                                                                            |
+| Login Google, ruoli per area, audit log         | funzioni predisposte (`getCurrentUser`, `canWrite`, `runWrite`) con valori fissi | dopo la parità                                                                                         |
+| Un solo flag "paga IVA" per fondo               | due flag, uno per fase                                                                 | parità col foglio finché Q5 è aperta                                                                 |
+| Importer in fase 1                              | importer e riconciliazione appena c'è il motore (B3)                                  | l'xlsx reale è l'oracolo e prova il motore prima dell'interfaccia                                      |
+| `project` senza responsabile                  | `owner_name`                                                                         | il foglio reale lo contiene                                                                             |
+| Date d'incasso e BANK come mese                 | date intere, mostrate come mese                                                        | il foglio reale ha il giorno                                                                            |

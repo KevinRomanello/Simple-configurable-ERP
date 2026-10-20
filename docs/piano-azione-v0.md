@@ -2,6 +2,23 @@
 
 Proposta del 20 ottobre 2026, da confermare prima di iniziare (regola 5). Comprime la prima parte del piano originale (`fonti/Piano d'azione — Budget e Inventario custom.md`): invece di otto fasi, un primo traguardo che replica lo script e lascia l'app pronta a ricevere la logica fatta bene nei giorni successivi.
 
+## Stato (20 ottobre 2026)
+
+| Blocco | Stato |
+| --- | --- |
+| B0 Fondamenta | fatto: `docker compose up` avvia db, api e web |
+| B1 Schema e predisposizioni | fatto: 10 tabelle, migrazione, seed ripetibile, funzioni-API con hardcode, `runWrite` |
+| B2 Motore di calcolo | fatto: 13 moduli |
+| B3 Importer e riconciliazione | fatto: 1.995 confronti col foglio reale tutti coincidenti, anche rileggendo i dati dal database; foglio caricato nel database di sviluppo |
+| B4 API di scrittura, B5 API delle viste | fatto: 43 test di integrazione |
+| B6 Aree, B7 fondi/fornitori/cash flow, B8 viste | fatto: tutte le pagine del foglio, verificate nel browser con i dati reali |
+| B9 Grafici | fatto: a colonne, sulle viste dove il foglio li aveva |
+| Stile Figma | applicato (token, tipografia, componenti); navigazione, tabelle e grafici **non sono disegnati su Figma**: da rivedere ([stile-interfaccia.md](stile-interfaccia.md)) |
+
+Test: 148 (99 motore, 43 API, 3 importer, 3 interfaccia). `pnpm reconcile` (anche `-- --db`) confronta il motore con il foglio reale.
+
+**Fuori dalla v0, ancora da fare**: accesso con login e ruoli, storico delle modifiche, incolla multi-riga da Sheets, logo, test automatici dell'interfaccia, backup e deploy. L'app va usata solo in locale.
+
 ## Obiettivo
 
 Un'app web su Postgres, in Docker, che fa quello che fa lo script (stesse regole, stessi numeri), con un codice in cui ogni cosa oggi fissa è già dietro la funzione che in futuro sarà l'API (regola 4): aggiungere la logica vera significa sostituire dei corpi di funzione, non riscrivere.

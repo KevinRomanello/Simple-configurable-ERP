@@ -1,0 +1,24 @@
+{
+  "name": "@erp/import-xlsx",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "reconcile": "tsx --env-file-if-exists=../../.env src/reconcile.ts",
+    "inspect": "tsx --env-file-if-exists=../../.env src/inspect.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "load": "tsx --env-file-if-exists=../../.env src/load-db.ts",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "@erp/api": "workspace:*",
+    "@erp/calc": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "exceljs": "^4.4.0"
+  }
+}

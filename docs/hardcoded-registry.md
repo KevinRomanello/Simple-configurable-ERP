@@ -12,7 +12,7 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 | 2 | Aliquote IVA | `listVatRates` (lookups) ↔ `GET /api/lookups/vat-rates` | 0, 11, 22 | elenco configurabile |
 | 3 | Regole delle scadenze IVA | `getVatRules` (lookups) ↔ `GET /api/lookups/vat-rules` | trimestre → 16/05, 20/08, 16/11, 16/02 dell'anno dopo; weekend → lunedì; nessuna festività né proroga | tabella `vat_rule` validata col commercialista (Q3) |
 | 4 | Impostazioni di calcolo | `getSettings` (lookups) ↔ `GET /api/lookups/settings` | vedi sotto | tabella `setting` o pagina admin |
-| 5 | Stagione corrente | `getCurrentSeason` (lookups) ↔ `GET /api/lookups/seasons/current` | 2026-2027 | elenco stagioni, selettore, creazione della nuova stagione |
+| 5 | Stagione corrente | `getCurrentSeason` (seasons) ↔ `GET /api/seasons/current` | 2026-2027 | elenco stagioni, selettore, creazione della nuova stagione |
 | 6 | Utente corrente | `getCurrentUser` (auth) ↔ `GET /api/me` | admin fisso | login Google (OIDC) limitato al dominio del team |
 | 7 | Permessi di scrittura | `canWrite` (auth) | sempre vero | ruoli admin / capo area / sola lettura, per area |
 
@@ -21,10 +21,11 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 | Chiave | Valore oggi | Domanda |
 | --- | --- | --- |
 | `varianceThreshold` | `0.15` (evidenzia oltre ±15% nel TOTAL) | — |
-| `rounding` | `"per-line"` (al centesimo, per riga; il foglio non arrotonda) | Q7 |
 | `vatBaseWhenTotalSponsor` | `"net"` (IVA sull'intero netto; alternativa `"net-minus-sponsor"`) | Q1 |
 | `bankCompare` | `{ summary: "day", timeline: "month" }` (come il foglio: due confronti diversi) | Q2 |
 | `vatReportHorizon` | `{ from: "2026-Q3", to: "2027-Q4" }` (si estende da solo) | — |
+
+L'arrotondamento (Q7) non è un'impostazione: il motore lavora in interi e arrotonda l'IVA al centesimo riga per riga (`roundDiv` in `packages/calc/src/money.ts`). Cambiarlo vuol dire cambiare quella funzione.
 
 ## Predisposizioni vuote
 

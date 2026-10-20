@@ -1,0 +1,130 @@
+/*
+ * Design tokens from the Figma file "Telemetry App - Redesign ITA" (page "Design System").
+ * This file is the only place in the web app where colours and measures are written down:
+ * everything else uses var(--token). Names follow Figma: color/<group>/<group>-<level>,
+ * spaces/spacing/<size>, spaces/radius/<size>. See docs/stile-interfaccia.md.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Light mode */
+  --primary-strong: #c1cc00;
+  --primary-default: #f3ff17;
+  --primary-soft: #fbffb2;
+  --secondary-strong: #002699;
+  --secondary-default: #0039e5;
+  --secondary-soft: #99b2ff;
+
+  --bg-full: #1a1a1a;
+  --bg-strong: #4d4d4d;
+  --bg-sub: #ccc;
+  --bg-soft: #e6e6e6;
+  --bg-weak: #f7f7f7;
+  --bg-null: #fff;
+
+  --text-strong: #1a1a1a;
+  --text-sub: #4d4d4d;
+  --text-soft: #999;
+  --text-disabled: #ccc;
+  --text-null: #fff;
+
+  --stroke-full: #1a1a1a;
+  --stroke-strong: #b3b3b3;
+  --stroke-sub: #ccc; /* the palette page says #e6e6e6; the components use #ccc */
+  --stroke-soft: #f7f7f7;
+  --stroke-null: #fff;
+
+  --error-strong: #b20000;
+  --error-default: #fa0000;
+  --error-soft: #fcc;
+  --warning-strong: #b27400;
+  --warning-default: #faa200;
+  --warning-soft: #ffe4b2;
+  --success-strong: #11883d;
+  --success-default: #16b651; /* the palette page says #19ce5c; the components use #16b651 */
+  --success-soft: #d2f9e0;
+  --info-strong: #075bab;
+  --info-default: #0a7ff0;
+  --info-soft: #cee6fd;
+
+  /* Series colours for charts (Figma "Utility") */
+  --utility-1: #00aeed;
+  --utility-2: #dc33ba;
+  --utility-3: #23bf00;
+  --utility-4: #f38200;
+  --utility-5: #e1ca00;
+  --utility-6: #d00000;
+
+  /* The Figma button: black pill with yellow text on light, the reverse on dark */
+  --button-bg: #0d0d0d;
+  --button-fg: #f3ff17;
+  /* Text on a yellow (primary) background is dark in both modes */
+  --on-primary: #1a1a1a;
+
+  /* Spacing (spaces/spacing/*) and radius (spaces/radius/*) */
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-s: 12px;
+  --space-m: 16px;
+  --space-l: 24px;
+  --space-xl: 32px;
+  --space-2xl: 40px;
+  --space-3xl: 56px;
+  --space-4xl: 80px;
+  --space-5xl: 112px;
+  --radius-3xs: 2px;
+  --radius-full: 999px;
+  --dimension-m: 16px;
+
+  --font: "Fira Code Variable", ui-monospace, monospace;
+}
+
+/* Dark mode: follows the system unless the page sets data-theme explicitly. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --primary-strong: #fbffb2;
+    --primary-soft: #919900;
+    --secondary-strong: #99b2ff;
+    --secondary-default: #3366ff;
+    --secondary-soft: #0033cc;
+    --bg-full: #e6e6e6;
+    --bg-strong: #b3b3b3;
+    --bg-sub: #4d4d4d;
+    --bg-soft: #333;
+    --bg-weak: #1a1a1a;
+    --bg-null: #0d0d0d;
+    --text-strong: #fff;
+    --text-sub: #ccc;
+    --text-soft: #999;
+    --text-disabled: #4d4d4d;
+    --text-null: #1a1a1a;
+    --stroke-full: #fff;
+    --stroke-strong: #808080;
+    --stroke-sub: #4d4d4d;
+    --stroke-soft: #333;
+    --stroke-null: #1a1a1a;
+    --error-strong: #fcc;
+    --error-default: #ff4d4d;
+    --error-soft: #900;
+    --warning-strong: #ffe4b2;
+    --warning-default: #ffae17;
+    --warning-soft: #996300;
+    --success-strong: #bbf7d1;
+    --success-default: #1bde63;
+    --success-soft: #0e7133;
+    --info-strong: #b6d9fc;
+    --info-default: #238ef6;
+    --info-soft: #064e93;
+    --utility-1: #00f5f1;
+    --utility-2: #ff40d9;
+    --utility-3: #2fff00;
+    --utility-4: #f80;
+    --utility-5: #ffe500;
+    --utility-6: #fc0d0d;
+    --button-bg: #f3ff17;
+    --button-fg: #1a1a1a;
+  }
+}

@@ -8,7 +8,22 @@ Specifica di parità: le regole estratte leggendo `fonti/script attuale` (Google
 
 ## 0. Verifica sul foglio reale
 
-Ricalcolando con queste regole i dati di input dell'xlsx (52 voci, 6 aree) si ottengono esattamente i valori salvati nel foglio: importi di tutte le 104 righe-fase (netto, IVA, lordo, sponsor, outflow), saldi dei fondi (LEFT VALUE), riepilogo CASH FLOW, scadenze IVA e le 336 celle della tabella TOTAL. **Non ancora verificati dal foglio**: le tabelle per area del Gantt e la tabella "Team's fund" (nell'ACTUAL contiene solo il mese BANK, nell'EXPECTED manca): per quelle la prova sono i casi del §17. Il foglio non arrotonda (saldi con quattro decimali): nel confronto vale la tolleranza di 0,005 € per riga che contribuisce al totale.
+`pnpm reconcile` legge i dati di input dell'xlsx (52 voci, 6 aree), li passa al motore e confronta ogni valore che il foglio aveva calcolato e salvato. **Tutti i 1.995 confronti coincidono**:
+
+| Gruppo | Confronti |
+| --- | --- |
+| Importi di riga: netto, IVA, lordo, sponsor, outflow (104 righe-fase) | 520 |
+| IVA a carico del team e relative scadenze | 104 + 3 |
+| Saldi dei fondi (CASH FROM) | 7 |
+| Riepilogo CASH FLOW | 6 |
+| TOTAL: 8 blocchi × 7 righe × 6 colonne, più le varianze | 336 + 112 |
+| Report IVA di ogni area (scadenze e importi per progetto) | 196 |
+| EXPECTED GANTT e ACTUAL GANTT: tabelle per area, progetto e mese | 63 + 20 |
+| Tabella "Team's fund" dell'ACTUAL GANTT | 67 |
+| CASH FROM ANALYSES e BOUGHT FROM ANALYSES | 216 + 336 |
+| CATEGORY ANALYSES | 9 |
+
+Il foglio non arrotonda (saldi con quattro decimali): il confronto tollera 0,012 € per riga che contribuisce al totale. **Limite**: i dati reali sono semplici (IVA quasi sempre al 22%, nessun ingresso in CASH FLOW, BANK a metà ottobre, ogni fondo con la casella IVA spuntata), quindi i rami sugli ingressi, sullo sponsor parziale e sui due confronti con BANK sono coperti dai test unitari (casi del §17) e non dal foglio. La tabella "Team's fund" dell'EXPECTED GANTT nel file è vuota: lì non c'è un valore atteso.
 
 Cose emerse dal file che lo script da solo non mostrava:
 
@@ -19,7 +34,7 @@ Cose emerse dal file che lo script da solo non mostrava:
 | Nelle tabelle CASH FROM ci sono contratti con importo 0 e senza data | `inflow_date` ammette null; l'importo ammette 0 |
 | Un fondo compare più volte nella stessa tabella (più contratti) e le liste stima/consuntivo differiscono (fondi e fornitori) | più contratti per fondo; una sola lista di fondi e di fornitori (come da piano) |
 | 17 voci su 52 senza categoria, quasi tutte senza priorità | categoria e priorità opzionali |
-| Nel Gantt EXPECTED la tabella "Team's fund" è vuota (c'è solo il titolo), nell'ACTUAL no | probabile errore silenzioso dello script (il `try/catch` a L2540 lo nasconde): per quella tabella lato stima non c'è un valore atteso, l'app la deve calcolare comunque |
+| Nel Gantt EXPECTED la tabella "Team's fund" è vuota (c'è solo il titolo), nell'ACTUAL no | probabile errore silenzioso dello script (il `try/catch` a L2540 lo nasconde): l'app la calcola comunque |
 | Le intestazioni del report IVA partono da una scadenza anteriore al default (20/08/2026) e includono un lunedì spostato dal weekend (17/05/2027) | conferma l'estensione automatica dell'orizzonte (§6) e lo spostamento del weekend (§4) |
 
 ## 1. Anagrafiche (L4–L10, L43–L58)
@@ -150,6 +165,7 @@ Per area (6 righe + TOTAL) e per blocco (ALL + 7 categorie), considerando le rig
 
 - Nomi: per i fondi, quelli dei contratti più quelli usati nelle righe; per i fornitori, la lista più quelli usati. Ordinati senza distinzione di maiuscole; stima e consuntivo allineati sulla stessa riga quando il nome coincide.
 - Per nome e per blocco (ALL + 7 categorie), righe con voce: grand total (L/X), sponsor (M/Y), outflow (N/Z). Confronto dei nomi senza distinzione di maiuscole.
+- Nell'app i **fornitori** compaiono in una fase solo se usati in una voce di quella fase (il foglio mostrava tutta la lista di quella fase, anche con soli zeri; la lista ora è unica).
 - Per i **fondi**: outflow = Σ outflow, ma se il fondo non paga l'IVA (flag della fase) e non è Team's fund, outflow = Σ outflow − Σ IVA. Per i **fornitori**: Σ outflow.
 - Riga TOTAL per colonna; outflow positivo evidenziato in rosso.
 
@@ -165,7 +181,7 @@ Elenco di sola lettura delle voci, con tre filtri:
 
 Colonne: Area, Project, Item, Category, Priority, Expected outflow, Expected cash from, Expected bought from, Expected buy date, Actual outflow, Actual cash from, Actual bought from, Actual buy date.
 
-Ordine, in sequenza: se l'ordinamento è per area, prima l'area (ordine fisso delle aree, con una riga d'intestazione per area); se la priorità è "High → Low"/"Low → High", poi la priorità (le voci senza priorità sempre in fondo); poi, per area, progetto A–Z e ordine originale; altrimenti la data scelta (senza data in fondo) e a parità area → progetto A–Z → ordine originale. Un filtro su una priorità singola esclude le altre.
+Ordine, in sequenza: se l'ordinamento è per area, prima l'area (ordine fisso delle aree, con una riga d'intestazione per area); se la priorità è "High → Low"/"Low → High", poi la priorità (le voci senza priorità sempre in fondo); poi, per area, progetto A–Z e ordine originale; altrimenti la data scelta (senza data in fondo) e a parità area → progetto A–Z → ordine originale. Un filtro su una priorità singola esclude le altre. ⚠ Nel foglio le voci **senza categoria non compaiono mai** in questo elenco, nemmeno con "All Categories" (17 voci su 52 nel file reale): l'app lo replica; probabilmente conviene mostrarle, da decidere.
 
 ## 14. Date (L3310–L3361)
 
@@ -181,7 +197,7 @@ L'app usa date vere (selettore di data, selettore di mese). Il parser flessibile
 | Q4 CASH FROM e CASH FLOW | due tabelle indipendenti | schema (collegamento facoltativo, dopo) |
 | Q5 flag "paga IVA" | uno per fase | schema: `pays_vat_estimate`, `pays_vat_actual` |
 | Q6 fondo in negativo | solo evidenziazione rossa | interfaccia |
-| Q7 arrotondamento | per riga, al centesimo | `getSettings().rounding` |
+| Q7 arrotondamento | per riga, al centesimo | `roundDiv` in `calc/money.ts` |
 
 ## 16. Cosa non si porta
 

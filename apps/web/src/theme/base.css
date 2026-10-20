@@ -1,0 +1,90 @@
+@import "@fontsource-variable/fira-code";
+@import "./tokens.css";
+
+/*
+ * Typography styles of the Figma design system. Everything is Fira Code, letter spacing -1%.
+ * Weights: Light 300, Retina 450, Bold 700. Labels are uppercase.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-weak);
+  color: var(--text-strong);
+  font-family: var(--font);
+  font-size: 13px; /* Body Medium */
+  font-weight: 450;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 19px; /* Heading 2 */
+  font-weight: 700;
+  line-height: 1.28;
+  letter-spacing: 0;
+}
+h2,
+h3 {
+  font-size: 15px; /* Heading 3 */
+  font-weight: 700;
+  line-height: 1.28;
+  letter-spacing: 0;
+}
+
+.body-xl { font-size: 17px; }
+.body-l { font-size: 15px; }
+.body-m { font-size: 13px; }
+.body-s { font-size: 11px; }
+.body-xs { font-size: 9px; }
+.label-l, .label-m, .label-s, .label-xs {
+  line-height: 1.28;
+  text-transform: uppercase;
+}
+.label-l { font-size: 15px; }
+.label-m { font-size: 13px; }
+.label-s { font-size: 11px; }
+.label-xs { font-size: 9px; }
+.light { font-weight: 300; }
+.retina { font-weight: 450; }
+.bold { font-weight: 700; }
+.muted { color: var(--text-soft); }
+.sub { color: var(--text-sub); }
+
+button,
+input,
+select {
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--secondary-default);
+  outline-offset: 1px;
+}
+
+table {
+  border-collapse: collapse;
+}
