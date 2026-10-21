@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Fragment, useState } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { useParams } from "react-router";
 import { api } from "../api/client";
 import type { Gantt, Phase } from "../api/types";
@@ -33,15 +33,18 @@ export function GanttPage() {
       {data.blocks.length === 0 ? (
         <p className="empty">No purchase has a date yet.</p>
       ) : (
-        <>
-          <Chips
-            label="Block"
-            value={selected!.block}
-            onChange={setBlock}
-            options={data.blocks.map((b) => ({ value: b.block, label: blockTitle(b.block) }))}
-          />
-          <BlockTable gantt={data} blockName={selected!.block} />
-        </>
+        <BlockTable
+          gantt={data}
+          blockName={selected!.block}
+          chips={
+            <Chips
+              label="Block"
+              value={selected!.block}
+              onChange={setBlock}
+              options={data.blocks.map((b) => ({ value: b.block, label: blockTitle(b.block) }))}
+            />
+          }
+        />
       )}
 
       <TeamFundTable gantt={data} />
@@ -49,7 +52,7 @@ export function GanttPage() {
   );
 }
 
-function BlockTable({ gantt, blockName }: { gantt: Gantt; blockName: string }) {
+function BlockTable({ gantt, blockName, chips }: { gantt: Gantt; blockName: string; chips: ReactNode }) {
   const block = gantt.blocks.find((b) => b.block === blockName);
   if (!block) return null;
   const columns = gantt.months;
@@ -61,6 +64,7 @@ function BlockTable({ gantt, blockName }: { gantt: Gantt; blockName: string }) {
 
   return (
     <section className="panel">
+      {chips}
       <h2>{blockTitle(blockName)}</h2>
       <BarsChart
         title={`Monthly Outflow Timeline (${blockName === "ALL" ? "All Items" : blockName})`}

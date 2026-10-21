@@ -32,64 +32,66 @@ export function PendingPage() {
         </div>
       </header>
 
-      <div className="table-wrap">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>ITEM</th>
-              <th>PROJECT</th>
-              <th>BOUGHT FROM</th>
-              <th className="num">BOUGHT</th>
-              <th className="num">ARRIVED</th>
-              <th className="num">TO ARRIVE</th>
-              <th>BOUGHT ON</th>
-              <th className="num">WAITING</th>
-              <th>EXPECTED</th>
-              <th>STATE</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <Fragment key={row.lineId}>
-                <tr>
-                  <td>{row.item}{row.category && <div className="muted">{row.category}</div>}</td>
-                  <td>{row.projectName}<div className="muted">{row.areaName}</div></td>
-                  <td>{row.supplierName ?? <span className="muted">—</span>}</td>
-                  <td className="num">{quantity(row.boughtMilli)}</td>
-                  <td className="num">{quantity(row.receivedMilli)}</td>
-                  <td className="num bold">{quantity(row.remainingMilli)}</td>
-                  <td>{date(row.purchaseDate) || <span className="muted">no date</span>}</td>
-                  <td className="num">{row.daysWaiting === null ? <span className="muted">—</span> : `${row.daysWaiting} d`}</td>
-                  <td>{date(row.expectedArrival) || <span className="muted">—</span>}</td>
-                  <td><ArrivalPill status={row.status} /></td>
-                  <td className="num">
-                    {canEdit && lookups && (
-                      <Button small icon={faBoxOpen} variant={open === row.lineId ? "ghost" : "primary"} onClick={() => setOpen(open === row.lineId ? null : row.lineId)}>
-                        {open === row.lineId ? "Close" : "Receive"}
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-                {open === row.lineId && lookups && items.data && (
-                  <tr className="row-panel">
-                    <td colSpan={11}>
-                      <ReceiveForm line={row} items={items.data} lookups={lookups} onDone={() => setOpen(null)} onCancel={() => setOpen(null)} />
+      <section className="panel">
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ITEM</th>
+                <th>PROJECT</th>
+                <th>BOUGHT FROM</th>
+                <th className="num">BOUGHT</th>
+                <th className="num">ARRIVED</th>
+                <th className="num">TO ARRIVE</th>
+                <th>BOUGHT ON</th>
+                <th className="num">WAITING</th>
+                <th>EXPECTED</th>
+                <th>STATE</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <Fragment key={row.lineId}>
+                  <tr>
+                    <td>{row.item}{row.category && <div className="muted">{row.category}</div>}</td>
+                    <td>{row.projectName}<div className="muted">{row.areaName}</div></td>
+                    <td>{row.supplierName ?? <span className="muted">—</span>}</td>
+                    <td className="num">{quantity(row.boughtMilli)}</td>
+                    <td className="num">{quantity(row.receivedMilli)}</td>
+                    <td className="num bold">{quantity(row.remainingMilli)}</td>
+                    <td>{date(row.purchaseDate) || <span className="muted">no date</span>}</td>
+                    <td className="num">{row.daysWaiting === null ? <span className="muted">—</span> : `${row.daysWaiting} d`}</td>
+                    <td>{date(row.expectedArrival) || <span className="muted">—</span>}</td>
+                    <td><ArrivalPill status={row.status} /></td>
+                    <td className="num">
+                      {canEdit && lookups && (
+                        <Button small icon={faBoxOpen} variant={open === row.lineId ? "ghost" : "primary"} onClick={() => setOpen(open === row.lineId ? null : row.lineId)}>
+                          {open === row.lineId ? "Close" : "Receive"}
+                        </Button>
+                      )}
                     </td>
                   </tr>
-                )}
-              </Fragment>
-            ))}
-            {pending.isSuccess && rows.length === 0 && <tr><td colSpan={11} className="empty">Everything that was bought has arrived</td></tr>}
-          </tbody>
-        </table>
-      </div>
-      {rows.length > 0 && (
-        <p className="muted">
-          Prices per unit are the ones of the budget: {moneyE4(rows[0]?.prices.net)} net for the first line, for example. They are frozen on
-          the shelf at the moment the goods arrive.
-        </p>
-      )}
+                  {open === row.lineId && lookups && items.data && (
+                    <tr className="row-panel">
+                      <td colSpan={11}>
+                        <ReceiveForm line={row} items={items.data} lookups={lookups} onDone={() => setOpen(null)} onCancel={() => setOpen(null)} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+              {pending.isSuccess && rows.length === 0 && <tr><td colSpan={11} className="empty">Everything that was bought has arrived</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        {rows.length > 0 && (
+          <p className="muted">
+            Prices per unit are the ones of the budget: {moneyE4(rows[0]?.prices.net)} net for the first line, for example. They are frozen on
+            the shelf at the moment the goods arrive.
+          </p>
+        )}
+      </section>
     </>
   );
 }

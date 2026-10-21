@@ -39,61 +39,63 @@ export function UsersPage() {
         </div>
       </header>
 
-      <div className="table-wrap">
-        <table className="data-table">
-          <thead>
-            <tr><th>NAME</th><th>EMAIL</th><th>ROLE</th><th>AREAS (PM)</th><th>ACTIVE</th></tr>
-          </thead>
-          <tbody>
-            {users.data?.map((user) => (
-              <tr key={user.id} className={user.active ? undefined : "inactive"}>
-                <td>{user.name}</td>
-                <td>{user.email}</td>
-                <td>
-                  <select
-                    className="input small"
-                    value={user.role}
-                    aria-label={`Role of ${user.name}`}
-                    onChange={(e) => change(user, { role: e.target.value as Role })}
-                  >
-                    {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                  </select>
-                </td>
-                <td>
-                  {user.role === "pm" ? (
-                    <div className="area-boxes">
-                      {areas.data?.map((area) => (
-                        <label key={area.id} className="checkbox">
-                          <input
-                            type="checkbox"
-                            checked={user.areaIds.includes(area.id)}
-                            onChange={(e) => toggleArea(user, area.id, e.target.checked)}
-                          />
-                          {area.name}
-                        </label>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="muted">—</span>
-                  )}
-                </td>
-                <td>
-                  <label className="checkbox">
-                    <input
-                      type="checkbox"
-                      checked={user.active}
-                      aria-label={`${user.name} is active`}
-                      onChange={(e) => change(user, { active: e.target.checked })}
-                    />
-                    {user.active ? "yes" : "no"}
-                  </label>
-                </td>
-              </tr>
-            ))}
-            {users.data?.length === 0 && <tr><td colSpan={5} className="empty">Nobody yet</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      <section className="panel">
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr><th>NAME</th><th>EMAIL</th><th>ROLE</th><th>AREAS (PM)</th><th>ACTIVE</th></tr>
+            </thead>
+            <tbody>
+              {users.data?.map((user) => (
+                <tr key={user.id} className={user.active ? undefined : "inactive"}>
+                  <td>{user.name}</td>
+                  <td>{user.email}</td>
+                  <td>
+                    <select
+                      className="input small"
+                      value={user.role}
+                      aria-label={`Role of ${user.name}`}
+                      onChange={(e) => change(user, { role: e.target.value as Role })}
+                    >
+                      {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    {user.role === "pm" ? (
+                      <div className="area-boxes">
+                        {areas.data?.map((area) => (
+                          <label key={area.id} className="checkbox">
+                            <input
+                              type="checkbox"
+                              checked={user.areaIds.includes(area.id)}
+                              onChange={(e) => toggleArea(user, area.id, e.target.checked)}
+                            />
+                            {area.name}
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
+                  <td>
+                    <label className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={user.active}
+                        aria-label={`${user.name} is active`}
+                        onChange={(e) => change(user, { active: e.target.checked })}
+                      />
+                      {user.active ? "yes" : "no"}
+                    </label>
+                  </td>
+                </tr>
+              ))}
+              {users.data?.length === 0 && <tr><td colSpan={5} className="empty">Nobody yet</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </>
   );
 }

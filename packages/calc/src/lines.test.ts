@@ -1,21 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { figures, line, snapshot } from "./fixtures";
+import { figures, line, snapshot, sponsorFund, teamFund } from "./fixtures";
 import { computeLines } from "./lines";
 import type { FundInput } from "./snapshot";
 
-const sponsor: FundInput = {
-  id: 2,
-  name: "Sponsor A",
-  kind: "external",
-  paysVat: { estimate: true, actual: false },
-};
+const sponsor: FundInput = sponsorFund(2, { name: "Sponsor A", paysVat: true });
 
 // One project in the first area, one line per test; the fund decides who pays the VAT.
 function build(estimateFigures: ReturnType<typeof figures>, actualFigures = null as ReturnType<typeof figures> | null) {
   return snapshot({
     projects: [{ id: 1, areaId: 1, name: "P", ownerName: null, position: 1 }],
     funds: [
-      { id: 1, name: "Team's fund", kind: "team", paysVat: { estimate: false, actual: false } },
+      teamFund,
       sponsor,
     ],
     suppliers: [{ id: 1, name: "Amazon" }],
@@ -25,27 +20,27 @@ function build(estimateFigures: ReturnType<typeof figures>, actualFigures = null
 
 describe("computeLines: VAT paid by the team", () => {
   it("the team pays the VAT of purchases from its own fund, due on the quarterly deadline", () => {
-    const [l] = computeLines(build(figures(10, 100, { fundId: 1, purchaseDate: "2026-11-10" })));
+    const [l] = computeLines(build(figures(10, 100, { fundIds: [1], purchaseDate: "2026-11-10" })));
     expect(l!.estimate.teamVatCents).toBe(22_000);
     expect(l!.estimate.vatDueDate).toBe("2027-02-16");
     expect(l!.estimate.fundName).toBe("Team's fund");
   });
 
   it("a fund that covers VAT leaves nothing to the team", () => {
-    const [l] = computeLines(build(figures(10, 100, { fundId: 2, purchaseDate: "2026-11-10" })));
+    const [l] = computeLines(build(figures(10, 100, { fundIds: [2], purchaseDate: "2026-11-10" })));
     expect(l!.estimate.teamVatCents).toBe(0);
     expect(l!.estimate.vatDueDate).toBeNull();
   });
 
-  it("the same fund can cover VAT in one phase and not in the other", () => {
+  it("the box of the fund decides in both phases", () => {
     const [l] = computeLines(
       build(
-        figures(10, 100, { fundId: 2, purchaseDate: "2026-11-10" }),
-        figures(10, 100, { fundId: 2, purchaseDate: "2026-11-10" }),
+        figures(10, 100, { fundIds: [2], purchaseDate: "2026-11-10" }),
+        figures(10, 100, { fundIds: [2], purchaseDate: "2026-11-10" }),
       ),
     );
     expect(l!.estimate.teamVatCents).toBe(0);
-    expect(l!.actual.teamVatCents).toBe(22_000);
+    expect(l!.actual.teamVatCents).toBe(0);
   });
 
   it("a line without fund has no team VAT", () => {
@@ -54,13 +49,13 @@ describe("computeLines: VAT paid by the team", () => {
   });
 
   it("team VAT without a purchase date has no due date yet", () => {
-    const [l] = computeLines(build(figures(10, 100, { fundId: 1 })));
+    const [l] = computeLines(build(figures(10, 100, { fundIds: [1] })));
     expect(l!.estimate.teamVatCents).toBe(22_000);
     expect(l!.estimate.vatDueDate).toBeNull();
   });
 
   it("no VAT, no team VAT", () => {
-    const [l] = computeLines(build(figures(10, 100, { fundId: 1, vatRate: 0 })));
+    const [l] = computeLines(build(figures(10, 100, { fundIds: [1], vatRate: 0 })));
     expect(l!.estimate.teamVatCents).toBe(0);
   });
 });

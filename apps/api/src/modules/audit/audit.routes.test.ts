@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { createUser, resetData, testApp } from "../../../test/helpers";
+import { addContract, createUser, resetData, sponsorId, testApp } from "../../../test/helpers";
 import { db } from "../../db/client";
 import { appUser, auditLog, supplier } from "../../db/schema";
 
@@ -69,13 +69,18 @@ describe("what is recorded", () => {
     expect(deletes.every((e) => e.actor?.email === "admin@team.test")).toBe(true);
   });
 
-  it("records funds, contracts, inflows, BANK and suppliers", async () => {
-    await api.post("/api/funds/contracts", { phase: "estimate", fundName: "Sponsor", amount: "100" });
+  it("records funds, the funds of a line, contracts, inflows, BANK and suppliers", async () => {
+    const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
+    await api.post(`/api/projects/${project.id}/lines`, {
+      item: "A",
+      figures: { estimate: { quantity: 1, unitNetCost: "1", fundIds: [await sponsorId(api, "Sponsor")] } },
+    });
+    await addContract(api, { fundName: "Sponsor", amount: "100" });
     await api.post("/api/inflows", { phase: "actual", sourceName: "Donation", amount: "5" });
     await api.put("/api/bank", { amount: "7", asOfDate: "2026-12-01" });
     await api.post("/api/suppliers", { name: "Acme" });
     const tables = new Set((await history()).entries.map((e) => e.table));
-    for (const table of ["fund", "fund_contract", "team_inflow", "bank_snapshot", "supplier"]) {
+    for (const table of ["fund", "line_fund", "fund_contract", "team_inflow", "bank_snapshot", "supplier"]) {
       expect(tables).toContain(table);
     }
   });

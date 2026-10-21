@@ -101,7 +101,7 @@ docker compose run --rm -v "$PWD/fonti:/app/fonti:ro" api pnpm reconcile -- --db
 1. **MT + DMT** (menu a sinistra): vedi i progetti con le loro voci. Clicca una cella per modificarla (le celle grigie a destra sono calcolate, non si toccano). Cambia la quantità di una voce e guarda cambiare subito netto, IVA e totali.
 2. **Triangolo arancione** accanto a una voce: manca il tipo di sponsor o l'aliquota IVA, quindi l'IVA non è ancora contata.
 3. **Add project** e **Add item**: nuovi progetti e nuove voci. Il cestino in fondo alla riga elimina.
-4. **CASH FROM**: contratti dei fondi, saldo residuo (rosso se negativo) e la casella "DOES IT PAY VAT?".
+4. **CASH FROM**: gli sponsor (bottone **New sponsor**, soldi e data di ogni fase nella riga), saldo residuo dei fondi (rosso se negativo) e la casella "Pays VAT".
 5. **CASH FLOW**: il saldo BANK e gli ingressi; "Left value" è ciò che resta dopo le spese del team.
 6. **EXPECTED / ACTUAL GANTT**, **TOTAL**, le tre **ANALYSES**: sono viste di sola lettura, sempre ricalcolate dai dati.
 7. **Inventory** (menu a sinistra): **INVENTORY** è l'elenco (con le immagini), **PENDING** gli acquisti del budget non ancora arrivati ("Receive" li mette sullo scaffale), **COMPONENTS** le cose che facciamo noi con distinta e costo nel tempo, **INVENTORY STATS** le statistiche. Nel budget, una clessidra accanto a una voce vuol dire "comprata, non ancora arrivata". Per avere qualcosa da guardare subito: `docker compose exec api pnpm db:seed-demo` aggiunge articoli **inventati** (si tolgono con `pnpm db:seed-demo -- --remove`); vedi [inventario.md](inventario.md).
@@ -138,7 +138,7 @@ docker compose exec web pnpm --filter @erp/web test
 docker compose exec api pnpm --filter @erp/import-xlsx test
 ```
 
-Risultati attesi: 140 (motore), 208 (API), 27 (sito), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
+Risultati attesi: 164 (motore), 224 (API), 27 (sito), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
 
 Dentro `psql` (il terminale del database) servono pochi comandi: `\dt` elenca le tabelle, `select * from fund;` mostra i fondi, `\q` esce.
 

@@ -271,8 +271,7 @@ export const fund = pgTable("fund", {
   seasonId: integer().notNull().references(() => season.id),
   name: text().notNull(),
   kind: fundKindEnum().notNull(),
-  paysVatEstimate: boolean().notNull().default(false),
-  paysVatActual: boolean().notNull().default(false),
+  paysVat: boolean().notNull().default(false),
 }, (t) => [
   uniqueIndex("fund_season_name_uq").on(t.seasonId, sql`lower(${t.name})`),
   uniqueIndex("fund_one_team_per_season").on(t.seasonId).where(sql`${t.kind} = 'team'`),

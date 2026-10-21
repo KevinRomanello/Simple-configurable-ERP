@@ -14,6 +14,7 @@
 | [accesso-e-storico.md](accesso-e-storico.md) | Login con Google, JWT di 24 ore, ruoli `admin`/`pm`/`viewer`, storico delle modifiche: come funziona, configurazione, come si revoca un accesso, test |
 | [collaudo.md](collaudo.md) | Come si controlla che non ci siano difetti: i livelli di prova, i difetti trovati e corretti, cosa non è coperto, il giro nel browser da ripetere |
 | [inventario.md](inventario.md) | **L'inventario**: dal budget allo scaffale (pending/arrivato), articoli con immagine e campi per categoria, movimenti, componenti con distinta e costo nel tempo, statistiche, prezzi (selettore), dati dimostrativi, cosa manca |
+| [sponsor-e-fondi.md](sponsor-e-fondi.md) | **Sponsor e fondi**: come si definisce uno sponsor (virtuale/cash, tipo A/B/C, aliquota, gruppo), come il sito ne deduce IVA e copertura, più fondi sulla stessa riga con avviso se non bastano, sponsor in cassa (ingresso e IVA all'11%), le risposte del tesoriere |
 | [ci.md](ci.md) | La CI su GitHub: cosa controlla, come leggerla, come provarla in locale |
 
 Materiale di partenza, in `fonti/` (locale, ignorata da git): `script attuale`, `Budget 26-27.xlsx`, `Piano d'azione — Budget e Inventario custom.md` (visione completa in 8 fasi e sette domande per il tesoriere).

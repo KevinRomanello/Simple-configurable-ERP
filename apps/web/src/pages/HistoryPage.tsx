@@ -87,35 +87,37 @@ export function HistoryPage() {
         </div>
       </header>
 
-      <div className="table-wrap">
-        <table className="data-table history">
-          <thead>
-            <tr><th>WHEN</th><th>WHO</th><th>WHAT</th><th>DETAILS</th></tr>
-          </thead>
-          <tbody>
-            {entries.map((entry) => (
-              <tr key={entry.id}>
-                <td>{dateTime(entry.at)}</td>
-                <td>{entry.actor?.name ?? <span className="muted">system</span>}</td>
-                <td>
-                  <span className="bold">{TABLES[entry.table] ?? entry.table}</span> {ACTION[entry.action]}
-                  {entry.label && <div className="muted">{entry.label}</div>}
-                </td>
-                <td><Changes entry={entry} /></td>
-              </tr>
-            ))}
-            {history.isSuccess && entries.length === 0 && <tr><td colSpan={4} className="empty">No changes yet</td></tr>}
-          </tbody>
-        </table>
-      </div>
-
-      {history.hasNextPage && (
-        <div>
-          <Button variant="ghost" small disabled={history.isFetchingNextPage} onClick={() => history.fetchNextPage()}>
-            Load older changes
-          </Button>
+      <section className="panel">
+        <div className="table-wrap">
+          <table className="data-table history">
+            <thead>
+              <tr><th>WHEN</th><th>WHO</th><th>WHAT</th><th>DETAILS</th></tr>
+            </thead>
+            <tbody>
+              {entries.map((entry) => (
+                <tr key={entry.id}>
+                  <td>{dateTime(entry.at)}</td>
+                  <td>{entry.actor?.name ?? <span className="muted">system</span>}</td>
+                  <td>
+                    <span className="bold">{TABLES[entry.table] ?? entry.table}</span> {ACTION[entry.action]}
+                    {entry.label && <div className="muted">{entry.label}</div>}
+                  </td>
+                  <td><Changes entry={entry} /></td>
+                </tr>
+              ))}
+              {history.isSuccess && entries.length === 0 && <tr><td colSpan={4} className="empty">No changes yet</td></tr>}
+            </tbody>
+          </table>
         </div>
-      )}
+
+        {history.hasNextPage && (
+          <div>
+            <Button variant="ghost" small disabled={history.isFetchingNextPage} onClick={() => history.fetchNextPage()}>
+              Load older changes
+            </Button>
+          </div>
+        )}
+      </section>
     </>
   );
 }

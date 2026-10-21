@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { type Person, resetData, testApp } from "../../../test/helpers";
+import { addContract, type Person, resetData, testApp } from "../../../test/helpers";
 
 // Who may do what, checked through the real routes. The admin sets the scene; the others try.
 const api = testApp();
@@ -16,7 +16,7 @@ async function scene() {
   const other = (await api.post("/api/projects", { areaCode: "mt-dmt", name: "Other" })).body;
   const myLine = (await api.post(`/api/projects/${mine.id}/lines`, { item: "My item" })).body;
   const otherLine = (await api.post(`/api/projects/${other.id}/lines`, { item: "Other item" })).body;
-  const contract = (await api.post("/api/funds/contracts", { phase: "estimate", fundName: "Sponsor", amount: "100" })).body;
+  const contract = (await addContract(api, { fundName: "Sponsor", amount: "100" })).body;
   const inflow = (await api.post("/api/inflows", { phase: "estimate", sourceName: "Donation", amount: "10" })).body;
   const supplier = (await api.post("/api/suppliers", { name: "Acme" })).body;
   return { mine, other, myLine, otherLine, contract, inflow, supplier };
@@ -45,9 +45,10 @@ describe("viewer", () => {
       await as.post(`/api/projects/${s.mine.id}/lines`, { item: "X" }),
       await as.patch(`/api/lines/${s.myLine.id}`, { version: 1, item: "X" }),
       await as.del(`/api/lines/${s.myLine.id}`),
-      await as.post("/api/funds/contracts", { phase: "estimate", fundName: "X", amount: "1" }),
-      await as.patch(`/api/funds/${s.contract.fundId}`, { paysVatActual: true }),
-      await as.del(`/api/funds/contracts/${s.contract.id}`),
+      await as.put(`/api/funds/${s.contract.fundId}/contracts/estimate`, { amount: "1" }),
+      await as.post("/api/funds", { name: "X", vatRate: 22 }),
+      await as.patch(`/api/funds/${s.contract.fundId}`, { paysVat: true }),
+      await as.del(`/api/funds/${s.contract.fundId}/contracts/estimate`),
       await as.post("/api/inflows", { phase: "estimate", sourceName: "X", amount: "1" }),
       await as.del(`/api/inflows/${s.inflow.id}`),
       await as.put("/api/bank", { amount: "1" }),
@@ -97,9 +98,10 @@ describe("pm", () => {
     const s = await scene();
     const as = api.as(pm);
     const attempts = [
-      await as.post("/api/funds/contracts", { phase: "estimate", fundName: "X", amount: "1" }),
-      await as.patch(`/api/funds/${s.contract.fundId}`, { paysVatEstimate: true }),
-      await as.del(`/api/funds/contracts/${s.contract.id}`),
+      await as.put(`/api/funds/${s.contract.fundId}/contracts/estimate`, { amount: "1" }),
+      await as.post("/api/funds", { name: "X", vatRate: 22 }),
+      await as.patch(`/api/funds/${s.contract.fundId}`, { paysVat: true }),
+      await as.del(`/api/funds/${s.contract.fundId}/contracts/estimate`),
       await as.del(`/api/funds/${s.contract.fundId}`),
       await as.post("/api/inflows", { phase: "estimate", sourceName: "X", amount: "1" }),
       await as.del(`/api/inflows/${s.inflow.id}`),

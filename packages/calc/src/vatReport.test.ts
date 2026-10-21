@@ -3,7 +3,7 @@ import { figures, line, snapshot } from "./fixtures";
 import { vatReport } from "./vatReport";
 
 // Team's fund is id 1, so every line below leaves 22% VAT to the team.
-const team = { fundId: 1 };
+const team = { fundIds: [1] };
 const withProject = (lines: ReturnType<typeof line>[]) =>
   snapshot({
     projects: [{ id: 1, areaId: 1, name: "P", ownerName: null, position: 1 }],

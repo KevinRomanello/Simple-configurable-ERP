@@ -1,4 +1,4 @@
-import type { Phase, Priority, Settings, SponsorType, VatRules } from "./types";
+import type { FundMode, FundType, Phase, Priority, Settings, SponsorType, VatRules } from "./types";
 
 // The Snapshot is everything the engine needs, as plain JSON. The API builds it from the
 // database (loadSnapshot); tests build it by hand; nothing in here knows about either.
@@ -12,8 +12,10 @@ export interface Figures {
   sponsorType: SponsorType | null;
   /** Only meaningful for a partial sponsor; a total sponsor always covers the whole net. */
   sponsorValueCents: number | null;
+  /** Used when the line is paid by the team fund; a sponsor's fund brings its own rate. */
   vatRate: number | null;
-  fundId: number | null;
+  /** The funds that pay the line, in order: the next one pays what the previous cannot cover. */
+  fundIds: number[];
   supplierId: number | null;
   purchaseDate: string | null;
   arrivalDate: string | null;
@@ -51,8 +53,14 @@ export interface FundInput {
   id: number;
   name: string;
   kind: "team" | "external";
-  /** Whether the fund also covers the VAT of the purchases paid from it, per phase. */
-  paysVat: Record<Phase, boolean>;
+  /** Whether the fund also covers the VAT of the purchases paid from it (otherwise the team pays it). */
+  paysVat: boolean;
+  mode: FundMode;
+  type: FundType;
+  /** The sponsor's VAT rate in percent; null for the team fund, whose rate is chosen per line. */
+  vatRate: number | null;
+  /** Funds of the same group can pay one line together; null = alone. */
+  group: string | null;
 }
 
 export interface ContractInput {

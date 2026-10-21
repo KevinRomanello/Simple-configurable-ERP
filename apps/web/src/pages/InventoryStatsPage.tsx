@@ -52,48 +52,50 @@ export function InventoryStatsPage() {
         </div>
       </header>
 
-      <Chips label="How to cut it" options={BY} value={by} onChange={(value) => setParams({ by: value, basis: price.basis }, { replace: true })} />
-      <PriceSelector value={price} onChange={(change) => setPrice(change)} method={false} />
+      <section className="panel">
+        <Chips label="How to cut it" options={BY} value={by} onChange={(value) => setParams({ by: value, basis: price.basis }, { replace: true })} />
+        <PriceSelector value={price} onChange={(change) => setPrice(change)} method={false} />
 
-      <div className="table-wrap">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>{by.toUpperCase()}</th>
-              <th className="num">ITEMS</th>
-              {show.bought && <th className="num">BOUGHT</th>}
-              {show.pending && <th className="num">ON ITS WAY</th>}
-              {show.used && <th className="num">USED</th>}
-              {show.stock && <th className="num">ON THE SHELF</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.key}>
-                <td>{r.label}</td>
-                <td className="num">{r.items || ""}</td>
-                {show.bought && <td className="num">{money(r.boughtCents, true)}</td>}
-                {show.pending && <td className="num">{money(r.pendingCents, true)}</td>}
-                {show.used && <td className="num">{money(r.usedCents, true)}</td>}
-                {show.stock && <td className="num">{money(r.stockCents, true)}</td>}
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>{by.toUpperCase()}</th>
+                <th className="num">ITEMS</th>
+                {show.bought && <th className="num">BOUGHT</th>}
+                {show.pending && <th className="num">ON ITS WAY</th>}
+                {show.used && <th className="num">USED</th>}
+                {show.stock && <th className="num">ON THE SHELF</th>}
               </tr>
-            ))}
-            {rows.length > 0 && (
-              <tr className="total">
-                <td>Total</td>
-                <td />
-                {show.bought && <td className="num">{money(total((r) => r.boughtCents))}</td>}
-                {show.pending && <td className="num">{money(total((r) => r.pendingCents))}</td>}
-                {show.used && <td className="num">{money(total((r) => r.usedCents))}</td>}
-                {show.stock && <td className="num">{money(total((r) => r.stockCents))}</td>}
-              </tr>
-            )}
-            {stats.isSuccess && rows.length === 0 && <tr><td colSpan={6} className="empty">Nothing yet</td></tr>}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.key}>
+                  <td>{r.label}</td>
+                  <td className="num">{r.items || ""}</td>
+                  {show.bought && <td className="num">{money(r.boughtCents, true)}</td>}
+                  {show.pending && <td className="num">{money(r.pendingCents, true)}</td>}
+                  {show.used && <td className="num">{money(r.usedCents, true)}</td>}
+                  {show.stock && <td className="num">{money(r.stockCents, true)}</td>}
+                </tr>
+              ))}
+              {rows.length > 0 && (
+                <tr className="total">
+                  <td>Total</td>
+                  <td />
+                  {show.bought && <td className="num">{money(total((r) => r.boughtCents))}</td>}
+                  {show.pending && <td className="num">{money(total((r) => r.pendingCents))}</td>}
+                  {show.used && <td className="num">{money(total((r) => r.usedCents))}</td>}
+                  {show.stock && <td className="num">{money(total((r) => r.stockCents))}</td>}
+                </tr>
+              )}
+              {stats.isSuccess && rows.length === 0 && <tr><td colSpan={6} className="empty">Nothing yet</td></tr>}
+            </tbody>
+          </table>
+        </div>
 
-      <BarsChart title={BY.find((b) => b.value === by)!.label} data={rows.map((r) => ({ ...r }))} xKey="label" series={series} height={280} />
+        <BarsChart title={BY.find((b) => b.value === by)!.label} data={rows.map((r) => ({ ...r }))} xKey="label" series={series} height={280} />
+      </section>
     </>
   );
 }

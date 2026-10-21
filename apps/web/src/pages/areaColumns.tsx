@@ -1,8 +1,8 @@
-import { faCheck, faHourglassHalf, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faCoins, faHourglassHalf, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { ColDef, ColGroupDef, ICellRendererParams, ValueSetterParams } from "ag-grid-community";
 import type { FiguresPatch, LinePatch } from "../api/client";
-import type { CalcLine, Phase, PhaseCalc } from "../api/types";
+import type { CalcLine, Fund, Phase, PhaseCalc } from "../api/types";
 import { ArrivalPill, arrivalTitle } from "../components/ArrivalPill";
 import { date, money, quantity } from "../lib/format";
 
@@ -21,8 +21,10 @@ export interface GridLookups {
   categories: string[];
   priorities: string[];
   vatRates: number[];
-  fundNames: Record<Phase, string[]>;
-  fundIdByName: Map<string, number>;
+  /** The funds a line can be paid from in each phase (see GET /api/funds?phase=), and every fund by id and by name. */
+  funds: Record<Phase, Fund[]>;
+  fundById: Map<number, Fund>;
+  fundByName: Map<string, Fund>;
   supplierNames: string[];
   supplierIdByName: Map<string, number>;
 }
@@ -30,24 +32,41 @@ export interface GridLookups {
 /** Sends a change of one line to the server (the grid never edits its own data). */
 export type Commit = (line: CalcLine, patch: Omit<LinePatch, "version">) => void;
 
-const SPONSOR_LABEL = { none: "No sponsor", partial: "Partial", total: "Total" } as const;
-const SPONSOR_BY_LABEL = Object.fromEntries(Object.entries(SPONSOR_LABEL).map(([k, v]) => [v, k]));
-
 const isLine = (row: Row | undefined): row is CalcLine => row !== undefined && !("isSubtotal" in row);
 
-const INCOMPLETE_TIP = "Sponsor type or VAT rate is missing: the VAT is not counted yet";
+const INCOMPLETE_TIP = "CASH FROM or VAT % is missing: the VAT is not counted yet";
+const PHASE_LABEL: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
 
-/** A line is incomplete while a phase with data has no sponsor type or no VAT rate. */
+/** A line is incomplete while a phase with data has no fund (or no VAT rate for the team fund). */
 const isIncomplete = (line: CalcLine) =>
   (["estimate", "actual"] as const).some((phase) => line[phase].figures !== null && !line[phase].amounts.complete);
+
+/** The phases in which the funds of a line cannot cover it. */
+const shortPhases = (line: CalcLine) => (["estimate", "actual"] as const).filter((phase) => line[phase].shortCents > 0);
+
+const SHORT_HINT = "Add another fund of the same group in ALSO FROM.";
 
 /** What the icons of the status column mean: shown at once when the pointer is over the cell. */
 function statusTip(row: Row | undefined): string | undefined {
   if (!isLine(row)) return undefined;
   const tips: string[] = [];
   if (isIncomplete(row)) tips.push(INCOMPLETE_TIP);
+  for (const phase of shortPhases(row)) {
+    tips.push(`${PHASE_LABEL[phase]}: the funds are ${money(row[phase].shortCents)} short. ${SHORT_HINT}`);
+  }
   if (row.arrival.status !== "planned") tips.push(arrivalTitle[row.arrival.status]);
   return tips.length > 0 ? tips.join("\n") : undefined;
+}
+
+/** The funds that can pay the rest of a line after its first fund: same group, or the team fund. */
+function companionNames(lookups: GridLookups, phase: Phase, line: CalcLine): string[] {
+  const chosen = line[phase].figures?.fundIds ?? [];
+  const first = lookups.fundById.get(chosen[0] ?? -1);
+  if (!first || first.kind === "team" || first.type !== "fund") return [];
+  return lookups.funds[phase]
+    .filter((f) => !chosen.includes(f.id))
+    .filter((f) => f.kind === "team" || (f.type === "fund" && f.group !== null && f.group.toLowerCase() === first.group?.toLowerCase()))
+    .map((f) => f.name);
 }
 const blank = (value: unknown) => value === "" || value === null || value === undefined;
 
@@ -63,6 +82,26 @@ function editableCell(
       return false; // the screen reloads the real value from the server
     },
   };
+}
+
+/** The VAT rate a fund puts on a line: its own for a sponsor, the one typed on the line for the team fund. */
+function ratesOf(lookups: GridLookups, fundId: number, lineRate: number | null): number | null {
+  const fund = lookups.fundById.get(fundId);
+  return !fund || fund.kind === "team" ? lineRate : fund.vatRate;
+}
+
+/** Whether the person types the VAT rate on this line: only when the team fund pays (or nobody does yet). */
+const choosesOwnRate = (lookups: GridLookups, fundIds: number[]) =>
+  fundIds.length === 0 || fundIds.some((id) => lookups.fundById.get(id)?.kind === "team");
+
+/** What each fund of a line pays, and what is missing. */
+function fundTip(row: Row | undefined, phase: Phase): string | undefined {
+  if (!isLine(row)) return undefined;
+  const { shares, shortCents } = row[phase];
+  if (shares.length === 0) return undefined;
+  const lines = shares.map((s) => `${s.fundName}: ${money(s.drawnCents)}`);
+  if (shortCents > 0) lines.push(`${money(shortCents)} missing: not enough in the fund`);
+  return lines.join("\n");
 }
 
 function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit): ColDef<Row>[] {
@@ -113,13 +152,50 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit): ColDe
     {
       colId: `${phase}.fund`,
       headerName: "CASH FROM",
-      width: 150,
-      valueGetter: (p) => p.data?.[phase].fundName ?? "",
+      width: 200,
+      cellClass: (p) => (isLine(p.data) && p.data[phase].shortCents > 0 ? "cell-negative" : undefined),
+      tooltipValueGetter: (p) => fundTip(p.data, phase),
+      valueGetter: (p) => {
+        const shares = p.data?.[phase].shares ?? [];
+        // with several funds each one shows what it pays
+        return shares.length > 1 ? `${shares[0]!.fundName} (${money(shares[0]!.drawnCents)})` : (p.data?.[phase].fundName ?? "");
+      },
       cellEditor: "agSelectCellEditor",
-      cellEditorParams: { values: ["", ...lookups.fundNames[phase]] },
+      cellEditorParams: { values: ["", ...lookups.funds[phase].map((f) => f.name)] },
+      // choosing the first fund starts the list again: the other funds are chosen afterwards
       ...editableCell(commit, (v) =>
-        patchFigures({ fundId: blank(v) ? null : (lookups.fundIdByName.get(String(v).toLowerCase()) ?? null) }),
+        patchFigures({ fundIds: blank(v) ? [] : [lookups.fundByName.get(String(v).toLowerCase())?.id].flatMap((id) => (id === undefined ? [] : [id])) }),
       ),
+    },
+    {
+      colId: `${phase}.moreFunds`,
+      headerName: "ALSO FROM",
+      width: 200,
+      cellClass: (p) => (isLine(p.data) && p.data[phase].shortCents > 0 ? "cell-warning" : undefined),
+      tooltipValueGetter: (p) => (isLine(p.data) && p.data[phase].shortCents > 0 ? SHORT_HINT : undefined),
+      valueGetter: (p) =>
+        (p.data?.[phase].shares ?? [])
+          .slice(1)
+          .map((share) => `${share.fundName} (${money(share.drawnCents)})`)
+          .join(" + "),
+      cellEditor: "agSelectCellEditor",
+      cellEditorParams: (p: { data?: Row }) => ({
+        values: ["", ...(isLine(p.data) ? companionNames(lookups, phase, p.data) : [])],
+      }),
+      // the box is there only while it is needed: the funds run short and another one fits, or the line
+      // already has more than one (a blank choice takes the extra ones away)
+      editable: (p) =>
+        isLine(p.data) &&
+        !p.node.rowPinned &&
+        (p.data[phase].shares.length > 1 || (p.data[phase].shortCents > 0 && companionNames(lookups, phase, p.data).length > 0)),
+      valueSetter: (p: ValueSetterParams<Row>) => {
+        if (!isLine(p.data)) return false;
+        const current = p.data[phase].figures?.fundIds ?? [];
+        const picked = lookups.fundByName.get(String(p.newValue ?? "").toLowerCase());
+        // a blank choice takes the extra funds away, leaving the first
+        commit(p.data, patchFigures({ fundIds: picked ? [...current, picked.id] : current.slice(0, 1) }));
+        return false;
+      },
     },
     {
       colId: `${phase}.supplier`,
@@ -133,47 +209,29 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit): ColDe
       ),
     },
     {
-      colId: `${phase}.sponsorType`,
-      headerName: "SPONSOR",
-      width: 120,
-      valueGetter: (p) => {
-        const type = fig(p.data)?.sponsorType;
-        return type ? SPONSOR_LABEL[type] : "";
-      },
-      cellEditor: "agSelectCellEditor",
-      cellEditorParams: { values: ["", ...Object.values(SPONSOR_LABEL)] },
-      ...editableCell(commit, (v) => patchFigures({ sponsorType: blank(v) ? null : SPONSOR_BY_LABEL[String(v)] })),
-    },
-    {
       colId: `${phase}.vatRate`,
       headerName: "VAT %",
       width: 90,
+      // a sponsor brings its own rate; the rate is chosen on the line only for the team fund (or without a fund)
       valueGetter: (p) => {
-        const rate = fig(p.data)?.vatRate;
-        return rate == null ? "" : `${rate}%`;
+        const f = fig(p.data);
+        if (!f) return "";
+        const rates = f.fundIds.length === 0 ? [f.vatRate] : f.fundIds.map((id) => ratesOf(lookups, id, f.vatRate));
+        const shown = [...new Set(rates.filter((r) => r !== null))];
+        return shown.map((r) => `${r}%`).join(" / ");
       },
       cellEditor: "agSelectCellEditor",
       cellEditorParams: { values: ["", ...lookups.vatRates.map((r) => `${r}%`)] },
       ...editableCell(commit, (v) => patchFigures({ vatRate: blank(v) ? null : Number(String(v).replace("%", "")) })),
+      editable: (p) => isLine(p.data) && !p.node.rowPinned && choosesOwnRate(lookups, fig(p.data)?.fundIds ?? []),
     },
     {
       colId: `${phase}.sponsorValue`,
       headerName: "SPONSOR VALUE",
       width: 130,
-      cellClass: "num",
-      valueGetter: (p) => {
-        const f = fig(p.data);
-        return f?.sponsorType === "partial" && f.sponsorValueCents != null ? f.sponsorValueCents / 100 : null;
-      },
+      cellClass: ["num", "calc"],
+      valueGetter: (p) => (p.data?.[phase].amounts.sponsorCents ? p.data[phase].amounts.sponsorCents / 100 : null),
       valueFormatter: (p) => (p.value == null ? "" : money(Math.round(p.value * 100))),
-      cellEditor: "agNumberCellEditor",
-      cellEditorParams: { min: 0, precision: 2 },
-      // only a partial sponsor has a typed value; for the other types it is derived
-      editable: (p) => isLine(p.data) && !p.node.rowPinned && fig(p.data)?.sponsorType === "partial",
-      valueSetter: (p) => {
-        if (isLine(p.data)) commit(p.data, patchFigures({ sponsorValue: asNumber(p.newValue) }));
-        return false;
-      },
     },
     amountColumn("gross", "GRAND TOTAL", (a) => a.grossCents),
     amountColumn("outflow", "OUTFLOW", (a) => a.outflowCents, 118, true),
@@ -198,6 +256,7 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit): ColDe
     {
       colId: `${phase}.teamVat`,
       headerName: "VAT TO PAY",
+      headerTooltip: "The VAT the team pays out of its own cash for this line: the sponsor does not cover it, or the line is paid from the team fund",
       width: 115,
       cellClass: "calc",
       valueGetter: (p) => (p.data && p.data[phase].teamVatCents > 0 ? money(p.data[phase].teamVatCents) : ""),
@@ -205,6 +264,7 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit): ColDe
     {
       colId: `${phase}.vatDue`,
       headerName: "VAT DUE",
+      headerTooltip: "The day the VAT to pay falls due: the quarterly deadline that follows the purchase date",
       width: 100,
       cellClass: "calc",
       valueGetter: (p) => date(p.data?.[phase].vatDueDate),
@@ -243,13 +303,27 @@ function readOnly(columns: Columns): Columns {
 }
 
 /** The columns of a project grid, in the order of the old area sheets. */
+/** The narrowest a column may get: the longest word of its header (headers wrap at spaces) plus some room. */
+const headerMinWidth = (name: string) => Math.ceil(Math.max(...name.split(" ").map((word) => word.length)) * 8.2) + 28;
+
+/** Columns are as wide as their content (the grid fits them); this keeps each from getting narrower than its header word. */
+function withMinWidths(columns: Columns): Columns {
+  return columns.map((c) =>
+    "children" in c
+      ? { ...c, children: withMinWidths(c.children as Columns) as ColDef<Row>[] }
+      : c.headerName
+        ? { minWidth: headerMinWidth(c.headerName), ...c }
+        : c,
+  );
+}
+
 export function areaColumns(
   lookups: GridLookups,
   commit: Commit,
   remove: (line: CalcLine) => void,
   canEdit: boolean,
 ): Columns {
-  const columns = editableColumns(lookups, commit, remove);
+  const columns = withMinWidths(editableColumns(lookups, commit, remove));
   return canEdit ? columns : readOnly(columns);
 }
 
@@ -258,7 +332,7 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
     {
       colId: "status",
       headerName: "",
-      width: 64,
+      width: 84,
       pinned: "left",
       sortable: false,
       tooltipValueGetter: (p) => statusTip(p.data),
@@ -271,6 +345,11 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
             {isIncomplete(row) && (
               <span style={{ color: "var(--warning-default)" }}>
                 <FontAwesomeIcon icon={faTriangleExclamation} />
+              </span>
+            )}
+            {shortPhases(row).length > 0 && (
+              <span style={{ color: "var(--error-default)" }}>
+                <FontAwesomeIcon icon={faCoins} />
               </span>
             )}
             {(status === "ordered" || status === "partial") && (
@@ -296,6 +375,7 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
       colId: "item",
       headerName: "ITEM",
       width: 240,
+      maxWidth: 320,
       pinned: "left",
       valueGetter: (p) => p.data?.item ?? "",
       cellStyle: (p) => (p.node.rowPinned ? { fontWeight: 700 } : undefined),
@@ -340,6 +420,7 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
       colId: "note",
       headerName: "NOTE",
       width: 220,
+      maxWidth: 260,
       valueGetter: (p) => (isLine(p.data) ? (p.data.note ?? "") : ""),
       ...editableCell(commit, (v) => ({ note: blank(v) ? null : String(v) })),
     },

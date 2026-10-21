@@ -1,4 +1,4 @@
-import { MOVEMENT_KINDS, PHASES, SPONSOR_TYPES } from "@erp/calc";
+import { FUND_MODES, FUND_TYPES, MOVEMENT_KINDS, PHASES, SPONSOR_TYPES } from "@erp/calc";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -25,6 +25,8 @@ import {
 export const phaseEnum = pgEnum("phase", PHASES);
 export const sponsorTypeEnum = pgEnum("sponsor_type", SPONSOR_TYPES);
 export const fundKindEnum = pgEnum("fund_kind", ["team", "external"]);
+export const fundModeEnum = pgEnum("fund_mode", FUND_MODES);
+export const fundTypeEnum = pgEnum("fund_type", FUND_TYPES);
 export const userRoleEnum = pgEnum("user_role", ["admin", "pm", "viewer"]);
 export const movementKindEnum = pgEnum("movement_kind", MOVEMENT_KINDS);
 export const itemOriginEnum = pgEnum("item_origin", ["bought", "made"]);
@@ -95,7 +97,6 @@ export const lineFigures = pgTable(
     sponsorType: sponsorTypeEnum(),
     sponsorValue: numeric({ precision: 14, scale: 2 }),
     vatRate: numeric({ precision: 5, scale: 2 }),
-    fundId: integer().references(() => fund.id),
     supplierId: integer().references(() => supplier.id),
     purchaseDate: date(),
     arrivalDate: date(),
@@ -115,15 +116,47 @@ export const fund = pgTable(
       .references(() => season.id),
     name: text().notNull(),
     kind: fundKindEnum().notNull(),
-    // One flag per phase, like the two checkboxes of the old sheet (open question Q5).
-    paysVatEstimate: boolean().notNull().default(false),
-    paysVatActual: boolean().notNull().default(false),
+    // Whether the fund also covers the VAT of what it pays; otherwise the team pays it. One box per
+    // fund (the old sheet had one per phase: question Q5, answered on 21 October 2026).
+    paysVat: boolean().notNull().default(false),
+    // The sponsor's definition: the funds are black boxes that work out VAT and coverage from it
+    // (docs/sponsor-e-fondi.md). The team fund is plain: its VAT rate is chosen on each line.
+    mode: fundModeEnum().notNull().default("virtual"),
+    type: fundTypeEnum().notNull().default("fund"),
+    vatRate: numeric({ precision: 5, scale: 2 }),
+    /** Funds with the same group (any spelling) can pay one line together. */
+    groupName: text(),
   },
   (t) => [
     uniqueIndex("fund_season_name_uq").on(t.seasonId, sql`lower(${t.name})`),
     uniqueIndex("fund_one_team_per_season")
       .on(t.seasonId)
       .where(sql`${t.kind} = 'team'`),
+    check(
+      "fund_team_is_plain",
+      sql`${t.kind} <> 'team' or (${t.mode} = 'virtual' and ${t.type} = 'fund' and ${t.vatRate} is null and ${t.groupName} is null)`,
+    ),
+    check("fund_cash_gives_fund", sql`${t.mode} = 'virtual' or ${t.type} = 'fund'`),
+    check("fund_sponsor_has_rate", sql`${t.kind} = 'team' or ${t.vatRate} is not null`),
+  ],
+);
+
+/** The funds that pay a line in a phase, in the order they are drawn down. */
+export const lineFund = pgTable(
+  "line_fund",
+  {
+    id: id(),
+    figuresId: integer()
+      .notNull()
+      .references(() => lineFigures.id, { onDelete: "cascade" }),
+    position: integer().notNull(),
+    fundId: integer()
+      .notNull()
+      .references(() => fund.id),
+  },
+  (t) => [
+    unique("line_fund_position_uq").on(t.figuresId, t.position),
+    unique("line_fund_fund_uq").on(t.figuresId, t.fundId),
   ],
 );
 
@@ -140,7 +173,11 @@ export const fundContract = pgTable(
     /** Real sheets contain contracts without a date. */
     inflowDate: date(),
   },
-  (t) => [check("fund_contract_non_negative", sql`${t.amount} >= 0`)],
+  (t) => [
+    check("fund_contract_non_negative", sql`${t.amount} >= 0`),
+    // The money of a sponsor in a phase is one value and one date, kept on the sponsor itself.
+    unique("fund_contract_fund_phase_uq").on(t.fundId, t.phase),
+  ],
 );
 
 /** The CASH FLOW tables: money that reaches the team, independent from the funds. */

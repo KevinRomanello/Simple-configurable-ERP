@@ -1,5 +1,6 @@
 import { isAfterBank } from "./bank";
 import { ALL_BLOCK, blocksOf } from "./blocks";
+import { bankInflows, cashSponsorVat } from "./cash";
 import { monthKey, monthRange, monthSpan } from "./dates";
 import { computeLines, type CalcLine } from "./lines";
 import type { Snapshot } from "./snapshot";
@@ -34,7 +35,7 @@ export interface GanttBlock {
 export interface TeamFundRow {
   month: string;
   inflowCents: number;
-  /** Purchases paid from the team fund (VAT excluded) plus the VAT the team pays. */
+  /** Purchases paid from the team fund (VAT excluded) plus the VAT the team pays (also on cash sponsors' money). */
   outflowAllCents: number;
   outflowByCategory: Record<string, number>;
   outflowVatCents: number;
@@ -57,7 +58,8 @@ interface Movement {
   date: string;
   month: string;
   cents: number;
-  fromTeamFund: boolean;
+  /** The part of a purchase paid from the team fund (VAT excluded); zero for a VAT movement. */
+  teamFundCents: number;
 }
 
 const VAT_ROW_NAME = "VAT Outflow";
@@ -76,7 +78,7 @@ function movementsOf(lines: CalcLine[], phase: Phase): Movement[] {
         date: p.purchaseDate,
         month: monthKey(p.purchaseDate),
         cents,
-        fromTeamFund: p.fundKind === "team",
+        teamFundCents: p.teamFundCents,
       });
     }
     if (p.teamVatCents > 0 && p.vatDueDate) {
@@ -86,7 +88,7 @@ function movementsOf(lines: CalcLine[], phase: Phase): Movement[] {
         date: p.vatDueDate,
         month: monthKey(p.vatDueDate),
         cents: p.teamVatCents,
-        fromTeamFund: false,
+        teamFundCents: 0,
       });
     }
   }
@@ -160,12 +162,15 @@ export function gantt(snapshot: Snapshot, phase: Phase): Gantt {
   const mode = snapshot.lookups.settings.bankCompare.timeline;
   const afterBank = (date: string | null) => bankDate === null || isAfterBank(date, bankDate, mode);
 
-  const inflows = snapshot.inflows.filter((i) => i.phase === phase && i.inflowDate !== null);
+  const inflows = bankInflows(snapshot, phase).filter((i) => i.inflowDate !== null);
+  // The VAT on a cash sponsor's money belongs to the team fund, not to a project.
+  const sponsorVat = cashSponsorVat(snapshot, phase);
 
   // The timeline spans every month with a movement, an inflow, or the BANK balance.
   const monthKeys = new Set<string>([
     ...movements.map((m) => m.month),
     ...inflows.map((i) => monthKey(i.inflowDate!)),
+    ...sponsorVat.map((v) => monthKey(v.dueDate)),
   ]);
   if (bankDate !== null) monthKeys.add(monthKey(bankDate));
   const span = monthSpan(monthKeys);
@@ -188,16 +193,18 @@ export function gantt(snapshot: Snapshot, phase: Phase): Gantt {
     if (bank && bankMonth === month) inflowCents += bank.amountCents;
 
     const inMonth = counted.filter((m) => m.month === month);
-    const purchases = inMonth.filter((m) => m.kind === "purchase" && m.fromTeamFund);
-    const outflowVatCents = inMonth
-      .filter((m) => m.kind === "vat")
-      .reduce((total, m) => total + m.cents, 0);
-    const outflowAllCents = purchases.reduce((total, m) => total + m.cents, 0) + outflowVatCents;
+    const purchases = inMonth.filter((m) => m.kind === "purchase" && m.teamFundCents > 0);
+    const outflowVatCents =
+      inMonth.filter((m) => m.kind === "vat").reduce((total, m) => total + m.cents, 0) +
+      sponsorVat
+        .filter((v) => monthKey(v.dueDate) === month && afterBank(v.dueDate))
+        .reduce((total, v) => total + v.cents, 0);
+    const outflowAllCents = purchases.reduce((total, m) => total + m.teamFundCents, 0) + outflowVatCents;
 
     const outflowByCategory = Object.fromEntries(
       categories.map((category) => [
         category,
-        purchases.filter((m) => m.line.category === category).reduce((total, m) => total + m.cents, 0),
+        purchases.filter((m) => m.line.category === category).reduce((total, m) => total + m.teamFundCents, 0),
       ]),
     );
 

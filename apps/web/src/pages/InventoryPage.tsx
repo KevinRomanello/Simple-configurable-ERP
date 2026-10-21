@@ -53,74 +53,76 @@ export function InventoryPage() {
         <MoneyCard caption="Value on the shelf" cents={value} />
       </div>
 
-      <div className="inline-form">
-        <div className="field">
-          <label htmlFor="inventory-search">Search</label>
-          <input id="inventory-search" className="input small" placeholder="Name, code, what it is for…" value={search} onChange={(e) => setSearch(e.target.value)} />
+      <section className="panel">
+        <div className="inline-form">
+          <div className="field">
+            <label htmlFor="inventory-search">Search</label>
+            <input id="inventory-search" className="input small" placeholder="Name, code, what it is for…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="inventory-category">Category</label>
+            <select id="inventory-category" className="input small" value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="">All</option>
+              {lookups?.categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="inventory-origin">Kind</label>
+            <select id="inventory-origin" className="input small" value={origin} onChange={(e) => setOrigin(e.target.value)}>
+              <option value="">Bought and made</option>
+              <option value="bought">Bought</option>
+              <option value="made">Made by the team</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="inventory-location">Where</label>
+            <select id="inventory-location" className="input small" value={location} onChange={(e) => setLocation(e.target.value)}>
+              <option value="">Anywhere</option>
+              {lookups?.locations.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+            </select>
+          </div>
+          <PriceSelector value={price} onChange={setPrice} date />
         </div>
-        <div className="field">
-          <label htmlFor="inventory-category">Category</label>
-          <select id="inventory-category" className="input small" value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="">All</option>
-            {lookups?.categories.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor="inventory-origin">Kind</label>
-          <select id="inventory-origin" className="input small" value={origin} onChange={(e) => setOrigin(e.target.value)}>
-            <option value="">Bought and made</option>
-            <option value="bought">Bought</option>
-            <option value="made">Made by the team</option>
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor="inventory-location">Where</label>
-          <select id="inventory-location" className="input small" value={location} onChange={(e) => setLocation(e.target.value)}>
-            <option value="">Anywhere</option>
-            {lookups?.locations.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
-          </select>
-        </div>
-        <PriceSelector value={price} onChange={setPrice} date />
-      </div>
 
-      <div className="table-wrap">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th />
-              <th>ITEM</th>
-              <th>CATEGORY</th>
-              <th className="num">ON THE SHELF</th>
-              <th className="num">BOUGHT</th>
-              <th className="num">UNIT PRICE</th>
-              <th className="num">VALUE</th>
-              <th>WHERE</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td><ItemThumb id={r.id} hasImage={r.hasImage} name={r.name} /></td>
-                <td>
-                  <Link to={`/inventory/items/${r.id}`} className="item-link">{r.name}</Link>
-                  {r.origin === "made" && <span className="pill teal">made</span>}
-                  {r.code && <div className="muted">{r.code}</div>}
-                </td>
-                <td>{r.category ?? <span className="muted">—</span>}</td>
-                <td className="num">{quantity(r.onHandMilli)} {r.unit}</td>
-                <td className="num">{r.origin === "made" ? <span className="muted">—</span> : `${quantity(r.boughtMilli)} ${r.unit}`}</td>
-                <td className="num">
-                  {r.unitE4 === null ? <span className="muted" title="Never bought">—</span> : moneyE4(r.unitE4)}
-                  {!r.complete && r.unitE4 !== null && <span className="negative" title="Something in its cost has never been bought"> !</span>}
-                </td>
-                <td className="num">{r.valueCents === null ? <span className="muted">—</span> : money(r.valueCents)}</td>
-                <td>{r.places.length ? r.places.join(", ") : <span className="muted">—</span>}</td>
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th />
+                <th>ITEM</th>
+                <th>CATEGORY</th>
+                <th className="num">ON THE SHELF</th>
+                <th className="num">BOUGHT</th>
+                <th className="num">UNIT PRICE</th>
+                <th className="num">VALUE</th>
+                <th>WHERE</th>
               </tr>
-            ))}
-            {items.isSuccess && rows.length === 0 && <tr><td colSpan={8} className="empty">Nothing here yet</td></tr>}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td><ItemThumb id={r.id} hasImage={r.hasImage} name={r.name} /></td>
+                  <td>
+                    <Link to={`/inventory/items/${r.id}`} className="item-link">{r.name}</Link>
+                    {r.origin === "made" && <span className="pill teal">made</span>}
+                    {r.code && <div className="muted">{r.code}</div>}
+                  </td>
+                  <td>{r.category ?? <span className="muted">—</span>}</td>
+                  <td className="num">{quantity(r.onHandMilli)} {r.unit}</td>
+                  <td className="num">{r.origin === "made" ? <span className="muted">—</span> : `${quantity(r.boughtMilli)} ${r.unit}`}</td>
+                  <td className="num">
+                    {r.unitE4 === null ? <span className="muted" title="Never bought">—</span> : moneyE4(r.unitE4)}
+                    {!r.complete && r.unitE4 !== null && <span className="negative" title="Something in its cost has never been bought"> !</span>}
+                  </td>
+                  <td className="num">{r.valueCents === null ? <span className="muted">—</span> : money(r.valueCents)}</td>
+                  <td>{r.places.length ? r.places.join(", ") : <span className="muted">—</span>}</td>
+                </tr>
+              ))}
+              {items.isSuccess && rows.length === 0 && <tr><td colSpan={8} className="empty">Nothing here yet</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </>
   );
 }

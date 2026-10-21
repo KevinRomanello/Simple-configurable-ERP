@@ -23,6 +23,7 @@ export const gridTheme = themeQuartz.withParams({
   borderRadius: 2,
   wrapperBorderRadius: 2,
   spacing: 6,
+  cellHorizontalPadding: 8,
   rowHeight: 32,
   headerHeight: 32,
   inputBorder: "1px solid var(--stroke-sub)",

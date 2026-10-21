@@ -1,7 +1,7 @@
 import { db, pool } from "@erp/api/db";
 import { fromCents, fromScaled } from "@erp/api/money";
 import {
-  area, bankSnapshot, budgetLine, fund, fundContract, lineFigures, project, supplier, teamInflow,
+  area, bankSnapshot, budgetLine, fund, fundContract, lineFigures, lineFund, project, supplier, teamInflow,
 } from "@erp/api/schema";
 import { getCurrentSeason } from "@erp/api/seasons";
 import { loadLookups } from "@erp/api/lookups";
@@ -56,8 +56,11 @@ await db.transaction(async (tx) => {
         seasonId: season.id,
         name: f.name,
         kind: "external",
-        paysVatEstimate: f.paysVat.estimate,
-        paysVatActual: f.paysVat.actual,
+        paysVat: f.paysVat,
+        mode: f.mode,
+        type: f.type,
+        vatRate: f.vatRate === null ? null : f.vatRate.toFixed(2),
+        groupName: f.group,
       })
       .returning({ id: fund.id });
     fundIds.set(f.id, row!.id);
@@ -100,7 +103,7 @@ await db.transaction(async (tx) => {
     for (const phase of ["estimate", "actual"] as const) {
       const f = line.figures[phase];
       if (!f) continue;
-      await tx.insert(lineFigures).values({
+      const [saved] = await tx.insert(lineFigures).values({
         lineId: row!.id,
         phase,
         quantity: fromScaled(f.quantityMilli, 3),
@@ -108,11 +111,13 @@ await db.transaction(async (tx) => {
         sponsorType: f.sponsorType,
         sponsorValue: f.sponsorValueCents === null ? null : fromCents(f.sponsorValueCents),
         vatRate: f.vatRate === null ? null : f.vatRate.toFixed(2),
-        fundId: f.fundId === null ? null : fundIds.get(f.fundId)!,
         supplierId: f.supplierId === null ? null : supplierIds.get(f.supplierId)!,
         purchaseDate: f.purchaseDate,
         arrivalDate: f.arrivalDate,
-      });
+      }).returning({ id: lineFigures.id });
+      for (const [index, snapshotFundId] of f.fundIds.entries()) {
+        await tx.insert(lineFund).values({ figuresId: saved!.id, position: index + 1, fundId: fundIds.get(snapshotFundId)! });
+      }
     }
   }
 

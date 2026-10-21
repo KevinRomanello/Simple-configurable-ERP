@@ -3,7 +3,8 @@ import { z } from "zod";
 import { decimal, id, isoDate, LIMITS, longText, lookupCode, shortText, version } from "../../core/validation";
 
 // Input shapes of the budget endpoints. In `figures` every field is optional: a missing field is
-// left as it is, `null` clears it. Money and quantities are decimals in euros / units.
+// left as it is, `null` clears it (`fundIds`: an empty list). Money and quantities are decimals in
+// euros / units.
 export const figuresInput = z
   .object({
     quantity: decimal(3, LIMITS.quantity),
@@ -11,7 +12,7 @@ export const figuresInput = z
     sponsorType: z.enum(SPONSOR_TYPES).nullable(),
     sponsorValue: decimal(2, LIMITS.netCost).nullable(),
     vatRate: z.number().min(0).max(100).nullable(),
-    fundId: id.nullable(),
+    fundIds: z.array(id).max(LIMITS.fundsPerLine),
     supplierId: id.nullable(),
     purchaseDate: isoDate.nullable(),
     arrivalDate: isoDate.nullable(),

@@ -51,6 +51,8 @@ function labelOf(table: string, row: Json): string {
       return `figures (${pick("phase")}) of line ${String(row.line_id ?? "")}`;
     case "fund_contract":
       return `contract of fund ${String(row.fund_id ?? "")}`;
+    case "line_fund":
+      return `fund ${String(row.fund_id ?? "")} (no. ${String(row.position ?? "")}) of figures ${String(row.figures_id ?? "")}`;
     case "team_inflow":
       return pick("source_name");
     case "app_user":

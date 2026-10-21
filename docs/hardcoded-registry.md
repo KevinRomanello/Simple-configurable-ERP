@@ -10,7 +10,7 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 | --- | --- | --- | --- | --- |
 | 1 | Categorie | `listCategories` (lookups) ↔ `GET /api/lookups/categories` | Components, Manufacturing, Consumable, Asset, Logistic, Administration, Software | tabella `category`, modificabile dall'admin; `budget_line.category` diventa chiave esterna |
 | 2 | Aliquote IVA | `listVatRates` (lookups) ↔ `GET /api/lookups/vat-rates` | 0, 11, 22 | elenco configurabile |
-| 3 | Regole delle scadenze IVA | `getVatRules` (lookups) ↔ `GET /api/lookups/vat-rules` | trimestre → 16/05, 20/08, 16/11, 16/02 dell'anno dopo; weekend → lunedì; nessuna festività né proroga | tabella `vat_rule` validata col commercialista (Q3) |
+| 3 | Regole delle scadenze IVA | `getVatRules` (lookups) ↔ `GET /api/lookups/vat-rules` | trimestre → 16/05, 20/08, 16/11, 16/02 dell'anno dopo; weekend → lunedì; nessuna festività né proroga | tabella `vat_rule` (date confermate dal tesoriere il 21/10/2026, Q3) |
 | 4 | Impostazioni di calcolo | `getSettings` (lookups) ↔ `GET /api/lookups/settings` | vedi sotto | tabella `setting` o pagina admin |
 | 5 | Stagione corrente | `getCurrentSeason` (seasons) ↔ `GET /api/seasons/current` | 2026-2027 | elenco stagioni, selettore, creazione della nuova stagione |
 | 6 | Sedi e stanze | `listLocations` (lookups) ↔ `GET /api/lookups/locations` | due sedi con cinque stanze ("Site 1 / Room 1"…), codici `s1-r1`… | tabella `location`, tenuta da un admin; i movimenti già registrati conservano il codice |
@@ -22,7 +22,8 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 | Chiave | Valore oggi | Domanda |
 | --- | --- | --- |
 | `varianceThreshold` | `0.15` (evidenzia oltre ±15% nel TOTAL) | — |
-| `vatBaseWhenTotalSponsor` | `"net"` (IVA sull'intero netto; alternativa `"net-minus-sponsor"`) | Q1 |
+| `vatBaseWhenTotalSponsor` | `"net"` (IVA sull'intero netto; alternativa `"net-minus-sponsor"`) | Q1, **confermata** il 21/10/2026 (regalo con controfattura: [sponsor-e-fondi.md](sponsor-e-fondi.md)) |
+| `cashSponsorVatRate` | `11` (% di IVA che il team deve sui soldi di uno sponsor in cassa, per legge, a ogni trimestre) | — |
 | `bankCompare` | `{ summary: "day", timeline: "month" }` (come il foglio: due confronti diversi) | Q2 |
 | `vatReportHorizon` | `{ from: "2026-Q3", to: "2027-Q4" }` (si estende da solo) | — |
 

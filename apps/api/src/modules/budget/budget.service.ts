@@ -1,11 +1,11 @@
 import { areaSheet, netCents, type AreaSheet, type Phase } from "@erp/calc";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { toCents, toScaled } from "../../core/money";
 import { LIMITS } from "../../core/validation";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { area, budgetLine, lineFigures, project } from "../../db/schema";
+import { area, budgetLine, fund, lineFigures, lineFund, project } from "../../db/schema";
 import { loadSnapshot } from "../../snapshot";
 import { canWrite, getCurrentUser, type User } from "../auth/auth.service";
 import { listCategories, listVatRates } from "../lookups/lookups.service";
@@ -104,7 +104,6 @@ async function saveFigures(tx: Tx, lineId: number, phase: Phase, patch: FiguresI
     sponsorValue: patch.sponsorValue !== undefined ? patch.sponsorValue : (current?.sponsorValue ?? null),
     vatRate:
       patch.vatRate !== undefined ? patch.vatRate : current?.vatRate == null ? null : Number(current.vatRate),
-    fundId: patch.fundId !== undefined ? patch.fundId : (current?.fundId ?? null),
     supplierId: patch.supplierId !== undefined ? patch.supplierId : (current?.supplierId ?? null),
     purchaseDate: patch.purchaseDate !== undefined ? patch.purchaseDate : (current?.purchaseDate ?? null),
     arrivalDate: patch.arrivalDate !== undefined ? patch.arrivalDate : (current?.arrivalDate ?? null),
@@ -132,10 +131,47 @@ async function saveFigures(tx: Tx, lineId: number, phase: Phase, patch: FiguresI
     ...merged,
     vatRate: merged.vatRate === null ? null : merged.vatRate.toFixed(2),
   };
-  await tx
+  const [saved] = await tx
     .insert(lineFigures)
     .values({ lineId, phase, ...values })
-    .onConflictDoUpdate({ target: [lineFigures.lineId, lineFigures.phase], set: values });
+    .onConflictDoUpdate({ target: [lineFigures.lineId, lineFigures.phase], set: values })
+    .returning({ id: lineFigures.id });
+  if (patch.fundIds !== undefined) await saveFunds(tx, saved!.id, patch.fundIds);
+}
+
+/**
+ * Replaces the funds that pay a line. They must work together: several funds only if they are in
+ * the same group, the team fund only as the last one (it never runs out), a gift only alone (it
+ * covers everything) and never a sponsor whose money goes into the bank.
+ */
+async function saveFunds(tx: Tx, figuresId: number, ids: number[]) {
+  const found = ids.length > 0 ? await tx.select().from(fund).where(inArray(fund.id, ids)) : [];
+  if (new Set(ids).size !== ids.length) throw invalid("The same fund is chosen twice");
+  const chosen = ids.map((id) => {
+    const row = found.find((f) => f.id === id);
+    if (!row) throw conflict(`Fund ${id} does not exist`);
+    return row;
+  });
+
+  for (const [index, f] of chosen.entries()) {
+    if (f.mode === "cash") throw invalid(`"${f.name}" pays into the bank: its money is the team's, pay from the team fund`);
+    if (f.kind === "external" && f.type !== "fund" && chosen.length > 1) {
+      throw invalid(`"${f.name}" covers the whole line: it cannot be combined with other funds`);
+    }
+    if (f.kind === "team" && index < chosen.length - 1) {
+      throw invalid("The team fund can only be the last fund of a line: it never runs out");
+    }
+    const first = chosen[0]!;
+    if (index > 0 && f.kind === "external") {
+      const sameGroup = first.groupName !== null && first.groupName.toLowerCase() === f.groupName?.toLowerCase();
+      if (!sameGroup) throw invalid(`"${first.name}" and "${f.name}" cannot pay together: they are not in the same group`);
+    }
+  }
+
+  await tx.delete(lineFund).where(eq(lineFund.figuresId, figuresId));
+  if (chosen.length > 0) {
+    await tx.insert(lineFund).values(chosen.map((f, index) => ({ figuresId, position: index + 1, fundId: f.id })));
+  }
 }
 
 async function saveAllFigures(tx: Tx, lineId: number, figures: CreateLineInput["figures"]) {

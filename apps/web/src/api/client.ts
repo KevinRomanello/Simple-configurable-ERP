@@ -1,8 +1,8 @@
 import type {
-  Analysis, Area, AreaSheet, Bank, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Contract, Fund,
+  Analysis, Area, AreaSheet, Bank, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Fund,
   FundSummaryRow, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemRow, ItemsView, Location, Me, MonthlyInflow,
-  PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, SignInOptions, StatsResult, Supplier, Totals, UserRow,
-  VatReport,
+  NewContract, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, SignInOptions, SponsorBody, StatsResult, Supplier, Totals,
+  UserRow, VatReport,
 } from "./types";
 
 /** An error answer of the API: carries the HTTP status so screens can react to a 409. */
@@ -56,7 +56,8 @@ export interface FiguresPatch {
   sponsorType?: string | null;
   sponsorValue?: number | null;
   vatRate?: number | null;
-  fundId?: number | null;
+  /** The funds that pay the line, in order; an empty list clears them. */
+  fundIds?: number[];
   supplierId?: number | null;
   purchaseDate?: string | null;
   arrivalDate?: string | null;
@@ -189,11 +190,12 @@ export const api = {
 
   // funds, suppliers, cash flow
   funds: (phase?: Phase) => get<Fund[]>(`/funds${phase ? `?phase=${phase}` : ""}`),
-  updateFund: (id: number, body: { paysVatEstimate?: boolean; paysVatActual?: boolean }) => patch(`/funds/${id}`, body),
-  contracts: (phase: Phase) => get<Contract[]>(`/funds/contracts?phase=${phase}`),
-  createContract: (body: { phase: Phase; fundName: string; amount: string; inflowDate?: string | null }) =>
-    post("/funds/contracts", body),
-  deleteContract: (id: number) => del(`/funds/contracts/${id}`),
+  createFund: (body: Partial<SponsorBody> & { name: string; contracts?: NewContract[] }) => post<Fund>("/funds", body),
+  updateFund: (id: number, body: Partial<SponsorBody>) => patch<Fund>(`/funds/${id}`, body),
+  deleteFund: (id: number) => del(`/funds/${id}`),
+  setContract: (fundId: number, phase: Phase, body: { amount: string; inflowDate: string | null }) =>
+    put(`/funds/${fundId}/contracts/${phase}`, body),
+  clearContract: (fundId: number, phase: Phase) => del(`/funds/${fundId}/contracts/${phase}`),
   suppliers: () => get<Supplier[]>("/suppliers"),
   createSupplier: (name: string) => post("/suppliers", { name }),
   deleteSupplier: (id: number) => del(`/suppliers/${id}`),

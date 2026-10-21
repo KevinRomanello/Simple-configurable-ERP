@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { resetData, testApp } from "../../../test/helpers";
+import { addContract, resetData, testApp } from "../../../test/helpers";
 
 const api = testApp();
 afterAll(() => api.close());
@@ -20,7 +20,7 @@ async function buildScenario() {
     category: "Asset",
     figures: {
       estimate: {
-        quantity: 1, unitNetCost: "500", sponsorType: "none", vatRate: 22, fundId: team.id, purchaseDate: "2026-11-20",
+        quantity: 1, unitNetCost: "500", sponsorType: "none", vatRate: 22, fundIds: [team.id], purchaseDate: "2026-11-20",
       },
     },
   });
@@ -56,12 +56,12 @@ describe("views over data written through the API", () => {
   });
 
   it("fund summary and analyses follow the contracts and spending", async () => {
-    const created = (await api.post("/api/funds/contracts", { phase: "estimate", fundName: "Sponsor", amount: "1000", inflowDate: "2026-01-09" })).body;
-    await api.patch(`/api/funds/${created.fundId}`, { paysVatEstimate: true });
+    const created = (await addContract(api, { fundName: "Sponsor", amount: "1000", inflowDate: "2026-01-09" })).body;
+    await api.patch(`/api/funds/${created.fundId}`, { paysVat: true });
     const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
     await api.post(`/api/projects/${project.id}/lines`, {
       item: "A",
-      figures: { estimate: { quantity: 1, unitNetCost: "100", sponsorType: "none", vatRate: 22, fundId: created.fundId } },
+      figures: { estimate: { quantity: 1, unitNetCost: "100", fundIds: [created.fundId] } },
     });
     const summary = (await api.get("/api/views/funds-summary?phase=estimate")).body;
     expect(summary.rows[0]).toMatchObject({ name: "Sponsor", totalContractCents: 100_000, leftCents: 100_000 - 12_200 });

@@ -22,13 +22,19 @@ export interface Analysis {
   blocks: AnalysisBlock[];
 }
 
+/** The part of a line that belongs to one name (a fund, a supplier) in an analysis. */
+interface Piece {
+  name: string;
+  grossCents: number;
+  sponsorCents: number;
+  outflowCents: number;
+}
+
 interface Grouping {
-  /** The name a line is grouped under in this phase, or null if it has none. */
-  nameOf: (phase: PhaseCalc) => string | null;
+  /** The names a line is grouped under in this phase, with their part of its amounts (none if it has no name). */
+  piecesOf: (phase: PhaseCalc, which: Phase) => Piece[];
   /** Names to show even without lines (e.g. funds that only have a contract so far). */
   extraNames: (phase: Phase) => string[];
-  /** The outflow of a line as this analysis counts it. */
-  outflowOf: (phase: PhaseCalc, which: Phase) => number;
 }
 
 const lower = (s: string) => s.toLowerCase();
@@ -41,7 +47,7 @@ function analyse(snapshot: Snapshot, grouping: Grouping): Analysis {
     const found = new Map<string, string>();
     for (const name of [
       ...grouping.extraNames(phase),
-      ...lines.map((l) => grouping.nameOf(l[phase])).filter((n): n is string => n !== null),
+      ...lines.flatMap((l) => grouping.piecesOf(l[phase], phase).map((piece) => piece.name)),
     ]) {
       if (!found.has(lower(name))) found.set(lower(name), name);
     }
@@ -57,14 +63,14 @@ function analyse(snapshot: Snapshot, grouping: Grouping): Analysis {
     actual: byPhase.actual.get(key) ?? null,
   }));
 
-  const cell = (linesInBlock: CalcLine[], phase: Phase, key: string | null): AnalysisCell => {
+  const cell = (linesInBlock: CalcLine[], phase: Phase, key: string): AnalysisCell => {
     const matching = linesInBlock
-      .map((l) => l[phase])
-      .filter((p) => key === null || grouping.nameOf(p)?.toLowerCase() === key);
+      .flatMap((l) => grouping.piecesOf(l[phase], phase))
+      .filter((piece) => piece.name.toLowerCase() === key);
     return {
-      grossCents: matching.reduce((sum, p) => sum + p.amounts.grossCents, 0),
-      sponsorCents: matching.reduce((sum, p) => sum + p.amounts.sponsorCents, 0),
-      outflowCents: matching.reduce((sum, p) => sum + grouping.outflowOf(p, phase), 0),
+      grossCents: matching.reduce((sum, piece) => sum + piece.grossCents, 0),
+      sponsorCents: matching.reduce((sum, piece) => sum + piece.sponsorCents, 0),
+      outflowCents: matching.reduce((sum, piece) => sum + piece.outflowCents, 0),
     };
   };
 
@@ -86,31 +92,46 @@ function analyse(snapshot: Snapshot, grouping: Grouping): Analysis {
 }
 
 /**
- * CASH FROM ANALYSES: spending per fund. For an external fund that does not cover VAT the VAT
- * is left out of its outflow (it is the team's), exactly as in the fund balance.
+ * CASH FROM ANALYSES: spending per fund. A line paid by several funds is split between them. For
+ * an external fund that does not cover VAT the VAT is left out of its outflow (it is the team's),
+ * exactly as in the fund balance.
  */
 export function analysisByFund(snapshot: Snapshot): Analysis {
   const funds = new Map(snapshot.funds.map((f) => [f.id, f]));
   return analyse(snapshot, {
-    nameOf: (p) => p.fundName,
+    piecesOf: (p) =>
+      p.shares.map((share, index) => {
+        const vatIsTeams = share.teamPaysVat && funds.get(share.fundId)?.kind === "external";
+        const first = index === 0; // the discount of a partial sponsor belongs to the first fund
+        return {
+          name: share.fundName,
+          grossCents: share.netCents + share.vatCents + (first ? p.amounts.sponsorCents : 0),
+          sponsorCents: first ? p.amounts.sponsorCents : 0,
+          outflowCents: share.netCents + (vatIsTeams ? 0 : share.vatCents),
+        };
+      }),
     extraNames: (phase) =>
       snapshot.contracts
         .filter((c) => c.phase === phase)
         .map((c) => funds.get(c.fundId)?.name)
         .filter((n): n is string => n !== undefined),
-    outflowOf: (p, phase) => {
-      const fund = p.fundId === null ? undefined : funds.get(p.fundId);
-      const vatIsTeams = fund !== undefined && fund.kind === "external" && !fund.paysVat[phase];
-      return vatIsTeams ? p.amounts.outflowCents - p.amounts.vatCents : p.amounts.outflowCents;
-    },
   });
 }
 
 /** BOUGHT FROM ANALYSES: spending per supplier (only suppliers actually used in a phase). */
 export function analysisBySupplier(snapshot: Snapshot): Analysis {
   return analyse(snapshot, {
-    nameOf: (p) => p.supplierName,
+    piecesOf: (p) =>
+      p.supplierName === null
+        ? []
+        : [
+            {
+              name: p.supplierName,
+              grossCents: p.amounts.grossCents,
+              sponsorCents: p.amounts.sponsorCents,
+              outflowCents: p.amounts.outflowCents,
+            },
+          ],
     extraNames: () => [],
-    outflowOf: (p) => p.amounts.outflowCents,
   });
 }

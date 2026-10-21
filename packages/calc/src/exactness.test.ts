@@ -38,6 +38,7 @@ describe("roundDiv", () => {
 const settings = (vatBaseWhenTotalSponsor: Settings["vatBaseWhenTotalSponsor"]): Settings => ({
   varianceThreshold: 0.15,
   vatBaseWhenTotalSponsor,
+  cashSponsorVatRate: 11,
   bankCompare: { summary: "day", timeline: "month" },
   vatReportHorizon: { from: { year: 2026, quarter: 3 }, to: { year: 2027, quarter: 4 } },
 });

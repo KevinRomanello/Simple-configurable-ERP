@@ -36,24 +36,26 @@ export function SuppliersPage() {
         )}
       </header>
 
-      <div className="table-wrap" style={{ maxWidth: 480 }}>
-        <table className="data-table">
-          <thead>
-            <tr><th>SUPPLIER</th><th /></tr>
-          </thead>
-          <tbody>
-            {suppliers.data?.map((s) => (
-              <tr key={s.id}>
-                <td>{s.name}</td>
-                <td className="num">
-                  {canManage && <IconButton icon={faTrash} label={`Delete ${s.name}`} danger onClick={() => act(() => api.deleteSupplier(s.id))} />}
-                </td>
-              </tr>
-            ))}
-            {suppliers.data?.length === 0 && <tr><td colSpan={2} className="empty">No suppliers yet</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      <section className="panel">
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr><th>SUPPLIER</th><th /></tr>
+            </thead>
+            <tbody>
+              {suppliers.data?.map((s) => (
+                <tr key={s.id}>
+                  <td>{s.name}</td>
+                  <td className="num">
+                    {canManage && <IconButton icon={faTrash} label={`Delete ${s.name}`} danger onClick={() => act(() => api.deleteSupplier(s.id))} />}
+                  </td>
+                </tr>
+              ))}
+              {suppliers.data?.length === 0 && <tr><td colSpan={2} className="empty">No suppliers yet</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </>
   );
 }

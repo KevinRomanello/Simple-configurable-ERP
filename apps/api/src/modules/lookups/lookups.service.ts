@@ -44,12 +44,14 @@ export async function getVatRules(): Promise<VatRules> {
   };
 }
 
-/** Switches for the behaviours the treasurer still has to confirm (questions Q1, Q2). */
+/** Switches for the behaviours the treasurer still has to confirm (question Q2) and fixed rates. */
 export async function getSettings(): Promise<Settings> {
   // HARDCODED: becomes the `setting` table / an admin page. Values reproduce the old script.
   return {
     varianceThreshold: 0.15,
     vatBaseWhenTotalSponsor: "net",
+    // The ASD rule: 11% of the money a sponsor pays into the bank goes to the VAT, every quarter.
+    cashSponsorVatRate: 11,
     bankCompare: { summary: "day", timeline: "month" },
     vatReportHorizon: {
       from: { year: 2026, quarter: 3 },

@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { createUser, resetData, testApp } from "../test/helpers";
+import { addContract, createUser, resetData, sponsorId, testApp } from "../test/helpers";
 import { db } from "./db/client";
-import { appUser } from "./db/schema";
+import { appUser, fundContract } from "./db/schema";
 
 // Input that is too big, too strange or too simultaneous must be answered with a clear 400 / 409
 // (or work), never with a 500 and never with a wrong result.
@@ -20,15 +20,16 @@ async function lineIn(areaCode = "sw") {
 
 describe("numbers that are too big", () => {
   it("refuses a contract, an inflow, the BANK and a sponsor above the limits, with a 400", async () => {
+    const fundId = await sponsorId(api, "F");
     const answers = [
-      await api.post("/api/funds/contracts", { phase: "estimate", fundName: "F", amount: "9999999999999.99" }),
-      await api.post("/api/funds/contracts", { phase: "estimate", fundName: "F", amount: "1000000000.01" }),
+      await api.put(`/api/funds/${fundId}/contracts/estimate`, { amount: "9999999999999.99" }),
+      await api.put(`/api/funds/${fundId}/contracts/estimate`, { amount: "1000000000.01" }),
       await api.post("/api/inflows", { phase: "estimate", sourceName: "F", amount: "9999999999999.99" }),
       await api.put("/api/bank", { amount: "9999999999999.99" }),
       await api.put("/api/bank", { amount: "99999999999999999999" }),
     ];
     expect(answers.map((a) => a.status)).toEqual([400, 400, 400, 400, 400]);
-    expect((await api.post("/api/funds/contracts", { phase: "estimate", fundName: "F", amount: "1000000000" })).status).toBe(201);
+    expect((await api.put(`/api/funds/${fundId}/contracts/estimate`, { amount: "1000000000" })).status).toBe(200);
   });
 
   it("refuses quantity and unit cost above their limits, and a net cost above 100,000,000", async () => {
@@ -67,8 +68,8 @@ describe("ids", () => {
       await api.post(`/api/projects/${huge}/lines`, { item: "x" }),
       await api.patch(`/api/projects/${huge}`, { name: "x" }),
       await api.del(`/api/projects/${huge}`),
-      await api.del(`/api/funds/contracts/${huge}`),
-      await api.patch(`/api/funds/${huge}`, { paysVatActual: true }),
+      await api.del(`/api/funds/${huge}/contracts/estimate`),
+      await api.patch(`/api/funds/${huge}`, { paysVat: true }),
       await api.del(`/api/funds/${huge}`),
       await api.del(`/api/inflows/${huge}`),
       await api.del(`/api/suppliers/${huge}`),
@@ -100,7 +101,8 @@ describe("text", () => {
       await api.post(`/api/projects/${project.id}/lines`, { item: nul }),
       await api.patch(`/api/lines/${line.id}`, { version: 1, note: nul }),
       await api.patch(`/api/lines/${line.id}`, { version: 1, category: nul }),
-      await api.post("/api/funds/contracts", { phase: "estimate", fundName: nul, amount: "1" }),
+      await api.post("/api/funds", { name: nul, vatRate: 22 }),
+      await api.post("/api/funds", { name: "x", vatRate: 22, group: nul }),
       await api.post("/api/inflows", { phase: "estimate", sourceName: nul, amount: "1" }),
       await api.get(`/api/audit?table=${encodeURIComponent(nul)}`),
       await api.get(`/api/views/vat-report?area=${encodeURIComponent(nul)}`),
@@ -114,7 +116,7 @@ describe("text", () => {
       const text = randomBytes(length).toString("base64").slice(0, length);
       const answers = [
         await api.post("/api/suppliers", { name: text }),
-        await api.post("/api/funds/contracts", { phase: "estimate", fundName: text, amount: "1" }),
+        await api.post("/api/funds", { name: text, vatRate: 22 }),
         await api.post("/api/inflows", { phase: "estimate", sourceName: text, amount: "1" }),
         await api.post("/api/projects", { areaCode: "sw", name: text }),
       ];
@@ -132,16 +134,17 @@ describe("text", () => {
 
 describe("dates", () => {
   it("accepts only real days between 2000 and 2100", async () => {
-    const date = (d: string) => api.post("/api/funds/contracts", { phase: "estimate", fundName: `F ${d}`, amount: "1", inflowDate: d });
+    const date = async (d: string) =>
+      api.put(`/api/funds/${await sponsorId(api, `F ${d}`)}/contracts/estimate`, { amount: "1", inflowDate: d });
     for (const bad of ["0000-01-01", "0001-01-01", "1999-12-31", "2101-01-01", "9999-12-31", "10000-01-01", "2026-02-30"]) {
       expect([bad, (await date(bad)).status]).toEqual([bad, 400]);
     }
-    for (const good of ["2000-01-01", "2024-02-29", "2100-12-31"]) expect([good, (await date(good)).status]).toEqual([good, 201]);
+    for (const good of ["2000-01-01", "2024-02-29", "2100-12-31"]) expect([good, (await date(good)).status]).toEqual([good, 200]);
   });
 
   it("keeps the views small: no date can stretch a timeline over thousands of years", async () => {
-    await api.post("/api/funds/contracts", { phase: "estimate", fundName: "Old", amount: "1", inflowDate: "0001-01-01" });
-    await api.post("/api/funds/contracts", { phase: "estimate", fundName: "Far", amount: "1", inflowDate: "9999-12-31" });
+    await addContract(api, { fundName: "Old", amount: "1", inflowDate: "0001-01-01" });
+    await addContract(api, { fundName: "Far", amount: "1", inflowDate: "9999-12-31" });
     const summary = await api.get("/api/views/funds-summary?phase=estimate");
     expect(summary.status).toBe(200);
     expect(JSON.stringify(summary.body).length).toBeLessThan(5_000);
@@ -172,12 +175,20 @@ describe("requests at the same moment", () => {
     expect(statuses.filter((s) => s === 409)).toHaveLength(19);
   });
 
-  it("adds every contract to the one fund of a new name, when the same name is used at once", async () => {
-    const answers = await Promise.all(Array.from({ length: 12 }, () => api.post("/api/funds/contracts", { phase: "estimate", fundName: "NewFund", amount: "1" })));
-    expect(answers.map((a) => a.status)).toEqual(answers.map(() => 201));
-    const funds = (await api.get("/api/funds")).body.filter((f: { name: string }) => f.name === "NewFund");
-    expect(funds).toHaveLength(1);
-    expect((await api.get("/api/funds/contracts?phase=estimate")).body).toHaveLength(12);
+  it("creates one sponsor and answers 409 to the others, when the same name is used at once", async () => {
+    const answers = await Promise.all(Array.from({ length: 12 }, (_, i) => api.post("/api/funds", { name: i % 2 ? "NewFund" : "newfund", vatRate: 22 })));
+    expect(answers.filter((a) => a.status === 201)).toHaveLength(1);
+    expect(answers.filter((a) => a.status === 409)).toHaveLength(11);
+    expect((await api.get("/api/funds")).body.filter((f: { name: string }) => f.name.toLowerCase() === "newfund")).toHaveLength(1);
+  });
+
+  it("keeps one contract per sponsor and phase, when the money is set at once", async () => {
+    const fundId = await sponsorId(api, "Busy");
+    const answers = await Promise.all(Array.from({ length: 12 }, (_, i) => api.put(`/api/funds/${fundId}/contracts/estimate`, { amount: String(i + 1) })));
+    expect(answers.map((a) => a.status)).toEqual(answers.map(() => 200));
+    const busy = (await api.get("/api/funds")).body.find((f: { id: number }) => f.id === fundId);
+    expect(Number(busy.contracts.estimate.amount)).toBeGreaterThanOrEqual(1); // one of them won
+    expect(await db.select().from(fundContract).where(eq(fundContract.fundId, fundId))).toHaveLength(1);
   });
 
   it("answers 409 to all but one of many equal suppliers", async () => {

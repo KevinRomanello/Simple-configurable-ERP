@@ -37,14 +37,17 @@ export function toSnapshot(raw: RawInputs, lookups: Lookups): Converted {
 
   // --- funds: the team fund plus every external name found anywhere ------------------------
   const funds: FundInput[] = [
-    { id: 1, name: TEAM_FUND, kind: "team", paysVat: { estimate: false, actual: false } },
+    { id: 1, name: TEAM_FUND, kind: "team", paysVat: false, mode: "virtual", type: "fund", vatRate: null, group: null },
   ];
+  // The sheet keeps the VAT rate on each line, a sponsor's fund now has one of its own: the one its
+  // lines use most (22 when none of them has one). Collected while the lines are read.
+  const ratesOf = new Map<number, number[]>();
   const fundId = new Map<string, number>([[lower(TEAM_FUND), 1]]);
   const fundNamed = (name: string): number => {
     const known = fundId.get(lower(name));
     if (known !== undefined) return known;
     const id = funds.length + 1;
-    funds.push({ id, name, kind: "external", paysVat: { estimate: false, actual: false } });
+    funds.push({ id, name, kind: "external", paysVat: false, mode: "virtual", type: "fund", vatRate: 22, group: null });
     fundId.set(lower(name), id);
     return id;
   };
@@ -80,13 +83,17 @@ export function toSnapshot(raw: RawInputs, lookups: Lookups): Converted {
       option = parseSponsorOption(raw.sponsorOption);
       if (option === null) warnings.push(`${where}: unknown sponsor option "${raw.sponsorOption}"`);
     }
+    const fundIdOfLine = raw.fund === null ? null : fundNamed(raw.fund);
+    if (fundIdOfLine !== null && option?.rate != null) {
+      ratesOf.set(fundIdOfLine, [...(ratesOf.get(fundIdOfLine) ?? []), option.rate]);
+    }
     return {
       quantityMilli: Math.round((raw.quantity ?? 0) * 1000),
       unitCostE4: Math.round((raw.unitCost ?? 0) * 10_000),
       sponsorType: option?.type ?? null,
       sponsorValueCents: raw.sponsorValue === null ? null : cents(raw.sponsorValue),
       vatRate: option?.rate ?? null,
-      fundId: raw.fund === null ? null : fundNamed(raw.fund),
+      fundIds: fundIdOfLine === null ? [] : [fundIdOfLine],
       supplierId: raw.supplier === null ? null : supplierNamed(raw.supplier),
       purchaseDate: raw.purchaseDate,
       arrivalDate: raw.arrivalDate,
@@ -138,21 +145,31 @@ export function toSnapshot(raw: RawInputs, lookups: Lookups): Converted {
     });
   });
 
-  // --- fund flags, contracts, inflows, bank ---------------------------------------------------
+  // --- fund rates, flags, contracts, inflows, bank -------------------------------------------
+  for (const fund of funds) {
+    const rates = ratesOf.get(fund.id) ?? [];
+    const count = (rate: number) => rates.filter((r) => r === rate).length;
+    // the most common rate; on a tie the first one that was used
+    if (rates.length > 0) fund.vatRate = rates.reduce((best, rate) => (count(rate) > count(best) ? rate : best));
+  }
   for (const phase of ["estimate", "actual"] as Phase[]) {
-    for (const [name, pays] of raw.paysVat[phase]) funds[fundNamed(name) - 1]!.paysVat[phase] = pays;
+    // the sheet has a box per phase, the app one per fund: ticked if either was
+    for (const [name, pays] of raw.paysVat[phase]) funds[fundNamed(name) - 1]!.paysVat ||= pays;
   }
   const contracts: Snapshot["contracts"] = [];
   const inflows: Snapshot["inflows"] = [];
   for (const phase of ["estimate", "actual"] as Phase[]) {
+    // A sponsor has one contract per phase (one value, one date): several rows of the sheet are added
+    // up and the earliest date is kept.
     for (const row of raw.contracts[phase]) {
-      contracts.push({
-        id: contracts.length + 1,
-        fundId: fundNamed(row.name),
-        phase,
-        amountCents: cents(row.amount),
-        inflowDate: row.date,
-      });
+      const fundOfRow = fundNamed(row.name);
+      const same = contracts.find((c) => c.fundId === fundOfRow && c.phase === phase);
+      if (same) {
+        same.amountCents += cents(row.amount);
+        if (row.date !== null && (same.inflowDate === null || row.date < same.inflowDate)) same.inflowDate = row.date;
+        continue;
+      }
+      contracts.push({ id: contracts.length + 1, fundId: fundOfRow, phase, amountCents: cents(row.amount), inflowDate: row.date });
     }
     for (const row of raw.inflows[phase]) {
       inflows.push({

@@ -42,68 +42,70 @@ export function ItemsPage() {
         </div>
       </header>
 
-      <div className="toggle-row" role="group" aria-label="Categories">
-        <button type="button" className={`chip${selected.length === 0 ? " on" : ""}`} onClick={() => setSelected([])}>
-          All Categories
-        </button>
-        {categories.data?.map((c) => (
-          <button key={c} type="button" className={`chip${selected.includes(c) ? " on" : ""}`} aria-pressed={selected.includes(c)} onClick={() => toggle(c)}>
-            {c}
+      <section className="panel">
+        <div className="toggle-row" role="group" aria-label="Categories">
+          <button type="button" className={`chip${selected.length === 0 ? " on" : ""}`} onClick={() => setSelected([])}>
+            All Categories
           </button>
-        ))}
-      </div>
-
-      <div className="inline-form">
-        <div className="field">
-          <label htmlFor="priority">Priority</label>
-          <select id="priority" className="input small" value={priority} onChange={(e) => setPriority(e.target.value)}>
-            {PRIORITY_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
+          {categories.data?.map((c) => (
+            <button key={c} type="button" className={`chip${selected.includes(c) ? " on" : ""}`} aria-pressed={selected.includes(c)} onClick={() => toggle(c)}>
+              {c}
+            </button>
+          ))}
         </div>
-        <div className="field">
-          <label htmlFor="sort">Sort</label>
-          <select id="sort" className="input small" value={sort} onChange={(e) => setSort(e.target.value)}>
-            {SORT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </div>
-      </div>
 
-      <div className="table-wrap">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>AREA</th><th>PROJECT</th><th>ITEM</th><th>CATEGORY</th><th>PRIORITY</th>
-              <th className="num">EXPECTED OUTFLOW</th><th>EXPECTED CASH FROM</th><th>EXPECTED BOUGHT FROM</th><th>EXPECTED BUY DATE</th>
-              <th className="num">ACTUAL OUTFLOW</th><th>ACTUAL CASH FROM</th><th>ACTUAL BOUGHT FROM</th><th>ACTUAL BUY DATE</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <Fragment key={row.lineId}>
-                {items.data?.groupedByArea && row.areaName !== rows[i - 1]?.areaName && (
-                  <tr className="group"><td colSpan={13}>{row.areaName}</td></tr>
-                )}
-                <tr>
-                  <td className="bold">{row.areaName}</td>
-                  <td className="bold">{row.projectName}</td>
-                  <td>{row.item}</td>
-                  <td>{row.category}</td>
-                  <td>{row.priority && <span className={`pill ${row.priority}`}>{row.priority}</span>}</td>
-                  <td className="num">{money(row.estimate.outflowCents)}</td>
-                  <td>{row.estimate.fundName}</td>
-                  <td>{row.estimate.supplierName}</td>
-                  <td>{date(row.estimate.purchaseDate)}</td>
-                  <td className="num">{money(row.actual.outflowCents)}</td>
-                  <td>{row.actual.fundName}</td>
-                  <td>{row.actual.supplierName}</td>
-                  <td>{date(row.actual.purchaseDate)}</td>
-                </tr>
-              </Fragment>
-            ))}
-            {rows.length === 0 && <tr><td colSpan={13} className="empty">No items found for the selected filters.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+        <div className="inline-form">
+          <div className="field">
+            <label htmlFor="priority">Priority</label>
+            <select id="priority" className="input small" value={priority} onChange={(e) => setPriority(e.target.value)}>
+              {PRIORITY_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="sort">Sort</label>
+            <select id="sort" className="input small" value={sort} onChange={(e) => setSort(e.target.value)}>
+              {SORT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>AREA</th><th>PROJECT</th><th>ITEM</th><th>CATEGORY</th><th>PRIORITY</th>
+                <th className="num">EXPECTED OUTFLOW</th><th>EXPECTED CASH FROM</th><th>EXPECTED BOUGHT FROM</th><th>EXPECTED BUY DATE</th>
+                <th className="num">ACTUAL OUTFLOW</th><th>ACTUAL CASH FROM</th><th>ACTUAL BOUGHT FROM</th><th>ACTUAL BUY DATE</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => (
+                <Fragment key={row.lineId}>
+                  {items.data?.groupedByArea && row.areaName !== rows[i - 1]?.areaName && (
+                    <tr className="group"><td colSpan={13}>{row.areaName}</td></tr>
+                  )}
+                  <tr>
+                    <td className="bold">{row.areaName}</td>
+                    <td className="bold">{row.projectName}</td>
+                    <td>{row.item}</td>
+                    <td>{row.category}</td>
+                    <td>{row.priority && <span className={`pill ${row.priority}`}>{row.priority}</span>}</td>
+                    <td className="num">{money(row.estimate.outflowCents)}</td>
+                    <td>{row.estimate.fundName}</td>
+                    <td>{row.estimate.supplierName}</td>
+                    <td>{date(row.estimate.purchaseDate)}</td>
+                    <td className="num">{money(row.actual.outflowCents)}</td>
+                    <td>{row.actual.fundName}</td>
+                    <td>{row.actual.supplierName}</td>
+                    <td>{date(row.actual.purchaseDate)}</td>
+                  </tr>
+                </Fragment>
+              ))}
+              {rows.length === 0 && <tr><td colSpan={13} className="empty">No items found for the selected filters.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </>
   );
 }

@@ -45,7 +45,7 @@ Nella griglia del budget, la colonna **ARRIVAL DATE** del consuntivo continua a 
 
 I movimenti: **receipt** (arrivo, +), **use** (uso, −, con progetto facoltativo), **transfer** (spostamento da un luogo a un altro), **adjustment** (conteggio: "ne ho contati 7", si registra la differenza), **disposal** (smaltimento, −). Nulla può uscire da un luogo che non ne contiene abbastanza (409); le richieste simultanee sullo stesso articolo si mettono in fila.
 
-**Prezzi congelati.** Ogni arrivo salva tre prezzi **per unità**, in decimillesimi di euro: *netto* (prima dell'IVA), *lordo* (con IVA) e *costo per il team* (lordo meno lo sponsor, cioè l'`outflow` della voce; per uno sponsor totale resta l'IVA, come nel foglio, domanda Q1; zero per un regalo). Se il budget cambia dopo, i carichi già fatti non cambiano.
+**Prezzi congelati.** Ogni arrivo salva tre prezzi **per unità**, in decimillesimi di euro: *netto* (prima dell'IVA), *lordo* (con IVA) e *costo per il team* (lordo meno lo sponsor, cioè l'`outflow` della voce; per uno sponsor totale resta l'IVA, come nel foglio: domanda Q1, confermata il 21/10/2026; zero per un regalo). Se il budget cambia dopo, i carichi già fatti non cambiano.
 
 ## 5. Le informazioni di un articolo
 

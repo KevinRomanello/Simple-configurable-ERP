@@ -86,7 +86,7 @@ Prendiamo una voce: **10 pezzi a 100,00 € l'uno**, sponsor "nessuno", IVA 22%,
 | `unit_net_cost` | `100.0000` |
 | `sponsor_type` | `none` |
 | `vat_rate` | `22.00` |
-| `fund_id` | l'id del Team's fund |
+| `line_fund` | una riga con l'id del Team's fund (posizione 1) |
 | `purchase_date` | `2026-11-20` |
 
 **Nello snapshot** (interi: nessun decimale in tutto il motore):
@@ -128,7 +128,8 @@ erDiagram
   area ||--o{ project : raggruppa
   project ||--o{ budget_line : ha
   budget_line ||--o{ line_figures : "una per fase"
-  fund ||--o{ line_figures : "paga"
+  fund ||--o{ line_fund : "paga"
+  line_figures ||--o{ line_fund : "i fondi di una riga"
   supplier ||--o{ line_figures : "vende"
   season ||--o{ fund : ha
   fund ||--o{ fund_contract : "contratti"
@@ -137,7 +138,7 @@ erDiagram
 ```
 
 - **`budget_line`** è la voce (nome, categoria, priorità, nota, `version`). Le **cifre** stanno in `line_figures`, **una riga per fase** (`estimate` e `actual`): è il modo di non avere le colonne duplicate del foglio. Una fase senza riga vale "tutto zero".
-- **`fund`** unisce due cose del foglio: l'elenco dei fondi e il "Team's fund". I due flag `pays_vat_estimate` / `pays_vat_actual` sono le due caselle "DOES IT PAY VAT?".
+- **`fund`** unisce due cose del foglio: l'elenco dei fondi e il "Team's fund". La casella `pays_vat` è il "DOES IT PAY VAT?" (una sola per fondo). Un fondo esterno è uno **sponsor**: ha aliquota, gruppo, modo e tipo, e decide da solo IVA e copertura delle righe che paga ([sponsor-e-fondi.md](sponsor-e-fondi.md)). I fondi di una riga stanno in **`line_fund`**, in ordine.
 - **`fund_contract`** sono le righe delle tabelle CASH FROM; **`team_inflow`** quelle di CASH FLOW; **`bank_snapshot`** il riquadro BANK (un importo a una data).
 - **`project.owner_name`** è la persona scritta nella riga gialla del foglio.
 
@@ -220,13 +221,13 @@ Cosa la riconciliazione **non** copre: i dati reali sono semplici (IVA quasi sem
 | blocco giallo di un progetto | `project` + `subtotal` calcolato; il nome nella riga gialla = `owner_name` |
 | una riga del foglio | `budget_line` + due `line_figures` |
 | la tendina "TOTAL SPONSORIZED" (9 voci) | due campi: `sponsor_type` (none/partial/total) e `vat_rate` (0/11/22) |
-| CASH FROM (tabelle e riepilogo) | `fund` + `fund_contract`; riepilogo = `fundSummary()` |
+| CASH FROM (sponsor, tabelle e riepilogo) | `fund` + `fund_contract`; riepilogo = `fundSummary()`; regole degli sponsor = `settleLine()` |
 | "Team's fund" | `fund` con `kind = 'team'`, uno per stagione |
-| DOES IT PAY VAT? | `fund.pays_vat_estimate` / `pays_vat_actual` |
+| DOES IT PAY VAT? (oggi "PAYS VAT" nella tabella SPONSORS) | `fund.pays_vat` |
 | BOUGHT FROM | `supplier` (una lista unica) |
 | CASH FLOW (tabelle) e BANK | `team_inflow` e `bank_snapshot` |
 | EXPECTED / ACTUAL OUTFLOW | `outflowCents` di una voce in una fase |
-| EXPECTED / ACTUAL VAT TO PAY e relativa data | `teamVatCents` e `vatDueDate` |
+| EXPECTED / ACTUAL VAT TO PAY (l'IVA che il team paga di tasca sua per quella riga) e VAT DUE (il giorno in cui scade: la scadenza trimestrale dopo la data d'acquisto) | `teamVatCents` e `vatDueDate` |
 | EXPECTED / ACTUAL GANTT | `gantt(snapshot, fase)` |
 | TOTAL | `totals(snapshot)` |
 | CASH FROM / BOUGHT FROM ANALYSES | `analysisByFund`, `analysisBySupplier` |

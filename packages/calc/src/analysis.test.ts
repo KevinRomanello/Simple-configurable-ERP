@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { analysisByFund, analysisBySupplier } from "./analysis";
-import { figures, line, snapshot } from "./fixtures";
+import { figures, line, snapshot, sponsorFund, teamFund } from "./fixtures";
 import type { FundInput } from "./snapshot";
 
-const fundA: FundInput = { id: 2, name: "Alpha", kind: "external", paysVat: { estimate: false, actual: true } };
-const fundB: FundInput = { id: 3, name: "beta", kind: "external", paysVat: { estimate: true, actual: true } };
+const fundA: FundInput = sponsorFund(2, { name: "Alpha", paysVat: false });
+const fundB: FundInput = sponsorFund(3, { name: "beta", paysVat: true });
 
 const s = snapshot({
   projects: [{ id: 1, areaId: 1, name: "P", ownerName: null, position: 1 }],
   funds: [
-    { id: 1, name: "Team's fund", kind: "team", paysVat: { estimate: false, actual: false } },
+    teamFund,
     fundA,
     fundB,
   ],
@@ -22,11 +22,11 @@ const s = snapshot({
     { id: 2, name: "Farnell" },
   ],
   lines: [
-    // Alpha does not cover VAT in the estimate: outflow 1220.00 counts as 1000.00 for the fund
-    line(1, 1, figures(10, 100, { fundId: 2, supplierId: 1 }), figures(10, 100, { fundId: 2, supplierId: 2 }), {
+    // Alpha does not cover VAT: outflow 1220.00 counts as 1000.00 for the fund, in both phases
+    line(1, 1, figures(10, 100, { fundIds: [2], supplierId: 1 }), figures(10, 100, { fundIds: [2], supplierId: 2 }), {
       category: "Asset",
     }),
-    line(2, 1, figures(1, 100, { fundId: 1, supplierId: 1, vatRate: 0 }), null),
+    line(2, 1, figures(1, 100, { fundIds: [1], supplierId: 1, vatRate: 0 }), null),
   ],
 });
 
@@ -44,8 +44,7 @@ describe("analysisByFund", () => {
   it("drops the VAT from the outflow of a fund that does not cover it", () => {
     const all = analysis.blocks.find((b) => b.block === "ALL")!;
     expect(all.rows[0]!.estimate).toEqual({ grossCents: 122_000, sponsorCents: 0, outflowCents: 100_000 });
-    // in the actual phase Alpha does cover VAT: the outflow keeps it
-    expect(all.rows[0]!.actual).toEqual({ grossCents: 122_000, sponsorCents: 0, outflowCents: 122_000 });
+    expect(all.rows[0]!.actual).toEqual({ grossCents: 122_000, sponsorCents: 0, outflowCents: 100_000 });
   });
 
   it("keeps the team fund's VAT in its outflow", () => {

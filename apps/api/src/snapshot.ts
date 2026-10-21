@@ -3,21 +3,21 @@ import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import { toCents, toScaled } from "./core/money";
 import { db } from "./db/client";
 import {
-  area, bankSnapshot, budgetLine, fund, fundContract, lineFigures, project, stockMovement, supplier, teamInflow,
+  area, bankSnapshot, budgetLine, fund, fundContract, lineFigures, lineFund, project, stockMovement, supplier, teamInflow,
 } from "./db/schema";
 import { loadLookups } from "./modules/lookups/lookups.service";
 import { getCurrentSeason } from "./modules/seasons/seasons.service";
 
 type FigureRow = typeof lineFigures.$inferSelect;
 
-function figuresOf(row: FigureRow): Figures {
+function figuresOf(row: FigureRow, fundIds: number[]): Figures {
   return {
     quantityMilli: toScaled(row.quantity, 3),
     unitCostE4: toScaled(row.unitNetCost, 4),
     sponsorType: row.sponsorType,
     sponsorValueCents: row.sponsorValue === null ? null : toCents(row.sponsorValue),
     vatRate: row.vatRate === null ? null : Number(row.vatRate),
-    fundId: row.fundId,
+    fundIds,
     supplierId: row.supplierId,
     purchaseDate: row.purchaseDate,
     arrivalDate: row.arrivalDate,
@@ -49,6 +49,14 @@ export async function loadSnapshot(): Promise<Snapshot> {
         .innerJoin(budgetLine, eq(lineFigures.lineId, budgetLine.id))
         .innerJoin(project, eq(budgetLine.projectId, project.id))
         .where(inSeason);
+      const lineFunds = await tx
+        .select({ figuresId: lineFund.figuresId, fundId: lineFund.fundId })
+        .from(lineFund)
+        .innerJoin(lineFigures, eq(lineFund.figuresId, lineFigures.id))
+        .innerJoin(budgetLine, eq(lineFigures.lineId, budgetLine.id))
+        .innerJoin(project, eq(budgetLine.projectId, project.id))
+        .where(inSeason)
+        .orderBy(asc(lineFund.position));
       const funds = await tx.select().from(fund).where(eq(fund.seasonId, season.id));
       const contracts = await tx
         .select({ contract: fundContract })
@@ -64,10 +72,15 @@ export async function loadSnapshot(): Promise<Snapshot> {
         .where(and(eq(stockMovement.kind, "receipt"), isNotNull(stockMovement.budgetLineId)))
         .groupBy(stockMovement.budgetLineId);
 
+      const fundIdsByFigures = new Map<number, number[]>();
+      for (const { figuresId, fundId } of lineFunds) {
+        fundIdsByFigures.set(figuresId, [...(fundIdsByFigures.get(figuresId) ?? []), fundId]);
+      }
+
       const figuresByLine = new Map<number, Record<Phase, Figures | null>>();
       for (const { figures: row } of figures) {
         const entry = figuresByLine.get(row.lineId) ?? { estimate: null, actual: null };
-        entry[row.phase] = figuresOf(row);
+        entry[row.phase] = figuresOf(row, fundIdsByFigures.get(row.id) ?? []);
         figuresByLine.set(row.lineId, entry);
       }
 
@@ -92,7 +105,11 @@ export async function loadSnapshot(): Promise<Snapshot> {
           id: f.id,
           name: f.name,
           kind: f.kind,
-          paysVat: { estimate: f.paysVatEstimate, actual: f.paysVatActual },
+          paysVat: f.paysVat,
+          mode: f.mode,
+          type: f.type,
+          vatRate: f.vatRate === null ? null : Number(f.vatRate),
+          group: f.groupName,
         })),
         contracts: contracts.map(({ contract: c }) => ({
           id: c.id, fundId: c.fundId, phase: c.phase, amountCents: toCents(c.amount), inflowDate: c.inflowDate,

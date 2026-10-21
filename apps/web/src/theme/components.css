@@ -58,10 +58,10 @@
 }
 .main {
   min-width: 0;
-  padding: var(--space-l) var(--space-xl) var(--space-3xl);
+  padding: var(--space-m) var(--space-l) var(--space-2xl);
   display: flex;
   flex-direction: column;
-  gap: var(--space-l);
+  gap: var(--space-xl);
 }
 .page-header {
   display: flex;
@@ -71,6 +71,23 @@
   flex-wrap: wrap;
 }
 .page-header .actions {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Blocks of a page one under the other, with room between them; `tight` for the inside of a box. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+.stack.tight {
+  gap: var(--space-m);
+}
+/* A row of buttons under a form */
+.actions {
   display: flex;
   gap: var(--space-xs);
   align-items: center;
@@ -223,10 +240,25 @@
 }
 
 /* --- sections and tables ---------------------------------------------------------------------- */
+/* Every block of a page is a box of its own, with room between boxes (.main sets the gap). */
 .panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-s);
+  padding: var(--space-s) var(--space-m);
+  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-3xs);
+  background: var(--bg-weak);
+}
+.panel .table-wrap {
+  background: var(--bg-null);
+}
+.subsection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
+  padding-top: var(--space-m);
+  border-top: 1px solid var(--stroke-sub);
 }
 .panel-head {
   display: flex;
@@ -272,9 +304,39 @@
   width: 100%;
   font-size: 13px;
 }
+/* controls inside a table cell keep a readable width: the table scrolls sideways when it must */
+/* controls in a table cell are as wide as their content needs, with a floor for the ones that are typed in */
+.data-table td .input {
+  width: auto;
+  min-width: 0;
+  padding-inline: var(--space-2xs);
+}
+.data-table td input.input[type="number"] {
+  width: 74px;
+  appearance: textfield; /* the little arrows would take room from the digits */
+}
+.data-table td input.input[type="number"]::-webkit-inner-spin-button,
+.data-table td input.input[type="number"]::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+.data-table td input.input[type="date"] {
+  width: 112px;
+}
+.data-table td input.input:not([type]),
+.data-table td input.input[type="text"] {
+  width: 84px;
+}
+.data-table td input.input.wide {
+  width: 140px;
+}
+/* a thicker line where a group of columns begins (expected / actual) */
+.data-table .group-start {
+  border-left: 2px solid var(--stroke-strong);
+}
 .data-table th,
 .data-table td {
-  padding: var(--space-2xs) var(--space-s);
+  padding: var(--space-2xs) var(--space-xs);
   border-bottom: 1px solid var(--stroke-sub);
   text-align: left;
   white-space: nowrap;
@@ -284,6 +346,11 @@
   font-weight: 700;
   position: sticky;
   top: 0;
+}
+/* headers wrap at spaces instead of widening their column */
+.data-table th {
+  white-space: normal;
+  vertical-align: bottom;
 }
 .data-table td.num,
 .data-table th.num {
@@ -333,7 +400,7 @@
 .two-columns {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-  gap: var(--space-l);
+  gap: var(--space-xl);
 }
 .toggle-row {
   display: flex;

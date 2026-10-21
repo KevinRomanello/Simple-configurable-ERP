@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cashFlowByMonth, cashFlowSummary } from "./cashflow";
-import { figures, line, settings, snapshot } from "./fixtures";
+import { figures, line, settings, snapshot, sponsorFund, teamFund } from "./fixtures";
 import type { Snapshot } from "./snapshot";
 
 // docs/regole-script-attuale.md, section 17: BANK 5 000.00 on 15 Nov 2026; inflows of 2 000.00
@@ -14,7 +14,7 @@ function scenario(overrides: Partial<Snapshot> = {}): Snapshot {
       { id: 1, phase: "estimate", sourceName: "X", amountCents: 200_000, inflowDate: "2026-11-10" },
       { id: 2, phase: "estimate", sourceName: "Y", amountCents: 100_000, inflowDate: "2026-12-05" },
     ],
-    lines: [line(1, 1, figures(1, 500, { fundId: 1, vatRate: 20, purchaseDate: "2026-11-20" }))],
+    lines: [line(1, 1, figures(1, 500, { fundIds: [1], vatRate: 20, purchaseDate: "2026-11-20" }))],
     ...overrides,
   });
 }
@@ -46,7 +46,7 @@ describe("cashFlowSummary", () => {
 
   it("ignores purchases made before the BANK date but still charges their later VAT", () => {
     const s = scenario({
-      lines: [line(1, 1, figures(1, 500, { fundId: 1, vatRate: 20, purchaseDate: "2026-11-10" }))],
+      lines: [line(1, 1, figures(1, 500, { fundIds: [1], vatRate: 20, purchaseDate: "2026-11-10" }))],
     });
     // the 500.00 purchase is already in the BANK; only the 100.00 VAT (due 16 Feb 2027) is left
     expect(cashFlowSummary(s, "estimate").teamOutflowsCents).toBe(10_000);
@@ -74,13 +74,13 @@ describe("cashFlowSummary", () => {
   it("adds the shortfall of overspent funds back to the left value", () => {
     const s = scenario({
       funds: [
-        { id: 1, name: "Team's fund", kind: "team", paysVat: { estimate: false, actual: false } },
-        { id: 2, name: "Sponsor", kind: "external", paysVat: { estimate: true, actual: true } },
+        teamFund,
+        sponsorFund(2, { name: "Sponsor", paysVat: true, vatRate: 0 }),
       ],
       contracts: [{ id: 1, fundId: 2, phase: "estimate", amountCents: 10_000, inflowDate: null }],
       lines: [
-        line(1, 1, figures(1, 500, { fundId: 1, vatRate: 20, purchaseDate: "2026-11-20" })),
-        line(2, 1, figures(1, 300, { fundId: 2, vatRate: 0 })), // outflow 300.00 on a 100.00 contract
+        line(1, 1, figures(1, 500, { fundIds: [1], vatRate: 20, purchaseDate: "2026-11-20" })),
+        line(2, 1, figures(1, 300, { fundIds: [2] })), // outflow 300.00 on a 100.00 contract
       ],
     });
     const summary = cashFlowSummary(s, "estimate");

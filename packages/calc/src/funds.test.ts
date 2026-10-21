@@ -1,29 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { figures, line, snapshot } from "./fixtures";
+import { figures, line, snapshot, sponsorFund, teamFund } from "./fixtures";
 import { fundContractsByMonth, fundSummary, inflowsByMonth } from "./funds";
 import type { FundInput } from "./snapshot";
 
-const sponsor = (paysVat: boolean): FundInput => ({
-  id: 2,
-  name: "Sponsor A",
-  kind: "external",
-  paysVat: { estimate: paysVat, actual: paysVat },
-});
+const sponsor = (paysVat: boolean): FundInput =>
+  sponsorFund(2, { name: "Sponsor A", vatRate: 20, paysVat });
 
 // docs/regole-script-attuale.md, section 17: contract 10 000.00; the fund's lines have a total
-// outflow of 6 000.00, of which 800.00 is VAT.
+// outflow of 6 000.00, of which 1 000.00 is VAT (the fund's rate, 20%, applies to every line).
 function withSponsor(paysVat: boolean) {
   return snapshot({
     projects: [{ id: 1, areaId: 1, name: "P", ownerName: null, position: 1 }],
     funds: [
-      { id: 1, name: "Team's fund", kind: "team", paysVat: { estimate: false, actual: false } },
+      teamFund,
       sponsor(paysVat),
     ],
     contracts: [{ id: 1, fundId: 2, phase: "estimate", amountCents: 1_000_000, inflowDate: null }],
     lines: [
-      line(1, 1, figures(1, 4000, { fundId: 2, vatRate: 20 })), // outflow 4 800.00, VAT 800.00
-      line(2, 1, figures(1, 1200, { fundId: 2, vatRate: 0 })), // outflow 1 200.00
-      line(3, 1, figures(1, 999, { fundId: 1 })), // paid by the team: not this fund's business
+      line(1, 1, figures(1, 4000, { fundIds: [2] })), // outflow 4 800.00, VAT 800.00
+      line(2, 1, figures(1, 1000, { fundIds: [2] })), // outflow 1 200.00, VAT 200.00
+      line(3, 1, figures(1, 999, { fundIds: [1] })), // paid by the team: not this fund's business
     ],
   });
 }
@@ -35,9 +31,9 @@ describe("fundSummary", () => {
       name: "Sponsor A",
       totalContractCents: 1_000_000,
       outflowCents: 600_000,
-      vatCents: 80_000,
+      vatCents: 100_000,
       paysVat: false,
-      leftCents: 480_000,
+      leftCents: 500_000,
     });
   });
 

@@ -2,6 +2,8 @@
 
 Specifica di parità: le regole estratte leggendo `fonti/script attuale` (Google Apps Script, 3370 righe) e **verificate sul foglio reale** `fonti/Budget 26-27.xlsx`. Ogni regola avrà almeno un test in `packages/calc`.
 
+> **Dal 21 ottobre 2026** il modello degli sponsor e dei fondi va oltre lo script: l'aliquota e la copertura di una riga vengono dallo sponsor scelto e una riga può avere più fondi ([sponsor-e-fondi.md](sponsor-e-fondi.md)). Questo documento resta la specifica di parità col foglio: con i dati del foglio i numeri sono gli stessi (1.995 controlli), e le righe senza fondo usano ancora la formula del §3.
+
 - `L123` = riga dello script. ⚠ = comportamento da confermare col tesoriere (domande Q1–Q7 del piano originale), isolato in un'impostazione di `getSettings()` (vedi [hardcoded-registry.md](hardcoded-registry.md)).
 - Fasi: **estimate** = colonne EXPECTED/ESTIMATED, **actual** = colonne ACTUAL. Le regole sono identiche per le due fasi, salvo dove indicato.
 - Gli esempi sono sintetici: i dati reali stanno solo in `fonti/` (ignorata da git).
@@ -113,7 +115,7 @@ Per ogni progetto due righe, EXPECTED VAT OUTFLOW e ACTUAL VAT OUTFLOW; le colon
 
 ## 7. CASH FROM → fondi (L967–L1052, L1223–L1248, L1431–L1635)
 
-- Due tabelle (stima, consuntivo) di contratti: azienda, valore, data d'incasso. Ordinate per nome (senza distinzione di maiuscole) e data. Un fondo può avere più contratti.
+- Due tabelle (stima, consuntivo) di contratti: azienda, valore, data d'incasso. Ordinate per nome (senza distinzione di maiuscole) e data. Un fondo può avere più contratti (nell'app uno solo per fase: [sponsor-e-fondi.md](sponsor-e-fondi.md)).
 - Inserimento valido solo con nome, valore numerico e data valida (nell'app la data può mancare, come nel file reale). Eliminazione: il foglio cancella per nome esatto (con numero di riga facoltativo); l'app per riga.
 - **Riepilogo per fondo**: TOTAL CONTRACT = somma dei contratti.
   `LEFT VALUE = contratto − (Σ outflow delle righe con quel fondo − (se NON paga l'IVA: Σ IVA di quelle righe, altrimenti 0))`. Rosso se negativo. Il flag "DOES IT PAY VAT?" è per fondo e per fase (⚠ Q5).
@@ -191,13 +193,13 @@ L'app usa date vere (selettore di data, selettore di mese). Il parser flessibile
 
 | Domanda | Comportamento portato | Si cambia in |
 | --- | --- | --- |
-| Q1 IVA con sponsor totale | IVA sull'intero netto | `getSettings().vatBaseWhenTotalSponsor` |
+| Q1 IVA con sponsor totale | IVA sull'intero netto, a carico del team — **confermato** (21/10/2026: è il tipo C degli sponsor, [sponsor-e-fondi.md](sponsor-e-fondi.md)) | `getSettings().vatBaseWhenTotalSponsor` |
 | Q2 confronto con BANK | per giorno nel riepilogo CASH FLOW, per mese nel Gantt (ingressi e uscite del mese BANK) | `getSettings().bankCompare` |
-| Q3 scadenze IVA | tabella §4, weekend → lunedì, niente proroghe | `getVatRules()` |
-| Q4 CASH FROM e CASH FLOW | due tabelle indipendenti | schema (collegamento facoltativo, dopo) |
-| Q5 flag "paga IVA" | uno per fase | schema: `pays_vat_estimate`, `pays_vat_actual` |
+| Q3 scadenze IVA | tabella §4, weekend → lunedì, niente proroghe — **confermato** (21/10/2026) | `getVatRules()` |
+| Q4 CASH FROM e CASH FLOW | due tabelle indipendenti, in sospeso; fa eccezione il contratto di uno sponsor **cash**, che conta da solo come ingresso ([sponsor-e-fondi.md](sponsor-e-fondi.md#5-sponsor-in-cassa)) | schema (collegamento facoltativo, dopo) |
+| Q5 flag "paga IVA" | nel foglio uno per fase — **chiusa il 21/10/2026: una sola casella per sponsor** (spuntata se lo era una delle due) | schema: `fund.pays_vat` |
 | Q6 fondo in negativo | solo evidenziazione rossa | interfaccia |
-| Q7 arrotondamento | per riga, al centesimo | `roundDiv` in `calc/money.ts` |
+| Q7 arrotondamento | per riga, al centesimo — **confermato** | `roundDiv` in `calc/money.ts` |
 
 ## 16. Cosa non si porta
 
@@ -213,7 +215,7 @@ L'app usa date vere (selettore di data, selettore di mese). Il parser flessibile
 
 ## 17. Casi di prova per i test
 
-**Fondo** — contratto 10.000,00; righe con quel fondo: outflow totale 6.000,00, di cui IVA 800,00. Non paga l'IVA → LEFT VALUE 4.800,00; la paga → 4.000,00.
+**Fondo** — contratto 10.000,00; righe con quel fondo (aliquota 20% dello sponsor): outflow totale 6.000,00, di cui IVA 1.000,00. Non paga l'IVA → LEFT VALUE 5.000,00; la paga → 4.000,00.
 
 **Cash flow con BANK** — BANK 5.000,00 al 15/11/2026; ingressi stima: 10/11/2026 2.000,00, 05/12/2026 1.000,00. Un acquisto su Team's fund il 20/11/2026 con outflow 600,00 di cui IVA 100,00 (scadenza 16/02/2027).
 

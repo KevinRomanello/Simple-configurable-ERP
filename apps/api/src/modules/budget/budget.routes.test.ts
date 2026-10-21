@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { resetData, testApp } from "../../../test/helpers";
+import { resetData, sponsorId, testApp } from "../../../test/helpers";
 
 const api = testApp();
 afterAll(() => api.close());
@@ -161,6 +161,107 @@ describe("validation", () => {
 
   it("refuses a fund or supplier that does not exist", async () => {
     const line = await newLine();
-    expect((await patch(line.id, { fundId: 9999 })).status).toBe(409);
+    expect((await patch(line.id, { fundIds: [9999] })).status).toBe(409);
+  });
+});
+
+describe("the funds that pay a line", () => {
+  /** A sponsor with a contract of `euros` in the estimate; extra settings are passed through. */
+  async function fund(name: string, euros: number, extra: object = {}) {
+    const fundId = await sponsorId(api, name, extra);
+    if (euros > 0) await api.put(`/api/funds/${fundId}/contracts/estimate`, { amount: String(euros) });
+    return fundId;
+  }
+  /** A line of `net` euros, paid by the funds in `fundIds`; gives back its estimate as the sheet shows it. */
+  async function paid(fundIds: number[], net = 1000, projectName = "P") {
+    const { id } = await project(projectName);
+    const created = await api.post(`/api/projects/${id}/lines`, {
+      item: "Part",
+      figures: { estimate: { quantity: 1, unitNetCost: String(net), fundIds, vatRate: 22 } },
+    });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    const lines = (await sheet()).projects.flatMap((p: any) => p.lines);
+    return { lineId: created.body.id as number, estimate: lines.find((l: any) => l.id === created.body.id).estimate };
+  }
+
+  it("draws a line from one fund, then from the next when the first runs out", async () => {
+    const a = await fund("A", 600, { group: "g" });
+    const b = await fund("B", 5000, { group: "G", vatRate: 11 });
+    const { estimate } = await paid([a, b], 1000);
+    expect(estimate.fundName).toBe("A + B");
+    expect(estimate.shares.map((s: any) => [s.fundName, s.netCents, s.vatCents])).toEqual([
+      ["A", 60_000, 13_200],
+      ["B", 40_000, 4_400],
+    ]);
+    expect(estimate.amounts.vatCents).toBe(17_600); // each part with its own sponsor's rate
+    expect(estimate.shortCents).toBe(0);
+  });
+
+  it("flags the line when the funds cannot cover it, and stops when more funds are added", async () => {
+    const a = await fund("A", 600, { group: "g" });
+    const b = await fund("B", 100, { group: "g" });
+    const { lineId, estimate } = await paid([a], 1000);
+    expect(estimate.shortCents).toBe(40_000);
+    const both = await api.patch(`/api/lines/${lineId}`, { version: 1, figures: { estimate: { fundIds: [a, b] } } });
+    expect(both.status).toBe(200);
+    const [line] = (await sheet()).projects[0].lines;
+    expect(line.estimate.shortCents).toBe(30_000); // B only had 100.00 of the 400.00 left to cover
+    expect(line.estimate.figures.fundIds).toEqual([a, b]);
+
+    await api.patch(`/api/lines/${lineId}`, { version: 2, figures: { estimate: { fundIds: [] } } });
+    expect((await sheet()).projects[0].lines[0].estimate.figures.fundIds).toEqual([]);
+  });
+
+  it("takes the VAT rate from the sponsor, and from the line for the team fund", async () => {
+    const sponsor = await fund("S", 5000, { vatRate: 11 });
+    const team = (await api.get("/api/funds")).body[0].id;
+    expect((await paid([sponsor], 1000)).estimate.amounts.vatCents).toBe(11_000); // the 22% typed is ignored
+    expect((await paid([team], 1000, "Q")).estimate.amounts.vatCents).toBe(22_000);
+  });
+
+  it("a gift covers the whole line; a gift with counter-invoice leaves the VAT to the team", async () => {
+    const gift = await fund("Gift", 0, { type: "gift" });
+    const barter = await fund("Barter", 0, { type: "gift_vat", vatRate: 11 });
+    expect((await paid([gift], 1000)).estimate.amounts).toMatchObject({ sponsorCents: 100_000, vatCents: 0, outflowCents: 0 });
+    const withVat = (await paid([barter], 1000, "Q")).estimate;
+    expect(withVat.amounts).toMatchObject({ sponsorCents: 100_000, vatCents: 11_000, outflowCents: 11_000 });
+    expect(withVat.teamVatCents).toBe(11_000);
+  });
+
+  it("refuses funds that cannot work together, with a clear reason", async () => {
+    const a = await fund("A", 100, { group: "g" });
+    const b = await fund("B", 100, { group: "g" });
+    const other = await fund("Other", 100, { group: "h" });
+    const loner = await fund("Loner", 100);
+    const gift = await fund("Gift", 0, { type: "gift" });
+    const cash = await fund("Cash", 100, { mode: "cash" });
+    const team = (await api.get("/api/funds")).body[0].id;
+    const { lineId } = await paid([]);
+    const set = (fundIds: number[]) => api.patch(`/api/lines/${lineId}`, { version: 1, figures: { estimate: { fundIds } } });
+
+    const refused = [
+      await set([a, other]), // another group
+      await set([a, loner]), // no group at all
+      await set([loner, a]),
+      await set([a, a]), // twice
+      await set([team, a]), // the team fund never runs out: it can only be last
+      await set([a, gift]),
+      await set([gift, a]),
+      await set([cash]), // its money is the team's
+      await set([a, b, other]),
+      await set([a, b, a, b, a]), // too many
+    ];
+    expect(refused.map((r) => r.status)).toEqual(refused.map(() => 400));
+    expect((await set([a, b, team])).status).toBe(200); // sponsors of one group, then the team
+    expect((await set([9999])).status).toBe(409);
+    // ...and a refused change leaves the line as it was
+    expect((await sheet()).projects[0].lines[0].estimate.figures.fundIds).toEqual([a, b, team]);
+  });
+
+  it("follows a fund that changes: the next sheet already uses the new rate", async () => {
+    const s = await fund("S", 5000, { vatRate: 22 });
+    await paid([s], 1000);
+    await api.patch(`/api/funds/${s}`, { vatRate: 0 });
+    expect((await sheet()).projects[0].lines[0].estimate.amounts.vatCents).toBe(0);
   });
 });

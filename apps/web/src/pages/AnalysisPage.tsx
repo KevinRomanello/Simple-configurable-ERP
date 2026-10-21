@@ -52,13 +52,13 @@ export function AnalysisPage({ kind }: { kind: Kind }) {
           <p className="muted">{copy.hint}</p>
         </div>
       </header>
-      <Chips
-        label="Block"
-        value={block.block}
-        onChange={setBlockName}
-        options={data.blocks.map((b) => ({ value: b.block, label: blockTitle(b.block) }))}
-      />
       <section className="panel">
+        <Chips
+          label="Block"
+          value={block.block}
+          onChange={setBlockName}
+          options={data.blocks.map((b) => ({ value: b.block, label: blockTitle(b.block) }))}
+        />
         <h2>{blockTitle(block.block)}</h2>
         <div className="charts">
           <BarsChart

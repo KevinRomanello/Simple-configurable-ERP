@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { figures, line, settings, snapshot } from "./fixtures";
+import { figures, line, settings, snapshot, sponsorFund, teamFund as team } from "./fixtures";
 import { gantt } from "./gantt";
 import type { Snapshot } from "./snapshot";
 
@@ -15,7 +15,7 @@ function scenario(overrides: Partial<Snapshot> = {}): Snapshot {
       { id: 2, phase: "estimate", sourceName: "Y", amountCents: 100_000, inflowDate: "2026-12-05" },
     ],
     lines: [
-      line(1, 1, figures(1, 500, { fundId: 1, vatRate: 20, purchaseDate: "2026-11-20" }), null, {
+      line(1, 1, figures(1, 500, { fundIds: [1], vatRate: 20, purchaseDate: "2026-11-20" }), null, {
         category: "Asset",
       }),
     ],
@@ -76,10 +76,10 @@ describe("gantt: Team's fund table", () => {
   it("counts only the VAT the team pays, whichever fund it comes from", () => {
     const s = scenario({
       funds: [
-        { id: 1, name: "Team's fund", kind: "team", paysVat: { estimate: false, actual: false } },
-        { id: 2, name: "Sponsor", kind: "external", paysVat: { estimate: false, actual: false } },
+        team,
+        sponsorFund(2, { name: "Sponsor", vatRate: 20 }),
       ],
-      lines: [line(1, 1, figures(1, 500, { fundId: 2, vatRate: 20, purchaseDate: "2026-11-20" }))],
+      lines: [line(1, 1, figures(1, 500, { fundIds: [2], purchaseDate: "2026-11-20" }))],
     });
     const { teamFund } = gantt(s, "estimate");
     // the sponsor's purchase is not a team outflow, but its uncovered VAT is
@@ -95,8 +95,8 @@ describe("gantt: tables by area and project", () => {
       { id: 3, areaId: 2, name: "IT", ownerName: null, position: 1 },
     ],
     lines: [
-      line(1, 1, figures(1, 100, { fundId: 1, purchaseDate: "2026-10-05" }), null, { category: "Asset" }),
-      line(2, 1, figures(1, 100, { fundId: 1, purchaseDate: "2026-12-05" }), null, { category: "Components" }),
+      line(1, 1, figures(1, 100, { fundIds: [1], purchaseDate: "2026-10-05" }), null, { category: "Asset" }),
+      line(2, 1, figures(1, 100, { fundIds: [1], purchaseDate: "2026-12-05" }), null, { category: "Components" }),
       line(3, 2, figures(1, 50, { vatRate: 0, purchaseDate: "2026-10-20" }), null, { category: "Asset" }),
       line(4, 2, figures(1, 999), null), // no purchase date: not on the timeline
       line(5, 3, figures(1, 10, { vatRate: 0, purchaseDate: "2026-11-02" }), null),

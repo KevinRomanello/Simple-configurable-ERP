@@ -1,6 +1,6 @@
 // Builders for tests only (not exported from index.ts): small snapshots with the same lookup
 // values the API serves, so a test states only what it is about.
-import type { Figures, LineInput, Snapshot } from "./snapshot";
+import type { Figures, FundInput, LineInput, Snapshot } from "./snapshot";
 import type { Settings, VatRules } from "./types";
 
 export const vatRules: VatRules = {
@@ -16,9 +16,37 @@ export const vatRules: VatRules = {
 export const settings: Settings = {
   varianceThreshold: 0.15,
   vatBaseWhenTotalSponsor: "net",
+  cashSponsorVatRate: 11,
   bankCompare: { summary: "day", timeline: "month" },
   vatReportHorizon: { from: { year: 2026, quarter: 3 }, to: { year: 2027, quarter: 4 } },
 };
+
+/** The team's own money (id 1 in every test snapshot). */
+export const teamFund: FundInput = {
+  id: 1,
+  name: "Team's fund",
+  kind: "team",
+  paysVat: false,
+  mode: "virtual",
+  type: "fund",
+  vatRate: null,
+  group: null,
+};
+
+/** A sponsor's fund; every field can be overridden. */
+export function sponsorFund(id: number, overrides: Partial<FundInput> = {}): FundInput {
+  return {
+    id,
+    name: `Sponsor ${id}`,
+    kind: "external",
+    paysVat: false,
+    mode: "virtual",
+    type: "fund",
+    vatRate: 22,
+    group: null,
+    ...overrides,
+  };
+}
 
 export const categories = [
   "Components",
@@ -38,7 +66,7 @@ export function figures(qty: number, unitEuros: number, overrides: Partial<Figur
     sponsorType: "none",
     sponsorValueCents: null,
     vatRate: 22,
-    fundId: null,
+    fundIds: [],
     supplierId: null,
     purchaseDate: null,
     arrivalDate: null,
@@ -86,7 +114,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
     projects: [],
     lines: [],
     funds: [
-      { id: 1, name: "Team's fund", kind: "team", paysVat: { estimate: false, actual: false } },
+      teamFund,
     ],
     contracts: [],
     inflows: [],

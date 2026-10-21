@@ -43,6 +43,27 @@
       "when": 1792532509484,
       "tag": "0005_inventory_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792614454404,
+      "tag": "0006_sponsors",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792616291342,
+      "tag": "0007_pays_vat_once",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792616908555,
+      "tag": "0008_one_contract_per_phase",
+      "breakpoints": true
     }
   ]
 }

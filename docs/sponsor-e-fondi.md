@@ -1,0 +1,123 @@
+# Sponsor e fondi
+
+**Stato: implementato e provato** (21 ottobre 2026). Nasce dalle risposte del tesoriere del 21 ottobre. Questo documento è la specifica: come si definisce uno sponsor, cosa fa il sito quando lo scegli in una riga del budget, come si pagano più fondi insieme, cosa succede con i soldi che entrano in cassa.
+
+## 1. L'idea
+
+Uno sponsor è una voce di **CASH FROM**. Nella riga del budget scegli *con cosa paghi* (o pensi di pagare) e il sito fa il resto: quanto copre lo sponsor, che aliquota ha l'IVA, chi la paga, quando scade. Gli sponsor sono delle **scatole nere**: tutte le regole stanno nella loro definizione, nella riga non c'è niente da cliccare in più (la colonna SPONSOR non c'è più, perché è già tutto in CASH FROM; SPONSOR VALUE è solo da leggere).
+
+## 2. Come si definisce uno sponsor
+
+Pagina **CASH FROM**: il bottone giallo **New sponsor** in alto apre il form in un riquadro (nome, parametri e soldi del fondo); sotto, il riquadro **SPONSORS** è la tabella dove si modifica tutto sul posto, **soldi e data compresi**; i riquadri EXPECTED e ACTUAL mostrano solo i risultati (cosa resta di ogni fondo, gli ingressi per mese). Scrive solo l'admin (`GET`/`POST`/`PATCH`/`DELETE /api/funds`):
+
+| Campo | Valori | Cosa decide |
+| --- | --- | --- |
+| Nome | testo, unico senza distinguere le maiuscole | come compare nelle tendine |
+| Money goes to (`mode`) | **Virtual**: i soldi non entrano in cassa. **Team's fund** (nel codice `cash`): i soldi entrano nel conto, cioè nel fondo del team | un fondo del team non si sceglie nelle righe: i suoi soldi sono già del team (§5) |
+| Gives (`type`) | **Gives a fund** (A) · **Gives goods, no VAT** (B) · **Gives goods, VAT on the counter-invoice** (C) | come si copre la riga e chi paga l'IVA (§3). Un fondo che entra nel conto del team può dare solo un fondo |
+| VAT % (`vat_rate`) | 0, 11, 22 | l'aliquota di *tutti* gli acquisti pagati con quello sponsor. Per un regalo senza IVA (B) è sempre 0 |
+| Group (`group_name`) | testo facoltativo | i fondi dello stesso gruppo possono pagare insieme una riga (§4) |
+| Pays VAT (`pays_vat`) | una sola casella sì/no | se il fondo copre anche l'IVA o la lascia al team, per tutte le fasi. È l'unica casella «paga IVA» (l'altra, «DOES IT PAY VAT?» nei riquadri EXPECTED e ACTUAL, è stata tolta perché diceva la stessa cosa). Prende il posto delle due caselle del foglio, una per fase (Q5, chiusa il 21/10/2026) |
+| I soldi (`contracts`) | **un valore e una data per fase**, nelle colonne EXPECTED e ACTUAL della riga dello sponsor (VALUE e ARRIVES) | quanto vale il fondo e quando arriva. Si cambiano sul posto; il valore vuoto toglie i soldi di quella fase, e la data si può mettere solo dopo il valore. Nel form del nuovo sponsor si inseriscono subito (per EXPECTED, ACTUAL o tutte e due: sponsor e soldi si salvano insieme o per niente). Uno sponsor che dà merce (B, C) non ha soldi: non è una somma. Prima i contratti erano righe da aggiungere una a una; la migrazione `0008` ha unito quelle doppie (somma e data più vecchia) |
+
+L'aliquota la decide lo sponsor, non la riga. **Fa eccezione il fondo del team**: lì non c'è nessuno sponsor che la definisce e l'aliquota dipende dal fornitore (nel foglio reale ci sono righe del team allo 0% e al 22%), quindi resta la colonna VAT % da scegliere sulla riga.
+
+## 3. I tre tipi (sponsor virtuali)
+
+Esempio: una voce da 1.000,00 € netti.
+
+| Tipo | Cosa succede | Sponsor | IVA | Outflow | Chi paga l'IVA |
+| --- | --- | --- | --- | --- | --- |
+| **A. dà un fondo** (22%) | la riga attinge dal fondo | 0 | 220,00 | 1.220,00 | il **team**, alla scadenza trimestrale, sul netto che il fondo ha coperto. Se «paga IVA» è sì, il fondo copre anche i 220 e il team non paga niente |
+| **B. regalo, niente IVA** | la merce è gratis, la riga è coperta per intero | 1.000,00 | 0 | 0 | nessuno |
+| **C. regalo con controfattura** (11%, pubblicità) | merce gratis, ma il team fattura la pubblicità e paga l'IVA sull'**intero valore** | 1.000,00 | 110,00 | 110,00 | il **team**, sempre (anche se lo sponsor è segnato come «paga IVA») |
+
+Il tipo C chiude la domanda **Q1** («sponsor totale: IVA sull'intero netto?»): sì, è voluto, e il motore già lo faceva (`vatBaseWhenTotalSponsor = "net"`).
+
+## 4. Più fondi sulla stessa riga
+
+Se un fondo non basta per una riga, **ne scegli un altro** (casella **ALSO FROM** accanto a CASH FROM) e la quota è il resto: non si digita, si calcola.
+
+- Il **primo** fondo copre fino a quello che gli resta; il successivo copre quello che avanza, e così via (fino a 4 fondi).
+- Il **resto dei fondi si consuma nell'ordine del foglio** (area, progetto, posizione della riga), separatamente per previsto e consuntivo. Una riga più in alto consuma prima: modificarla può cambiare la quota delle righe sotto, anche in altre aree.
+- **L'ultimo fondo prende comunque tutto quello che manca**: se non basta va in negativo (rosso, come il foglio) e la riga è segnalata: icona rossa a sinistra con la scritta («the funds are X € short»), cella CASH FROM rossa e cella ALSO FROM evidenziata.
+- Ogni fondo mette **la sua aliquota** sulla parte che paga. Esempio: 1.000,00 € netti, A (22%, gruppo `g`, 600,00 € di contratto) e B (11%, gruppo `g`): A paga 600,00 con 132,00 di IVA, B paga 400,00 con 44,00; IVA totale 176,00.
+- Se il fondo copre anche l'IVA («paga IVA»), consuma netto + IVA; per sapere quanto netto ci sta dentro si divide quello che gli resta per `1 + aliquota`.
+
+Chi può stare insieme (controllato dal server, `400` con il motivo):
+
+| Regola | Perché |
+| --- | --- |
+| stesso **gruppo** (non vuoto) per gli sponsor | «alcuni fondi sono accumulabili tra loro» |
+| il **fondo del team** solo come ultimo, e in qualunque gruppo | non finisce mai: dopo di lui non resterebbe niente da pagare |
+| un **regalo** (B, C) solo da solo | copre già tutto |
+| uno sponsor **Team's fund** (in cassa) mai | i suoi soldi sono già nel conto: si paga col fondo del team |
+| lo stesso fondo due volte, più di 4 fondi | — |
+
+La tendina di ALSO FROM propone solo i fondi compatibili con il primo. La casella compare (è modificabile) quando la riga è corta e c'è un fondo compatibile, oppure quando ha già più di un fondo; scegliere vuoto toglie i fondi in più.
+
+## 5. Sponsor in cassa
+
+Un fondo **Team's fund** (`mode = cash`) è denaro che entra nel conto del team:
+
+- il suo contratto è un **ingresso del team** e conta da solo in CASH FLOW e nel Gantt, nel mese della data d'ingresso (non si copia nella tabella degli ingressi a mano);
+- sull'ingresso il team deve **l'11% di IVA**, fissa per legge (le ASD la versano ogni trimestre): esce alla **scadenza trimestrale** del giorno d'ingresso, la stessa tabella di Q3 (un ingresso del 10/12/2026 di 1.000,00 € → 110,00 € il 16/02/2027). Compare nell'IVA del team (CASH FLOW, riga *VAT* del Gantt), non nel report IVA per progetto;
+- un contratto **senza data** non ha una scadenza: l'IVA non compare finché non lo si data;
+- non è nella tabella dei saldi di CASH FROM (non c'è un fondo da consumare), ma resta nel riepilogo mensile degli ingressi;
+- **non scrivere lo stesso versamento anche in CASH FLOW**: sarebbe contato due volte.
+
+## 6. Dove sta il codice
+
+| Cosa | Dove |
+| --- | --- |
+| le regole di tutto il §3 e §4 | `packages/calc/src/settle.ts` (`settleLine`): puro, in interi; la formula a un'aliquota di `lineAmounts` (`line.ts`) resta per le righe senza fondo |
+| consumo dei fondi in ordine di foglio | `computeLines` in `packages/calc/src/lines.ts` |
+| ingressi e IVA degli sponsor in cassa (Team's fund) | `packages/calc/src/cash.ts`, usato da `cashflow.ts` e `gantt.ts` |
+| saldi e analisi per fondo con le quote | `funds.ts`, `analysis.ts` |
+| tabelle | `fund` (con `mode`, `type`, `vat_rate`, `group_name`), `fund_contract`, `line_fund` (i fondi di una riga: `figures_id`, `position`, `fund_id`): migrazione `0006_sponsors.sql`, con il trigger dello storico |
+| controlli di compatibilità | `saveFunds` in `apps/api/src/modules/budget/budget.service.ts`; la definizione dello sponsor in `funds.service.ts` |
+| 11% | `getSettings().cashSponsorVatRate` (`// HARDCODED`, [hardcoded-registry.md](hardcoded-registry.md)) |
+| schermate | `FundsPage.tsx` (bottone New sponsor e suo form, tabella SPONSORS con i soldi, riquadri dei risultati), `areaColumns.tsx` (CASH FROM, ALSO FROM, icona di avviso) |
+
+**API** (tutte con login; scrive solo l'admin):
+
+| Metodo | Percorso | Cosa fa |
+| --- | --- | --- |
+| `GET` | `/api/funds?phase=` | i fondi, ognuno con i suoi soldi (`contracts.estimate` / `contracts.actual`: valore e data, oppure `null`); con la fase solo quelli che una riga può usare: team, regali, virtuali con soldi nella fase |
+| `POST` | `/api/funds` | nuovo sponsor (`name`, `vatRate` obbligatoria tranne per il regalo senza IVA, il resto facoltativo) e, se si vuole, i suoi `contracts` (`phase`, `amount`, `inflowDate`: massimo uno per fase; solo per chi dà un fondo): tutto o niente |
+| `PATCH` | `/api/funds/:id` | cambia qualunque parametro; il risultato è ricontrollato per intero |
+| `DELETE` | `/api/funds/:id` | se nessuna riga è pagata da lui; si porta via anche i suoi soldi |
+| `PUT` | `/api/funds/:id/contracts/:phase` | `{ amount, inflowDate }`: mette (o sostituisce) i soldi dello sponsor in quella fase; solo per chi dà un fondo. Due richieste insieme non lasciano mai due righe |
+| `DELETE` | `/api/funds/:id/contracts/:phase` | toglie i soldi di quella fase |
+| `PATCH` | `/api/lines/:id` | `figures.<fase>.fundIds`: l'elenco ordinato dei fondi (`[]` li toglie) |
+
+## 7. Cosa è rimasto di prima
+
+- **Righe senza fondo**: il motore usa la formula di prima con tipo di sponsor e aliquota digitati. La colonna SPONSOR è stata tolta dalla griglia e SPONSOR VALUE non si modifica più: una riga nuova resta *incompleta* (icona gialla) finché non scegli CASH FROM.
+- **Sponsor «parziale» importato dal foglio** (una voce nel foglio reale): il valore digitato resta e vale, perché toglierlo cambierebbe il costo della riga. Non si può creare una nuova voce così.
+- **La casella «paga IVA» è una sola per sponsor.** La migrazione `0007` l'ha spuntata dove lo era una delle due vecchie (previsto o consuntivo): nei dati del foglio i numeri sono rimasti uguali.
+- Le aliquote delle righe già assegnate a uno sponsor si ignorano: vale quella dello sponsor. La migrazione ha dato a ogni sponsor l'aliquota più usata dalle sue righe (22% per tutti, nei dati attuali).
+
+## 8. Decisioni del tesoriere (21 ottobre 2026) e cosa resta aperto
+
+| | Risposta |
+| --- | --- |
+| Q1 sponsor totale e IVA | **chiusa**: IVA sull'intero valore, a carico del team (tipo C) |
+| Q3 scadenze IVA | **confermate** |
+| Q4 CASH FROM ↔ CASH FLOW | in sospeso; gli sponsor cash ne sono solo una piccola parte (§5) |
+| Q5 casella «paga IVA» | **chiusa**: una sola per sponsor |
+| Soldi dello sponsor | **un valore e una data per sponsor e fase**, dentro lo sponsor: niente più contratti da gestire a parte (21/10/2026) |
+| Q7 arrotondamento | va bene così |
+| Q2 confronto con BANK, Q6 fondo in negativo | ancora aperte |
+
+Da confermare (le ho assunte così): l'11% si calcola sul valore del contratto di uno sponsor in cassa; il consumo dei fondi segue l'ordine del foglio; il fondo del team come ultimo fondo è sempre ammesso.
+
+**Limite noto**: cambiare il gruppo, il tipo o il modo di uno sponsor **non ricontrolla** le righe che lo usano già insieme ad altri (il motore regge, ma una combinazione che oggi non sarebbe ammessa resta com'è finché non si modifica la riga).
+
+## 9. Prove
+
+- `packages/calc/src/settle.test.ts` (16): regali B e C, aliquota dello sponsor, chi paga l'IVA, sponsor parziale importato, più fondi (resto, ordine del foglio, ultimo fondo in negativo, fondo che copre l'IVA, fondo del team come ultimo), righe senza fondo.
+- `packages/calc/src/cash.test.ts` (8): ingresso e IVA all'11% di uno sponsor in cassa, CASH FLOW, Gantt, saldi.
+- `apps/api/src/modules/funds/funds.routes.test.ts` e `budget.routes.test.ts`: definizione dello sponsor e sue regole, nomi unici (anche in parallelo), i soldi dello sponsor (messi, sostituiti, tolti, anche insieme), combinazioni rifiutate con il motivo, un cambiamento rifiutato non tocca la riga.
+- Riconciliazione col foglio (`pnpm reconcile`, anche `-- --db` dopo `load --replace`): **1.995 controlli uguali**, con le aliquote ora prese dallo sponsor.
+- Controllo di mutazione: togliere il tetto dei fondi, la divisione per `1 + aliquota` o la regola «il team paga sempre l'IVA di un regalo» fa fallire i test.

@@ -38,11 +38,9 @@ export function AreaPage() {
       categories: categories.data,
       priorities: priorities.data,
       vatRates: vatRates.data,
-      fundNames: {
-        estimate: fundsEstimate.data.map((f) => f.name),
-        actual: fundsActual.data.map((f) => f.name),
-      },
-      fundIdByName: new Map(allFunds.data.map((f) => [f.name.toLowerCase(), f.id])),
+      funds: { estimate: fundsEstimate.data, actual: fundsActual.data },
+      fundById: new Map(allFunds.data.map((f) => [f.id, f])),
+      fundByName: new Map(allFunds.data.map((f) => [f.name.toLowerCase(), f])),
       supplierNames: suppliers.data.map((s) => s.name),
       supplierIdByName: new Map(suppliers.data.map((s) => [s.name.toLowerCase(), s.id])),
     };
@@ -146,7 +144,12 @@ function ProjectPanel({ project, columns, canEdit }: { project: SheetProject; co
         rowData={project.lines}
         pinnedBottomRowData={[subtotalRow(project)]}
         columnDefs={columns}
-        defaultColDef={{ resizable: true, sortable: false, suppressMovable: true }}
+        defaultColDef={{ resizable: true, sortable: false, suppressMovable: true, wrapHeaderText: true, autoHeaderHeight: true }}
+        // each column takes the room its content needs, no more; fitted again whenever the rows change
+        // (the grid can only measure columns it draws, so all of them are drawn)
+        suppressColumnVirtualisation
+        autoSizeStrategy={{ type: "fitCellContents", skipHeader: true }}
+        onRowDataUpdated={(event) => event.api.autoSizeAllColumns(true)}
         getRowId={(p) => ("isSubtotal" in p.data ? "subtotal" : String(p.data.id))}
         suppressCellFocus={false}
         suppressNoRowsOverlay
@@ -203,31 +206,33 @@ function AreaTotal({ total }: { total: AreaSheet["total"] }) {
     ["ACTUAL", total.actual],
   ] as const;
   return (
-    <div className="table-wrap">
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>TOTAL</th>
-            <th className="num">NET COST</th>
-            <th className="num">VAT</th>
-            <th className="num">GRAND TOTAL</th>
-            <th className="num">SPONSOR VALUE</th>
-            <th className="num">OUTFLOW</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(([label, amounts]) => (
-            <tr key={label}>
-              <td className="bold">{label}</td>
-              <td className="num">{money(amounts.netCents)}</td>
-              <td className="num">{money(amounts.vatCents)}</td>
-              <td className="num">{money(amounts.grossCents)}</td>
-              <td className="num">{money(amounts.sponsorCents)}</td>
-              <td className="num bold">{money(amounts.outflowCents)}</td>
+    <section className="panel">
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>TOTAL</th>
+              <th className="num">NET COST</th>
+              <th className="num">VAT</th>
+              <th className="num">GRAND TOTAL</th>
+              <th className="num">SPONSOR VALUE</th>
+              <th className="num">OUTFLOW</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {rows.map(([label, amounts]) => (
+              <tr key={label}>
+                <td className="bold">{label}</td>
+                <td className="num">{money(amounts.netCents)}</td>
+                <td className="num">{money(amounts.vatCents)}</td>
+                <td className="num">{money(amounts.grossCents)}</td>
+                <td className="num">{money(amounts.sponsorCents)}</td>
+                <td className="num bold">{money(amounts.outflowCents)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

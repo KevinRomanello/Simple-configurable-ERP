@@ -1,4 +1,5 @@
 import { isAfterBank } from "./bank";
+import { bankInflows, cashSponsorVat } from "./cash";
 import { fundSummary, inflowsByMonth, type MonthlyInflow } from "./funds";
 import { computeLines } from "./lines";
 import type { Snapshot } from "./snapshot";
@@ -8,7 +9,7 @@ export interface CashFlowSummary {
   phase: Phase;
   /** BANK plus the inflows that come after it. */
   totalCashFlowCents: number;
-  /** Purchases paid from the team fund (VAT excluded) plus the VAT the team pays. */
+  /** Purchases paid from the team fund (VAT excluded) plus the VAT the team pays (also on cash sponsors' money). */
   teamOutflowsCents: number;
   leftValueCents: number;
   /** Sum of the negative balances of the external funds: the team covers them. */
@@ -30,18 +31,17 @@ export function cashFlowSummary(snapshot: Snapshot, phase: Phase): CashFlowSumma
   const bankDate = bank?.asOfDate ?? null;
   const counts = (date: string | null) => bankDate === null || isAfterBank(date, bankDate, mode);
 
-  const inflows = snapshot.inflows.filter((i) => i.phase === phase);
-  const countedInflows = inflows.filter((i) => counts(i.inflowDate));
+  const countedInflows = bankInflows(snapshot, phase).filter((i) => counts(i.inflowDate));
   const totalCashFlowCents =
     (bank?.amountCents ?? 0) + countedInflows.reduce((sum, i) => sum + i.amountCents, 0);
 
   const lines = computeLines(snapshot).map((l) => l[phase]);
   const teamPurchases = lines
-    .filter((p) => p.fundKind === "team" && counts(p.purchaseDate))
-    .reduce((sum, p) => sum + p.amounts.outflowCents - p.amounts.vatCents, 0);
-  const teamVat = lines
-    .filter((p) => p.teamVatCents > 0 && counts(p.vatDueDate))
-    .reduce((sum, p) => sum + p.teamVatCents, 0);
+    .filter((p) => counts(p.purchaseDate))
+    .reduce((sum, p) => sum + p.teamFundCents, 0);
+  const teamVat =
+    lines.filter((p) => p.teamVatCents > 0 && counts(p.vatDueDate)).reduce((sum, p) => sum + p.teamVatCents, 0) +
+    cashSponsorVat(snapshot, phase).filter((v) => counts(v.dueDate)).reduce((sum, v) => sum + v.cents, 0);
 
   const teamOutflowsCents = teamPurchases + teamVat;
   const leftValueCents = totalCashFlowCents - teamOutflowsCents;
@@ -63,8 +63,6 @@ export function cashFlowSummary(snapshot: Snapshot, phase: Phase): CashFlowSumma
 /** The CASH FLOW monthly summary for one phase. */
 export function cashFlowByMonth(snapshot: Snapshot, phase: Phase): MonthlyInflow[] {
   return inflowsByMonth(
-    snapshot.inflows
-      .filter((i) => i.phase === phase)
-      .map((i) => ({ name: i.sourceName, amountCents: i.amountCents, date: i.inflowDate })),
+    bankInflows(snapshot, phase).map((i) => ({ name: i.sourceName, amountCents: i.amountCents, date: i.inflowDate })),
   );
 }

@@ -43,13 +43,13 @@ export function TotalPage() {
           <p className="muted">Variances beyond ±{threshold} are highlighted.</p>
         </div>
       </header>
-      <Chips
-        label="Block"
-        value={block.block}
-        onChange={setBlockName}
-        options={totals.data.blocks.map((b) => ({ value: b.block, label: blockTitle(b.block) }))}
-      />
       <section className="panel">
+        <Chips
+          label="Block"
+          value={block.block}
+          onChange={setBlockName}
+          options={totals.data.blocks.map((b) => ({ value: b.block, label: blockTitle(b.block) }))}
+        />
         <h2>{blockTitle(block.block)}</h2>
         <BarsChart
           title={`Cost & Outflow Comparison (${block.block === "ALL" ? "All Items" : block.block})`}

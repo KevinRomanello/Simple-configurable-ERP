@@ -63,7 +63,7 @@ const PAYLOADS = [
 
 const tablesLeft = async () => {
   const result = await db.execute(
-    sql`select count(*)::int as n from information_schema.tables where table_schema = 'public' and table_name in ('supplier','project','budget_line','audit_log','app_user','fund','line_figures')`,
+    sql`select count(*)::int as n from information_schema.tables where table_schema = 'public' and table_name in ('supplier','project','budget_line','audit_log','app_user','fund','line_figures','line_fund')`,
   );
   return (result.rows[0] as { n: number }).n;
 };
@@ -78,10 +78,13 @@ describe("attacking the API", () => {
       const project = (await api.post("/api/projects", { areaCode: "sw", name: text, ownerName: text })).body;
       expect(project.name).toBe(text);
       expect((await api.post(`/api/projects/${project.id}/lines`, { item: text, note: text })).status).toBe(201);
-      expect((await api.post("/api/funds/contracts", { phase: "estimate", fundName: text, amount: "1" })).status).toBe(201);
+      const sponsor = await api.post("/api/funds", { name: text, vatRate: 22, group: text });
+      expect(sponsor.status).toBe(201);
+      expect(sponsor.body.name).toBe(text);
+      expect((await api.put(`/api/funds/${sponsor.body.id}/contracts/estimate`, { amount: "1" })).status).toBe(200);
       expect((await api.post("/api/inflows", { phase: "actual", sourceName: text, amount: "1" })).status).toBe(201);
     }
-    expect(await tablesLeft()).toBe(7);
+    expect(await tablesLeft()).toBe(8);
     const names = (await api.get("/api/suppliers")).body.map((s: { name: string }) => s.name);
     for (const text of PAYLOADS) expect(names).toContain(text);
   });
@@ -101,14 +104,14 @@ describe("attacking the API", () => {
       await api.get(`/api/audit?rowId=${bad}&limit=${bad}`),
       await api.post("/api/inflows", { phase: "actual", sourceName: "x", amount: "10; drop table fund" }),
       await api.post("/api/inflows", { phase: "estimate'; --", sourceName: "x", amount: "1" }),
-      await api.post("/api/funds/contracts", { phase: "estimate", fundName: "x", amount: "1", inflowDate: "2026-01-01'; --" }),
+      await api.put("/api/funds/1/contracts/estimate", { amount: "1", inflowDate: "2026-01-01'; --" }),
       await api.put("/api/bank", { amount: "1", asOfDate: "' or 1=1" }),
       await api.patch("/api/users/1", { role: "admin'; --" }),
       await api.patch("/api/users/1", { areaIds: ["1; drop table app_user"] }),
       await api.anonymous().get(`/api/auth/callback?code=${encodeURIComponent("'; drop table app_user; --")}&state=${quote}`),
     ];
     expect(answers.filter((a) => a.status >= 500)).toEqual([]);
-    expect(await tablesLeft()).toBe(7);
+    expect(await tablesLeft()).toBe(8);
   });
 
   it("ignores fields that are not part of the input (no mass assignment)", async () => {

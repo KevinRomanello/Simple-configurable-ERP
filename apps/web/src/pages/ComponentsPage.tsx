@@ -53,27 +53,29 @@ export function ComponentsPage() {
         )}
       </header>
 
-      <PriceSelector value={price} onChange={setPrice} date />
+      <section className="panel">
+        <PriceSelector value={price} onChange={setPrice} date />
 
-      <div className="table-wrap">
-        <table className="data-table">
-          <thead><tr><th>COMPONENT</th><th className="num">PARTS</th><th className="num">COST OF ONE</th><th className="num">ON THE SHELF</th></tr></thead>
-          <tbody>
-            {components.data?.map((c) => (
-              <tr key={c.id}>
-                <td><Link to={`/inventory/components/${c.id}`} className="item-link">{c.name}</Link></td>
-                <td className="num">{c.partsCount}</td>
-                <td className="num">
-                  {c.unitE4 === null ? <span className="muted">no price yet</span> : moneyE4(c.unitE4)}
-                  {!c.complete && c.unitE4 !== null && <span className="negative" title="Something it is made of has never been bought"> !</span>}
-                </td>
-                <td className="num">{quantity(c.onHandMilli)} {c.unit}</td>
-              </tr>
-            ))}
-            {components.isSuccess && components.data.length === 0 && <tr><td colSpan={4} className="empty">No components yet</td></tr>}
-          </tbody>
-        </table>
-      </div>
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead><tr><th>COMPONENT</th><th className="num">PARTS</th><th className="num">COST OF ONE</th><th className="num">ON THE SHELF</th></tr></thead>
+            <tbody>
+              {components.data?.map((c) => (
+                <tr key={c.id}>
+                  <td><Link to={`/inventory/components/${c.id}`} className="item-link">{c.name}</Link></td>
+                  <td className="num">{c.partsCount}</td>
+                  <td className="num">
+                    {c.unitE4 === null ? <span className="muted">no price yet</span> : moneyE4(c.unitE4)}
+                    {!c.complete && c.unitE4 !== null && <span className="negative" title="Something it is made of has never been bought"> !</span>}
+                  </td>
+                  <td className="num">{quantity(c.onHandMilli)} {c.unit}</td>
+                </tr>
+              ))}
+              {components.isSuccess && components.data.length === 0 && <tr><td colSpan={4} className="empty">No components yet</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </>
   );
 }

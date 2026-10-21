@@ -1,6 +1,6 @@
 import { netCents, percentOf } from "./money";
 import type { Figures } from "./snapshot";
-import type { Settings } from "./types";
+import type { Settings, SponsorType } from "./types";
 
 /** The five amounts of a line in one phase, in cents. */
 export interface Amounts {
@@ -50,22 +50,17 @@ export function sumAmounts(list: Iterable<Amounts>): Amounts {
  *   outflow = gross - sponsor
  *
  * A line whose sponsor type or VAT rate is not chosen yet has no VAT and is flagged incomplete.
+ * This is the single-rate formula; a line paid by several funds splits the VAT base between them
+ * (settle.ts) and uses `sponsorSplit` for the same sponsor rules.
  */
 export function lineAmounts(figures: Figures | null, settings: Settings): LineAmounts {
   if (!figures) return { ...ZERO_AMOUNTS, complete: true };
 
   const net = netCents(figures.quantityMilli, figures.unitCostE4);
   const { sponsorType, vatRate } = figures;
+  const { sponsor, vatBase } = sponsorSplit(sponsorType, figures.sponsorValueCents, net, settings);
 
-  let sponsor = 0;
-  if (sponsorType === "total") sponsor = net;
-  else if (sponsorType === "partial") sponsor = figures.sponsorValueCents ?? 0;
-
-  let vat = 0;
-  if (sponsorType !== null && vatRate !== null) {
-    vat = percentOf(vatBase(sponsorType, net, sponsor, settings), vatRate);
-  }
-
+  const vat = sponsorType !== null && vatRate !== null ? percentOf(vatBase, vatRate) : 0;
   const gross = net + vat;
   return {
     netCents: net,
@@ -77,16 +72,20 @@ export function lineAmounts(figures: Figures | null, settings: Settings): LineAm
   };
 }
 
-/** The amount the VAT rate is applied to. */
-function vatBase(
-  sponsorType: "none" | "partial" | "total",
+/** What the sponsor covers of a net cost, and the amount the VAT rate is applied to. */
+export function sponsorSplit(
+  sponsorType: SponsorType | null,
+  sponsorValueCents: number | null,
   net: number,
-  sponsor: number,
   settings: Settings,
-): number {
-  if (sponsorType === "partial") return net - sponsor;
+): { sponsor: number; vatBase: number } {
+  let sponsor = 0;
+  if (sponsorType === "total") sponsor = net;
+  else if (sponsorType === "partial") sponsor = sponsorValueCents ?? 0;
+
+  if (sponsorType === "partial") return { sponsor, vatBase: net - sponsor };
   if (sponsorType === "total" && settings.vatBaseWhenTotalSponsor === "net-minus-sponsor") {
-    return net - sponsor; // open question Q1: VAT on what the sponsor does not cover (zero)
+    return { sponsor, vatBase: net - sponsor }; // open question Q1: VAT on what the sponsor does not cover (zero)
   }
-  return net; // the old script: VAT on the whole net
+  return { sponsor, vatBase: net }; // the old script: VAT on the whole net
 }

@@ -1,10 +1,11 @@
-import type { Phase } from "@erp/calc";
-import { and, asc, eq, exists, sql } from "drizzle-orm";
+import type { FundMode, FundType, Phase } from "@erp/calc";
+import { and, eq, exists, inArray, sql } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { fund, fundContract, lineFigures } from "../../db/schema";
+import { fund, fundContract, lineFund } from "../../db/schema";
 import { canWrite, getCurrentUser } from "../auth/auth.service";
+import { listVatRates } from "../lookups/lookups.service";
 import { getCurrentSeason } from "../seasons/seasons.service";
 
 async function assertCanManageShared() {
@@ -13,9 +14,48 @@ async function assertCanManageShared() {
   return actor;
 }
 
+type FundRow = typeof fund.$inferSelect;
+
+/** What a sponsor brings in one phase: a value and the day it arrives. */
+interface Money {
+  amount: string;
+  inflowDate: string | null;
+}
+type MoneyByPhase = Record<Phase, Money | null>;
+
+/** The money of each of the given funds, by phase. */
+async function moneyOf(executor: Pick<Tx, "select">, fundIds: number[]): Promise<Map<number, MoneyByPhase>> {
+  const result = new Map<number, MoneyByPhase>();
+  if (fundIds.length === 0) return result;
+  const rows = await executor.select().from(fundContract).where(inArray(fundContract.fundId, fundIds));
+  for (const row of rows) {
+    const entry = result.get(row.fundId) ?? { estimate: null, actual: null };
+    entry[row.phase] = { amount: row.amount, inflowDate: row.inflowDate };
+    result.set(row.fundId, entry);
+  }
+  return result;
+}
+const NO_MONEY: MoneyByPhase = { estimate: null, actual: null };
+
+/** A fund as the API serves it: the VAT rate as a number, the group under its public name, its money. */
+function fundOut(row: FundRow, money: MoneyByPhase = NO_MONEY) {
+  return {
+    id: row.id,
+    name: row.name,
+    kind: row.kind,
+    mode: row.mode,
+    type: row.type,
+    vatRate: row.vatRate === null ? null : Number(row.vatRate),
+    group: row.groupName,
+    paysVat: row.paysVat,
+    contracts: money,
+  };
+}
+
 /**
- * The funds a line can be paid from in a phase: the team fund plus every external fund that has
- * a contract in that phase (GET /api/funds?phase=). Without a phase, every fund.
+ * The funds a line can be paid from in a phase: the team fund, every gift (it needs no money) and
+ * every virtual fund that has a contract in that phase (GET /api/funds?phase=). A sponsor whose
+ * money goes into the bank is never offered: its money is the team's. Without a phase, every fund.
  */
 export async function listFunds(phase?: Phase) {
   const season = await getCurrentSeason();
@@ -24,24 +64,122 @@ export async function listFunds(phase?: Phase) {
     exists(
       db.select({ one: sql`1` }).from(fundContract).where(and(eq(fundContract.fundId, fund.id), eq(fundContract.phase, p))),
     );
-  return db
+  const rows = await db
     .select()
     .from(fund)
-    .where(phase ? and(inSeason, sql`(${fund.kind} = 'team' or ${hasContract(phase)})`) : inSeason)
+    .where(
+      phase
+        ? and(inSeason, sql`(${fund.kind} = 'team' or (${fund.mode} = 'virtual' and (${fund.type} <> 'fund' or ${hasContract(phase)})))`)
+        : inSeason,
+    )
     .orderBy(sql`${fund.kind} = 'team' desc`, sql`lower(${fund.name})`);
+  const money = await moneyOf(db, rows.map((r) => r.id));
+  return rows.map((row) => fundOut(row, money.get(row.id)));
 }
 
-/** Sets the "DOES IT PAY VAT?" boxes of a fund. */
-export async function updateFund(fundId: number, input: { paysVatEstimate?: boolean; paysVatActual?: boolean }) {
+// --- sponsors: the definition of a fund ---------------------------------------------------------
+
+export interface SponsorInput {
+  name: string;
+  mode: FundMode;
+  type: FundType;
+  vatRate: number | null;
+  group: string | null;
+  paysVat: boolean;
+}
+
+/** The money a new sponsor brings: one contract per phase it counts in. */
+export interface ContractInput {
+  phase: Phase;
+  amount: string;
+  inflowDate: string | null;
+}
+
+/** The rules every sponsor must follow; gives back the VAT rate to store. */
+async function checkedRate(input: Pick<SponsorInput, "mode" | "type" | "vatRate">): Promise<number> {
+  if (input.mode === "cash" && input.type !== "fund") {
+    throw invalid("A sponsor that pays into the bank can only give a fund, not goods");
+  }
+  const rate = input.type === "gift" ? 0 : input.vatRate; // a plain gift owes no VAT at all
+  if (rate === null) throw invalid("Choose the VAT rate of the sponsor");
+  if (!(await listVatRates()).includes(rate)) throw invalid(`VAT rate ${rate}% is not one of the allowed rates`);
+  return rate;
+}
+
+const sponsorValues = (input: SponsorInput, rate: number) => ({
+  name: input.name,
+  mode: input.mode,
+  type: input.type,
+  vatRate: rate.toFixed(2),
+  groupName: input.group,
+  paysVat: input.paysVat,
+});
+
+/**
+ * Adds a sponsor ("INSERT COMPANY"), with the money it brings if already known: its contracts,
+ * with value and date, can also be added later. Sponsor and contracts are saved together or not at all.
+ */
+export async function createFund(input: SponsorInput, contracts: ContractInput[] = []) {
   const actor = await assertCanManageShared();
+  const season = await getCurrentSeason();
+  const rate = await checkedRate(input);
+  if (contracts.length > 0 && input.type !== "fund") {
+    throw invalid("A sponsor that gives goods has no contract: it is not a sum of money");
+  }
+  if (new Set(contracts.map((c) => c.phase)).size !== contracts.length) {
+    throw invalid("A sponsor has one contract per phase");
+  }
   return runWrite(actor, async (tx) => {
-    const [updated] = await tx.update(fund).set(input).where(eq(fund.id, fundId)).returning();
-    if (!updated) throw notFound("Fund");
-    return updated;
+    const [created] = await tx
+      .insert(fund)
+      .values({ seasonId: season.id, kind: "external", ...sponsorValues(input, rate) })
+      .onConflictDoNothing() // the same name at the same moment: the first one wins
+      .returning();
+    if (!created) throw conflict(`"${input.name}" already exists`);
+    for (const contract of contracts) {
+      await tx.insert(fundContract).values({
+        fundId: created.id,
+        phase: contract.phase,
+        amount: contract.amount,
+        inflowDate: contract.inflowDate,
+      });
+    }
+    return fundOut(created, (await moneyOf(tx, [created.id])).get(created.id));
   });
 }
 
-/** Deletes a fund nobody uses. The team fund and funds with contracts or lines stay. */
+/** Changes the definition of a sponsor; what is left out stays as it is. */
+export async function updateFund(fundId: number, input: Partial<SponsorInput>) {
+  const actor = await assertCanManageShared();
+  return runWrite(actor, async (tx) => {
+    const [target] = await tx.select().from(fund).where(eq(fund.id, fundId)).for("update");
+    if (!target) throw notFound("Fund");
+    if (target.kind === "team") throw invalid("The team fund is the team's own money: it has nothing to set");
+
+    const merged: SponsorInput = {
+      name: input.name ?? target.name,
+      mode: input.mode ?? target.mode,
+      type: input.type ?? target.type,
+      vatRate: input.vatRate !== undefined ? input.vatRate : target.vatRate === null ? null : Number(target.vatRate),
+      group: input.group !== undefined ? input.group : target.groupName,
+      paysVat: input.paysVat ?? target.paysVat,
+    };
+    const rate = await checkedRate(merged);
+    if (merged.type !== "fund" && (await moneyOf(tx, [fundId])).has(fundId)) {
+      throw invalid("Take the money of this sponsor away first: a sponsor that gives goods has no contract");
+    }
+    const [twin] = await tx
+      .select({ id: fund.id })
+      .from(fund)
+      .where(and(eq(fund.seasonId, target.seasonId), sql`lower(${fund.name}) = lower(${merged.name})`));
+    if (twin && twin.id !== fundId) throw conflict(`"${merged.name}" already exists`);
+
+    const [updated] = await tx.update(fund).set(sponsorValues(merged, rate)).where(eq(fund.id, fundId)).returning();
+    return fundOut(updated!, (await moneyOf(tx, [fundId])).get(fundId));
+  });
+}
+
+/** Deletes a sponsor with its money, if no budget line is paid from it. The team fund stays. */
 export async function deleteFund(fundId: number) {
   const actor = await assertCanManageShared();
   await runWrite(actor, async (tx) => {
@@ -49,71 +187,41 @@ export async function deleteFund(fundId: number) {
     if (!target) throw notFound("Fund");
     if (target.kind === "team") throw invalid("The team fund cannot be deleted");
 
-    const [contracts] = await tx.select({ n: sql<number>`count(*)::int` }).from(fundContract).where(eq(fundContract.fundId, fundId));
-    if ((contracts?.n ?? 0) > 0) throw conflict("Delete the contracts of this fund first");
-    const [lines] = await tx.select({ n: sql<number>`count(*)::int` }).from(lineFigures).where(eq(lineFigures.fundId, fundId));
+    const [lines] = await tx.select({ n: sql<number>`count(*)::int` }).from(lineFund).where(eq(lineFund.fundId, fundId));
     if ((lines?.n ?? 0) > 0) throw conflict(`This fund pays ${lines?.n} budget lines`);
+    await tx.delete(fundContract).where(eq(fundContract.fundId, fundId));
     await tx.delete(fund).where(eq(fund.id, fundId));
   });
 }
 
-// --- contracts: the CASH FROM tables -----------------------------------------------------------
+// --- the money of a sponsor: one value and one date per phase ---------------------------------
 
-/** The contracts of a phase, ordered like the old sheet (name, then date). */
-export async function listContracts(phase: Phase) {
-  const rows = await db
-    .select({
-      id: fundContract.id,
-      fundId: fundContract.fundId,
-      fundName: fund.name,
-      amount: fundContract.amount,
-      inflowDate: fundContract.inflowDate,
-    })
-    .from(fundContract)
-    .innerJoin(fund, eq(fundContract.fundId, fund.id))
-    .where(eq(fundContract.phase, phase))
-    .orderBy(asc(sql`lower(${fund.name})`), asc(fundContract.inflowDate));
-  return rows;
-}
-
-async function fundNamed(tx: Tx, seasonId: number, name: string) {
-  const find = async () => {
-    const [found] = await tx
-      .select()
-      .from(fund)
-      .where(and(eq(fund.seasonId, seasonId), sql`lower(${fund.name}) = lower(${name})`));
-    return found;
-  };
-  let owner = await find();
-  if (!owner) {
-    // If another request creates the same fund at this very moment, the insert does nothing and
-    // the second look finds theirs: both requests then add their contract to the same fund.
-    await tx.insert(fund).values({ seasonId, name, kind: "external" }).onConflictDoNothing();
-    owner = (await find())!;
-  }
-  if (owner.kind === "team") throw invalid("The team fund has no contracts: it is the team's own money");
-  return owner;
-}
-
-/** Adds a contract; the fund is created on the first contract of a new name ("INSERT COMPANY"). */
-export async function createContract(input: { phase: Phase; fundName: string; amount: string; inflowDate?: string | null }) {
+/** Sets how much a sponsor is worth in a phase and when it arrives; replaces what was there. */
+export async function setContract(fundId: number, phase: Phase, input: { amount: string; inflowDate: string | null }) {
   const actor = await assertCanManageShared();
-  const season = await getCurrentSeason();
   return runWrite(actor, async (tx) => {
-    const owner = await fundNamed(tx, season.id, input.fundName);
-    const [created] = await tx
+    const [owner] = await tx.select().from(fund).where(eq(fund.id, fundId));
+    if (!owner) throw notFound("Fund");
+    if (owner.kind === "team") throw invalid("The team fund has no contracts: it is the team's own money");
+    if (owner.type !== "fund") throw invalid(`"${owner.name}" gives goods, not a sum of money: it has no contract`);
+    // one atomic write: two people setting the same money at once cannot leave two contracts
+    const [saved] = await tx
       .insert(fundContract)
-      .values({ fundId: owner.id, phase: input.phase, amount: input.amount, inflowDate: input.inflowDate ?? null })
+      .values({ fundId, phase, amount: input.amount, inflowDate: input.inflowDate })
+      .onConflictDoUpdate({ target: [fundContract.fundId, fundContract.phase], set: { amount: input.amount, inflowDate: input.inflowDate } })
       .returning();
-    return created!;
+    return saved!;
   });
 }
 
-export async function deleteContract(contractId: number) {
+/** Takes the money of a sponsor in a phase away. */
+export async function clearContract(fundId: number, phase: Phase) {
   const actor = await assertCanManageShared();
   await runWrite(actor, async (tx) => {
-    const deleted = await tx.delete(fundContract).where(eq(fundContract.id, contractId)).returning({ id: fundContract.id });
+    const deleted = await tx
+      .delete(fundContract)
+      .where(and(eq(fundContract.fundId, fundId), eq(fundContract.phase, phase)))
+      .returning({ id: fundContract.id });
     if (deleted.length === 0) throw notFound("Contract");
   });
 }
-
