@@ -375,6 +375,22 @@
 .ag-cell.num { text-align: right; }
 .ag-row-pinned .ag-cell { font-weight: 700; background: var(--bg-soft); }
 
+/* On macOS the scrollbars are the "overlay" ones. AG Grid draws the horizontal one over the bottom
+   of the rows, just above the row of subtotals, and with a single line of data it covers it. Keep
+   a strip for it at the foot of the grid, under the subtotals, where the scrollbar of a table is. */
+.ag-root:has(> .ag-body-horizontal-scroll.ag-apple-scrollbar) {
+  padding-bottom: 16px;
+}
+.ag-body-horizontal-scroll.ag-apple-scrollbar {
+  bottom: 0 !important; /* AG Grid sets it inline, to the height of the subtotals */
+}
+
+/* The hints of the grid (icons of the status column and the like) can have more than one line. */
+.ag-tooltip {
+  white-space: pre-line;
+  max-width: 320px;
+}
+
 /* AG Grid reserves 150px for the rows area even with "auto height"; a project with one line
    should be one line tall. */
 .ag-grid-scrolling-rows.ag-layout-auto-height {

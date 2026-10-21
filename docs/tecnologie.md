@@ -476,7 +476,11 @@ Il `valueSetter` non scrive nella riga: chiama `commit`, che spedisce `PATCH /ap
 
 **Trappole.** Le celle calcolate sono semplici `valueGetter` senza editor. Il numero di colonne per fase (15) è il motivo per cui la tabella scorre in orizzontale; la colonna `ITEM` è fissata a sinistra (quando si scorre, le colonne passano *sotto* quella fissa: per cliccare una cella nascosta si scorre ancora un po').
 
+Le **icone** della colonna di stato hanno il suggerimento immediato del sistema di AG Grid (`tooltipValueGetter` e `tooltipShowDelay`), non l'attributo `title` del browser: quello arriva con un ritardo di circa un secondo e non è stilabile, mentre quello di AG Grid sta fuori dalla cella (non viene tagliato) e usa i colori del tema (`tooltipBackgroundColor`… in `theme/grid.ts`). Va su più righe (`white-space: pre-line`).
+
 Anche le **barre di scorrimento** sono un caso: AG Grid imposta di suo `color-scheme: light`, quindi in modo scuro la barra orizzontale usciva con la pista bianca, diversa da quella delle tabelle. Il parametro `browserColorScheme: "inherit"` in `theme/grid.ts` le fa seguire lo schema dell'app (chiaro o scuro), identiche alle altre.
+
+Un'altra trappola, solo su Mac: le barre "a comparsa" (larghezza zero) AG Grid le disegna in posizione assoluta, **sopra** la riga dei subtotali, quindi con una sola riga di dati la coprivano. `components.css` riserva sotto i subtotali una fascia di 16 px per la barra e la porta in fondo alla griglia (le regole valgono solo quando AG Grid usa la barra "apple", cioè dove serve; altrove la barra normale occupa già il suo spazio).
 
 **Dove guardare:** `apps/web/src/pages/areaColumns.tsx`, `AreaPage.tsx`, `theme/grid.ts`.
 

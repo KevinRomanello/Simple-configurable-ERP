@@ -26,5 +26,8 @@ export const gridTheme = themeQuartz.withParams({
   rowHeight: 32,
   headerHeight: 32,
   inputBorder: "1px solid var(--stroke-sub)",
+  tooltipBackgroundColor: "var(--bg-null)",
+  tooltipTextColor: "var(--text-strong)",
+  tooltipBorder: "1px solid var(--stroke-strong)",
   dataFontSize: 13,
 });

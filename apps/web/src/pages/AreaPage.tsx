@@ -150,6 +150,7 @@ function ProjectPanel({ project, columns, canEdit }: { project: SheetProject; co
         getRowId={(p) => ("isSubtotal" in p.data ? "subtotal" : String(p.data.id))}
         suppressCellFocus={false}
         suppressNoRowsOverlay
+        tooltipShowDelay={150}
         stopEditingWhenCellsLoseFocus
         singleClickEdit
       />

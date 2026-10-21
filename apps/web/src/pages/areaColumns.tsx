@@ -34,6 +34,21 @@ const SPONSOR_LABEL = { none: "No sponsor", partial: "Partial", total: "Total" }
 const SPONSOR_BY_LABEL = Object.fromEntries(Object.entries(SPONSOR_LABEL).map(([k, v]) => [v, k]));
 
 const isLine = (row: Row | undefined): row is CalcLine => row !== undefined && !("isSubtotal" in row);
+
+const INCOMPLETE_TIP = "Sponsor type or VAT rate is missing: the VAT is not counted yet";
+
+/** A line is incomplete while a phase with data has no sponsor type or no VAT rate. */
+const isIncomplete = (line: CalcLine) =>
+  (["estimate", "actual"] as const).some((phase) => line[phase].figures !== null && !line[phase].amounts.complete);
+
+/** What the icons of the status column mean: shown at once when the pointer is over the cell. */
+function statusTip(row: Row | undefined): string | undefined {
+  if (!isLine(row)) return undefined;
+  const tips: string[] = [];
+  if (isIncomplete(row)) tips.push(INCOMPLETE_TIP);
+  if (row.arrival.status !== "planned") tips.push(arrivalTitle[row.arrival.status]);
+  return tips.length > 0 ? tips.join("\n") : undefined;
+}
 const blank = (value: unknown) => value === "" || value === null || value === undefined;
 
 /** A cell the person can change: calls `commit` instead of writing into the grid. */
@@ -204,6 +219,7 @@ const arrivalColumn: ColDef<Row> = {
   headerName: "ARRIVED",
   width: 150,
   cellClass: "calc",
+  tooltipValueGetter: (p) => (isLine(p.data) && p.data.arrival.status !== "planned" ? arrivalTitle[p.data.arrival.status] : undefined),
   valueGetter: (p) => (isLine(p.data) ? `${p.data.arrival.status} ${p.data.arrival.receivedMilli}/${p.data.arrival.boughtMilli}` : ""),
   cellRenderer: (p: ICellRendererParams<Row>) => {
     const arrival = isLine(p.data) ? p.data.arrival : null;
@@ -245,32 +261,30 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
       width: 64,
       pinned: "left",
       sortable: false,
+      tooltipValueGetter: (p) => statusTip(p.data),
       cellRenderer: (p: ICellRendererParams<Row>) => {
         const row = p.data;
         if (!isLine(row)) return null;
-        const incomplete = (["estimate", "actual"] as const).some(
-          (phase) => row[phase].figures !== null && !row[phase].amounts.complete,
-        );
         const { status } = row.arrival;
         return (
-          <span style={{ display: "inline-flex", gap: "var(--space-xs)", alignItems: "center" }}>
-            {incomplete && (
-              <span title="Sponsor type or VAT rate is missing: the VAT is not counted yet" style={{ color: "var(--warning-default)" }}>
+          <span style={{ display: "inline-flex", gap: "var(--space-xs)", alignItems: "center" }} aria-label={statusTip(row)}>
+            {isIncomplete(row) && (
+              <span style={{ color: "var(--warning-default)" }}>
                 <FontAwesomeIcon icon={faTriangleExclamation} />
               </span>
             )}
             {(status === "ordered" || status === "partial") && (
-              <span title={arrivalTitle[status]} style={{ color: "var(--warning-default)" }}>
+              <span style={{ color: "var(--warning-default)" }}>
                 <FontAwesomeIcon icon={faHourglassHalf} />
               </span>
             )}
             {status === "received" && (
-              <span title={arrivalTitle.received} style={{ color: "var(--success-default)" }}>
+              <span style={{ color: "var(--success-default)" }}>
                 <FontAwesomeIcon icon={faCheck} />
               </span>
             )}
             {status === "over" && (
-              <span title={arrivalTitle.over} style={{ color: "var(--error-default)" }}>
+              <span style={{ color: "var(--error-default)" }}>
                 <FontAwesomeIcon icon={faTriangleExclamation} />
               </span>
             )}
@@ -335,9 +349,10 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
       width: 48,
       pinned: "right",
       sortable: false,
+      tooltipValueGetter: (p) => (isLine(p.data) ? "Delete this line" : undefined),
       cellRenderer: (p: ICellRendererParams<Row>) =>
         isLine(p.data) ? (
-          <button className="icon-btn danger" title="Delete line" aria-label="Delete line" onClick={() => remove(p.data as CalcLine)}>
+          <button className="icon-btn danger" aria-label="Delete line" onClick={() => remove(p.data as CalcLine)}>
             <FontAwesomeIcon icon={faTrash} />
           </button>
         ) : null,
