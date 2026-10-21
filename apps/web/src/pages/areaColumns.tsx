@@ -104,7 +104,7 @@ function fundTip(row: Row | undefined, phase: Phase): string | undefined {
   return lines.join("\n");
 }
 
-function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit): ColDef<Row>[] {
+function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFunds: MoreFunds): ColDef<Row>[] {
   const fig = (r: Row | undefined) => r?.[phase].figures ?? null;
   const amountsOf = (r: Row | undefined) => r?.[phase].amounts;
   const patchFigures = (patch: FiguresPatch) => ({ figures: { [phase]: patch } });
@@ -170,6 +170,7 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit): ColDe
     {
       colId: `${phase}.moreFunds`,
       headerName: "ALSO FROM",
+      hide: !moreFunds[phase], // not there unless a fund of this project runs short
       width: 200,
       cellClass: (p) => (isLine(p.data) && p.data[phase].shortCents > 0 ? "cell-warning" : undefined),
       tooltipValueGetter: (p) => (isLine(p.data) && p.data[phase].shortCents > 0 ? SHORT_HINT : undefined),
@@ -225,16 +226,15 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit): ColDe
       ...editableCell(commit, (v) => patchFigures({ vatRate: blank(v) ? null : Number(String(v).replace("%", "")) })),
       editable: (p) => isLine(p.data) && !p.node.rowPinned && choosesOwnRate(lookups, fig(p.data)?.fundIds ?? []),
     },
-    {
-      colId: `${phase}.sponsorValue`,
-      headerName: "SPONSOR VALUE",
-      width: 130,
-      cellClass: ["num", "calc"],
-      valueGetter: (p) => (p.data?.[phase].amounts.sponsorCents ? p.data[phase].amounts.sponsorCents / 100 : null),
-      valueFormatter: (p) => (p.value == null ? "" : money(Math.round(p.value * 100))),
-    },
     amountColumn("gross", "GRAND TOTAL", (a) => a.grossCents),
-    amountColumn("outflow", "OUTFLOW", (a) => a.outflowCents, 118, true),
+    {
+      ...amountColumn("outflow", "OUTFLOW", (a) => a.outflowCents, 118, true),
+      // what the sponsor gives for free (a gift, or an old partial sponsor of the sheet) is not a column: it is explained here
+      tooltipValueGetter: (p) => {
+        const a = amountsOf(p.data);
+        return a && a.sponsorCents > 0 ? `${money(a.grossCents)} grand total - ${money(a.sponsorCents)} given for free by the sponsor` : undefined;
+      },
+    },
     {
       colId: `${phase}.purchaseDate`,
       headerName: "PURCHASE DATE",
@@ -317,17 +317,26 @@ function withMinWidths(columns: Columns): Columns {
   );
 }
 
+/** Per phase: whether the ALSO FROM column is shown, because some line of the project needs another fund (or already has one). */
+export type MoreFunds = Record<Phase, boolean>;
+
+export function needsMoreFunds(lines: CalcLine[]): MoreFunds {
+  const needs = (phase: Phase) => lines.some((l) => l[phase].shortCents > 0 || l[phase].shares.length > 1);
+  return { estimate: needs("estimate"), actual: needs("actual") };
+}
+
 export function areaColumns(
   lookups: GridLookups,
   commit: Commit,
   remove: (line: CalcLine) => void,
   canEdit: boolean,
+  moreFunds: MoreFunds,
 ): Columns {
-  const columns = withMinWidths(editableColumns(lookups, commit, remove));
+  const columns = withMinWidths(editableColumns(lookups, commit, remove, moreFunds));
   return canEdit ? columns : readOnly(columns);
 }
 
-function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: CalcLine) => void): Columns {
+function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: CalcLine) => void, moreFunds: MoreFunds): Columns {
   return [
     {
       colId: "status",
@@ -409,12 +418,12 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
     {
       headerName: "EXPECTED",
       headerClass: "phase-estimate",
-      children: phaseColumns("estimate", lookups, commit),
+      children: phaseColumns("estimate", lookups, commit, moreFunds),
     },
     {
       headerName: "ACTUAL",
       headerClass: "phase-actual",
-      children: phaseColumns("actual", lookups, commit),
+      children: phaseColumns("actual", lookups, commit, moreFunds),
     },
     {
       colId: "note",

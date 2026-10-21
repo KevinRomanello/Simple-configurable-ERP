@@ -126,6 +126,17 @@ describe("funds that pay together", () => {
     expect([rowA!.leftCents, rowB!.leftCents]).toEqual([0, -30_000]);
   });
 
+  it("goes on with a third, a fourth fund... until the line is covered", () => {
+    const funds = [2, 3, 4, 5].map((id) => sponsorFund(id, { name: `F${id}`, group: "g" }));
+    const contracts = [contract(1, 2, 100), contract(2, 3, 100), contract(3, 4, 100), contract(4, 5, 5000)];
+    const s = build(funds, contracts, [figures(1, 450, { fundIds: [2, 3, 4, 5] })]);
+    const [p] = estimates(s);
+    expect(p!.shares.map((x) => x.netCents)).toEqual([10_000, 10_000, 10_000, 15_000]);
+    expect(p!.shortCents).toBe(0);
+    // with the last one left out the same line is short by what the others could not pay
+    expect(estimates(build(funds, contracts, [figures(1, 450, { fundIds: [2, 3, 4] })]))[0]!.shortCents).toBe(15_000);
+  });
+
   it("a single fund that is not enough flags the line too", () => {
     const [p] = estimates(build([a], [contract(1, 2, 100)], [figures(1, 300, { fundIds: [2] })]));
     expect(p!.shortCents).toBe(20_000);

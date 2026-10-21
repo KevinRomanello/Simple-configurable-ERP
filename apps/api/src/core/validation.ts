@@ -21,8 +21,8 @@ export const LIMITS = {
   netCost: 100_000_000,
   /** euros: a contract, an inflow, the BANK */
   money: 1_000_000_000,
-  /** funds that pay one line together */
-  fundsPerLine: 4,
+  /** funds that pay one line together: one after the other until the line is covered, never more than this */
+  fundsPerLine: 10,
 } as const;
 
 /** The period dates must fall in: wide enough for any budget, narrow enough to rule out typos. */

@@ -1,10 +1,11 @@
 import {
-  faBoxesStacked, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece, faRepeat, faRightFromBracket, faSackDollar,
+  faAnglesLeft, faBars, faBoxesStacked, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece, faRepeat, faRightFromBracket, faSackDollar,
   faScaleBalanced, faTable, faTruckFast, faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { IconDefinition } from "@fortawesome/free-solid-svg-icons";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router";
 import { api } from "../api/client";
 import { forgetUser, useMe } from "../lib/auth";
@@ -20,8 +21,30 @@ function Item({ to, icon, end, children }: { to: string; icon: IconDefinition; e
   );
 }
 
+const SIDEBAR_HIDDEN_KEY = "erp.sidebar-hidden";
+
+/** Whether the menu is hidden; remembered in this browser (and fine without it: the menu is just shown). */
+function useSidebarHidden() {
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_HIDDEN_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_HIDDEN_KEY, hidden ? "1" : "0");
+    } catch {
+      // private window or blocked storage: the choice is simply not remembered
+    }
+  }, [hidden]);
+  return [hidden, () => setHidden((value) => !value)] as const;
+}
+
 /** Page frame: the navigation mirrors the tabs of the old sheet. */
 export function Shell() {
+  const [hidden, toggleSidebar] = useSidebarHidden();
   const areas = useQuery({ queryKey: ["areas"], queryFn: api.areas });
   const me = useMe();
   const queryClient = useQueryClient();
@@ -33,11 +56,21 @@ export function Shell() {
   };
 
   return (
-    <div className="shell">
-      <aside className="sidebar">
+    <div className={`shell${hidden ? " collapsed" : ""}`}>
+      {hidden && (
+        <button type="button" className="icon-btn menu-open" title="Show the menu" aria-label="Show the menu" aria-expanded={false} onClick={toggleSidebar}>
+          <FontAwesomeIcon icon={faBars} />
+        </button>
+      )}
+      <aside className="sidebar" id="sidebar">
         <div className="brand">
-          <strong>E-Agle TRT</strong>
-          <span className="label-s muted">Budget 2026-2027</span>
+          <div className="brand-text">
+            <strong>E-Agle TRT</strong>
+            <span className="label-s muted">Budget 2026-2027</span>
+          </div>
+          <button type="button" className="icon-btn" title="Hide the menu" aria-label="Hide the menu" aria-expanded aria-controls="sidebar" onClick={toggleSidebar}>
+            <FontAwesomeIcon icon={faAnglesLeft} />
+          </button>
         </div>
 
         <nav className="nav-group">

@@ -20,9 +20,36 @@
 }
 .brand {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: 0 var(--space-xs);
+}
+.brand-text {
+  display: flex;
   flex-direction: column;
   gap: var(--space-3xs);
-  padding: 0 var(--space-xs);
+}
+/* The menu can be hidden: the page then takes the whole width and a button at its corner brings the menu back. */
+.shell.collapsed {
+  grid-template-columns: 1fr;
+}
+.shell.collapsed .sidebar {
+  display: none;
+}
+.shell.collapsed .main {
+  padding-left: calc(var(--space-l) + var(--space-xl));
+}
+.menu-open {
+  position: fixed;
+  top: var(--space-s);
+  left: var(--space-s);
+  z-index: 20;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--stroke-sub);
+  background: var(--bg-soft);
+  color: var(--text-strong);
 }
 .brand strong {
   font-size: 19px;

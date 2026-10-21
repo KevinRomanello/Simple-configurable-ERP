@@ -4,7 +4,7 @@
 
 ## 1. L'idea
 
-Uno sponsor è una voce di **CASH FROM**. Nella riga del budget scegli *con cosa paghi* (o pensi di pagare) e il sito fa il resto: quanto copre lo sponsor, che aliquota ha l'IVA, chi la paga, quando scade. Gli sponsor sono delle **scatole nere**: tutte le regole stanno nella loro definizione, nella riga non c'è niente da cliccare in più (la colonna SPONSOR non c'è più, perché è già tutto in CASH FROM; SPONSOR VALUE è solo da leggere).
+Uno sponsor è una voce di **CASH FROM**. Nella riga del budget scegli *con cosa paghi* (o pensi di pagare) e il sito fa il resto: quanto copre lo sponsor, che aliquota ha l'IVA, chi la paga, quando scade. Gli sponsor sono delle **scatole nere**: tutte le regole stanno nella loro definizione, nella riga non c'è niente da cliccare in più (le colonne SPONSOR e SPONSOR VALUE non ci sono più nella griglia, perché è già tutto in CASH FROM; quanto lo sponsor regala si legge nel suggerimento di OUTFLOW e nel totale SPONSOR VALUE dell'area).
 
 ## 2. Come si definisce uno sponsor
 
@@ -36,9 +36,9 @@ Il tipo C chiude la domanda **Q1** («sponsor totale: IVA sull'intero netto?»):
 
 ## 4. Più fondi sulla stessa riga
 
-Se un fondo non basta per una riga, **ne scegli un altro** (casella **ALSO FROM** accanto a CASH FROM) e la quota è il resto: non si digita, si calcola.
+Se un fondo non basta per una riga, **ne scegli un altro** (casella **ALSO FROM** accanto a CASH FROM) e la quota è il resto: non si digita, si calcola. Se anche così non basta se ne aggiunge un terzo, un quarto e così via: la casella resta lì finché la riga non è coperta.
 
-- Il **primo** fondo copre fino a quello che gli resta; il successivo copre quello che avanza, e così via (fino a 4 fondi).
+- Il **primo** fondo copre fino a quello che gli resta; il successivo copre quello che avanza, e così via (uno dopo l'altro, fino a 10).
 - Il **resto dei fondi si consuma nell'ordine del foglio** (area, progetto, posizione della riga), separatamente per previsto e consuntivo. Una riga più in alto consuma prima: modificarla può cambiare la quota delle righe sotto, anche in altre aree.
 - **L'ultimo fondo prende comunque tutto quello che manca**: se non basta va in negativo (rosso, come il foglio) e la riga è segnalata: icona rossa a sinistra con la scritta («the funds are X € short»), cella CASH FROM rossa e cella ALSO FROM evidenziata.
 - Ogni fondo mette **la sua aliquota** sulla parte che paga. Esempio: 1.000,00 € netti, A (22%, gruppo `g`, 600,00 € di contratto) e B (11%, gruppo `g`): A paga 600,00 con 132,00 di IVA, B paga 400,00 con 44,00; IVA totale 176,00.
@@ -52,9 +52,9 @@ Chi può stare insieme (controllato dal server, `400` con il motivo):
 | il **fondo del team** solo come ultimo, e in qualunque gruppo | non finisce mai: dopo di lui non resterebbe niente da pagare |
 | un **regalo** (B, C) solo da solo | copre già tutto |
 | uno sponsor **Team's fund** (in cassa) mai | i suoi soldi sono già nel conto: si paga col fondo del team |
-| lo stesso fondo due volte, più di 4 fondi | — |
+| lo stesso fondo due volte, più di 10 fondi | un tetto di sicurezza: la catena continua finché la riga non è coperta |
 
-La tendina di ALSO FROM propone solo i fondi compatibili con il primo. La casella compare (è modificabile) quando la riga è corta e c'è un fondo compatibile, oppure quando ha già più di un fondo; scegliere vuoto toglie i fondi in più.
+La tendina di ALSO FROM propone solo i fondi compatibili con il primo. La colonna **ALSO FROM non si vede** finché nessuna riga del progetto ne ha bisogno: compare nel progetto (per quella fase) solo quando una sua riga è corta o ha già più di un fondo, e sparisce quando non serve più. Nella riga la casella è modificabile se la riga è corta e c'è ancora un fondo compatibile, oppure se ha già più di un fondo; scegliere vuoto toglie i fondi in più.
 
 ## 5. Sponsor in cassa
 
@@ -93,7 +93,7 @@ Un fondo **Team's fund** (`mode = cash`) è denaro che entra nel conto del team:
 
 ## 7. Cosa è rimasto di prima
 
-- **Righe senza fondo**: il motore usa la formula di prima con tipo di sponsor e aliquota digitati. La colonna SPONSOR è stata tolta dalla griglia e SPONSOR VALUE non si modifica più: una riga nuova resta *incompleta* (icona gialla) finché non scegli CASH FROM.
+- **Righe senza fondo**: il motore usa la formula di prima con tipo di sponsor e aliquota digitati. Le colonne SPONSOR e SPONSOR VALUE sono state tolte dalla griglia: una riga nuova resta *incompleta* (icona gialla) finché non scegli CASH FROM.
 - **Sponsor «parziale» importato dal foglio** (una voce nel foglio reale): il valore digitato resta e vale, perché toglierlo cambierebbe il costo della riga. Non si può creare una nuova voce così.
 - **La casella «paga IVA» è una sola per sponsor.** La migrazione `0007` l'ha spuntata dove lo era una delle due vecchie (previsto o consuntivo): nei dati del foglio i numeri sono rimasti uguali.
 - Le aliquote delle righe già assegnate a uno sponsor si ignorano: vale quella dello sponsor. La migrazione ha dato a ogni sponsor l'aliquota più usata dalle sue righe (22% per tutti, nei dati attuali).

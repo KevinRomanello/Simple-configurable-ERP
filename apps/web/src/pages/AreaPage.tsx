@@ -1,7 +1,7 @@
 import { faCheck, faPen, faPlus, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
 import { AgGridReact } from "ag-grid-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router";
 import { api } from "../api/client";
 import type { AreaSheet, CalcLine, Phase } from "../api/types";
@@ -11,7 +11,7 @@ import { money } from "../lib/format";
 import { canEditArea } from "../lib/permissions";
 import { useAction } from "../lib/useAction";
 import { gridTheme } from "../theme/grid";
-import { areaColumns, type Commit, type GridLookups, type Row, type SubtotalRow } from "./areaColumns";
+import { areaColumns, needsMoreFunds, type Commit, type GridLookups, type MoreFunds, type Row, type SubtotalRow } from "./areaColumns";
 import { VatReportTable } from "./VatReportTable";
 
 type SheetProject = AreaSheet["projects"][number];
@@ -53,10 +53,14 @@ export function AreaPage() {
     if (window.confirm(`Delete "${line.item}"?`)) void act(() => api.deleteLine(line.id));
   };
   const canEdit = sheet.data ? canEditArea(me, sheet.data.area.id) : false;
-  const columns = useMemo(() => (lookups ? areaColumns(lookups, commit, removeLine, canEdit) : []), [lookups, canEdit]); // eslint-disable-line react-hooks/exhaustive-deps
+  // the columns of a project depend on whether a line of it needs another fund (ALSO FROM), so each panel builds its own
+  const buildColumns = useMemo(
+    () => (lookups ? (moreFunds: MoreFunds) => areaColumns(lookups, commit, removeLine, canEdit, moreFunds) : null),
+    [lookups, canEdit], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   if (sheet.isError) return <p className="empty">Area not found.</p>;
-  if (!sheet.data || !lookups) return <p className="empty">Loading…</p>;
+  if (!sheet.data || !lookups || !buildColumns) return <p className="empty">Loading…</p>;
   const data = sheet.data;
 
   return (
@@ -77,7 +81,7 @@ export function AreaPage() {
 
       {data.projects.length === 0 && <p className="empty">{canEdit ? "No projects yet: add the first one." : "No projects yet."}</p>}
       {data.projects.map((project) => (
-        <ProjectPanel key={project.id} project={project} columns={columns} canEdit={canEdit} />
+        <ProjectPanel key={project.id} project={project} buildColumns={buildColumns} canEdit={canEdit} />
       ))}
 
       <VatReportTable areaCode={code} />
@@ -94,8 +98,13 @@ function subtotalRow(project: SheetProject): SubtotalRow {
   return { isSubtotal: true, item: "Subtotal", estimate: phase("estimate"), actual: phase("actual") };
 }
 
-function ProjectPanel({ project, columns, canEdit }: { project: SheetProject; columns: ReturnType<typeof areaColumns>; canEdit: boolean }) {
+function ProjectPanel({ project, buildColumns, canEdit }: { project: SheetProject; buildColumns: (moreFunds: MoreFunds) => ReturnType<typeof areaColumns>; canEdit: boolean }) {
   const act = useAction();
+  const gridRef = useRef<AgGridReact<Row>>(null);
+  const more = needsMoreFunds(project.lines);
+  const columns = useMemo(() => buildColumns(more), [buildColumns, more.estimate, more.actual]); // eslint-disable-line react-hooks/exhaustive-deps
+  // a column that appears (or goes away) changes what the others can share: fit them again
+  useEffect(() => gridRef.current?.api?.autoSizeAllColumns(true), [columns]);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(project.name);
   const [owner, setOwner] = useState(project.ownerName ?? "");
@@ -139,6 +148,7 @@ function ProjectPanel({ project, columns, canEdit }: { project: SheetProject; co
       </div>
 
       <AgGridReact<Row>
+        ref={gridRef}
         theme={gridTheme}
         domLayout="autoHeight"
         rowData={project.lines}
@@ -215,7 +225,7 @@ function AreaTotal({ total }: { total: AreaSheet["total"] }) {
               <th className="num">NET COST</th>
               <th className="num">VAT</th>
               <th className="num">GRAND TOTAL</th>
-              <th className="num">SPONSOR VALUE</th>
+              <th className="num" title="What sponsors give for free (gifts): the grand total minus this is the outflow">SPONSOR VALUE</th>
               <th className="num">OUTFLOW</th>
             </tr>
           </thead>

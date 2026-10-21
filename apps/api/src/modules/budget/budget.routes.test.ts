@@ -249,13 +249,32 @@ describe("the funds that pay a line", () => {
       await set([gift, a]),
       await set([cash]), // its money is the team's
       await set([a, b, other]),
-      await set([a, b, a, b, a]), // too many
+      await set([a, b, a, b, a]), // twice
+      await set(Array.from({ length: 11 }, (_, i) => 1000 + i)), // too many
     ];
     expect(refused.map((r) => r.status)).toEqual(refused.map(() => 400));
     expect((await set([a, b, team])).status).toBe(200); // sponsors of one group, then the team
     expect((await set([9999])).status).toBe(409);
     // ...and a refused change leaves the line as it was
     expect((await sheet()).projects[0].lines[0].estimate.figures.fundIds).toEqual([a, b, team]);
+  });
+
+  it("goes on with as many funds as it takes, one after the other, until the line is covered", async () => {
+    const names = ["F1", "F2", "F3", "F4", "F5"];
+    const ids: number[] = [];
+    for (const name of names) ids.push(await fund(name, 100, { group: "g" }));
+    const { lineId, estimate } = await paid([ids[0]!], 450);
+    expect(estimate.shortCents).toBe(35_000);
+    let version = 1;
+    // each added fund covers its 100.00 and the line is short by less, until the fifth one covers it
+    for (const [count, shortCents] of [[2, 25_000], [3, 15_000], [4, 5_000], [5, 0]] as const) {
+      const answer = await api.patch(`/api/lines/${lineId}`, { version, figures: { estimate: { fundIds: ids.slice(0, count) } } });
+      expect(answer.status).toBe(200);
+      version += 1;
+      const line = (await sheet()).projects[0].lines[0];
+      expect([count, line.estimate.shortCents]).toEqual([count, shortCents]);
+      expect(line.estimate.shares).toHaveLength(count);
+    }
   });
 
   it("follows a fund that changes: the next sheet already uses the new rate", async () => {

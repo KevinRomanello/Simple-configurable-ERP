@@ -79,4 +79,5 @@ Con `docker compose up -d` e l'accesso di sviluppo (vedi [avvio.md](avvio.md)):
 7. Un valore fuori misura (contratto da 5 miliardi): l'avviso dice il campo e il limite.
 8. Come `pm` e come `viewer` (vedi "Provare i ruoli" in [avvio.md](avvio.md)): comandi nascosti, scrittura rifiutata.
 9. Modo chiaro e modo scuro: le barre di scorrimento delle griglie e delle tabelle devono essere uguali.
+   Il menù laterale si nasconde e si riapre, e resta nascosto cambiando pagina o ricaricando.
 10. **Ripulisci**: cancella quello che hai creato e, se serve, le righe di storico dei tuoi giri.
