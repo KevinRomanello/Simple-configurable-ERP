@@ -6,9 +6,9 @@ Questo documento dice **come si controlla che l'app non abbia difetti** (i livel
 
 | Livello | Dove | Cosa prova | Quanti |
 | --- | --- | --- | --- |
-| Motore di calcolo | `packages/calc/src/*.test.ts` | ogni regola del foglio; **esattezza**: fino a 60.000 righe casuali e 100.000 arrotondamenti confrontati con un calcolo esatto in `BigInt`; **calendario**: ogni giorno dal 2000 al 2100 (giorno della settimana, trimestre, scadenza IVA, lettura di ogni notazione di data) contro l'oggetto `Date` | 110 |
-| API con database vero | `apps/api/src/**/*.test.ts` | percorsi, regole, **ruoli**, accesso, storico, limiti dell'input, **richieste in parallelo**, attacchi (iniezione SQL, token falsi, CSRF), intestazioni, limite di richieste, permessi del database. Tutta la suite gira con l'utente limitato dell'API | 157 |
-| Sito | `apps/web/src/**/*.test.ts` | formattazione, permessi, parole degli errori di accesso, messaggi di errore | 17 |
+| Motore di calcolo | `packages/calc/src/*.test.ts` | ogni regola del foglio; **esattezza**: fino a 60.000 righe casuali e 100.000 arrotondamenti confrontati con un calcolo esatto in `BigInt`; **calendario**: ogni giorno dal 2000 al 2100 (giorno della settimana, trimestre, scadenza IVA, lettura di ogni notazione di data) contro l'oggetto `Date` | 140 |
+| API con database vero | `apps/api/src/**/*.test.ts` | percorsi, regole, **ruoli**, accesso, storico, limiti dell'input, **richieste in parallelo**, attacchi (iniezione SQL, token falsi, CSRF), intestazioni, limite di richieste, permessi del database. Tutta la suite gira con l'utente limitato dell'API | 208 |
+| Sito | `apps/web/src/**/*.test.ts` | formattazione, permessi, parole degli errori di accesso, messaggi di errore | 27 |
 | Importer | `tools/import-xlsx/src/*.test.ts` | dal foglio allo snapshot | 3 |
 | Riconciliazione | `pnpm reconcile` (e `-- --db`) | il motore contro 1.995 valori salvati dal foglio reale | 1.995 confronti |
 | Browser, a mano | nel browser, come admin, capo area e sola lettura | clic veri nella griglia, tendine, form, conflitti tra due schede, sessione scaduta, tutte le pagine | vedi §4 |
@@ -34,6 +34,18 @@ Cercati apposta: numeri e testi fuori misura, richieste simultanee, date estreme
 | 11 | **Anni sotto il 100** sbagliati nel motore | `weekday("0001-01-01")` dava martedì invece di lunedì (`Date.UTC` legge 0–99 come 1900–1999) | il calendario non passa più da `Date.UTC` | `calendar.test.ts` |
 | 12 | "Il messaggio di rifiuto era solo **Invalid input**" | l'utente non sapeva quale campo né perché | l'avviso dice il campo e il motivo (`amount: The value cannot be more than 1,000,000,000`) | `api/client.test.ts` |
 | 13 | "**with all its 1 lines**" | la domanda di conferma dell'eliminazione di un progetto non andava al singolare | `line` / `lines` | giro nel browser |
+
+### Durante la costruzione dell'inventario (21 ottobre 2026)
+
+Trovati scrivendo i test e provando le schermate nel browser; tutti corretti, con il test che li tiene lontani.
+
+| # | Difetto | Come si vedeva | Correzione | Test |
+| --- | --- | --- | --- | --- |
+| 14 | **Due modifiche opposte alla distinta insieme** ("A dentro B" e "B dentro A") | il database dava uno **stallo** e l'utente un 500; senza il blocco passavano entrambe e nasceva un anello | le aggiunte di parti si mettono in fila con un blocco unico; qualunque stallo residuo diventa 409 "riprova" | `components.routes.test.ts` (provato togliendo il blocco: fallisce) |
+| 15 | Una **modifica senza campi validi** a un articolo | `PATCH` con solo `origin` (che non si cambia) dava un errore del database | non c'è niente da cambiare: risponde con l'articolo | `inventory.routes.test.ts` |
+| 16 | La **nota di una parte** era obbligatoria | aggiungere una parte senza nota dava 400, e il controllo "usato in una distinta" non scattava | la nota è facoltativa | `inventory.routes.test.ts` |
+| 17 | Nel **menu** risultavano accese insieme INVENTORY e PENDING | `/inventory` corrispondeva a ogni pagina sotto di lui | il collegamento si accende solo per la sua pagina | giro nel browser |
+| 18 | Il **selettore del prezzo** perdeva un cambio se ne arrivavano due ravvicinati | giorno, prezzo e metodo cambiati insieme: restava solo l'ultimo | si parte dall'indirizzo com'è nel momento del cambio | giro nel browser |
 
 Controlli che **non** hanno trovato difetti: il motore di calcolo contro il calcolo esatto (255.000 righe, 400.000 arrotondamenti, ogni giorno 2000–2100), la riconciliazione col foglio (anche sul database), l'iniezione SQL (8 payload in tutti i campi di testo, 17 richieste ostili), il campo extra nelle modifiche, la scadenza della sessione a metà lavoro, il conflitto di versione tra due schede, il ripristino del BANK, l'ordine delle pagine di storico.
 

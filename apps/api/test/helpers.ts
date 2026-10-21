@@ -132,7 +132,7 @@ const ownerPool = new pg.Pool({ connectionString: testOwnerUrl });
 /** Empties everything a test can create, keeping the seed (season, areas, team fund) and the users. */
 export async function resetData() {
   await ownerPool.query(
-    "truncate table line_figures, budget_line, project, fund_contract, team_inflow, bank_snapshot, supplier, audit_log restart identity cascade",
+    "truncate table line_figures, budget_line, project, fund_contract, team_inflow, bank_snapshot, supplier, audit_log, stock_movement, component_part, item_image, inventory_item restart identity cascade",
   );
   await db.delete(fund).where(eq(fund.kind, "external"));
 }

@@ -109,6 +109,7 @@ Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modific
 | Voci e progetti (aggiungere, modificare, eliminare) | tutte le aree | **solo le aree assegnate** | no |
 | Fondi, contratti, flag "paga IVA", ingressi, BANK | sì | **no** | no |
 | Fornitori (aggiungere, eliminare) | sì | **sì** | no |
+| **Inventario** (articoli, arrivi, movimenti, immagini, distinte dei componenti) | sì | **sì**, qualunque area | no (lo vede) |
 | Utenti, ruoli, aree assegnate | sì | no | no |
 | Storico delle modifiche | sì | **sì** (tutto) | no |
 
@@ -143,7 +144,7 @@ Il log normale del server (una riga JSON per richiesta) resta per il debug, ma n
 
 `audit_log`: istante, chi (`actor_id`, **senza chiave esterna**: lo storico deve sopravvivere a tutto), tabella, id della riga, azione (`insert`/`update`/`delete`), **valori prima e dopo** (`jsonb`).
 
-Lo scrive una funzione PostgreSQL unica, `audit_row()`, agganciata con un **trigger** a `project`, `budget_line`, `line_figures`, `fund`, `fund_contract`, `team_inflow`, `bank_snapshot`, `supplier`, `app_user`, `user_area` (migrazione `0002_audit_triggers.sql`, scritta a mano). Chi sta scrivendo glielo dice `runWrite`: all'inizio della transazione esegue `select set_config('app.actor_id', '<id>', true)`, valido solo per quella transazione.
+Lo scrive una funzione PostgreSQL unica, `audit_row()`, agganciata con un **trigger** a `project`, `budget_line`, `line_figures`, `fund`, `fund_contract`, `team_inflow`, `bank_snapshot`, `supplier`, `app_user`, `user_area` (migrazione `0002_audit_triggers.sql`, scritta a mano) e, dall'inventario, a `inventory_item`, `stock_movement`, `component_part` (migrazione `0005`; **non** a `item_image`, che è binaria: cambia `image_updated_at` dell'articolo). Chi sta scrivendo glielo dice `runWrite`: all'inizio della transazione esegue `select set_config('app.actor_id', '<id>', true)`, valido solo per quella transazione.
 
 - **Non si può dimenticare**: ogni scrittura è tracciata, anche quelle fatte a mano con SQL;
 - registra anche le **cancellazioni a cascata** (cancellare un progetto registra ogni voce e ogni riga di cifre che spariscono);

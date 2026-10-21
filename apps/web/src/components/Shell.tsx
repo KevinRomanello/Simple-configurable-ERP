@@ -1,5 +1,5 @@
 import {
-  faChartLine, faClockRotateLeft, faDatabase, faMagnifyingGlass, faRepeat, faRightFromBracket, faSackDollar,
+  faBoxesStacked, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece, faRepeat, faRightFromBracket, faSackDollar,
   faScaleBalanced, faTable, faTruckFast, faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -10,9 +10,10 @@ import { api } from "../api/client";
 import { forgetUser, useMe } from "../lib/auth";
 import { IconButton } from "./Button";
 
-function Item({ to, icon, children }: { to: string; icon: IconDefinition; children: string }) {
+/** `end`: the link is lit only for its own page, not for the pages below it (INVENTORY next to PENDING). */
+function Item({ to, icon, end, children }: { to: string; icon: IconDefinition; end?: boolean; children: string }) {
   return (
-    <NavLink to={to} className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
+    <NavLink to={to} end={end} className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
       <FontAwesomeIcon icon={icon} fixedWidth />
       {children}
     </NavLink>
@@ -63,6 +64,14 @@ export function Shell() {
           <Item to="/analysis/funds" icon={faSackDollar}>CASH FROM ANALYSES</Item>
           <Item to="/analysis/suppliers" icon={faTruckFast}>BOUGHT FROM ANALYSES</Item>
           <Item to="/analysis/items" icon={faMagnifyingGlass}>CATEGORY ANALYSES</Item>
+        </nav>
+
+        <nav className="nav-group">
+          <span className="nav-title label-xs bold">Inventory</span>
+          <Item to="/inventory" icon={faBoxesStacked} end>INVENTORY</Item>
+          <Item to="/inventory/pending" icon={faHourglassHalf}>PENDING</Item>
+          <Item to="/inventory/components" icon={faPuzzlePiece}>COMPONENTS</Item>
+          <Item to="/inventory/stats" icon={faChartPie}>INVENTORY STATS</Item>
         </nav>
 
         {(me.permissions.canManageUsers || me.permissions.canViewHistory) && (

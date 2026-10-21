@@ -46,6 +46,7 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   │           ├── budget/       # aree, progetti, righe
 │   │           ├── funds/        # fondi e contratti
 │   │           ├── suppliers/
+│   │           ├── inventory/    # articoli, arrivi, movimenti, componenti (distinte), statistiche, immagini
 │   │           ├── cashflow/     # ingressi del team e BANK
 │   │           └── views/        # una funzione per vista (Gantt, Total, analisi…)
 │   └── web/src/
@@ -118,6 +119,10 @@ Soldi in `numeric` nel database e in interi nel codice: importi in centesimi, qu
 | `supplier`      | id, name                                                                                                                              | Lista unica, senza stagione (servirà all'inventario)                                                                      |
 | `app_user`      | id, email (unica, senza maiuscole), name, role (`admin`/`pm`/`viewer`), active, created_at                                      | Chi può entrare; creato al primo accesso come `viewer`; si disattiva, non si cancella                                   |
 | `user_area`     | id, user_id, area_id                                                                                                                  | Le aree che un `pm` può modificare                                                                                      |
+| `inventory_item` | id, code, name, purpose, category, unit, origin (`bought`/`made`), safety_codes, disposal, storage_notes, maintenance_notes, image_updated_at | l'articolo (vedi [inventario.md](inventario.md)); nome unico senza maiuscole |
+| `item_image`    | item_id, mime, full, thumb (bytea)                                                                                                    | l'immagine nel database; non nello storico                                                                                 |
+| `stock_movement` | id, item_id, kind (`receipt`/`use`/`transfer`/`adjustment`/`disposal`), occurred_on, quantity, location, spot, to_location, to_spot, unit_net/gross/team, project_id, budget_line_id, note | il registro di tutto ciò che cambia lo scaffale; la giacenza è la somma, mai salvata |
+| `component_part` | id, component_id, part_id, quantity, note                                                                                            | la distinta dei materiali di un componente (anche sottoassiemi); mai un anello                                              |
 | `audit_log`     | id, at, actor_id (senza chiave esterna), table_name, row_id, action, before, after (jsonb)                                            | Scritta dai trigger; attore nullo = seed, importer, creazione account                                                      |
 
 Vincoli, applicati dal servizio con messaggi chiari: quantità e costi ≥ 0; aliquota tra `listVatRates()`; sponsor parziale con 0 < valore ≤ netto; sponsor totale ignora il valore inserito; fondo o fornitore in uso → eliminazione rifiutata (409); `PATCH` di una riga con `version` vecchia → 409.
@@ -175,6 +180,7 @@ Prefisso `/api`. Tutto richiede un utente che ha fatto il login, tranne `/health
 | `GET /auth/config`, `/auth/login`, `/auth/callback`, `/auth/dev-login`, `POST /auth/logout` | `authRoutes` (auth)                                                                                | pubblici; dev-login esiste solo con `DEV_LOGIN_EMAIL`              |
 | `GET /me`                                                                                           | `getCurrentUser`, `permissionsOf` (auth)                                                         | chi sei, ruolo, aree, cosa puoi fare                                 |
 | `GET /users`, `PATCH /users/:id`                                                                  | `listUsers`, `updateUser` (users)                                                                | solo admin: ruolo, attivo, aree                                      |
+| `GET/POST/PATCH/DELETE /inventory/items…`, `/inventory/pending`, `/inventory/receive`, `/inventory/movements`, `/inventory/components…`, `/inventory/stats` | `modules/inventory` | tutto l'inventario: [inventario.md](inventario.md#11-permessi-api-schermate) |
 | `GET /audit?table=&rowId=&actorId=&before=&limit=`                                                  | `listHistory` (audit)                                                                              | admin e pm: storico, più recente prima, paginato                    |
 | `GET /lookups/categories`, `/priorities`, `/vat-rates`, `/vat-rules`, `/settings`           | `listCategories`, `listPriorities`, `listVatRates`, `getVatRules`, `getSettings` (lookups) | HARDCODED (le priorità sono fisse)                                  |
 | `GET /seasons/current`                                                                              | `getCurrentSeason` (seasons)                                                                       | HARDCODED: 2026-2027                                                 |

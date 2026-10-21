@@ -175,6 +175,7 @@ export function toSnapshot(raw: RawInputs, lookups: Lookups): Converted {
       contracts,
       inflows,
       suppliers,
+      receipts: [], // the sheet knows nothing about what has physically arrived
       bank: raw.bank === null ? null : { amountCents: cents(raw.bank.amount), asOfDate: raw.bank.date },
     },
     warnings,

@@ -1,9 +1,9 @@
 import type { Figures, Phase, Snapshot } from "@erp/calc";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import { toCents, toScaled } from "./core/money";
 import { db } from "./db/client";
 import {
-  area, bankSnapshot, budgetLine, fund, fundContract, lineFigures, project, supplier, teamInflow,
+  area, bankSnapshot, budgetLine, fund, fundContract, lineFigures, project, stockMovement, supplier, teamInflow,
 } from "./db/schema";
 import { loadLookups } from "./modules/lookups/lookups.service";
 import { getCurrentSeason } from "./modules/seasons/seasons.service";
@@ -58,6 +58,11 @@ export async function loadSnapshot(): Promise<Snapshot> {
       const inflows = await tx.select().from(teamInflow).where(eq(teamInflow.seasonId, season.id));
       const suppliers = await tx.select().from(supplier);
       const [bank] = await tx.select().from(bankSnapshot).where(eq(bankSnapshot.seasonId, season.id));
+      const arrived = await tx
+        .select({ lineId: stockMovement.budgetLineId, quantity: sql<string>`sum(${stockMovement.quantity})` })
+        .from(stockMovement)
+        .where(and(eq(stockMovement.kind, "receipt"), isNotNull(stockMovement.budgetLineId)))
+        .groupBy(stockMovement.budgetLineId);
 
       const figuresByLine = new Map<number, Record<Phase, Figures | null>>();
       for (const { figures: row } of figures) {
@@ -96,6 +101,7 @@ export async function loadSnapshot(): Promise<Snapshot> {
           id: i.id, phase: i.phase, sourceName: i.sourceName, amountCents: toCents(i.amount), inflowDate: i.inflowDate,
         })),
         suppliers: suppliers.map((s) => ({ id: s.id, name: s.name })),
+        receipts: arrived.map((r) => ({ lineId: r.lineId!, quantityMilli: toScaled(r.quantity, 3) })),
         bank: bank ? { amountCents: toCents(bank.amount), asOfDate: bank.asOfDate } : null,
       };
     },

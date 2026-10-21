@@ -59,6 +59,12 @@ function labelOf(table: string, row: Json): string {
       return `user ${String(row.user_id ?? "")}, area ${String(row.area_id ?? "")}`;
     case "bank_snapshot":
       return "BANK";
+    case "inventory_item":
+      return pick("name");
+    case "stock_movement":
+      return `${pick("kind")} of item ${String(row.item_id ?? "")}`;
+    case "component_part":
+      return `part ${String(row.part_id ?? "")} of item ${String(row.component_id ?? "")}`;
     default:
       return pick("name");
   }

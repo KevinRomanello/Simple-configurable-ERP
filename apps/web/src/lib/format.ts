@@ -15,6 +15,25 @@ export function money(cents: number | null | undefined, blankZero = false): stri
   return `${cents < 0 ? "-" : ""}${units},${String(abs % 100).padStart(2, "0")}${NBSP}€`;
 }
 
+/**
+ * A unit price in ten-thousandths of a euro: at least two decimals, as many more as it needs
+ * ("22,45 €", "0,085 €", "0,0119 €"). Unit prices of small things are not worth whole cents.
+ */
+export function moneyE4(e4: number | null | undefined): string {
+  if (e4 == null) return "";
+  const abs = Math.abs(e4);
+  const decimals = String(abs % 10_000).padStart(4, "0").replace(/0+$/, "").padEnd(2, "0");
+  return `${e4 < 0 ? "-" : ""}${group(String(Math.floor(abs / 10_000)))},${decimals}${NBSP}€`;
+}
+
+/** A quantity in thousandths with the decimals it needs ("2", "2,5", "1.200", "0,125"). */
+export function quantity(milli: number | null | undefined): string {
+  if (milli == null) return "";
+  const abs = Math.abs(milli);
+  const decimals = String(abs % 1000).padStart(3, "0").replace(/0+$/, "");
+  return `${milli < 0 ? "-" : ""}${group(String(Math.floor(abs / 1000)))}${decimals ? `,${decimals}` : ""}`;
+}
+
 /** Whole euros, for chart axes ("1.220 €"). */
 export function moneyShort(euros: number): string {
   const rounded = Math.round(euros);

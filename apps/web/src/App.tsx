@@ -8,9 +8,15 @@ import { AnalysisPage } from "./pages/AnalysisPage";
 import { AreaPage } from "./pages/AreaPage";
 import { CashFlowPage } from "./pages/CashFlowPage";
 import { FundsPage } from "./pages/FundsPage";
+import { ComponentPage } from "./pages/ComponentPage";
+import { ComponentsPage } from "./pages/ComponentsPage";
 import { GanttPage } from "./pages/GanttPage";
 import { HistoryPage } from "./pages/HistoryPage";
+import { InventoryPage } from "./pages/InventoryPage";
+import { InventoryStatsPage } from "./pages/InventoryStatsPage";
+import { ItemPage } from "./pages/ItemPage";
 import { ItemsPage } from "./pages/ItemsPage";
+import { PendingPage } from "./pages/PendingPage";
 import { SuppliersPage } from "./pages/SuppliersPage";
 import { TotalPage } from "./pages/TotalPage";
 import { UsersPage } from "./pages/UsersPage";
@@ -39,6 +45,12 @@ export function App() {
                 <Route path="analysis/funds" element={<AnalysisPage kind="funds" />} />
                 <Route path="analysis/suppliers" element={<AnalysisPage kind="suppliers" />} />
                 <Route path="analysis/items" element={<ItemsPage />} />
+                <Route path="inventory" element={<InventoryPage />} />
+                <Route path="inventory/items/:id" element={<ItemPage />} />
+                <Route path="inventory/pending" element={<PendingPage />} />
+                <Route path="inventory/components" element={<ComponentsPage />} />
+                <Route path="inventory/components/:id" element={<ComponentPage />} />
+                <Route path="inventory/stats" element={<InventoryStatsPage />} />
                 <Route path="users" element={<UsersPage />} />
                 <Route path="history" element={<HistoryPage />} />
                 <Route path="*" element={<p className="empty">This page does not exist.</p>} />

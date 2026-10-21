@@ -91,6 +91,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
     contracts: [],
     inflows: [],
     suppliers: [],
+    receipts: [],
     bank: null,
     ...overrides,
   };

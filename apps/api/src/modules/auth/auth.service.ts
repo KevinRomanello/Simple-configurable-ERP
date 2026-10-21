@@ -38,6 +38,11 @@ export async function canManageSuppliers(user: User): Promise<boolean> {
   return user.role !== "viewer";
 }
 
+/** The inventory is kept by the people who run the projects: admins and project managers. */
+export async function canManageInventory(user: User): Promise<boolean> {
+  return user.role !== "viewer";
+}
+
 /** The history of changes is for people who change things. */
 export async function canViewHistory(user: User): Promise<boolean> {
   return user.role !== "viewer";
@@ -52,6 +57,7 @@ export function permissionsOf(user: User) {
   return {
     canEditShared: user.role === "admin",
     canManageSuppliers: user.role !== "viewer",
+    canManageInventory: user.role !== "viewer",
     canViewHistory: user.role !== "viewer",
     canManageUsers: user.role === "admin",
   };

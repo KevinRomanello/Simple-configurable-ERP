@@ -49,6 +49,11 @@ export function addDays(iso: string, days: number): string {
   });
 }
 
+/** Whole days from `from` to `to` (negative when `to` is earlier). */
+export function daysBetween(from: string, to: string): number {
+  return Math.round((toUtc(to) - toUtc(from)) / 86_400_000);
+}
+
 /** Saturday and Sunday move to the following Monday; other days are unchanged. */
 export function nextMondayIfWeekend(iso: string): string {
   const day = weekday(iso);

@@ -75,5 +75,14 @@ export const shortText = (max = 200) =>
 /** Free text that may be long and may be empty: a note. */
 export const longText = z.string().max(5_000).refine(noNul, "The text contains a character that is not allowed");
 
+/** Optional free text: spaces are trimmed and an empty text means "nothing" (null). */
+export const optionalText = (max = 5_000) =>
+  z
+    .string()
+    .max(max)
+    .refine(noNul, "The text contains a character that is not allowed")
+    .nullable()
+    .transform((value) => (value === null || value.trim() === "" ? null : value.trim()));
+
 /** A short code used as a filter or in an address: area codes, table names. */
 export const lookupCode = z.string().max(100).refine(noNul, "The text contains a character that is not allowed");

@@ -21,7 +21,8 @@ const isSignIn = (request: FastifyRequest) =>
  *
  * - Security headers (helmet): the API only ever answers with JSON or a redirect, so nothing
  *   needs to be loaded from it and nobody may put it in a frame.
- * - `Cache-Control: no-store`: budget data must not stay in a browser or proxy cache.
+ * - `Cache-Control: no-store`: budget data must not stay in a browser or proxy cache (unless a
+ *   route asks for something else, as the pictures do).
  * - Rate limit per address, kept in memory (one API process; a restart resets the counters).
  *   The health check is never limited. Behind a reverse proxy the real address is only known
  *   when `trustProxy` is on (TRUST_PROXY), otherwise everybody looks like the proxy.
@@ -31,7 +32,7 @@ export function addSecurity(app: FastifyInstance, limits: RateLimits | false) {
     contentSecurityPolicy: { useDefaults: false, directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
   });
   app.addHook("onSend", async (_request, reply) => {
-    reply.header("Cache-Control", "no-store");
+    if (!reply.hasHeader("cache-control")) reply.header("Cache-Control", "no-store");
   });
 
   if (!limits) return;

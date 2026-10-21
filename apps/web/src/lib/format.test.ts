@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { date, dateTime, money, moneyFromDecimal, moneyShort, month, monthOfDate, ratio } from "./format";
+import { date, dateTime, money, moneyE4, quantity, moneyFromDecimal, moneyShort, month, monthOfDate, ratio } from "./format";
 
 const plain = (text: string) => text.replace(/ /g, " ");
 
@@ -46,5 +46,25 @@ describe("format", () => {
   it("formats ratios as percentages", () => {
     expect(ratio(0.1).replace(/\s/g, "")).toBe("10%");
     expect(ratio(null)).toBe("");
+  });
+
+  it("formats unit prices with the decimals they need, at least two", () => {
+    expect(plain(moneyE4(224_500))).toBe("22,45 €");
+    expect(plain(moneyE4(850))).toBe("0,085 €");
+    expect(plain(moneyE4(119))).toBe("0,0119 €");
+    expect(plain(moneyE4(10_000))).toBe("1,00 €");
+    expect(plain(moneyE4(12_345_678))).toBe("1.234,5678 €");
+    expect(plain(moneyE4(-1_250))).toBe("-0,125 €");
+    expect(moneyE4(null)).toBe("");
+  });
+
+  it("formats quantities with the decimals they need", () => {
+    expect(quantity(2_000)).toBe("2");
+    expect(quantity(2_500)).toBe("2,5");
+    expect(quantity(1_200_000)).toBe("1.200");
+    expect(quantity(125)).toBe("0,125");
+    expect(quantity(-3_000)).toBe("-3");
+    expect(quantity(0)).toBe("0");
+    expect(quantity(null)).toBe("");
   });
 });

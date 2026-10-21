@@ -1,6 +1,8 @@
 import type {
-  Analysis, Area, AreaSheet, Bank, CashFlowSummary, Contract, Fund, FundSummaryRow, Gantt, HistoryPage,
-  Inflow, ItemsView, Me, MonthlyInflow, Phase, Role, SignInOptions, Supplier, Totals, UserRow, VatReport,
+  Analysis, Area, AreaSheet, Bank, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Contract, Fund,
+  FundSummaryRow, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemRow, ItemsView, Location, Me, MonthlyInflow,
+  PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, SignInOptions, StatsResult, Supplier, Totals, UserRow,
+  VatReport,
 } from "./types";
 
 /** An error answer of the API: carries the HTTP status so screens can react to a 409. */
@@ -68,6 +70,57 @@ export interface LinePatch {
   figures?: Partial<Record<Phase, FiguresPatch>>;
 }
 
+/** The price selector as the query string the inventory endpoints take. */
+export function priceQuery(price: PriceChoice, extra: Record<string, string | undefined> = {}): string {
+  const params = new URLSearchParams({ basis: price.basis, method: price.method });
+  if (price.on) params.set("on", price.on);
+  for (const [key, value] of Object.entries(extra)) if (value) params.set(key, value);
+  return params.toString();
+}
+
+/** What the form of an item sends: empty texts mean "nothing". */
+export interface ItemBody {
+  name?: string;
+  code?: string | null;
+  category?: string | null;
+  unit?: string;
+  purpose?: string | null;
+  safetyCodes?: string | null;
+  disposal?: string | null;
+  storageNotes?: string | null;
+  maintenanceNotes?: string | null;
+  origin?: "bought" | "made";
+}
+
+export interface ReceiveBody {
+  lineId?: number;
+  itemId?: number;
+  newItem?: ItemBody;
+  quantity: string;
+  receivedOn: string;
+  location: string;
+  spot: string;
+  unitNet?: string;
+  vatRate?: number;
+  free?: boolean;
+  projectId?: number;
+  note?: string;
+}
+
+export interface MovementBody {
+  itemId: number;
+  kind: "use" | "transfer" | "adjustment" | "disposal";
+  quantity?: string;
+  counted?: string;
+  occurredOn: string;
+  location: string;
+  spot: string;
+  toLocation?: string;
+  toSpot?: string;
+  projectId?: number;
+  note?: string;
+}
+
 export const api = {
   // sign-in
   signInOptions: () => get<SignInOptions>("/auth/config"),
@@ -92,6 +145,31 @@ export const api = {
     if (query.before) params.set("before", String(query.before));
     return get<HistoryPage>(`/audit?${params}`);
   },
+
+  // inventory
+  locations: () => get<Location[]>("/lookups/locations"),
+  units: () => get<string[]>("/lookups/units"),
+  categoryFields: () => get<CategoryFields>("/lookups/category-fields"),
+  inventoryProjects: () => get<ProjectRef[]>("/inventory/projects"),
+  inventoryItems: (price: PriceChoice, filters: Record<string, string | undefined> = {}) =>
+    get<ItemRow[]>(`/inventory/items?${priceQuery(price, filters)}`),
+  inventoryItem: (id: number, price: PriceChoice) => get<ItemDetail>(`/inventory/items/${id}?${priceQuery(price)}`),
+  createItem: (body: ItemBody) => post<InventoryItem>("/inventory/items", body),
+  updateItem: (id: number, body: ItemBody) => patch<InventoryItem>(`/inventory/items/${id}`, body),
+  deleteItem: (id: number) => del(`/inventory/items/${id}`),
+  setImage: (id: number, body: { mime: string; full: string; thumb: string }) => put<void>(`/inventory/items/${id}/image`, body),
+  removeImage: (id: number) => del(`/inventory/items/${id}/image`),
+  pending: () => get<PendingRow[]>("/inventory/pending"),
+  receive: (body: ReceiveBody) => post<{ item: InventoryItem }>("/inventory/receive", body),
+  addMovement: (body: MovementBody) => post("/inventory/movements", body),
+  components: (price: PriceChoice) => get<ComponentRow[]>(`/inventory/components?${priceQuery(price)}`),
+  component: (id: number, price: PriceChoice) => get<ComponentDetail>(`/inventory/components/${id}?${priceQuery(price)}`),
+  addPart: (componentId: number, body: { partId: number; quantity: string; note?: string }) =>
+    post(`/inventory/components/${componentId}/parts`, body),
+  updatePart: (componentId: number, partId: number, body: { quantity?: string; note?: string }) =>
+    patch(`/inventory/components/${componentId}/parts/${partId}`, body),
+  removePart: (componentId: number, partId: number) => del(`/inventory/components/${componentId}/parts/${partId}`),
+  inventoryStats: (by: StatsResult["by"], basis: PriceBasis) => get<StatsResult>(`/inventory/stats?by=${by}&basis=${basis}`),
 
   // lookups
   categories: () => get<string[]>("/lookups/categories"),

@@ -1,3 +1,4 @@
+import { arrivalOf, type Arrival } from "./arrival";
 import { lineAmounts, type LineAmounts } from "./line";
 import type { Figures, FundInput, Snapshot } from "./snapshot";
 import type { Phase } from "./types";
@@ -36,6 +37,8 @@ export interface CalcLine {
   areaName: string;
   estimate: PhaseCalc;
   actual: PhaseCalc;
+  /** Bought versus arrived: the state of the purchase (see arrival.ts). */
+  arrival: Arrival;
 }
 
 /**
@@ -48,6 +51,7 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
   const projects = new Map(snapshot.projects.map((p) => [p.id, p]));
   const funds = new Map(snapshot.funds.map((f) => [f.id, f]));
   const suppliers = new Map(snapshot.suppliers.map((s) => [s.id, s]));
+  const received = new Map(snapshot.receipts.map((r) => [r.lineId, r.quantityMilli]));
 
   function phaseCalc(phase: Phase, figures: Figures | null): PhaseCalc {
     const amounts = lineAmounts(figures, settings);
@@ -98,6 +102,7 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
         areaName: area.name,
         estimate: phaseCalc("estimate", line.figures.estimate),
         actual: phaseCalc("actual", line.figures.actual),
+        arrival: arrivalOf(line.figures.actual?.quantityMilli ?? 0, received.get(line.id) ?? 0),
       } satisfies CalcLine,
     };
   });

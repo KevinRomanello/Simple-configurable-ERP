@@ -76,6 +76,12 @@ export interface SupplierInput {
   name: string;
 }
 
+/** How much of a budget line has physically arrived: the sum of its receipts in the inventory. */
+export interface ReceiptInput {
+  lineId: number;
+  quantityMilli: number;
+}
+
 export interface BankInput {
   amountCents: number;
   asOfDate: string | null;
@@ -99,5 +105,7 @@ export interface Snapshot {
   contracts: ContractInput[];
   inflows: InflowInput[];
   suppliers: SupplierInput[];
+  /** One entry per budget line that has arrived, at least in part (see docs/inventario.md). */
+  receipts: ReceiptInput[];
   bank: BankInput | null;
 }

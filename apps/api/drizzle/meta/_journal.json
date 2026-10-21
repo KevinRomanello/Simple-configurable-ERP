@@ -29,6 +29,20 @@
       "when": 1792529678803,
       "tag": "0003_audit_definer",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792532502064,
+      "tag": "0004_inventory",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792532509484,
+      "tag": "0005_inventory_audit",
+      "breakpoints": true
     }
   ]
 }

@@ -69,3 +69,59 @@ export async function loadLookups(): Promise<Lookups> {
   ]);
   return { categories, priorities, vatRates, vatRules, settings };
 }
+
+// --- inventory ---------------------------------------------------------------------------------
+
+export interface Location {
+  /** What is stored with a movement. */
+  code: string;
+  site: string;
+  room: string;
+  label: string;
+}
+
+/** Where things can be kept. The precise place inside a room ("shelf 2, red box") is free text. */
+export async function listLocations(): Promise<Location[]> {
+  // HARDCODED: becomes the `location` table (sites and rooms), kept by an admin. Two sites with
+  // five rooms each, only to have something to choose from.
+  const locations: Location[] = [];
+  for (const site of [1, 2]) {
+    for (const room of [1, 2, 3, 4, 5]) {
+      locations.push({ code: `s${site}-r${room}`, site: `Site ${site}`, room: `Room ${room}`, label: `Site ${site} / Room ${room}` });
+    }
+  }
+  return locations;
+}
+
+/** How an item is counted. */
+export async function listUnits(): Promise<string[]> {
+  // HARDCODED: becomes a configurable list
+  return ["pcs", "set", "box", "m", "kg", "g", "l", "ml"];
+}
+
+/** The optional pieces of information of an item. Not all of them make sense for every category. */
+export type ItemField = "purpose" | "safetyCodes" | "disposal" | "storageNotes" | "maintenanceNotes";
+
+export interface CategoryFields {
+  /** The fields of a category that is not listed (or of an item with no category). */
+  fallback: ItemField[];
+  byCategory: Record<string, ItemField[]>;
+}
+
+/** Which of the optional fields the form shows for each category. None of them is required. */
+export async function getCategoryFields(): Promise<CategoryFields> {
+  // HARDCODED: becomes a table (category x field), edited by an admin. Dangerous materials (resins,
+  // solvents, batteries) are what the hazard codes and the disposal notes are for.
+  return {
+    fallback: ["purpose", "storageNotes"],
+    byCategory: {
+      Components: ["purpose", "storageNotes"],
+      Manufacturing: ["purpose", "safetyCodes", "disposal", "storageNotes"],
+      Consumable: ["purpose", "safetyCodes", "disposal", "storageNotes"],
+      Asset: ["purpose", "maintenanceNotes", "storageNotes"],
+      Logistic: ["purpose", "storageNotes"],
+      Administration: ["purpose"],
+      Software: ["purpose"],
+    },
+  };
+}

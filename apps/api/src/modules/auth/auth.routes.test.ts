@@ -110,16 +110,16 @@ describe("GET /api/me", () => {
       email: "viewer@team.test",
       role: "pm",
       areaIds: pm.areaIds,
-      permissions: { canEditShared: false, canManageSuppliers: true, canViewHistory: true, canManageUsers: false },
+      permissions: { canEditShared: false, canManageSuppliers: true, canManageInventory: true, canViewHistory: true, canManageUsers: false },
     });
   });
 
   it("gives a viewer no powers and an admin all of them", async () => {
     expect((await api.as({ email: "viewer@team.test", role: "viewer" }).get("/api/me")).body.permissions).toEqual({
-      canEditShared: false, canManageSuppliers: false, canViewHistory: false, canManageUsers: false,
+      canEditShared: false, canManageSuppliers: false, canManageInventory: false, canViewHistory: false, canManageUsers: false,
     });
     expect((await api.get("/api/me")).body.permissions).toEqual({
-      canEditShared: true, canManageSuppliers: true, canViewHistory: true, canManageUsers: true,
+      canEditShared: true, canManageSuppliers: true, canManageInventory: true, canViewHistory: true, canManageUsers: true,
     });
   });
 });

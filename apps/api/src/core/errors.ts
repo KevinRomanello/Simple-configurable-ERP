@@ -32,6 +32,15 @@ const BAD_VALUE_MESSAGES: Record<string, string> = {
 
 export const badValueMessage = (postgresErrorCode: string | undefined) => BAD_VALUE_MESSAGES[postgresErrorCode ?? ""];
 
+/**
+ * Two requests that touch the same rows at the same moment can make the database give up on one
+ * of them (a deadlock, a failed serialization). Nothing is lost and trying again works.
+ */
+export const retryMessage = (postgresErrorCode: string | undefined) =>
+  postgresErrorCode === "40P01" || postgresErrorCode === "40001"
+    ? "Someone else was changing the same thing at the same moment: try again"
+    : undefined;
+
 /** The Postgres error code behind a database failure (Drizzle wraps the driver error in `cause`). */
 export function postgresCode(error: unknown): string | undefined {
   const e = error as { code?: string; cause?: { code?: string } } | null;

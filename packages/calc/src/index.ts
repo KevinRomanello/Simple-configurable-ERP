@@ -1,5 +1,6 @@
 // Public surface of the calculation engine. Pure functions only: no I/O, no clock.
 export * from "./analysis";
+export * from "./arrival";
 export * from "./bank";
 export * from "./blocks";
 export * from "./budget";
@@ -7,6 +8,7 @@ export * from "./cashflow";
 export * from "./dates";
 export * from "./funds";
 export * from "./gantt";
+export * from "./inventory";
 export * from "./items";
 export * from "./line";
 export * from "./lines";

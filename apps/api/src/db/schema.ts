@@ -1,9 +1,10 @@
-import { PHASES, SPONSOR_TYPES } from "@erp/calc";
+import { MOVEMENT_KINDS, PHASES, SPONSOR_TYPES } from "@erp/calc";
 import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
   check,
+  customType,
   date,
   index,
   integer,
@@ -25,6 +26,11 @@ export const phaseEnum = pgEnum("phase", PHASES);
 export const sponsorTypeEnum = pgEnum("sponsor_type", SPONSOR_TYPES);
 export const fundKindEnum = pgEnum("fund_kind", ["team", "external"]);
 export const userRoleEnum = pgEnum("user_role", ["admin", "pm", "viewer"]);
+export const movementKindEnum = pgEnum("movement_kind", MOVEMENT_KINDS);
+export const itemOriginEnum = pgEnum("item_origin", ["bought", "made"]);
+
+/** Binary data (the pictures of the inventory). */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
 
 const id = () => integer().primaryKey().generatedAlwaysAsIdentity();
 
@@ -229,5 +235,123 @@ export const auditLog = pgTable(
     check("audit_log_action", sql`${t.action} in ('insert', 'update', 'delete')`),
     index("audit_log_table_row").on(t.tableName, t.rowId),
     index("audit_log_at").on(t.at),
+  ],
+);
+
+// --- inventory -----------------------------------------------------------------------------------
+// What is on the shelf is never stored as a number: it is the sum of `stock_movement`. Rules and
+// the reasons behind this shape: docs/inventario.md.
+
+/**
+ * A thing the team keeps: bought (a screw, a battery) or made by the team (a bracket) from other
+ * items, listed in `component_part`. The optional texts (hazard codes, disposal, storage,
+ * maintenance) are shown or hidden by category in the interface; none is required.
+ */
+export const inventoryItem = pgTable(
+  "inventory_item",
+  {
+    id: id(),
+    /** The team's own code or label, if it has one. */
+    code: text(),
+    name: text().notNull(),
+    /** What it is for. */
+    purpose: text(),
+    // Validated by the service against listCategories(); plain text for the same reason as budget_line.
+    category: text(),
+    unit: text().notNull().default("pcs"),
+    origin: itemOriginEnum().notNull().default("bought"),
+    /** Hazard and precaution codes (H/P statements, UN number) of a dangerous material. */
+    safetyCodes: text(),
+    disposal: text(),
+    storageNotes: text(),
+    maintenanceNotes: text(),
+    /** Changes whenever the picture does: it is what the history shows and what the browser cache keys on. */
+    imageUpdatedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("inventory_item_name_uq").on(sql`lower(${t.name})`),
+    uniqueIndex("inventory_item_code_uq")
+      .on(sql`lower(${t.code})`)
+      .where(sql`${t.code} is not null`),
+  ],
+);
+
+/** The picture of an item: a full size one and a small one for lists. Not in the history (it is binary). */
+export const itemImage = pgTable("item_image", {
+  itemId: integer()
+    .primaryKey()
+    .references(() => inventoryItem.id, { onDelete: "cascade" }),
+  mime: text().notNull(),
+  full: bytea().notNull(),
+  thumb: bytea().notNull(),
+});
+
+/**
+ * Everything that changes what is on the shelf. A receipt brings goods in (from a budget line, or
+ * with no budget at all) and freezes their price; the other kinds take them out, move them or
+ * correct the count.
+ */
+export const stockMovement = pgTable(
+  "stock_movement",
+  {
+    id: id(),
+    itemId: integer()
+      .notNull()
+      .references(() => inventoryItem.id),
+    kind: movementKindEnum().notNull(),
+    occurredOn: date().notNull(),
+    /** Always above zero, except for a count (`adjustment`), which can be negative. */
+    quantity: numeric({ precision: 14, scale: 3 }).notNull(),
+    /** Where: a code from listLocations() and a free note ("shelf 2, red box"). */
+    location: text().notNull(),
+    spot: text().notNull().default(""),
+    /** Transfers only. */
+    toLocation: text(),
+    toSpot: text(),
+    /** Receipts only, per unit: before VAT, with VAT, and what the team pays. */
+    unitNet: numeric({ precision: 14, scale: 4 }),
+    unitGross: numeric({ precision: 14, scale: 4 }),
+    unitTeam: numeric({ precision: 14, scale: 4 }),
+    projectId: integer().references(() => project.id, { onDelete: "set null" }),
+    /** The purchase this receipt completes. */
+    budgetLineId: integer().references(() => budgetLine.id, { onDelete: "set null" }),
+    note: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      "stock_movement_quantity",
+      sql`(${t.kind} = 'adjustment' and ${t.quantity} <> 0) or (${t.kind} <> 'adjustment' and ${t.quantity} > 0)`,
+    ),
+    check(
+      "stock_movement_prices",
+      sql`(${t.kind} = 'receipt' and ${t.unitNet} is not null and ${t.unitGross} is not null and ${t.unitTeam} is not null)
+        or (${t.kind} <> 'receipt' and ${t.unitNet} is null and ${t.unitGross} is null and ${t.unitTeam} is null)`,
+    ),
+    check("stock_movement_transfer", sql`(${t.kind} = 'transfer') = (${t.toLocation} is not null)`),
+    index("stock_movement_item").on(t.itemId),
+    index("stock_movement_line").on(t.budgetLineId),
+  ],
+);
+
+/** The bill of materials: `quantity` of `partId` goes into one unit of the item `componentId`. */
+export const componentPart = pgTable(
+  "component_part",
+  {
+    id: id(),
+    componentId: integer()
+      .notNull()
+      .references(() => inventoryItem.id, { onDelete: "cascade" }),
+    partId: integer()
+      .notNull()
+      .references(() => inventoryItem.id),
+    quantity: numeric({ precision: 14, scale: 3 }).notNull(),
+    note: text(),
+  },
+  (t) => [
+    unique("component_part_uq").on(t.componentId, t.partId),
+    check("component_part_quantity", sql`${t.quantity} > 0`),
+    check("component_part_not_itself", sql`${t.componentId} <> ${t.partId}`),
   ],
 );

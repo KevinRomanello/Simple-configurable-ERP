@@ -1,9 +1,10 @@
-import { faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faHourglassHalf, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { ColDef, ColGroupDef, ICellRendererParams, ValueSetterParams } from "ag-grid-community";
 import type { FiguresPatch, LinePatch } from "../api/client";
 import type { CalcLine, Phase, PhaseCalc } from "../api/types";
-import { date, money } from "../lib/format";
+import { ArrivalPill, arrivalTitle } from "../components/ArrivalPill";
+import { date, money, quantity } from "../lib/format";
 
 /** The pinned "yellow row" of a project: same shape as a line, but only results. */
 type PhaseView = Partial<PhaseCalc> & Pick<PhaseCalc, "amounts" | "teamVatCents">;
@@ -193,8 +194,28 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit): ColDe
       cellClass: "calc",
       valueGetter: (p) => date(p.data?.[phase].vatDueDate),
     },
+    // Only what was bought can arrive: the inventory (PENDING) tells how much of it has.
+    ...(phase === "actual" ? [arrivalColumn] : []),
   ];
 }
+
+const arrivalColumn: ColDef<Row> = {
+  colId: "actual.arrival",
+  headerName: "ARRIVED",
+  width: 150,
+  cellClass: "calc",
+  valueGetter: (p) => (isLine(p.data) ? `${p.data.arrival.status} ${p.data.arrival.receivedMilli}/${p.data.arrival.boughtMilli}` : ""),
+  cellRenderer: (p: ICellRendererParams<Row>) => {
+    const arrival = isLine(p.data) ? p.data.arrival : null;
+    if (!arrival || arrival.status === "planned") return null;
+    return (
+      <span style={{ display: "inline-flex", gap: "var(--space-xs)", alignItems: "center" }}>
+        <ArrivalPill status={arrival.status} />
+        <span className="muted">{quantity(arrival.receivedMilli)}/{quantity(arrival.boughtMilli)}</span>
+      </span>
+    );
+  },
+};
 
 type Columns = (ColDef<Row> | ColGroupDef<Row>)[];
 
@@ -221,7 +242,7 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
     {
       colId: "status",
       headerName: "",
-      width: 40,
+      width: 64,
       pinned: "left",
       sortable: false,
       cellRenderer: (p: ICellRendererParams<Row>) => {
@@ -230,11 +251,31 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
         const incomplete = (["estimate", "actual"] as const).some(
           (phase) => row[phase].figures !== null && !row[phase].amounts.complete,
         );
-        return incomplete ? (
-          <span title="Sponsor type or VAT rate is missing: the VAT is not counted yet" style={{ color: "var(--warning-default)" }}>
-            <FontAwesomeIcon icon={faTriangleExclamation} />
+        const { status } = row.arrival;
+        return (
+          <span style={{ display: "inline-flex", gap: "var(--space-xs)", alignItems: "center" }}>
+            {incomplete && (
+              <span title="Sponsor type or VAT rate is missing: the VAT is not counted yet" style={{ color: "var(--warning-default)" }}>
+                <FontAwesomeIcon icon={faTriangleExclamation} />
+              </span>
+            )}
+            {(status === "ordered" || status === "partial") && (
+              <span title={arrivalTitle[status]} style={{ color: "var(--warning-default)" }}>
+                <FontAwesomeIcon icon={faHourglassHalf} />
+              </span>
+            )}
+            {status === "received" && (
+              <span title={arrivalTitle.received} style={{ color: "var(--success-default)" }}>
+                <FontAwesomeIcon icon={faCheck} />
+              </span>
+            )}
+            {status === "over" && (
+              <span title={arrivalTitle.over} style={{ color: "var(--error-default)" }}>
+                <FontAwesomeIcon icon={faTriangleExclamation} />
+              </span>
+            )}
           </span>
-        ) : null;
+        );
       },
     },
     {

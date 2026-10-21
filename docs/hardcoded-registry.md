@@ -13,6 +13,9 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 | 3 | Regole delle scadenze IVA | `getVatRules` (lookups) ↔ `GET /api/lookups/vat-rules` | trimestre → 16/05, 20/08, 16/11, 16/02 dell'anno dopo; weekend → lunedì; nessuna festività né proroga | tabella `vat_rule` validata col commercialista (Q3) |
 | 4 | Impostazioni di calcolo | `getSettings` (lookups) ↔ `GET /api/lookups/settings` | vedi sotto | tabella `setting` o pagina admin |
 | 5 | Stagione corrente | `getCurrentSeason` (seasons) ↔ `GET /api/seasons/current` | 2026-2027 | elenco stagioni, selettore, creazione della nuova stagione |
+| 6 | Sedi e stanze | `listLocations` (lookups) ↔ `GET /api/lookups/locations` | due sedi con cinque stanze ("Site 1 / Room 1"…), codici `s1-r1`… | tabella `location`, tenuta da un admin; i movimenti già registrati conservano il codice |
+| 7 | Unità di misura | `listUnits` (lookups) ↔ `GET /api/lookups/units` | pcs, set, box, m, kg, g, l, ml | elenco configurabile |
+| 8 | Campi facoltativi per categoria | `getCategoryFields` (lookups) ↔ `GET /api/lookups/category-fields` | per categoria, quali fra a cosa serve / codici di sicurezza / smaltimento / stoccaggio / manutenzione ([inventario.md](inventario.md#5-le-informazioni-di-un-articolo)) | tabella categoria × campo, modificabile dall'admin |
 
 ### Chiavi di `getSettings()`
 

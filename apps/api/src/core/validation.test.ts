@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { badValueMessage } from "./errors";
+import { badValueMessage, retryMessage } from "./errors";
 import { decimal, id, isoDate, LIMITS, longText, lookupCode, shortText } from "./validation";
 
 const ok = (schema: { safeParse: (v: unknown) => { success: boolean } }, value: unknown) => schema.safeParse(value).success;
@@ -78,6 +78,13 @@ describe("badValueMessage (the safety net of the error handler)", () => {
     expect(badValueMessage("54000")).toMatch(/too long/);
     expect(badValueMessage("22021")).toMatch(/character/);
     expect(badValueMessage("22008")).toMatch(/date/);
+  });
+
+  it("tells to try again when the database gave up on one of two simultaneous requests", () => {
+    expect(retryMessage("40P01")).toMatch(/try again/);
+    expect(retryMessage("40001")).toMatch(/try again/);
+    expect(retryMessage("23505")).toBeUndefined();
+    expect(retryMessage(undefined)).toBeUndefined();
   });
 
   it("knows nothing about other failures", () => {
