@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import pg from "pg";
 import { afterAll, describe, expect, it } from "vitest";
 import { testOwnerUrl } from "../../test/db-urls";
@@ -34,15 +34,20 @@ describe("the user the API connects as", () => {
     expect(result.rows[0]).toEqual({ rolsuper: false, rolcreatedb: false, rolcreaterole: false });
   });
 
+  // These tests share the database with every other test file, in whatever order the files run:
+  // they touch only the rows they made themselves.
   it("reads and writes the data", async () => {
     const [created] = await db.insert(supplier).values({ name: "Role probe" }).returning();
-    await db.update(supplier).set({ name: "Role probe 2" });
-    await db.delete(supplier);
+    const mine = eq(supplier.id, created!.id);
+    const [renamed] = await db.update(supplier).set({ name: "Role probe 2" }).where(mine).returning();
+    await db.delete(supplier).where(mine);
     expect(created?.name).toBe("Role probe");
+    expect(renamed?.name).toBe("Role probe 2");
+    expect(await db.select().from(supplier).where(mine)).toEqual([]);
   });
 
   it("reads the history but cannot write it, not even to cover its tracks", async () => {
-    await db.insert(supplier).values({ name: "Seen by the trigger" });
+    const [seen] = await db.insert(supplier).values({ name: "Seen by the trigger" }).returning();
     const rows = await db.select().from(auditLog);
     expect(rows.some((r) => r.tableName === "supplier" && r.action === "insert")).toBe(true); // the trigger wrote it
 
@@ -50,7 +55,7 @@ describe("the user the API connects as", () => {
     await refused(db.execute(sql`update audit_log set actor_id = null`));
     await refused(db.execute(sql`delete from audit_log`));
     await refused(db.execute(sql`truncate audit_log`));
-    await db.delete(supplier); // leave the table as it was
+    await db.delete(supplier).where(eq(supplier.id, seen!.id)); // leave the table as it was
   });
 
   it("cannot change the structure or switch the history off", async () => {

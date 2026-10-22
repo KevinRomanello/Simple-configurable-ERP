@@ -51,6 +51,14 @@ pnpm test
 pnpm --filter @erp/web build
 ```
 
+**Se in CI fallisce un test che in locale passa**, quasi sempre i test dipendono dall'ordine dei file (tutti usano lo stesso database e l'ordine cambia da un computer all'altro). Per provocarlo in locale si mescola l'ordine, scegliendo il seme:
+
+```bash
+pnpm --filter @erp/api exec vitest run --sequence.shuffle.files --sequence.seed=2
+```
+
+Con semi diversi (1, 2, 3…) il difetto si ripete finché non si corregge; un test deve toccare solo le righe che ha creato.
+
 Prima della consegna, i passi sono stati eseguiti in una copia del progetto **senza** `node_modules`, `.env` e `fonti/` (come un computer nuovo), tutti verdi. Il workflow è stato controllato con `actionlint`, l'analizzatore ufficiale dei file di GitHub Actions. Il primo vero esito è quello del primo push.
 
 ## Come leggere un fallimento
