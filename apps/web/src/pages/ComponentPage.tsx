@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router";
 import { api } from "../api/client";
+import type { BomLine } from "../api/types";
 import { Button, IconButton } from "../components/Button";
+import { SearchSelect } from "../components/SearchSelect";
 import { ItemThumb } from "../components/ItemThumb";
 import { LineChart } from "../components/LineChart";
 import { PriceSelector } from "../components/PriceSelector";
@@ -11,6 +13,17 @@ import { useMe } from "../lib/auth";
 import { money, moneyE4, monthOfDate, quantity } from "../lib/format";
 import { usePrice } from "../lib/price";
 import { useAction } from "../lib/useAction";
+import { TableBox } from "../components/ExportBlocks";
+import { DownloadMenu } from "../components/DownloadMenu";
+import { SortTh } from "../components/SortTh";
+import { useSort, type SortAccessors } from "../lib/sort";
+
+const SORT: SortAccessors<BomLine> = {
+  part: (l) => l.name,
+  quantity: (l) => l.quantityMilli,
+  unit: (l) => l.unitE4,
+  cost: (l) => l.totalCents,
+};
 
 /** One thing the team makes: its parts with their prices, the cost of one and how the cost changed. */
 export function ComponentPage() {
@@ -23,6 +36,7 @@ export function ComponentPage() {
   const [partId, setPartId] = useState("");
   const [amount, setAmount] = useState("1");
   const [note, setNote] = useState("");
+  const sort = useSort(SORT);
 
   if (detail.isError) return <p className="empty">This is not something the team makes, or it does not exist.</p>;
   if (!detail.data) return <p className="empty">Loading…</p>;
@@ -49,6 +63,7 @@ export function ComponentPage() {
           <h1>{item.name}</h1>
           <p className="muted">{item.purpose ?? "Made by the team"} · <Link to={`/inventory/items/${item.id}`} className="item-link">open the item</Link></p>
         </div>
+        <DownloadMenu />
       </header>
 
       <PriceSelector value={price} onChange={setPrice} date />
@@ -66,11 +81,20 @@ export function ComponentPage() {
 
       <section className="panel">
         <h2>Made of</h2>
-        <div className="table-wrap">
+        <TableBox title="Made of">
           <table className="data-table">
-            <thead><tr><th>PART</th><th className="num">QUANTITY IN ONE</th><th className="num">UNIT PRICE</th><th className="num">COST</th><th>NOTE</th><th /></tr></thead>
+            <thead>
+              <tr>
+                <SortTh sort={sort} by="part">PART</SortTh>
+                <SortTh sort={sort} by="quantity" className="num">QUANTITY IN ONE</SortTh>
+                <SortTh sort={sort} by="unit" className="num">UNIT PRICE</SortTh>
+                <SortTh sort={sort} by="cost" className="num">COST</SortTh>
+                <th>NOTE</th>
+                <th />
+              </tr>
+            </thead>
             <tbody>
-              {bom.lines.map((l) => (
+              {sort.sorted(bom.lines).map((l) => (
                 <tr key={l.partId}>
                   <td>
                     <Link to={l.origin === "made" ? `/inventory/components/${l.partId}` : `/inventory/items/${l.partId}`} className="item-link">{l.name}</Link>
@@ -94,15 +118,17 @@ export function ComponentPage() {
               {bom.totalCents !== null && <tr className="total"><td colSpan={3}>Total</td><td className="num">{money(bom.totalCents)}</td><td colSpan={2} /></tr>}
             </tbody>
           </table>
-        </div>
+        </TableBox>
         {canEdit && (
           <form className="inline-form" onSubmit={add}>
             <div className="field">
               <label htmlFor="part-item">Add a part</label>
-              <select id="part-item" className="input small" value={partId} onChange={(e) => setPartId(e.target.value)}>
-                <option value="">Choose…</option>
-                {candidates.map((i) => <option key={i.id} value={i.id}>{i.name}{i.origin === "made" ? " (made)" : ""}</option>)}
-              </select>
+              <SearchSelect
+                id="part-item"
+                value={partId}
+                onChange={setPartId}
+                choices={[{ value: "", label: "Choose…" }, ...candidates.map((i) => ({ value: String(i.id), label: `${i.name}${i.origin === "made" ? " (made)" : ""}` }))]}
+              />
             </div>
             <div className="field">
               <label htmlFor="part-quantity">Quantity in one</label>

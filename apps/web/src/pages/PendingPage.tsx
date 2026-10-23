@@ -2,6 +2,7 @@ import { faBoxOpen } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
 import { api } from "../api/client";
+import type { PendingRow } from "../api/types";
 import { ArrivalPill } from "../components/ArrivalPill";
 import { Button } from "../components/Button";
 import { ReceiveForm } from "../components/ReceiveForm";
@@ -9,6 +10,23 @@ import { useMe } from "../lib/auth";
 import { date, moneyE4, quantity } from "../lib/format";
 import { useInventoryLookups } from "../lib/inventory";
 import { usePrice } from "../lib/price";
+import { TableBox } from "../components/ExportBlocks";
+import { DownloadMenu } from "../components/DownloadMenu";
+import { SortTh } from "../components/SortTh";
+import { useSort, type SortAccessors } from "../lib/sort";
+
+const SORT: SortAccessors<PendingRow> = {
+  item: (r) => r.item,
+  project: (r) => r.projectName,
+  supplier: (r) => r.supplierName,
+  bought: (r) => r.boughtMilli,
+  arrived: (r) => r.receivedMilli,
+  toArrive: (r) => r.remainingMilli,
+  boughtOn: (r) => r.purchaseDate,
+  waiting: (r) => r.daysWaiting,
+  expected: (r) => r.expectedArrival,
+  state: (r) => r.status,
+};
 
 /** PENDING: what the budget says was bought and has not arrived yet. When it does, it goes on the shelf from here. */
 export function PendingPage() {
@@ -18,7 +36,8 @@ export function PendingPage() {
   const pending = useQuery({ queryKey: ["inventory-pending"], queryFn: api.pending });
   const items = useQuery({ queryKey: ["inventory-items", price, {}], queryFn: () => api.inventoryItems(price) });
   const [open, setOpen] = useState<number | null>(null);
-  const rows = pending.data ?? [];
+  const sort = useSort(SORT);
+  const rows = sort.sorted(pending.data ?? []);
 
   return (
     <>
@@ -30,23 +49,24 @@ export function PendingPage() {
             shows it as arrived.
           </p>
         </div>
+        <DownloadMenu />
       </header>
 
       <section className="panel">
-        <div className="table-wrap">
+        <TableBox title="Pending">
           <table className="data-table">
             <thead>
               <tr>
-                <th>ITEM</th>
-                <th>PROJECT</th>
-                <th>BOUGHT FROM</th>
-                <th className="num">BOUGHT</th>
-                <th className="num">ARRIVED</th>
-                <th className="num">TO ARRIVE</th>
-                <th>BOUGHT ON</th>
-                <th className="num">WAITING</th>
-                <th>EXPECTED</th>
-                <th>STATE</th>
+                <SortTh sort={sort} by="item">ITEM</SortTh>
+                <SortTh sort={sort} by="project">PROJECT</SortTh>
+                <SortTh sort={sort} by="supplier">BOUGHT FROM</SortTh>
+                <SortTh sort={sort} by="bought" className="num">BOUGHT</SortTh>
+                <SortTh sort={sort} by="arrived" className="num">ARRIVED</SortTh>
+                <SortTh sort={sort} by="toArrive" className="num">TO ARRIVE</SortTh>
+                <SortTh sort={sort} by="boughtOn">BOUGHT ON</SortTh>
+                <SortTh sort={sort} by="waiting" className="num">WAITING</SortTh>
+                <SortTh sort={sort} by="expected">EXPECTED</SortTh>
+                <SortTh sort={sort} by="state">STATE</SortTh>
                 <th />
               </tr>
             </thead>
@@ -84,7 +104,7 @@ export function PendingPage() {
               {pending.isSuccess && rows.length === 0 && <tr><td colSpan={11} className="empty">Everything that was bought has arrived</td></tr>}
             </tbody>
           </table>
-        </div>
+        </TableBox>
         {rows.length > 0 && (
           <p className="muted">
             Prices per unit are the ones of the budget: {moneyE4(rows[0]?.prices.net)} net for the first line, for example. They are frozen on

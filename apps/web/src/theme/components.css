@@ -90,17 +90,17 @@
   flex-direction: column;
   gap: var(--space-xl);
 }
+/* the title and what the page is for, then under them what you can do (add something, download) */
 .page-header {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-m);
-  flex-wrap: wrap;
 }
 .page-header .actions {
   display: flex;
   gap: var(--space-xs);
-  align-items: center;
+  align-items: flex-end;
   flex-wrap: wrap;
 }
 
@@ -357,6 +357,26 @@
 .data-table td input.input.wide {
   width: 140px;
 }
+/* a header you can click to sort by: looks like the text, with a small arrow */
+.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+.th-sort:hover {
+  text-decoration: underline;
+}
+.th-sort .faint {
+  opacity: 0.35;
+}
 /* a thicker line where a group of columns begins (expected / actual) */
 .data-table .group-start {
   border-left: 2px solid var(--stroke-strong);
@@ -365,6 +385,7 @@
 .data-table td {
   padding: var(--space-2xs) var(--space-xs);
   border-bottom: 1px solid var(--stroke-sub);
+  border-left: 1px solid var(--stroke-sub); /* the cells are told apart by a fine vertical line */
   text-align: left;
   white-space: nowrap;
 }
@@ -384,9 +405,57 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+.data-table th:first-child,
+.data-table td:first-child {
+  border-left: 0;
+}
 .data-table tr.total td {
   background: var(--bg-soft);
   font-weight: 700;
+}
+/* a column that sums up its row (SUM, FINAL, LEFT VALUE, VALUE...) is set apart by a thick bar and a shade */
+.data-table th.sum,
+.data-table td.sum {
+  border-left: 2px solid var(--stroke-strong);
+  background: var(--bg-soft);
+  font-weight: 700;
+}
+.data-table tr.total td.sum {
+  background: var(--bg-sub);
+}
+/* a wide table (the Gantt): the name column stays at the left and the column that sums up the row at the right while the rest scrolls */
+.data-table th {
+  z-index: 1;
+}
+.data-table.frozen th:first-child,
+.data-table.frozen td:first-child:not([colspan]) {
+  position: sticky;
+  left: 0;
+}
+.data-table.frozen td:first-child:not([colspan]) {
+  z-index: 2;
+  background: var(--bg-null);
+}
+.data-table.frozen th:first-child {
+  z-index: 3;
+}
+.data-table.frozen tr.total td:first-child:not([colspan]) {
+  background: var(--bg-soft);
+}
+.data-table.frozen th.sum-last,
+.data-table.frozen td.sum-last {
+  position: sticky;
+  right: 0;
+}
+.data-table.frozen td.sum-last {
+  z-index: 2;
+}
+.data-table.frozen th.sum-last {
+  z-index: 3;
+}
+/* a cell with several names: each on its own line */
+.data-table td.lines {
+  white-space: normal;
 }
 .data-table tr.group td {
   background: var(--primary-default);
@@ -466,6 +535,15 @@
 .ag-header-group-cell.phase-estimate { background: var(--bg-sub); }
 .ag-header-group-cell.phase-actual { background: var(--primary-soft); color: var(--text-strong); }
 .ag-cell.calc { color: var(--text-sub); text-align: right; }
+/* a thicker bar where a group of columns begins: expected | actual */
+.ag-cell.phase-start,
+.ag-header-cell.phase-start,
+.ag-header-group-cell.phase-start,
+.ag-cell.sum,
+.ag-header-cell.sum { border-left: 2px solid var(--stroke-strong); }
+/* the columns that sum up a line (GRAND TOTAL, OUTFLOW) have a shade, like the summary columns of the tables */
+.ag-cell.sum,
+.ag-cell.sum-next { background: var(--bg-soft); }
 .ag-cell.num { text-align: right; }
 .ag-row-pinned .ag-cell { font-weight: 700; background: var(--bg-soft); }
 
@@ -593,6 +671,9 @@
   align-items: flex-start;
   flex-wrap: wrap;
 }
+.item-head > .download {
+  margin-left: auto;
+}
 .item-title {
   display: flex;
   flex-direction: column;
@@ -669,3 +750,106 @@ textarea.input {
 .pill.arrival-partial { background: var(--info-soft); color: var(--info-strong); }
 .pill.arrival-received { background: var(--success-soft); color: var(--success-strong); }
 .pill.arrival-over { background: var(--error-soft); color: var(--error-strong); }
+
+/* --- a list to choose from, with a search ---------------------------------------------------- */
+.search-select {
+  position: relative;
+}
+.search-select::after {
+  content: "▾";
+  position: absolute;
+  right: var(--space-xs);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-sub);
+  pointer-events: none;
+}
+.search-select input {
+  padding-right: var(--space-l);
+}
+.search-list {
+  position: absolute;
+  z-index: 40;
+  top: 100%;
+  left: 0;
+  min-width: 100%;
+  max-height: 240px;
+  overflow-y: auto;
+  margin: var(--space-3xs) 0 0;
+  padding: 0;
+  list-style: none;
+  background: var(--bg-null);
+  border: 1px solid var(--stroke-strong);
+  border-radius: var(--radius-3xs);
+  font-size: 13px;
+}
+.search-list li {
+  padding: var(--space-2xs) var(--space-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.search-list li.active {
+  background: var(--bg-soft);
+}
+.search-list li.selected {
+  font-weight: 700;
+}
+.search-list li.none {
+  color: var(--text-soft);
+  cursor: default;
+}
+/* in the grid the editor is its own popup: the list is part of it, not floating over it */
+.search-editor {
+  position: relative;
+  min-width: 220px;
+  padding: var(--space-2xs);
+  background: var(--bg-null);
+  border: 1px solid var(--stroke-strong);
+  border-radius: var(--radius-3xs);
+}
+.search-editor .search-list {
+  position: static;
+  border: 0;
+  margin: var(--space-2xs) 0 0;
+}
+
+/* --- the Download button of a page header ----------------------------------------------------- */
+.download {
+  position: relative;
+}
+.download-panel {
+  position: absolute;
+  z-index: 40;
+  right: 0;
+  top: calc(100% + var(--space-2xs));
+  min-width: 280px;
+  max-width: 420px;
+  max-height: 70vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
+  padding: var(--space-s) var(--space-m);
+  background: var(--bg-null);
+  border: 1px solid var(--stroke-strong);
+  border-radius: var(--radius-3xs);
+  font-size: 13px;
+}
+.download-panel ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.download-formats {
+  display: flex;
+  gap: var(--space-m);
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--stroke-sub);
+}
+.faint {
+  opacity: 0.5;
+}
+

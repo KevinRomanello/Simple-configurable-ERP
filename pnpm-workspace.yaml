@@ -4,6 +4,8 @@ packages:
   - tools/*
 allowBuilds:
   esbuild: true
+  # core-js (pulled in by jspdf) only runs a "please donate" message after install: not needed
+  core-js: false
 # Security fixes for dependencies of development tools that have not released one yet.
 # Check them again when exceljs or drizzle-kit are updated, then remove what is no longer needed.
 overrides:

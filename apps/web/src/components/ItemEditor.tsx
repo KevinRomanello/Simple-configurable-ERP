@@ -1,5 +1,6 @@
 import type { ItemDraft } from "../api/types";
 import { FIELD_HINTS, FIELD_LABELS, visibleFields, type InventoryLookups } from "../lib/inventory";
+import { SearchSelect } from "./SearchSelect";
 
 /**
  * The fields that describe an item: name, code, category, unit, and the optional ones the
@@ -26,10 +27,12 @@ export function ItemEditor({
       </div>
       <div className="field">
         <label htmlFor={`${idPrefix}-category`}>Category</label>
-        <select id={`${idPrefix}-category`} className="input small" value={draft.category} onChange={(e) => onChange({ category: e.target.value })}>
-          <option value="">(none)</option>
-          {lookups.categories.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <SearchSelect
+          id={`${idPrefix}-category`}
+          value={draft.category}
+          onChange={(category) => onChange({ category })}
+          choices={[{ value: "", label: "(none)" }, ...lookups.categories.map((c) => ({ value: c, label: c }))]}
+        />
       </div>
       <div className="field">
         <label htmlFor={`${idPrefix}-unit`}>Counted in</label>

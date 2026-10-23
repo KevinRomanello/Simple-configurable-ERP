@@ -6,13 +6,27 @@ import { BarsChart } from "../components/BarsChart";
 import { Chips } from "../components/Chips";
 import { blockTitle } from "../lib/blocks";
 import { money, ratio } from "../lib/format";
+import { TableBox } from "../components/ExportBlocks";
+import { DownloadMenu } from "../components/DownloadMenu";
+import { SortTh } from "../components/SortTh";
+import { useSort, type SortAccessors } from "../lib/sort";
 
 type Figures = Totals["blocks"][number]["rows"][number];
+
+const SORT: SortAccessors<Figures> = {
+  area: (r) => r.areaName,
+  estGross: (r) => r.estimateGrossCents,
+  estOutflow: (r) => r.estimateOutflowCents,
+  actGross: (r) => r.actualGrossCents,
+  actOutflow: (r) => r.actualOutflowCents,
+  variance: (r) => r.outflowVariance ?? null,
+};
 
 /** TOTAL: estimate against actual, per area, for all items and for each category. */
 export function TotalPage() {
   const totals = useQuery({ queryKey: ["totals"], queryFn: api.totals });
   const [blockName, setBlockName] = useState("ALL");
+  const sort = useSort(SORT);
   if (!totals.data) return <p className="empty">Loading…</p>;
 
   const block = totals.data.blocks.find((b) => b.block === blockName) ?? totals.data.blocks[0]!;
@@ -24,13 +38,10 @@ export function TotalPage() {
       <tr key={label} className={isTotal ? "total" : ""}>
         <td className="bold">{label}</td>
         <td className="num">{money(f.estimateGrossCents)}</td>
-        <td className="num">{money(f.estimateSponsorCents)}</td>
         <td className={`num ${outflowClass}`}>{money(f.estimateOutflowCents)}</td>
         <td className="num">{money(f.actualGrossCents)}</td>
-        <td className="num">{money(f.actualSponsorCents)}</td>
         <td className={`num ${outflowClass}`}>{money(f.actualOutflowCents)}</td>
-        <td className={`num ${f.outflowOutOfRange ? "cell-negative" : ""}`}>{ratio(f.outflowVariance)}</td>
-        <td className={`num ${f.sponsorOutOfRange ? "cell-negative" : ""}`}>{ratio(f.sponsorVariance)}</td>
+        <td className={`num sum ${f.outflowOutOfRange ? "cell-negative" : ""}`}>{ratio(f.outflowVariance)}</td>
       </tr>
     );
   };
@@ -42,6 +53,7 @@ export function TotalPage() {
           <h1>TOTAL</h1>
           <p className="muted">Variances beyond ±{threshold} are highlighted.</p>
         </div>
+        <DownloadMenu />
       </header>
       <section className="panel">
         <Chips
@@ -68,27 +80,24 @@ export function TotalPage() {
             { key: "actOutflow", label: "Actual outflow" },
           ]}
         />
-        <div className="table-wrap">
+        <TableBox title={`Totals (${blockTitle(block.block)})`}>
           <table className="data-table">
             <thead>
               <tr>
-                <th>AREA</th>
-                <th className="num">ESTIMATED GRAND TOTAL COST</th>
-                <th className="num">ESTIMATED SPONSORED VALUE</th>
-                <th className="num">EXPECTED OUTFLOW</th>
-                <th className="num">ACTUAL GRAND TOTAL COST</th>
-                <th className="num">ACTUAL SPONSORED VALUE</th>
-                <th className="num">ACTUAL OUTFLOW</th>
-                <th className="num">OUTFLOW VARIANCE</th>
-                <th className="num">SPONSORED VARIANCE</th>
+                <SortTh sort={sort} by="area">AREA</SortTh>
+                <SortTh sort={sort} by="estGross" className="num">ESTIMATED GRAND TOTAL COST</SortTh>
+                <SortTh sort={sort} by="estOutflow" className="num">EXPECTED OUTFLOW</SortTh>
+                <SortTh sort={sort} by="actGross" className="num">ACTUAL GRAND TOTAL COST</SortTh>
+                <SortTh sort={sort} by="actOutflow" className="num">ACTUAL OUTFLOW</SortTh>
+                <SortTh sort={sort} by="variance" className="num sum">OUTFLOW VARIANCE</SortTh>
               </tr>
             </thead>
             <tbody>
-              {block.rows.map((r) => row(r.areaName, r, false))}
+              {sort.sorted(block.rows).map((r) => row(r.areaName, r, false))}
               {row("TOTAL", block.total, true)}
             </tbody>
           </table>
-        </div>
+        </TableBox>
       </section>
     </>
   );

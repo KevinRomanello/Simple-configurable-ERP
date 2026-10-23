@@ -1,13 +1,18 @@
 import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../api/client";
-import type { Fund, FundMode, FundType, NewContract, Phase } from "../api/types";
+import type { Fund, FundMode, FundSummaryRow, FundType, MonthlyInflow, NewContract, Phase } from "../api/types";
 import { BarsChart } from "../components/BarsChart";
 import { Button, IconButton } from "../components/Button";
 import { date, money, moneyFromDecimal, month } from "../lib/format";
 import { useMe } from "../lib/auth";
 import { useAction } from "../lib/useAction";
+import { TableBox } from "../components/ExportBlocks";
+import { DownloadMenu } from "../components/DownloadMenu";
+import { SortTh } from "../components/SortTh";
+import { useSort, type SortAccessors } from "../lib/sort";
 
 const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
 
@@ -35,11 +40,10 @@ export function FundsPage() {
             Sponsors and their contracts. Choose a sponsor in the budget and the VAT is worked out from how it is defined here.
           </p>
         </div>
-        {canEdit && (
-          <div className="actions">
-            <Button icon={faPlus} onClick={() => setAdding(!adding)}>{adding ? "Close" : "New sponsor"}</Button>
-          </div>
-        )}
+        <div className="actions">
+          {canEdit && <Button icon={faPlus} onClick={() => setAdding(!adding)}>{adding ? "Close" : "New sponsor"}</Button>}
+          <DownloadMenu />
+        </div>
       </header>
 
       {adding && <NewSponsor onDone={() => setAdding(false)} />}
@@ -269,13 +273,28 @@ function MoneyCells({ fund, phase, canEdit }: { fund: Fund; phase: Phase; canEdi
   );
 }
 
+/** What the table of sponsors can be sorted by: each header that is a column of values. */
+const SPONSOR_SORT: SortAccessors<Fund> = {
+  name: (f) => f.name,
+  estimateValue: (f) => (f.contracts.estimate ? Number(f.contracts.estimate.amount) : null),
+  actualValue: (f) => (f.contracts.actual ? Number(f.contracts.actual.amount) : null),
+  estimateDate: (f) => f.contracts.estimate?.inflowDate ?? null,
+  actualDate: (f) => f.contracts.actual?.inflowDate ?? null,
+  mode: (f) => MODE_LABEL[f.mode],
+  type: (f) => TYPE_SHORT[f.type],
+  vat: (f) => f.vatRate,
+  group: (f) => f.group || null,
+  paysVat: (f) => (f.paysVat ? 1 : 0),
+};
+
 /** The definition of every sponsor and what it is worth, one row each, edited in place. */
 function SponsorsPanel() {
   const act = useAction();
   const canEdit = useMe().permissions.canEditShared;
   const funds = useQuery({ queryKey: ["funds"], queryFn: () => api.funds() });
   const rates = useQuery({ queryKey: ["vat-rates"], queryFn: api.vatRates });
-  const sponsors = funds.data?.filter((f) => f.kind === "external") ?? [];
+  const sort = useSort(SPONSOR_SORT, { key: "name", direction: 1 });
+  const sponsors = sort.sorted(funds.data?.filter((f) => f.kind === "external") ?? []);
 
   const change = (fund: Fund, body: Parameters<typeof api.updateFund>[1]) => act(() => api.updateFund(fund.id, body));
   const remove = (fund: Fund) => {
@@ -286,17 +305,24 @@ function SponsorsPanel() {
   return (
     <section className="panel">
       <h2>SPONSORS</h2>
-      <div className="table-wrap">
+      <TableBox title="Sponsors">
         <table className="data-table">
           <thead>
             <tr>
-              <th rowSpan={2}>NAME</th>
+              <SortTh sort={sort} by="name" rowSpan={2}>NAME</SortTh>
               <th colSpan={2} className="group-start">EXPECTED</th><th colSpan={2} className="group-start">ACTUAL</th>
-              <th rowSpan={2} className="group-start">MONEY GOES TO</th><th rowSpan={2}>GIVES</th><th rowSpan={2}>VAT %</th>
-              <th rowSpan={2}>GROUP</th><th rowSpan={2}>PAYS VAT</th><th rowSpan={2} />
+              <SortTh sort={sort} by="mode" rowSpan={2} className="group-start">MONEY GOES TO</SortTh>
+              <SortTh sort={sort} by="type" rowSpan={2}>GIVES</SortTh>
+              <SortTh sort={sort} by="vat" rowSpan={2}>VAT %</SortTh>
+              <SortTh sort={sort} by="group" rowSpan={2}>GROUP</SortTh>
+              <SortTh sort={sort} by="paysVat" rowSpan={2}>PAYS VAT</SortTh>
+              <th rowSpan={2} />
             </tr>
             <tr>
-              <th className="num group-start">VALUE</th><th>ARRIVES</th><th className="num group-start">VALUE</th><th>ARRIVES</th>
+              <SortTh sort={sort} by="estimateValue" className="num group-start">VALUE</SortTh>
+              <SortTh sort={sort} by="estimateDate">ARRIVES</SortTh>
+              <SortTh sort={sort} by="actualValue" className="num group-start">VALUE</SortTh>
+              <SortTh sort={sort} by="actualDate">ARRIVES</SortTh>
             </tr>
           </thead>
           <tbody>
@@ -336,41 +362,57 @@ function SponsorsPanel() {
             {sponsors.length === 0 && <tr><td colSpan={11} className="empty">No sponsors yet</td></tr>}
           </tbody>
         </table>
-      </div>
+      </TableBox>
       <GroupSuggestions funds={funds.data ?? []} />
     </section>
   );
 }
 
 /** What the sponsors' money comes to in a phase: what is left of each fund and when the money arrives. */
+const SUMMARY_SORT: SortAccessors<FundSummaryRow> = {
+  name: (r) => r.name,
+  contract: (r) => r.totalContractCents,
+  left: (r) => r.leftCents,
+};
+const MONTHLY_SORT: SortAccessors<MonthlyInflow> = {
+  month: (m) => m.month,
+  inflow: (m) => m.totalCents,
+};
+
 function PhaseSummary({ phase }: { phase: Phase }) {
   const summary = useQuery({ queryKey: ["funds-summary", phase], queryFn: () => api.fundsSummary(phase) });
+  const bySource = useSort(SUMMARY_SORT);
+  const byMonth = useSort(MONTHLY_SORT);
 
   return (
     <section className="panel">
       <h2>{TITLE[phase]}</h2>
 
-      <div className="table-wrap">
+      <TableBox title={`${TITLE[phase]} cash left per sponsor`}>
         <table className="data-table">
           <thead>
-            <tr><th>CASH SOURCE</th><th className="num">TOTAL CONTRACT</th><th className="num">LEFT VALUE</th></tr>
+            <tr>
+              <SortTh sort={bySource} by="name">CASH SOURCE</SortTh>
+              <SortTh sort={bySource} by="contract" className="num">TOTAL CONTRACT</SortTh>
+              <SortTh sort={bySource} by="left" className="num sum">LEFT VALUE</SortTh>
+            </tr>
           </thead>
           <tbody>
-            {summary.data?.rows.map((row) => (
+            {bySource.sorted(summary.data?.rows ?? []).map((row) => (
               <tr key={row.fundId}>
                 <td>{row.name}</td>
                 <td className="num">{money(row.totalContractCents)}</td>
-                <td className={`num${row.leftCents < 0 ? " cell-negative" : ""}`}>{money(row.leftCents)}</td>
+                <td className={`num sum${row.leftCents < 0 ? " cell-negative" : ""}`}>{money(row.leftCents)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
+      </TableBox>
 
       {summary.data && summary.data.monthly.length > 0 && (
         <BarsChart
           title={`${phase === "estimate" ? "Expected" : "Actual"} Cash Inflows Timeline`}
-          data={summary.data.monthly.map((m) => ({ month: month(m.month), inflow: m.totalCents }))}
+          data={byMonth.sorted(summary.data.monthly).map((m) => ({ month: month(m.month), inflow: m.totalCents }))}
           xKey="month"
           series={[{ key: "inflow", label: "Inflow" }]}
           height={240}
@@ -378,22 +420,26 @@ function PhaseSummary({ phase }: { phase: Phase }) {
       )}
 
       {summary.data && summary.data.monthly.length > 0 && (
-        <div className="table-wrap">
+        <TableBox title={`${phase === "estimate" ? "Expected" : "Actual"} cash inflows per month`}>
           <table className="data-table">
             <thead>
-              <tr><th>MONTH</th><th className="num">{phase === "estimate" ? "EXPECTED" : "ACTUAL"} INFLOW</th><th>CASH SOURCE</th></tr>
+              <tr>
+                <SortTh sort={byMonth} by="month">MONTH</SortTh>
+                <SortTh sort={byMonth} by="inflow" className="num">{`${phase === "estimate" ? "EXPECTED" : "ACTUAL"} INFLOW`}</SortTh>
+                <th>CASH SOURCE</th>
+              </tr>
             </thead>
             <tbody>
-              {summary.data.monthly.map((m) => (
+              {byMonth.sorted(summary.data.monthly).map((m) => (
                 <tr key={m.month}>
                   <td>{month(m.month)}</td>
                   <td className="num">{money(m.totalCents, true)}</td>
-                  <td>{m.names.join(", ")}</td>
+                  <td className="lines">{m.names.map((n) => <div key={n}>{n}</div>)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </TableBox>
       )}
     </section>
   );

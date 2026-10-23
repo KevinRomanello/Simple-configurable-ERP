@@ -8,6 +8,7 @@ import { draftBody, emptyDraft, type InventoryLookups } from "../lib/inventory";
 import { todayIso } from "../lib/today";
 import { useAction } from "../lib/useAction";
 import { Button } from "./Button";
+import { SearchSelect } from "./SearchSelect";
 import { ItemEditor } from "./ItemEditor";
 
 /**
@@ -80,10 +81,12 @@ export function ReceiveForm({
       {mode === "existing" ? (
         <div className="field">
           <label htmlFor="receive-item">Item</label>
-          <select id="receive-item" className="input small" value={itemId} onChange={(e) => setItemId(e.target.value)}>
-            <option value="">Choose…</option>
-            {items.map((i) => <option key={i.id} value={i.id}>{i.name}{i.code ? ` (${i.code})` : ""}</option>)}
-          </select>
+          <SearchSelect
+            id="receive-item"
+            value={itemId}
+            onChange={setItemId}
+            choices={[{ value: "", label: "Choose…" }, ...items.map((i) => ({ value: String(i.id), label: `${i.name}${i.code ? ` (${i.code})` : ""}` }))]}
+          />
         </div>
       ) : (
         <ItemEditor draft={draft} onChange={(change) => setDraft({ ...draft, ...change })} lookups={lookups} idPrefix="receive-new" />
@@ -100,9 +103,7 @@ export function ReceiveForm({
         </div>
         <div className="field">
           <label htmlFor="receive-location">Put in</label>
-          <select id="receive-location" className="input small" value={location} onChange={(e) => setLocation(e.target.value)}>
-            {lookups.locations.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
-          </select>
+          <SearchSelect id="receive-location" value={location} onChange={setLocation} choices={lookups.locations.map((l) => ({ value: l.code, label: l.label }))} />
         </div>
         <div className="field">
           <label htmlFor="receive-spot">Where exactly</label>
@@ -122,10 +123,12 @@ export function ReceiveForm({
             </div>
             <div className="field">
               <label htmlFor="receive-project">For project (optional)</label>
-              <select id="receive-project" className="input small" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-                <option value="">(none)</option>
-                {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.areaName}: {p.name}</option>)}
-              </select>
+              <SearchSelect
+                id="receive-project"
+                value={projectId}
+                onChange={setProjectId}
+                choices={[{ value: "", label: "(none)" }, ...(projects.data ?? []).map((p) => ({ value: String(p.id), label: `${p.areaName}: ${p.name}` }))]}
+              />
             </div>
             <label className="checkbox">
               <input type="checkbox" checked={free} onChange={(e) => setFree(e.target.checked)} />

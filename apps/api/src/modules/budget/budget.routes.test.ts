@@ -244,7 +244,8 @@ describe("the funds that pay a line", () => {
       await set([a, loner]), // no group at all
       await set([loner, a]),
       await set([a, a]), // twice
-      await set([team, a]), // the team fund never runs out: it can only be last
+      await set([team, a]), // the team's own money never completes a fund...
+      await set([a, team]), // ...in whatever order
       await set([a, gift]),
       await set([gift, a]),
       await set([cash]), // its money is the team's
@@ -253,10 +254,10 @@ describe("the funds that pay a line", () => {
       await set(Array.from({ length: 11 }, (_, i) => 1000 + i)), // too many
     ];
     expect(refused.map((r) => r.status)).toEqual(refused.map(() => 400));
-    expect((await set([a, b, team])).status).toBe(200); // sponsors of one group, then the team
+    expect((await set([a, b])).status).toBe(200); // sponsors of one group
     expect((await set([9999])).status).toBe(409);
     // ...and a refused change leaves the line as it was
-    expect((await sheet()).projects[0].lines[0].estimate.figures.fundIds).toEqual([a, b, team]);
+    expect((await sheet()).projects[0].lines[0].estimate.figures.fundIds).toEqual([a, b]);
   });
 
   it("goes on with as many funds as it takes, one after the other, until the line is covered", async () => {

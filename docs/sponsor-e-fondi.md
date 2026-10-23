@@ -49,12 +49,12 @@ Chi può stare insieme (controllato dal server, `400` con il motivo):
 | Regola | Perché |
 | --- | --- |
 | stesso **gruppo** (non vuoto) per gli sponsor | «alcuni fondi sono accumulabili tra loro» |
-| il **fondo del team** solo come ultimo, e in qualunque gruppo | non finisce mai: dopo di lui non resterebbe niente da pagare |
+| il **fondo del team** mai insieme ad altri fondi | i soldi del team non possono coprire quello che un fondo non basta (scelta del tesoriere, 23 ottobre 2026): se non basta si aggiunge un altro fondo dello stesso gruppo, e se non bastano tutti la riga resta segnalata. Il fondo del team paga una riga solo da solo |
 | un **regalo** (B, C) solo da solo | copre già tutto |
 | uno sponsor **Team's fund** (in cassa) mai | i suoi soldi sono già nel conto: si paga col fondo del team |
 | lo stesso fondo due volte, più di 10 fondi | un tetto di sicurezza: la catena continua finché la riga non è coperta |
 
-La tendina di ALSO FROM propone solo i fondi compatibili con il primo. La colonna **ALSO FROM non si vede** finché nessuna riga del progetto ne ha bisogno: compare nel progetto (per quella fase) solo quando una sua riga è corta o ha già più di un fondo, e sparisce quando non serve più. Nella riga la casella è modificabile se la riga è corta e c'è ancora un fondo compatibile, oppure se ha già più di un fondo; scegliere vuoto toglie i fondi in più.
+La tendina di ALSO FROM, con la ricerca, propone solo i fondi dello **stesso gruppo** del primo (mai il fondo del team). La colonna **ALSO FROM non si vede** finché nessuna riga del progetto ne ha bisogno: compare nel progetto (per quella fase) solo quando una sua riga è corta o ha già più di un fondo, e sparisce quando non serve più. Nella riga la casella è modificabile se la riga è corta e c'è ancora un fondo compatibile, oppure se ha già più di un fondo; scegliere vuoto toglie i fondi in più.
 
 ## 5. Sponsor in cassa
 
@@ -110,13 +110,25 @@ Un fondo **Team's fund** (`mode = cash`) è denaro che entra nel conto del team:
 | Q7 arrotondamento | va bene così |
 | Q2 confronto con BANK, Q6 fondo in negativo | ancora aperte |
 
-Da confermare (le ho assunte così): l'11% si calcola sul valore del contratto di uno sponsor in cassa; il consumo dei fondi segue l'ordine del foglio; il fondo del team come ultimo fondo è sempre ammesso.
+### Quando esce l'IVA del team (richiesta del 23 ottobre 2026: **non ancora fatta**)
+
+Oggi l'IVA che il team paga su una riga esce alla **scadenza trimestrale** del trimestre dell'acquisto (16/5, 20/8, 16/11, 16/2). La richiesta è cambiarla così:
+
+- l'IVA esce alla **data di pagamento** della fase: per EXPECTED la data EXPECTED della riga, per ACTUAL la data ACTUAL;
+- **eccezione, la controfattura** (regalo di tipo C): si paga **il primo giorno del primo trimestre dopo l'acquisto**, con trimestri di calendario (gennaio-marzo, aprile-giugno…). Un acquisto del 20/11/2026 paga il 1/1/2027; uno del 1/1/2027 paga il 1/4/2027;
+- **l'11% degli sponsor in cassa resta alle scadenze trimestrali** (§5): la funzione che dà le scadenze (`getVatRules()` in `lookups.service.ts`) quindi resta, ma serve solo per questo.
+
+Risposte del 23 ottobre: confermati i due punti sopra sull'11% e sul trimestre. **Ancora aperto**: come deve essere la tabella VAT OUTFLOW / PROJECT (oggi una colonna per scadenza trimestrale: con questa regola non avrebbe più quelle date; proposta: una colonna per mese di pagamento, come il Gantt) e se le scadenze trimestrali devono restare configurabili.
+
+Cosa cambia quando si fa: la data `vatDueDate` di ogni riga (`packages/calc/src/lines.ts`), da cui dipendono il Gantt, il CASH FLOW e la tabella per progetto (`vatReport.ts`); e la **riconciliazione col foglio non tornerà più** su queste date, perché è una scelta voluta e non un errore: va documentata come differenza dallo script in [regole-script-attuale.md](regole-script-attuale.md).
+
+Da confermare (le ho assunte così): l'11% si calcola sul valore del contratto di uno sponsor in cassa; il consumo dei fondi segue l'ordine del foglio; la riga non coperta resta segnalata finché non si aggiunge un fondo (nessuna "copertura" con i soldi del team).
 
 **Limite noto**: cambiare il gruppo, il tipo o il modo di uno sponsor **non ricontrolla** le righe che lo usano già insieme ad altri (il motore regge, ma una combinazione che oggi non sarebbe ammessa resta com'è finché non si modifica la riga).
 
 ## 9. Prove
 
-- `packages/calc/src/settle.test.ts` (16): regali B e C, aliquota dello sponsor, chi paga l'IVA, sponsor parziale importato, più fondi (resto, ordine del foglio, ultimo fondo in negativo, fondo che copre l'IVA, fondo del team come ultimo), righe senza fondo.
+- `packages/calc/src/settle.test.ts` (15): regali B e C, aliquota dello sponsor, chi paga l'IVA, sponsor parziale importato, più fondi (resto, ordine del foglio, ultimo fondo in negativo, fondo che copre l'IVA, tre e quattro fondi uno dopo l'altro), righe senza fondo.
 - `packages/calc/src/cash.test.ts` (8): ingresso e IVA all'11% di uno sponsor in cassa, CASH FLOW, Gantt, saldi.
 - `apps/api/src/modules/funds/funds.routes.test.ts` e `budget.routes.test.ts`: definizione dello sponsor e sue regole, nomi unici (anche in parallelo), i soldi dello sponsor (messi, sostituiti, tolti, anche insieme), combinazioni rifiutate con il motivo, un cambiamento rifiutato non tocca la riga.
 - Riconciliazione col foglio (`pnpm reconcile`, anche `-- --db` dopo `load --replace`): **1.995 controlli uguali**, con le aliquote ora prese dallo sponsor.

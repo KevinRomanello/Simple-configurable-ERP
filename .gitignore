@@ -11,3 +11,6 @@ dist/
 # Local tooling output
 coverage/
 .vite/
+
+# database copies (real data): never in the repository
+*.dump

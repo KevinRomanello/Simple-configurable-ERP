@@ -6,6 +6,7 @@ import type { InventoryItem, StockPlace } from "../api/types";
 import { quantity as showQuantity } from "../lib/format";
 import type { InventoryLookups } from "../lib/inventory";
 import { todayIso } from "../lib/today";
+import { SearchSelect } from "./SearchSelect";
 import { useAction } from "../lib/useAction";
 import { Button } from "./Button";
 
@@ -83,9 +84,7 @@ export function MovementForm({
           <>
             <div className="field">
               <label htmlFor="move-to">Move to</label>
-              <select id="move-to" className="input small" value={toLocation} onChange={(e) => setToLocation(e.target.value)}>
-                {lookups.locations.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
-              </select>
+              <SearchSelect id="move-to" value={toLocation} onChange={setToLocation} choices={lookups.locations.map((l) => ({ value: l.code, label: l.label }))} />
             </div>
             <div className="field">
               <label htmlFor="move-to-spot">Where exactly</label>
@@ -96,10 +95,12 @@ export function MovementForm({
         {kind === "use" && (
           <div className="field">
             <label htmlFor="move-project">For project (optional)</label>
-            <select id="move-project" className="input small" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-              <option value="">(none)</option>
-              {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.areaName}: {p.name}</option>)}
-            </select>
+            <SearchSelect
+              id="move-project"
+              value={projectId}
+              onChange={setProjectId}
+              choices={[{ value: "", label: "(none)" }, ...(projects.data ?? []).map((p) => ({ value: String(p.id), label: `${p.areaName}: ${p.name}` }))]}
+            />
           </div>
         )}
         <div className="field wide">

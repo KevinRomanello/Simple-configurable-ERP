@@ -1,4 +1,6 @@
+import { chartTable } from "../lib/export/chart";
 import { moneyShort, money } from "../lib/format";
+import { ChartFigure } from "./ExportBlocks";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export interface Series {
@@ -29,9 +31,15 @@ export function BarsChart({
     ...Object.fromEntries(series.map((s) => [s.key, Number(row[s.key] ?? 0) / 100])),
   }));
 
+  const legend = series.map((s, i) => ({ label: s.label, color: COLOURS[i % COLOURS.length]! }));
+  const table = chartTable(
+    "",
+    series.map((s) => s.label),
+    euros.map((row) => ({ name: String(row[xKey]), values: series.map((s) => Number(row[s.key])) })),
+  );
+
   return (
-    <figure className="chart">
-      <figcaption className="bold">{title}</figcaption>
+    <ChartFigure title={title} legend={legend} table={table}>
       <ResponsiveContainer width="100%" height={height}>
         <BarChart data={euros} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
           <CartesianGrid stroke="var(--stroke-sub)" vertical={false} />
@@ -44,10 +52,10 @@ export function BarsChart({
           />
           {series.length > 1 && <Legend wrapperStyle={{ fontSize: 12 }} />}
           {series.map((s, i) => (
-            <Bar key={s.key} dataKey={s.key} name={s.label} fill={COLOURS[i % COLOURS.length]} stackId={stacked ? "stack" : undefined} />
+            <Bar key={s.key} dataKey={s.key} name={s.label} fill={COLOURS[i % COLOURS.length]} stackId={stacked ? "stack" : undefined} isAnimationActive={false} />
           ))}
         </BarChart>
       </ResponsiveContainer>
-    </figure>
+    </ChartFigure>
   );
 }

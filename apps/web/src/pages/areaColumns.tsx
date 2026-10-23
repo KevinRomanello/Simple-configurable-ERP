@@ -4,7 +4,9 @@ import type { ColDef, ColGroupDef, ICellRendererParams, ValueSetterParams } from
 import type { FiguresPatch, LinePatch } from "../api/client";
 import type { CalcLine, Fund, Phase, PhaseCalc } from "../api/types";
 import { ArrivalPill, arrivalTitle } from "../components/ArrivalPill";
+import { SearchSelectEditor } from "../components/SearchSelect";
 import { date, money, quantity } from "../lib/format";
+import { gridCompare } from "../lib/sort";
 
 /** The pinned "yellow row" of a project: same shape as a line, but only results. */
 type PhaseView = Partial<PhaseCalc> & Pick<PhaseCalc, "amounts" | "teamVatCents">;
@@ -34,6 +36,10 @@ export type Commit = (line: CalcLine, patch: Omit<LinePatch, "version">) => void
 
 const isLine = (row: Row | undefined): row is CalcLine => row !== undefined && !("isSubtotal" in row);
 
+/** While a search box is open, Enter and the arrows belong to its list, not to the grid. */
+const keysForSearch = (p: { editing: boolean; event: KeyboardEvent | null }) =>
+  p.editing && ["Enter", "ArrowUp", "ArrowDown"].includes(p.event?.key ?? "");
+
 const INCOMPLETE_TIP = "CASH FROM or VAT % is missing: the VAT is not counted yet";
 const PHASE_LABEL: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
 
@@ -58,14 +64,14 @@ function statusTip(row: Row | undefined): string | undefined {
   return tips.length > 0 ? tips.join("\n") : undefined;
 }
 
-/** The funds that can pay the rest of a line after its first fund: same group, or the team fund. */
+/** The funds that can pay the rest of a line after its first fund: only others of the same group (never the team's own money). */
 function companionNames(lookups: GridLookups, phase: Phase, line: CalcLine): string[] {
   const chosen = line[phase].figures?.fundIds ?? [];
   const first = lookups.fundById.get(chosen[0] ?? -1);
   if (!first || first.kind === "team" || first.type !== "fund") return [];
   return lookups.funds[phase]
     .filter((f) => !chosen.includes(f.id))
-    .filter((f) => f.kind === "team" || (f.type === "fund" && f.group !== null && f.group.toLowerCase() === first.group?.toLowerCase()))
+    .filter((f) => f.kind === "external" && f.type === "fund" && f.group !== null && f.group.toLowerCase() === first.group?.toLowerCase())
     .map((f) => f.name);
 }
 const blank = (value: unknown) => value === "" || value === null || value === undefined;
@@ -78,7 +84,8 @@ function editableCell(
   return {
     editable: (p) => isLine(p.data) && !p.node.rowPinned,
     valueSetter: (p: ValueSetterParams<Row>) => {
-      if (isLine(p.data)) commit(p.data, toPatch(p.newValue));
+      // an editor closed without a choice hands back what the cell showed: that is no change
+      if (isLine(p.data) && p.newValue !== p.oldValue) commit(p.data, toPatch(p.newValue));
       return false; // the screen reloads the real value from the server
     },
   };
@@ -122,6 +129,15 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFu
       const amounts = amountsOf(p.data);
       return amounts ? money(pick(amounts), id !== "vat") : "";
     },
+    // sorted by the amount, not by the text it is shown as; a blank cell is an empty value
+    comparator: (_a, _b, nodeA, nodeB, isDescending) => {
+      const amountOf = (row: Row | undefined) => {
+        const amounts = amountsOf(row);
+        const cents = amounts ? pick(amounts) : 0;
+        return cents === 0 && id !== "vat" ? null : cents;
+      };
+      return gridCompare(amountOf(nodeA.data), amountOf(nodeB.data), isDescending);
+    },
     ...(bold ? { cellStyle: { fontWeight: 700 } } : {}),
   });
 
@@ -130,7 +146,8 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFu
       colId: `${phase}.quantity`,
       headerName: "QTY",
       width: 80,
-      cellClass: "num",
+      headerClass: "phase-start", // the bar that divides expected from actual
+      cellClass: ["num", "phase-start"],
       valueGetter: (p) => (fig(p.data) ? fig(p.data)!.quantityMilli / 1000 : null),
       cellEditor: "agNumberCellEditor",
       cellEditorParams: { min: 0, precision: 3 },
@@ -160,7 +177,9 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFu
         // with several funds each one shows what it pays
         return shares.length > 1 ? `${shares[0]!.fundName} (${money(shares[0]!.drawnCents)})` : (p.data?.[phase].fundName ?? "");
       },
-      cellEditor: "agSelectCellEditor",
+      cellEditor: SearchSelectEditor,
+      cellEditorPopup: true,
+      suppressKeyboardEvent: keysForSearch,
       cellEditorParams: { values: ["", ...lookups.funds[phase].map((f) => f.name)] },
       // choosing the first fund starts the list again: the other funds are chosen afterwards
       ...editableCell(commit, (v) =>
@@ -179,7 +198,9 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFu
           .slice(1)
           .map((share) => `${share.fundName} (${money(share.drawnCents)})`)
           .join(" + "),
-      cellEditor: "agSelectCellEditor",
+      cellEditor: SearchSelectEditor,
+      cellEditorPopup: true,
+      suppressKeyboardEvent: keysForSearch,
       cellEditorParams: (p: { data?: Row }) => ({
         values: ["", ...(isLine(p.data) ? companionNames(lookups, phase, p.data) : [])],
       }),
@@ -190,11 +211,13 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFu
         !p.node.rowPinned &&
         (p.data[phase].shares.length > 1 || (p.data[phase].shortCents > 0 && companionNames(lookups, phase, p.data).length > 0)),
       valueSetter: (p: ValueSetterParams<Row>) => {
-        if (!isLine(p.data)) return false;
+        if (!isLine(p.data) || p.newValue === p.oldValue) return false; // closed without a choice
         const current = p.data[phase].figures?.fundIds ?? [];
-        const picked = lookups.fundByName.get(String(p.newValue ?? "").toLowerCase());
-        // a blank choice takes the extra funds away, leaving the first
-        commit(p.data, patchFigures({ fundIds: picked ? [...current, picked.id] : current.slice(0, 1) }));
+        const wanted = String(p.newValue ?? "");
+        const picked = lookups.fundByName.get(wanted.toLowerCase());
+        // a blank choice takes the extra funds away, leaving the first; a fund is added after the others
+        if (wanted === "") commit(p.data, patchFigures({ fundIds: current.slice(0, 1) }));
+        else if (picked) commit(p.data, patchFigures({ fundIds: [...current, picked.id] }));
         return false;
       },
     },
@@ -203,7 +226,9 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFu
       headerName: "BOUGHT FROM",
       width: 150,
       valueGetter: (p) => p.data?.[phase].supplierName ?? "",
-      cellEditor: "agSelectCellEditor",
+      cellEditor: SearchSelectEditor,
+      cellEditorPopup: true,
+      suppressKeyboardEvent: keysForSearch,
       cellEditorParams: { values: ["", ...lookups.supplierNames] },
       ...editableCell(commit, (v) =>
         patchFigures({ supplierId: blank(v) ? null : (lookups.supplierIdByName.get(String(v).toLowerCase()) ?? null) }),
@@ -226,9 +251,10 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFu
       ...editableCell(commit, (v) => patchFigures({ vatRate: blank(v) ? null : Number(String(v).replace("%", "")) })),
       editable: (p) => isLine(p.data) && !p.node.rowPinned && choosesOwnRate(lookups, fig(p.data)?.fundIds ?? []),
     },
-    amountColumn("gross", "GRAND TOTAL", (a) => a.grossCents),
+    { ...amountColumn("gross", "GRAND TOTAL", (a) => a.grossCents), headerClass: "sum", cellClass: ["calc", "sum"] },
     {
       ...amountColumn("outflow", "OUTFLOW", (a) => a.outflowCents, 118, true),
+      cellClass: ["calc", "sum-next"],
       // what the sponsor gives for free (a gift, or an old partial sponsor of the sheet) is not a column: it is explained here
       tooltipValueGetter: (p) => {
         const a = amountsOf(p.data);
@@ -252,22 +278,6 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFu
       valueFormatter: (p) => date(p.value),
       cellEditor: "agDateStringCellEditor",
       ...editableCell(commit, (v) => patchFigures({ arrivalDate: blank(v) ? null : String(v) })),
-    },
-    {
-      colId: `${phase}.teamVat`,
-      headerName: "VAT TO PAY",
-      headerTooltip: "The VAT the team pays out of its own cash for this line: the sponsor does not cover it, or the line is paid from the team fund",
-      width: 115,
-      cellClass: "calc",
-      valueGetter: (p) => (p.data && p.data[phase].teamVatCents > 0 ? money(p.data[phase].teamVatCents) : ""),
-    },
-    {
-      colId: `${phase}.vatDue`,
-      headerName: "VAT DUE",
-      headerTooltip: "The day the VAT to pay falls due: the quarterly deadline that follows the purchase date",
-      width: 100,
-      cellClass: "calc",
-      valueGetter: (p) => date(p.data?.[phase].vatDueDate),
     },
     // Only what was bought can arrive: the inventory (PENDING) tells how much of it has.
     ...(phase === "actual" ? [arrivalColumn] : []),
@@ -303,8 +313,8 @@ function readOnly(columns: Columns): Columns {
 }
 
 /** The columns of a project grid, in the order of the old area sheets. */
-/** The narrowest a column may get: the longest word of its header (headers wrap at spaces) plus some room. */
-const headerMinWidth = (name: string) => Math.ceil(Math.max(...name.split(" ").map((word) => word.length)) * 8.2) + 28;
+/** The narrowest a column may get: the longest word of its header (headers wrap at spaces) plus room for the padding and the sort arrow. */
+const headerMinWidth = (name: string) => Math.ceil(Math.max(...name.split(" ").map((word) => word.length)) * 8.2) + 46;
 
 /** Columns are as wide as their content (the grid fits them); this keeps each from getting narrower than its header word. */
 function withMinWidths(columns: Columns): Columns {
@@ -400,7 +410,9 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
       headerName: "CATEGORY",
       width: 140,
       valueGetter: (p) => (isLine(p.data) ? (p.data.category ?? "") : ""),
-      cellEditor: "agSelectCellEditor",
+      cellEditor: SearchSelectEditor,
+      cellEditorPopup: true,
+      suppressKeyboardEvent: keysForSearch,
       cellEditorParams: { values: ["", ...lookups.categories] },
       ...editableCell(commit, (v) => ({ category: blank(v) ? null : String(v) })),
     },
@@ -417,12 +429,12 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
     },
     {
       headerName: "EXPECTED",
-      headerClass: "phase-estimate",
+      headerClass: ["phase-estimate", "phase-start"],
       children: phaseColumns("estimate", lookups, commit, moreFunds),
     },
     {
       headerName: "ACTUAL",
-      headerClass: "phase-actual",
+      headerClass: ["phase-actual", "phase-start"],
       children: phaseColumns("actual", lookups, commit, moreFunds),
     },
     {

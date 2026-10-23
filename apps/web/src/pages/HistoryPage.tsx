@@ -5,6 +5,10 @@ import type { HistoryEntry } from "../api/types";
 import { Button } from "../components/Button";
 import { useMe } from "../lib/auth";
 import { dateTime } from "../lib/format";
+import { TableBox } from "../components/ExportBlocks";
+import { DownloadMenu } from "../components/DownloadMenu";
+import { SortTh } from "../components/SortTh";
+import { useSort, type SortAccessors } from "../lib/sort";
 
 /** Names for the tables of the database, as people know them. */
 const TABLES: Record<string, string> = {
@@ -20,6 +24,12 @@ const TABLES: Record<string, string> = {
   user_area: "User area",
 };
 const ACTION = { insert: "added", update: "changed", delete: "deleted" } as const;
+
+const SORT: SortAccessors<HistoryEntry> = {
+  when: (e) => e.at,
+  who: (e) => e.actor?.name ?? "system",
+  what: (e) => `${TABLES[e.table] ?? e.table} ${ACTION[e.action]}`,
+};
 
 const humanField = (field: string) => field.replaceAll("_", " ");
 function humanValue(value: unknown): string {
@@ -60,6 +70,7 @@ function Changes({ entry }: { entry: HistoryEntry }) {
 export function HistoryPage() {
   const allowed = useMe().permissions.canViewHistory;
   const [table, setTable] = useState("");
+  const sort = useSort(SORT);
   const history = useInfiniteQuery({
     queryKey: ["history", table],
     queryFn: ({ pageParam }) => api.history({ table: table || undefined, before: pageParam }),
@@ -69,7 +80,7 @@ export function HistoryPage() {
   });
 
   if (!allowed) return <p className="empty">The history is for admins and project managers.</p>;
-  const entries = history.data?.pages.flatMap((page) => page.entries) ?? [];
+  const entries = sort.sorted(history.data?.pages.flatMap((page) => page.entries) ?? []);
 
   return (
     <>
@@ -78,20 +89,28 @@ export function HistoryPage() {
           <h1>History</h1>
           <p className="muted">Every change, newest first. Changes with no person (the first import, an account created at its first sign-in) show as "system".</p>
         </div>
-        <div className="field">
-          <label htmlFor="history-table">Show</label>
-          <select id="history-table" className="input small" value={table} onChange={(e) => setTable(e.target.value)}>
-            <option value="">everything</option>
-            {Object.entries(TABLES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-          </select>
+        <div className="actions">
+          <div className="field">
+            <label htmlFor="history-table">Show</label>
+            <select id="history-table" className="input small" value={table} onChange={(e) => setTable(e.target.value)}>
+              <option value="">everything</option>
+              {Object.entries(TABLES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+          </div>
+          <DownloadMenu />
         </div>
       </header>
 
       <section className="panel">
-        <div className="table-wrap">
+        <TableBox title="History">
           <table className="data-table history">
             <thead>
-              <tr><th>WHEN</th><th>WHO</th><th>WHAT</th><th>DETAILS</th></tr>
+              <tr>
+                <SortTh sort={sort} by="when">WHEN</SortTh>
+                <SortTh sort={sort} by="who">WHO</SortTh>
+                <SortTh sort={sort} by="what">WHAT</SortTh>
+                <th>DETAILS</th>
+              </tr>
             </thead>
             <tbody>
               {entries.map((entry) => (
@@ -108,7 +127,7 @@ export function HistoryPage() {
               {history.isSuccess && entries.length === 0 && <tr><td colSpan={4} className="empty">No changes yet</td></tr>}
             </tbody>
           </table>
-        </div>
+        </TableBox>
 
         {history.hasNextPage && (
           <div>

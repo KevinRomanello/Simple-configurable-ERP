@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { api } from "../api/client";
+import type { ItemRow } from "../api/types";
 import { Button } from "../components/Button";
+import { SearchSelect } from "../components/SearchSelect";
 import { ItemThumb } from "../components/ItemThumb";
 import { PriceSelector } from "../components/PriceSelector";
 import { ReceiveForm } from "../components/ReceiveForm";
@@ -12,6 +14,20 @@ import { useMe } from "../lib/auth";
 import { moneyE4, money, quantity } from "../lib/format";
 import { useInventoryLookups } from "../lib/inventory";
 import { usePrice } from "../lib/price";
+import { TableBox } from "../components/ExportBlocks";
+import { DownloadMenu } from "../components/DownloadMenu";
+import { SortTh } from "../components/SortTh";
+import { useSort, type SortAccessors } from "../lib/sort";
+
+const SORT: SortAccessors<ItemRow> = {
+  name: (r) => r.name,
+  category: (r) => r.category,
+  onHand: (r) => r.onHandMilli,
+  bought: (r) => (r.origin === "made" ? null : r.boughtMilli),
+  unit: (r) => r.unitE4,
+  value: (r) => r.valueCents,
+  where: (r) => r.places.join(", ") || null,
+};
 
 /** INVENTORY: everything the team keeps, how much of it, where, and what it is worth. */
 export function InventoryPage() {
@@ -28,7 +44,8 @@ export function InventoryPage() {
   const items = useQuery({ queryKey: ["inventory-items", price, filters], queryFn: () => api.inventoryItems(price, filters) });
   const everything = useQuery({ queryKey: ["inventory-items", price, {}], queryFn: () => api.inventoryItems(price) });
 
-  const rows = items.data ?? [];
+  const sort = useSort(SORT);
+  const rows = sort.sorted(items.data ?? []);
   const value = rows.reduce((sum, r) => sum + (r.valueCents ?? 0), 0);
 
   return (
@@ -38,7 +55,10 @@ export function InventoryPage() {
           <h1>INVENTORY</h1>
           <p className="muted">What the team keeps: how much, where, what it cost and what it is for. Goods bought with the budget are added from PENDING when they arrive.</p>
         </div>
-        {canEdit && lookups && <Button small icon={faPlus} onClick={() => setAdding(!adding)}>{adding ? "Close" : "Add goods"}</Button>}
+        <div className="actions">
+          {canEdit && lookups && <Button icon={faPlus} onClick={() => setAdding(!adding)}>{adding ? "Close" : "Add goods"}</Button>}
+          <DownloadMenu />
+        </div>
       </header>
 
       {adding && lookups && everything.data && (
@@ -61,10 +81,7 @@ export function InventoryPage() {
           </div>
           <div className="field">
             <label htmlFor="inventory-category">Category</label>
-            <select id="inventory-category" className="input small" value={category} onChange={(e) => setCategory(e.target.value)}>
-              <option value="">All</option>
-              {lookups?.categories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <SearchSelect id="inventory-category" value={category} onChange={setCategory} choices={[{ value: "", label: "All" }, ...(lookups?.categories ?? []).map((c) => ({ value: c, label: c }))]} />
           </div>
           <div className="field">
             <label htmlFor="inventory-origin">Kind</label>
@@ -76,26 +93,23 @@ export function InventoryPage() {
           </div>
           <div className="field">
             <label htmlFor="inventory-location">Where</label>
-            <select id="inventory-location" className="input small" value={location} onChange={(e) => setLocation(e.target.value)}>
-              <option value="">Anywhere</option>
-              {lookups?.locations.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
-            </select>
+            <SearchSelect id="inventory-location" value={location} onChange={setLocation} choices={[{ value: "", label: "Anywhere" }, ...(lookups?.locations ?? []).map((l) => ({ value: l.code, label: l.label }))]} />
           </div>
           <PriceSelector value={price} onChange={setPrice} date />
         </div>
 
-        <div className="table-wrap">
+        <TableBox title="Inventory">
           <table className="data-table">
             <thead>
               <tr>
                 <th />
-                <th>ITEM</th>
-                <th>CATEGORY</th>
-                <th className="num">ON THE SHELF</th>
-                <th className="num">BOUGHT</th>
-                <th className="num">UNIT PRICE</th>
-                <th className="num">VALUE</th>
-                <th>WHERE</th>
+                <SortTh sort={sort} by="name">ITEM</SortTh>
+                <SortTh sort={sort} by="category">CATEGORY</SortTh>
+                <SortTh sort={sort} by="onHand" className="num">ON THE SHELF</SortTh>
+                <SortTh sort={sort} by="bought" className="num">BOUGHT</SortTh>
+                <SortTh sort={sort} by="unit" className="num">UNIT PRICE</SortTh>
+                <SortTh sort={sort} by="value" className="num sum">VALUE</SortTh>
+                <SortTh sort={sort} by="where">WHERE</SortTh>
               </tr>
             </thead>
             <tbody>
@@ -114,14 +128,14 @@ export function InventoryPage() {
                     {r.unitE4 === null ? <span className="muted" title="Never bought">—</span> : moneyE4(r.unitE4)}
                     {!r.complete && r.unitE4 !== null && <span className="negative" title="Something in its cost has never been bought"> !</span>}
                   </td>
-                  <td className="num">{r.valueCents === null ? <span className="muted">—</span> : money(r.valueCents)}</td>
+                  <td className="num sum">{r.valueCents === null ? <span className="muted">—</span> : money(r.valueCents)}</td>
                   <td>{r.places.length ? r.places.join(", ") : <span className="muted">—</span>}</td>
                 </tr>
               ))}
               {items.isSuccess && rows.length === 0 && <tr><td colSpan={8} className="empty">Nothing here yet</td></tr>}
             </tbody>
           </table>
-        </div>
+        </TableBox>
       </section>
     </>
   );

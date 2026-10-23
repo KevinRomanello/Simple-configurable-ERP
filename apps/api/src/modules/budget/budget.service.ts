@@ -141,8 +141,9 @@ async function saveFigures(tx: Tx, lineId: number, phase: Phase, patch: FiguresI
 
 /**
  * Replaces the funds that pay a line. They must work together: several funds only if they are in
- * the same group, the team fund only as the last one (it never runs out), a gift only alone (it
- * covers everything) and never a sponsor whose money goes into the bank.
+ * the same group, never the team fund together with others (the team's own money cannot make up
+ * for a fund that is not enough), a gift only alone (it covers everything) and never a sponsor
+ * whose money goes into the bank.
  */
 async function saveFunds(tx: Tx, figuresId: number, ids: number[]) {
   const found = ids.length > 0 ? await tx.select().from(fund).where(inArray(fund.id, ids)) : [];
@@ -158,8 +159,8 @@ async function saveFunds(tx: Tx, figuresId: number, ids: number[]) {
     if (f.kind === "external" && f.type !== "fund" && chosen.length > 1) {
       throw invalid(`"${f.name}" covers the whole line: it cannot be combined with other funds`);
     }
-    if (f.kind === "team" && index < chosen.length - 1) {
-      throw invalid("The team fund can only be the last fund of a line: it never runs out");
+    if (f.kind === "team" && chosen.length > 1) {
+      throw invalid("The team's own money cannot make up for a fund that is not enough: add another fund of the same group");
     }
     const first = chosen[0]!;
     if (index > 0 && f.kind === "external") {

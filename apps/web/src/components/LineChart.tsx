@@ -1,5 +1,7 @@
 import { CartesianGrid, Line, LineChart as RechartsLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { chartTable } from "../lib/export/chart";
 import { moneyE4 } from "../lib/format";
+import { ChartFigure } from "./ExportBlocks";
 
 /**
  * A line of unit prices (in ten-thousandths of a euro) over time: what something cost on each
@@ -14,9 +16,13 @@ export function LineChart({
 }) {
   if (data.every((point) => point.e4 === null)) return null;
   const points = data.map((point) => ({ label: point.label, euros: point.e4 === null ? null : point.e4 / 10_000 }));
+  const table = chartTable(
+    "",
+    ["Price"],
+    points.filter((point) => point.euros !== null).map((point) => ({ name: point.label, values: [point.euros!] })),
+  );
   return (
-    <figure className="chart">
-      <figcaption className="bold">{title}</figcaption>
+    <ChartFigure title={title} legend={[]} table={table}>
       <ResponsiveContainer width="100%" height={height}>
         <RechartsLine data={points} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
           <CartesianGrid stroke="var(--stroke-sub)" vertical={false} />
@@ -29,6 +35,6 @@ export function LineChart({
           <Line type="stepAfter" dataKey="euros" name="Price" stroke="var(--utility-1)" strokeWidth={2} dot={{ r: 3 }} connectNulls={false} isAnimationActive={false} />
         </RechartsLine>
       </ResponsiveContainer>
-    </figure>
+    </ChartFigure>
   );
 }

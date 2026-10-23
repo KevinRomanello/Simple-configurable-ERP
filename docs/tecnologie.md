@@ -509,6 +509,22 @@ Abbiamo **un solo** componente (`BarsChart`) usato da tutte le viste. Converte i
 
 ---
 
+## jsPDF, jspdf-autotable ed ExcelJS
+
+**Il problema.** Il foglio Google si scaricava come PDF o Excel con un clic. Il sito deve poter dare tabelle e grafici in entrambi i formati, e farlo senza mandare niente al server.
+
+**Come funziona.**
+
+- **jsPDF** scrive un PDF dentro il browser; **jspdf-autotable** gli aggiunge le tabelle (colonne, intestazioni a gruppi con celle unite, righe colorate, a capo automatico). I grafici entrano come immagini.
+- **ExcelJS** scrive un file `.xlsx`: un foglio per tabella, con **numeri e date veri** (non testo), formati euro/percentuale/data, celle unite, intestazione bloccata e il grafico come immagine.
+- Le tre librerie sono grosse, quindi si caricano **solo al momento di scaricare** (`import()` dinamico): chi non scarica non le scarica.
+
+Tutto parte da una descrizione comune della tabella (`lib/export/table.ts`), così PDF ed Excel dicono la stessa cosa. Il funzionamento intero è in [download.md](download.md).
+
+**Dove guardare:** `apps/web/src/lib/export/`, `components/DownloadMenu.tsx`, `components/ExportBlocks.tsx`.
+
+---
+
 ## Font Awesome e Fira Code
 
 - **Font Awesome Free (set "solid")**: le stesse icone del design Figma, con gli stessi nomi (`faTrash`, `faPen`, `faCircleInfo`). Si importa **solo** l'icona che serve (`import { faTrash } from "@fortawesome/free-solid-svg-icons"`), quindi nel sito finiscono solo quelle usate; si disegna con `<FontAwesomeIcon icon={faTrash} />`.

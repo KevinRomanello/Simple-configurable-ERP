@@ -13,6 +13,11 @@ import { useAction } from "../lib/useAction";
 import { gridTheme } from "../theme/grid";
 import { areaColumns, needsMoreFunds, type Commit, type GridLookups, type MoreFunds, type Row, type SubtotalRow } from "./areaColumns";
 import { VatReportTable } from "./VatReportTable";
+import { TableBox, useExportBlock } from "../components/ExportBlocks";
+import { tableFromGrid } from "../lib/export/table";
+import { DownloadMenu } from "../components/DownloadMenu";
+import { GridSortHeader } from "../components/GridSortHeader";
+import { gridCompare } from "../lib/sort";
 
 type SheetProject = AreaSheet["projects"][number];
 
@@ -29,6 +34,7 @@ export function AreaPage() {
   const fundsActual = useQuery({ queryKey: ["funds", "actual"], queryFn: () => api.funds("actual") });
   const allFunds = useQuery({ queryKey: ["funds"], queryFn: () => api.funds() });
   const suppliers = useQuery({ queryKey: ["suppliers"], queryFn: api.suppliers });
+  const [adding, setAdding] = useState(false);
 
   const lookups = useMemo<GridLookups | null>(() => {
     if (!categories.data || !priorities.data || !vatRates.data || !fundsEstimate.data || !fundsActual.data || !allFunds.data || !suppliers.data) {
@@ -74,8 +80,13 @@ export function AreaPage() {
               : "Budget lines by project. You can look but not change this area."}
           </p>
         </div>
-        {canEdit && <NewProjectForm areaCode={code} />}
+        <div className="actions">
+          {canEdit && <Button icon={faPlus} onClick={() => setAdding(!adding)}>{adding ? "Close" : "New project"}</Button>}
+          <DownloadMenu />
+        </div>
       </header>
+
+      {adding && <NewProject areaCode={code} onDone={() => setAdding(false)} />}
 
       <AreaTotal total={data.total} />
 
@@ -101,6 +112,13 @@ function subtotalRow(project: SheetProject): SubtotalRow {
 function ProjectPanel({ project, buildColumns, canEdit }: { project: SheetProject; buildColumns: (moreFunds: MoreFunds) => ReturnType<typeof areaColumns>; canEdit: boolean }) {
   const act = useAction();
   const gridRef = useRef<AgGridReact<Row>>(null);
+  const panel = useRef<HTMLElement>(null);
+  useExportBlock({
+    title: project.name,
+    kind: "table",
+    element: () => panel.current,
+    collect: () => (gridRef.current?.api ? { kind: "table", table: tableFromGrid(gridRef.current.api) } : null),
+  });
   const more = needsMoreFunds(project.lines);
   const columns = useMemo(() => buildColumns(more), [buildColumns, more.estimate, more.actual]); // eslint-disable-line react-hooks/exhaustive-deps
   // a column that appears (or goes away) changes what the others can share: fit them again
@@ -127,7 +145,7 @@ function ProjectPanel({ project, buildColumns, canEdit }: { project: SheetProjec
   };
 
   return (
-    <section className="panel">
+    <section ref={panel} className="panel">
       <div className="panel-head">
         {editing ? (
           <>
@@ -154,7 +172,7 @@ function ProjectPanel({ project, buildColumns, canEdit }: { project: SheetProjec
         rowData={project.lines}
         pinnedBottomRowData={[subtotalRow(project)]}
         columnDefs={columns}
-        defaultColDef={{ resizable: true, sortable: false, suppressMovable: true, wrapHeaderText: true, autoHeaderHeight: true }}
+        defaultColDef={{ resizable: true, sortable: true, comparator: (a, b, _x, _y, isDescending) => gridCompare(a, b, isDescending), headerComponent: GridSortHeader, suppressMovable: true, wrapHeaderText: true, autoHeaderHeight: true }}
         // each column takes the room its content needs, no more; fitted again whenever the rows change
         // (the grid can only measure columns it draws, so all of them are drawn)
         suppressColumnVirtualisation
@@ -180,7 +198,8 @@ function ProjectPanel({ project, buildColumns, canEdit }: { project: SheetProjec
   );
 }
 
-function NewProjectForm({ areaCode }: { areaCode: string }) {
+/** The form to add a project to the area, opened from the header. */
+function NewProject({ areaCode, onDone }: { areaCode: string; onDone: () => void }) {
   const act = useAction();
   const [name, setName] = useState("");
   const [owner, setOwner] = useState("");
@@ -188,25 +207,25 @@ function NewProjectForm({ areaCode }: { areaCode: string }) {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (name.trim() === "") return;
-    const ok = await act(() => api.createProject({ areaCode, name: name.trim(), ownerName: owner.trim() || null }));
-    if (ok) {
-      setName("");
-      setOwner("");
-    }
+    if (await act(() => api.createProject({ areaCode, name: name.trim(), ownerName: owner.trim() || null }))) onDone();
   };
 
   return (
-    <form className="inline-form" onSubmit={submit}>
-      <div className="field">
-        <label htmlFor="project-name">New project</label>
-        <input id="project-name" className="input small" value={name} placeholder="Name" onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div className="field">
-        <label htmlFor="project-owner">Owner</label>
-        <input id="project-owner" className="input small" value={owner} placeholder="Optional" onChange={(e) => setOwner(e.target.value)} />
-      </div>
-      <Button small icon={faPlus} type="submit" disabled={name.trim() === ""}>Add project</Button>
-    </form>
+    <section className="panel">
+      <h2>New project</h2>
+      <form className="inline-form" onSubmit={submit}>
+        <div className="field">
+          <label htmlFor="project-name">Name</label>
+          <input id="project-name" className="input small" value={name} autoFocus onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="project-owner">Owner</label>
+          <input id="project-owner" className="input small" value={owner} placeholder="Optional" onChange={(e) => setOwner(e.target.value)} />
+        </div>
+        <Button small icon={faPlus} type="submit" disabled={name.trim() === ""}>Add project</Button>
+        <Button small variant="ghost" onClick={onDone}>Cancel</Button>
+      </form>
+    </section>
   );
 }
 
@@ -217,7 +236,7 @@ function AreaTotal({ total }: { total: AreaSheet["total"] }) {
   ] as const;
   return (
     <section className="panel">
-      <div className="table-wrap">
+      <TableBox title="Area total">
         <table className="data-table">
           <thead>
             <tr>
@@ -225,7 +244,6 @@ function AreaTotal({ total }: { total: AreaSheet["total"] }) {
               <th className="num">NET COST</th>
               <th className="num">VAT</th>
               <th className="num">GRAND TOTAL</th>
-              <th className="num" title="What sponsors give for free (gifts): the grand total minus this is the outflow">SPONSOR VALUE</th>
               <th className="num">OUTFLOW</th>
             </tr>
           </thead>
@@ -236,13 +254,12 @@ function AreaTotal({ total }: { total: AreaSheet["total"] }) {
                 <td className="num">{money(amounts.netCents)}</td>
                 <td className="num">{money(amounts.vatCents)}</td>
                 <td className="num">{money(amounts.grossCents)}</td>
-                <td className="num">{money(amounts.sponsorCents)}</td>
                 <td className="num bold">{money(amounts.outflowCents)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
+      </TableBox>
     </section>
   );
 }

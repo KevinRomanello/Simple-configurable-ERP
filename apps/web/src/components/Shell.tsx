@@ -10,6 +10,7 @@ import { NavLink, Outlet } from "react-router";
 import { api } from "../api/client";
 import { forgetUser, useMe } from "../lib/auth";
 import { IconButton } from "./Button";
+import { ExportProvider } from "./ExportBlocks";
 
 /** `end`: the link is lit only for its own page, not for the pages below it (INVENTORY next to PENDING). */
 function Item({ to, icon, end, children }: { to: string; icon: IconDefinition; end?: boolean; children: string }) {
@@ -124,7 +125,9 @@ export function Shell() {
         </div>
       </aside>
       <main className="main">
-        <Outlet />
+        <ExportProvider>
+          <Outlet />
+        </ExportProvider>
       </main>
     </div>
   );

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Fragment } from "react";
 import { api } from "../api/client";
 import { date, money } from "../lib/format";
+import { TableBox } from "../components/ExportBlocks";
 
 /** The VAT the team has to pay on each quarterly deadline, per project (the old "VAT OUTFLOW / PROJECT"). */
 export function VatReportTable({ areaCode }: { areaCode: string }) {
@@ -12,7 +13,7 @@ export function VatReportTable({ areaCode }: { areaCode: string }) {
   return (
     <section className="panel">
       <h2>VAT OUTFLOW / PROJECT</h2>
-      <div className="table-wrap">
+      <TableBox title="VAT OUTFLOW / PROJECT">
         <table className="data-table">
           <thead>
             <tr>
@@ -43,7 +44,7 @@ export function VatReportTable({ areaCode }: { areaCode: string }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </TableBox>
     </section>
   );
 }

@@ -3,6 +3,17 @@ import { api } from "../api/client";
 import type { Role, UserRow } from "../api/types";
 import { useMe } from "../lib/auth";
 import { useAction } from "../lib/useAction";
+import { TableBox } from "../components/ExportBlocks";
+import { DownloadMenu } from "../components/DownloadMenu";
+import { SortTh } from "../components/SortTh";
+import { useSort, type SortAccessors } from "../lib/sort";
+
+const SORT: SortAccessors<UserRow> = {
+  name: (u) => u.name,
+  email: (u) => u.email,
+  role: (u) => u.role,
+  active: (u) => (u.active ? 1 : 0),
+};
 
 const ROLES: { value: Role; label: string }[] = [
   { value: "viewer", label: "viewer: looks only" },
@@ -20,6 +31,7 @@ export function UsersPage() {
   const allowed = me.permissions.canManageUsers;
   const users = useQuery({ queryKey: ["users"], queryFn: api.users, enabled: allowed });
   const areas = useQuery({ queryKey: ["areas"], queryFn: api.areas });
+  const sort = useSort(SORT);
 
   if (!allowed) return <p className="empty">Only an admin can manage users.</p>;
 
@@ -37,16 +49,23 @@ export function UsersPage() {
             from their next request on.
           </p>
         </div>
+        <DownloadMenu />
       </header>
 
       <section className="panel">
-        <div className="table-wrap">
+        <TableBox title="Users">
           <table className="data-table">
             <thead>
-              <tr><th>NAME</th><th>EMAIL</th><th>ROLE</th><th>AREAS (PM)</th><th>ACTIVE</th></tr>
+              <tr>
+                <SortTh sort={sort} by="name">NAME</SortTh>
+                <SortTh sort={sort} by="email">EMAIL</SortTh>
+                <SortTh sort={sort} by="role">ROLE</SortTh>
+                <th>AREAS (PM)</th>
+                <SortTh sort={sort} by="active">ACTIVE</SortTh>
+              </tr>
             </thead>
             <tbody>
-              {users.data?.map((user) => (
+              {sort.sorted(users.data ?? []).map((user) => (
                 <tr key={user.id} className={user.active ? undefined : "inactive"}>
                   <td>{user.name}</td>
                   <td>{user.email}</td>
@@ -94,7 +113,7 @@ export function UsersPage() {
               {users.data?.length === 0 && <tr><td colSpan={5} className="empty">Nobody yet</td></tr>}
             </tbody>
           </table>
-        </div>
+        </TableBox>
       </section>
     </>
   );

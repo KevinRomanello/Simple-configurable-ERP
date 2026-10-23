@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../api/client";
-import type { ItemDraft, ItemField, MovementRow, StockPlace } from "../api/types";
+import type { BomLine, ItemDraft, ItemField, MovementRow, StockPlace } from "../api/types";
 import { Button, IconButton } from "../components/Button";
 import { ItemEditor } from "../components/ItemEditor";
 import { ItemThumb } from "../components/ItemThumb";
@@ -19,6 +19,30 @@ import { prepareImage } from "../lib/image";
 import { draftBody, draftOf, FIELD_LABELS, useInventoryLookups } from "../lib/inventory";
 import { usePrice } from "../lib/price";
 import { useAction } from "../lib/useAction";
+import { TableBox } from "../components/ExportBlocks";
+import { DownloadMenu } from "../components/DownloadMenu";
+import { SortTh } from "../components/SortTh";
+import { useSort, type SortAccessors } from "../lib/sort";
+
+const PARTS_SORT: SortAccessors<BomLine> = {
+  part: (l) => l.name,
+  quantity: (l) => l.quantityMilli,
+  unit: (l) => l.unitE4,
+  cost: (l) => l.totalCents,
+};
+const PLACES_SORT: SortAccessors<StockPlace> = {
+  place: (p) => p.label,
+  exactly: (p) => p.spot || null,
+  quantity: (p) => p.quantityMilli,
+};
+const MOVEMENTS_SORT: SortAccessors<MovementRow> = {
+  date: (m) => m.on,
+  kind: (m) => m.kind,
+  quantity: (m) => Number(m.quantity),
+  place: (m) => `${m.location} ${m.spot}`,
+  project: (m) => m.projectName,
+  price: (m) => (m.unitNet === null ? null : Number(m.unitNet)),
+};
 
 const KIND: Record<MovementRow["kind"], string> = { receipt: "Arrived", use: "Used", transfer: "Moved", adjustment: "Counted", disposal: "Disposed" };
 const FIELD_ORDER: ItemField[] = ["purpose", "safetyCodes", "disposal", "storageNotes", "maintenanceNotes"];
@@ -47,6 +71,9 @@ export function ItemPage() {
   const [placeOpen, setPlaceOpen] = useState<string | null>(null);
   const [receiving, setReceiving] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
+  const byPart = useSort(PARTS_SORT);
+  const byPlace = useSort(PLACES_SORT);
+  const byMovement = useSort(MOVEMENTS_SORT);
 
   if (detail.isError) return <p className="empty">Item not found.</p>;
   if (!detail.data || !lookups) return <p className="empty">Loading…</p>;
@@ -91,6 +118,7 @@ export function ItemPage() {
             </div>
           )}
         </div>
+        <DownloadMenu />
       </header>
 
       {draft && (
@@ -140,11 +168,18 @@ export function ItemPage() {
             <span className="spacer" />
             <Link to={`/inventory/components/${item.id}`} className="item-link">Open the bill of materials</Link>
           </div>
-          <div className="table-wrap">
+          <TableBox title="Made of">
             <table className="data-table">
-              <thead><tr><th>PART</th><th className="num">QUANTITY</th><th className="num">UNIT PRICE</th><th className="num">COST</th></tr></thead>
+              <thead>
+                <tr>
+                  <SortTh sort={byPart} by="part">PART</SortTh>
+                  <SortTh sort={byPart} by="quantity" className="num">QUANTITY</SortTh>
+                  <SortTh sort={byPart} by="unit" className="num">UNIT PRICE</SortTh>
+                  <SortTh sort={byPart} by="cost" className="num">COST</SortTh>
+                </tr>
+              </thead>
               <tbody>
-                {bom.lines.map((l) => (
+                {byPart.sorted(bom.lines).map((l) => (
                   <tr key={l.partId}>
                     <td><Link to={`/inventory/items/${l.partId}`} className="item-link">{l.name}</Link></td>
                     <td className="num">{quantity(l.quantityMilli)} {l.unit}</td>
@@ -155,7 +190,7 @@ export function ItemPage() {
                 {bom.lines.length === 0 && <tr><td colSpan={4} className="empty">No parts yet</td></tr>}
               </tbody>
             </table>
-          </div>
+          </TableBox>
         </section>
       )}
 
@@ -174,11 +209,18 @@ export function ItemPage() {
         {receiving && items.data && (
           <ReceiveForm items={items.data} presetItemId={itemId} lookups={lookups} onDone={() => setReceiving(false)} onCancel={() => setReceiving(false)} />
         )}
-        <div className="table-wrap">
+        <TableBox title="Where it is">
           <table className="data-table">
-            <thead><tr><th>PLACE</th><th>EXACTLY</th><th className="num">QUANTITY</th><th /></tr></thead>
+            <thead>
+              <tr>
+                <SortTh sort={byPlace} by="place">PLACE</SortTh>
+                <SortTh sort={byPlace} by="exactly">EXACTLY</SortTh>
+                <SortTh sort={byPlace} by="quantity" className="num">QUANTITY</SortTh>
+                <th />
+              </tr>
+            </thead>
             <tbody>
-              {stock.map((place) => (
+              {byPlace.sorted(stock).map((place) => (
                 <FragmentRow key={placeKey(place)} colSpan={4} open={placeOpen === placeKey(place)}
                   panel={<MovementForm item={item} place={place} lookups={lookups} onDone={() => setPlaceOpen(null)} onCancel={() => setPlaceOpen(null)} />}>
                   <td>{place.label}</td>
@@ -192,16 +234,26 @@ export function ItemPage() {
               {stock.length === 0 && <tr><td colSpan={4} className="empty">None on the shelf</td></tr>}
             </tbody>
           </table>
-        </div>
+        </TableBox>
       </section>
 
       <section className="panel">
         <h2>What happened</h2>
-        <div className="table-wrap">
+        <TableBox title="What happened">
           <table className="data-table">
-            <thead><tr><th>DATE</th><th /><th className="num">QUANTITY</th><th>PLACE</th><th>PROJECT</th><th className="num">NET PRICE</th><th>NOTE</th></tr></thead>
+            <thead>
+              <tr>
+                <SortTh sort={byMovement} by="date">DATE</SortTh>
+                <SortTh sort={byMovement} by="kind">WHAT</SortTh>
+                <SortTh sort={byMovement} by="quantity" className="num">QUANTITY</SortTh>
+                <SortTh sort={byMovement} by="place">PLACE</SortTh>
+                <SortTh sort={byMovement} by="project">PROJECT</SortTh>
+                <SortTh sort={byMovement} by="price" className="num">NET PRICE</SortTh>
+                <th>NOTE</th>
+              </tr>
+            </thead>
             <tbody>
-              {movements.map((m) => (
+              {byMovement.sorted(movements).map((m) => (
                 <tr key={m.id}>
                   <td>{date(m.on)}</td>
                   <td>{KIND[m.kind]}{m.budgetLineId !== null && <span className="muted"> · from the budget</span>}</td>
@@ -215,7 +267,7 @@ export function ItemPage() {
               {movements.length === 0 && <tr><td colSpan={7} className="empty">Nothing yet</td></tr>}
             </tbody>
           </table>
-        </div>
+        </TableBox>
       </section>
     </>
   );

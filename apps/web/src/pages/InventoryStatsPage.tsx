@@ -1,12 +1,26 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { StatsResult } from "../api/types";
+import type { StatsRow } from "@erp/calc";
 import { BarsChart } from "../components/BarsChart";
 import { Chips } from "../components/Chips";
 import { PriceSelector } from "../components/PriceSelector";
 import { money } from "../lib/format";
 import { usePrice } from "../lib/price";
 import { useSearchParams } from "react-router";
+import { TableBox } from "../components/ExportBlocks";
+import { DownloadMenu } from "../components/DownloadMenu";
+import { SortTh } from "../components/SortTh";
+import { useSort, type SortAccessors } from "../lib/sort";
+
+const SORT: SortAccessors<StatsRow> = {
+  label: (r) => r.label,
+  items: (r) => r.items,
+  boughtCents: (r) => r.boughtCents,
+  pendingCents: (r) => r.pendingCents,
+  usedCents: (r) => r.usedCents,
+  stockCents: (r) => r.stockCents,
+};
 
 const BY: { value: StatsResult["by"]; label: string }[] = [
   { value: "project", label: "By project" },
@@ -30,6 +44,7 @@ export function InventoryStatsPage() {
   const by = (BY.find((b) => b.value === params.get("by"))?.value ?? "project") as StatsResult["by"];
   const stats = useQuery({ queryKey: ["inventory-stats", by, price.basis], queryFn: () => api.inventoryStats(by, price.basis) });
   const rows = stats.data?.rows ?? [];
+  const sort = useSort(SORT);
   const show = COLUMNS[by];
   const total = (pick: (r: (typeof rows)[number]) => number) => rows.reduce((sum, r) => sum + pick(r), 0);
 
@@ -50,26 +65,27 @@ export function InventoryStatsPage() {
             was taken from the shelf for a project, at the average price paid until then. On the shelf is valued at the average price paid.
           </p>
         </div>
+        <DownloadMenu />
       </header>
 
       <section className="panel">
         <Chips label="How to cut it" options={BY} value={by} onChange={(value) => setParams({ by: value, basis: price.basis }, { replace: true })} />
         <PriceSelector value={price} onChange={(change) => setPrice(change)} method={false} />
 
-        <div className="table-wrap">
+        <TableBox title={`Stats ${BY.find((b) => b.value === by)!.label.toLowerCase()}`}>
           <table className="data-table">
             <thead>
               <tr>
-                <th>{by.toUpperCase()}</th>
-                <th className="num">ITEMS</th>
-                {show.bought && <th className="num">BOUGHT</th>}
-                {show.pending && <th className="num">ON ITS WAY</th>}
-                {show.used && <th className="num">USED</th>}
-                {show.stock && <th className="num">ON THE SHELF</th>}
+                <SortTh sort={sort} by="label">{by.toUpperCase()}</SortTh>
+                <SortTh sort={sort} by="items" className="num">ITEMS</SortTh>
+                {show.bought && <SortTh sort={sort} by="boughtCents" className="num">BOUGHT</SortTh>}
+                {show.pending && <SortTh sort={sort} by="pendingCents" className="num">ON ITS WAY</SortTh>}
+                {show.used && <SortTh sort={sort} by="usedCents" className="num">USED</SortTh>}
+                {show.stock && <SortTh sort={sort} by="stockCents" className="num">ON THE SHELF</SortTh>}
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {sort.sorted(rows).map((r) => (
                 <tr key={r.key}>
                   <td>{r.label}</td>
                   <td className="num">{r.items || ""}</td>
@@ -92,7 +108,7 @@ export function InventoryStatsPage() {
               {stats.isSuccess && rows.length === 0 && <tr><td colSpan={6} className="empty">Nothing yet</td></tr>}
             </tbody>
           </table>
-        </div>
+        </TableBox>
 
         <BarsChart title={BY.find((b) => b.value === by)!.label} data={rows.map((r) => ({ ...r }))} xKey="label" series={series} height={280} />
       </section>

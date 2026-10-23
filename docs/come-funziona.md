@@ -111,7 +111,7 @@ Prendiamo una voce: **10 pezzi a 100,00 € l'uno**, sponsor "nessuno", IVA 22%,
 
 **Nelle viste**:
 
-- *Area*: la riga mostra netto 1.000,00 €, IVA 220,00 €, outflow 1.220,00 €, "VAT TO PAY" 220,00 € con scadenza 16/02/27.
+- *Area*: la riga mostra netto 1.000,00 €, IVA 220,00 €, outflow 1.220,00 €. L'IVA che il team paga (220,00 €, scadenza 16/02/27) non è più una colonna della griglia: si vede nel report **VAT OUTFLOW / PROJECT** in fondo alla pagina, nel Gantt e in CASH FLOW.
 - *Gantt*: due movimenti di cassa. A **novembre 2026** escono 1.000,00 € (l'IVA non esce ora); a **febbraio 2027** escono 220,00 € (l'IVA alla sua scadenza).
 - *Tabella "Team's fund"*: quei due movimenti entrano come uscite del team, e il saldo mensile parte dal BANK.
 - *CASH FLOW*: se la data dell'acquisto è successiva alla data BANK, il "Left value" scende di 1.220,00 €.
@@ -227,7 +227,7 @@ Cosa la riconciliazione **non** copre: i dati reali sono semplici (IVA quasi sem
 | BOUGHT FROM | `supplier` (una lista unica) |
 | CASH FLOW (tabelle) e BANK | `team_inflow` e `bank_snapshot` |
 | EXPECTED / ACTUAL OUTFLOW | `outflowCents` di una voce in una fase |
-| EXPECTED / ACTUAL VAT TO PAY (l'IVA che il team paga di tasca sua per quella riga) e VAT DUE (il giorno in cui scade: la scadenza trimestrale dopo la data d'acquisto) | `teamVatCents` e `vatDueDate` |
+| l'IVA che il team paga di tasca sua per una riga e il giorno in cui scade (la scadenza trimestrale dopo la data d'acquisto): prima le colonne VAT TO PAY e VAT DUE, tolte dalla griglia il 23 ottobre 2026; il calcolo resta | `teamVatCents` e `vatDueDate` |
 | EXPECTED / ACTUAL GANTT | `gantt(snapshot, fase)` |
 | TOTAL | `totals(snapshot)` |
 | CASH FROM / BOUGHT FROM ANALYSES | `analysisByFund`, `analysisBySupplier` |

@@ -24,6 +24,8 @@ export const gridTheme = themeQuartz.withParams({
   wrapperBorderRadius: 2,
   spacing: 6,
   cellHorizontalPadding: 8,
+  columnBorder: { style: "solid", width: 1, color: "var(--stroke-sub)" },
+  headerColumnBorder: { style: "solid", width: 1, color: "var(--stroke-sub)" },
   rowHeight: 32,
   headerHeight: 32,
   inputBorder: "1px solid var(--stroke-sub)",

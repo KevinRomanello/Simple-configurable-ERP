@@ -142,23 +142,17 @@ describe("funds that pay together", () => {
     expect(p!.shortCents).toBe(20_000);
   });
 
-  it("a fund that covers VAT only pays the net that fits with its VAT; the team pays the rest", () => {
-    const covers = sponsorFund(2, { group: "g", paysVat: true });
-    const s = build([covers], [contract(1, 2, 122)], [figures(1, 200, { fundIds: [2, 1], vatRate: 22 })]);
+  it("a fund that covers VAT only pays the net that fits with its VAT; the next fund pays the rest", () => {
+    const covers = sponsorFund(2, { name: "Covers", group: "g", paysVat: true });
+    const next = sponsorFund(3, { name: "Next", group: "g" });
+    const s = build([covers, next], [contract(1, 2, 122), contract(2, 3, 5000)], [figures(1, 200, { fundIds: [2, 3] })]);
     const [p] = estimates(s);
     expect(p!.shares.map((x) => [x.fundName, x.netCents, x.vatCents, x.drawnCents])).toEqual([
-      ["Sponsor 2", 10_000, 2_200, 12_200], // 122.00 = 100.00 + 22.00 of VAT: all it has
-      ["Team's fund", 10_000, 2_200, 10_000],
+      ["Covers", 10_000, 2_200, 12_200], // 122.00 = 100.00 + 22.00 of VAT: all it has
+      ["Next", 10_000, 2_200, 10_000], // its VAT stays with the team
     ]);
-    expect(p!.teamVatCents).toBe(2_200); // only the team's own part
-    expect(p!.teamFundCents).toBe(10_000);
-    expect(p!.shortCents).toBe(0); // the team fund is never short
-  });
-
-  it("the team fund as last resort uses the rate typed on the line", () => {
-    const s = build([a], [contract(1, 2, 100)], [figures(1, 300, { fundIds: [2, 1], vatRate: 0 })]);
-    const [p] = estimates(s);
-    expect(p!.shares.map((x) => [x.netCents, x.vatCents])).toEqual([[10_000, 2_200], [20_000, 0]]);
+    expect(p!.teamVatCents).toBe(2_200); // only the part of the fund that does not cover VAT
+    expect(p!.shortCents).toBe(0);
   });
 });
 

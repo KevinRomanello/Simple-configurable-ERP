@@ -52,8 +52,9 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   └── web/src/
 │       ├── theme/            # tokens.css (token Figma), base.css (tipografia), components.css, grid.ts
 │       ├── api/              # client.ts (una funzione per endpoint), types.ts
-│       ├── lib/              # format.ts (soldi, date), useAction.ts (scritture + ricarica), auth.tsx (chi è dentro), permissions.ts
-│       ├── components/       # Shell, Button, Chips, Cards, BarsChart, Notice
+│       ├── lib/              # format.ts (soldi, date), useAction.ts (scritture + ricarica), auth.tsx (chi è dentro), permissions.ts,
+│       │                     # export/ (tabelle e grafici → PDF ed Excel nel browser, vedi download.md)
+│       ├── components/       # Shell, Button, Chips, Cards, BarsChart, Notice, DownloadMenu, ExportBlocks
 │       └── pages/            # una pagina per foglio del vecchio file, più Login, Users, History
 ├── packages/calc/src/        # funzioni pure + test
 └── tools/import-xlsx/        # legge l'xlsx reale: riconciliazione col foglio e caricamento nel DB (usa fonti/)
