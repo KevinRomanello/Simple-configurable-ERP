@@ -853,3 +853,27 @@ textarea.input {
   opacity: 0.5;
 }
 
+/* --- small pieces that pages used to style inline ------------------------------------------- */
+/* icons (or a pill and a number) side by side in a cell */
+.icon-row {
+  display: inline-flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+.tone-warning {
+  color: var(--warning-default);
+}
+.tone-error {
+  color: var(--error-default);
+}
+.tone-success {
+  color: var(--success-default);
+}
+/* the boxes of a project heading while it is renamed */
+.panel-head .input.edit-name {
+  max-width: 260px;
+}
+.panel-head .input.edit-owner {
+  max-width: 220px;
+}
+

@@ -13,10 +13,10 @@ import { useAction } from "../lib/useAction";
 import { gridTheme } from "../theme/grid";
 import { areaColumns, needsMoreFunds, type Commit, type GridLookups, type MoreFunds, type Row, type SubtotalRow } from "./areaColumns";
 import { VatReportTable } from "./VatReportTable";
-import { TableBox, useExportBlock } from "../components/ExportBlocks";
+import { useExportBlock } from "../components/ExportBlocks";
 import { tableFromGrid } from "../lib/export/table";
-import { DownloadMenu } from "../components/DownloadMenu";
 import { GridSortHeader } from "../components/GridSortHeader";
+import { DataTable, Field, FormPanel, Loading, Message, PageHeader, Panel, type Column } from "../components/ui";
 import { gridCompare } from "../lib/sort";
 
 type SheetProject = AreaSheet["projects"][number];
@@ -34,7 +34,6 @@ export function AreaPage() {
   const fundsActual = useQuery({ queryKey: ["funds", "actual"], queryFn: () => api.funds("actual") });
   const allFunds = useQuery({ queryKey: ["funds"], queryFn: () => api.funds() });
   const suppliers = useQuery({ queryKey: ["suppliers"], queryFn: api.suppliers });
-  const [adding, setAdding] = useState(false);
 
   const lookups = useMemo<GridLookups | null>(() => {
     if (!categories.data || !priorities.data || !vatRates.data || !fundsEstimate.data || !fundsActual.data || !allFunds.data || !suppliers.data) {
@@ -65,32 +64,25 @@ export function AreaPage() {
     [lookups, canEdit], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  if (sheet.isError) return <p className="empty">Area not found.</p>;
-  if (!sheet.data || !lookups || !buildColumns) return <p className="empty">Loading…</p>;
+  if (sheet.isError) return <Message>Area not found.</Message>;
+  if (!sheet.data || !lookups || !buildColumns) return <Loading />;
   const data = sheet.data;
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>{data.area.name}</h1>
-          <p className="muted">
-            {canEdit
-              ? "Budget lines by project. Click a cell to edit it; amounts are calculated."
-              : "Budget lines by project. You can look but not change this area."}
-          </p>
-        </div>
-        <div className="actions">
-          {canEdit && <Button icon={faPlus} onClick={() => setAdding(!adding)}>{adding ? "Close" : "New project"}</Button>}
-          <DownloadMenu />
-        </div>
-      </header>
-
-      {adding && <NewProject areaCode={code} onDone={() => setAdding(false)} />}
+      <PageHeader
+        title={data.area.name}
+        description={
+          canEdit
+            ? "Budget lines by project. Click a cell to edit it; amounts are calculated."
+            : "Budget lines by project. You can look but not change this area."
+        }
+        add={canEdit ? { label: "New project", form: (close) => <NewProject areaCode={code} onDone={close} /> } : undefined}
+      />
 
       <AreaTotal total={data.total} />
 
-      {data.projects.length === 0 && <p className="empty">{canEdit ? "No projects yet: add the first one." : "No projects yet."}</p>}
+      {data.projects.length === 0 && <Message>{canEdit ? "No projects yet: add the first one." : "No projects yet."}</Message>}
       {data.projects.map((project) => (
         <ProjectPanel key={project.id} project={project} buildColumns={buildColumns} canEdit={canEdit} />
       ))}
@@ -145,25 +137,29 @@ function ProjectPanel({ project, buildColumns, canEdit }: { project: SheetProjec
   };
 
   return (
-    <section ref={panel} className="panel">
-      <div className="panel-head">
-        {editing ? (
-          <>
-            <input className="input small" style={{ maxWidth: 260 }} value={name} onChange={(e) => setName(e.target.value)} aria-label="Project name" />
-            <input className="input small" style={{ maxWidth: 220 }} value={owner} placeholder="Owner" onChange={(e) => setOwner(e.target.value)} aria-label="Project owner" />
-            <IconButton icon={faCheck} label="Save" onClick={save} />
-            <IconButton icon={faXmark} label="Cancel" onClick={() => setEditing(false)} />
-          </>
-        ) : (
-          <>
-            <h2>{project.name}</h2>
-            {project.ownerName && <span className="owner">{project.ownerName}</span>}
-            {canEdit && <IconButton icon={faPen} label="Rename project" onClick={() => setEditing(true)} />}
-          </>
-        )}
-        <span className="spacer" />
-        {canEdit && <IconButton icon={faTrash} label="Delete project" danger onClick={remove} />}
-      </div>
+    <Panel
+      ref={panel}
+      head={
+        <>
+          {editing ? (
+            <>
+              <input className="input small edit-name" value={name} onChange={(e) => setName(e.target.value)} aria-label="Project name" />
+              <input className="input small edit-owner" value={owner} placeholder="Owner" onChange={(e) => setOwner(e.target.value)} aria-label="Project owner" />
+              <IconButton icon={faCheck} label="Save" onClick={save} />
+              <IconButton icon={faXmark} label="Cancel" onClick={() => setEditing(false)} />
+            </>
+          ) : (
+            <>
+              <h2>{project.name}</h2>
+              {project.ownerName && <span className="owner">{project.ownerName}</span>}
+              {canEdit && <IconButton icon={faPen} label="Rename project" onClick={() => setEditing(true)} />}
+            </>
+          )}
+          <span className="spacer" />
+          {canEdit && <IconButton icon={faTrash} label="Delete project" danger onClick={remove} />}
+        </>
+      }
+    >
 
       <AgGridReact<Row>
         ref={gridRef}
@@ -188,13 +184,13 @@ function ProjectPanel({ project, buildColumns, canEdit }: { project: SheetProjec
 
       {canEdit && (
         <form className="inline-form" onSubmit={addLine}>
-          <div className="field">
+          <Field>
             <input className="input small" value={newItem} placeholder="New item" onChange={(e) => setNewItem(e.target.value)} aria-label={`New item in ${project.name}`} />
-          </div>
+          </Field>
           <Button small icon={faPlus} type="submit" disabled={newItem.trim() === ""}>Add item</Button>
         </form>
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -204,62 +200,45 @@ function NewProject({ areaCode, onDone }: { areaCode: string; onDone: () => void
   const [name, setName] = useState("");
   const [owner, setOwner] = useState("");
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (name.trim() === "") return;
+  const submit = async () => {
     if (await act(() => api.createProject({ areaCode, name: name.trim(), ownerName: owner.trim() || null }))) onDone();
   };
 
   return (
-    <section className="panel">
-      <h2>New project</h2>
-      <form className="inline-form" onSubmit={submit}>
-        <div className="field">
-          <label htmlFor="project-name">Name</label>
-          <input id="project-name" className="input small" value={name} autoFocus onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="project-owner">Owner</label>
-          <input id="project-owner" className="input small" value={owner} placeholder="Optional" onChange={(e) => setOwner(e.target.value)} />
-        </div>
-        <Button small icon={faPlus} type="submit" disabled={name.trim() === ""}>Add project</Button>
-        <Button small variant="ghost" onClick={onDone}>Cancel</Button>
-      </form>
-    </section>
+    <FormPanel title="New project" submitLabel="Add project" canSubmit={name.trim() !== ""} onSubmit={submit} onCancel={onDone}>
+      <Field label="Name" htmlFor="project-name">
+        <input id="project-name" className="input small" value={name} autoFocus onChange={(e) => setName(e.target.value)} />
+      </Field>
+      <Field label="Owner" htmlFor="project-owner">
+        <input id="project-owner" className="input small" value={owner} placeholder="Optional" onChange={(e) => setOwner(e.target.value)} />
+      </Field>
+    </FormPanel>
   );
 }
 
+type Amounts = AreaSheet["total"]["estimate"];
+
+const TOTAL_COLUMNS: Column<{ label: string; amounts: Amounts }>[] = [
+  { key: "label", header: "TOTAL", cellClass: () => "bold", cell: (r) => r.label },
+  { key: "net", header: "NET COST", num: true, cell: (r) => money(r.amounts.netCents) },
+  { key: "vat", header: "VAT", num: true, cell: (r) => money(r.amounts.vatCents) },
+  { key: "gross", header: "GRAND TOTAL", num: true, cell: (r) => money(r.amounts.grossCents) },
+  { key: "outflow", header: "OUTFLOW", num: true, cellClass: () => "bold", cell: (r) => money(r.amounts.outflowCents) },
+];
+
+/** The two lines of the whole area, EXPECTED and ACTUAL. */
 function AreaTotal({ total }: { total: AreaSheet["total"] }) {
-  const rows = [
-    ["EXPECTED", total.estimate],
-    ["ACTUAL", total.actual],
-  ] as const;
   return (
-    <section className="panel">
-      <TableBox title="Area total">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>TOTAL</th>
-              <th className="num">NET COST</th>
-              <th className="num">VAT</th>
-              <th className="num">GRAND TOTAL</th>
-              <th className="num">OUTFLOW</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(([label, amounts]) => (
-              <tr key={label}>
-                <td className="bold">{label}</td>
-                <td className="num">{money(amounts.netCents)}</td>
-                <td className="num">{money(amounts.vatCents)}</td>
-                <td className="num">{money(amounts.grossCents)}</td>
-                <td className="num bold">{money(amounts.outflowCents)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </TableBox>
-    </section>
+    <Panel>
+      <DataTable
+        title="Area total"
+        columns={TOTAL_COLUMNS}
+        rows={[
+          { label: "EXPECTED", amounts: total.estimate },
+          { label: "ACTUAL", amounts: total.actual },
+        ]}
+        rowKey={(r) => r.label}
+      />
+    </Panel>
   );
 }

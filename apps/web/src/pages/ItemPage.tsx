@@ -20,30 +20,21 @@ import { draftBody, draftOf, FIELD_LABELS, useInventoryLookups } from "../lib/in
 import { usePrice } from "../lib/price";
 import { useAction } from "../lib/useAction";
 import { TableBox } from "../components/ExportBlocks";
-import { DownloadMenu } from "../components/DownloadMenu";
 import { SortTh } from "../components/SortTh";
+import { Card, Cards, DataTable, DetailHeader, EmptyRow, Loading, Message, Panel, type Column } from "../components/ui";
 import { useSort, type SortAccessors } from "../lib/sort";
 
-const PARTS_SORT: SortAccessors<BomLine> = {
-  part: (l) => l.name,
-  quantity: (l) => l.quantityMilli,
-  unit: (l) => l.unitE4,
-  cost: (l) => l.totalCents,
-};
+const PART_COLUMNS: Column<BomLine>[] = [
+  { key: "part", header: "PART", sort: (l) => l.name, cell: (l) => <Link to={`/inventory/items/${l.partId}`} className="item-link">{l.name}</Link> },
+  { key: "quantity", header: "QUANTITY", num: true, sort: (l) => l.quantityMilli, cell: (l) => `${quantity(l.quantityMilli)} ${l.unit}` },
+  { key: "unit", header: "UNIT PRICE", num: true, sort: (l) => l.unitE4, cell: (l) => (l.unitE4 === null ? <span className="muted">never bought</span> : moneyE4(l.unitE4)) },
+  { key: "cost", header: "COST", num: true, sort: (l) => l.totalCents, cell: (l) => (l.totalCents === null ? <span className="muted">—</span> : money(l.totalCents)) },
+];
 const PLACES_SORT: SortAccessors<StockPlace> = {
   place: (p) => p.label,
   exactly: (p) => p.spot || null,
   quantity: (p) => p.quantityMilli,
 };
-const MOVEMENTS_SORT: SortAccessors<MovementRow> = {
-  date: (m) => m.on,
-  kind: (m) => m.kind,
-  quantity: (m) => Number(m.quantity),
-  place: (m) => `${m.location} ${m.spot}`,
-  project: (m) => m.projectName,
-  price: (m) => (m.unitNet === null ? null : Number(m.unitNet)),
-};
-
 const KIND: Record<MovementRow["kind"], string> = { receipt: "Arrived", use: "Used", transfer: "Moved", adjustment: "Counted", disposal: "Disposed" };
 const FIELD_ORDER: ItemField[] = ["purpose", "safetyCodes", "disposal", "storageNotes", "maintenanceNotes"];
 
@@ -55,6 +46,27 @@ function movementQuantity(m: MovementRow): string {
   if (m.kind === "transfer") return `${quantity(milli)} → ${m.toLocation}${m.toSpot ? ` (${m.toSpot})` : ""}`;
   return milli > 0 ? `+${quantity(milli)}` : quantity(milli); // a count is the difference found
 }
+
+const MOVEMENT_COLUMNS: Column<MovementRow>[] = [
+  { key: "date", header: "DATE", sort: (m) => m.on, cell: (m) => date(m.on) },
+  {
+    key: "kind",
+    header: "WHAT",
+    sort: (m) => m.kind,
+    cell: (m) => <>{KIND[m.kind]}{m.budgetLineId !== null && <span className="muted"> · from the budget</span>}</>,
+  },
+  { key: "quantity", header: "QUANTITY", num: true, sort: (m) => Number(m.quantity), cell: movementQuantity },
+  { key: "place", header: "PLACE", sort: (m) => `${m.location} ${m.spot}`, cell: (m) => `${m.location}${m.spot ? ` (${m.spot})` : ""}` },
+  { key: "project", header: "PROJECT", sort: (m) => m.projectName, cell: (m) => m.projectName ?? <span className="muted">—</span> },
+  {
+    key: "price",
+    header: "NET PRICE",
+    num: true,
+    sort: (m) => (m.unitNet === null ? null : Number(m.unitNet)),
+    cell: (m) => (m.unitNet === null ? "" : moneyE4(Math.round(Number(m.unitNet) * 10_000))),
+  },
+  { key: "note", header: "NOTE", cell: (m) => m.note },
+];
 
 /** One item: its picture and information, where it is, what it cost over time and what happened to it. */
 export function ItemPage() {
@@ -71,12 +83,10 @@ export function ItemPage() {
   const [placeOpen, setPlaceOpen] = useState<string | null>(null);
   const [receiving, setReceiving] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
-  const byPart = useSort(PARTS_SORT);
   const byPlace = useSort(PLACES_SORT);
-  const byMovement = useSort(MOVEMENTS_SORT);
 
-  if (detail.isError) return <p className="empty">Item not found.</p>;
-  if (!detail.data || !lookups) return <p className="empty">Loading…</p>;
+  if (detail.isError) return <Message>Item not found.</Message>;
+  if (!detail.data || !lookups) return <Loading />;
   const { item, stock, history, movements, bom } = detail.data;
   const placeKey = (p: StockPlace) => `${p.location}\u0000${p.spot}`;
 
@@ -100,35 +110,35 @@ export function ItemPage() {
 
   return (
     <>
-      <header className="item-head">
-        <ItemThumb id={item.id} hasImage={detail.data.hasImage} size="full" name={item.name} />
-        <div className="item-title">
-          <h1>{item.name}</h1>
-          <p className="muted">
+      <DetailHeader
+        picture={<ItemThumb id={item.id} hasImage={detail.data.hasImage} size="full" name={item.name} />}
+        title={item.name}
+        subtitle={
+          <>
             {item.category ?? "No category"} · counted in {item.unit}{item.code ? ` · code ${item.code}` : ""}
             {item.origin === "made" && <> · <span className="pill teal">made by the team</span></>}
-          </p>
-          {canEdit && (
-            <div className="inline-form">
-              <Button small variant="ghost" icon={faPen} onClick={() => setDraft(draft ? null : draftOf(item))}>{draft ? "Close" : "Edit"}</Button>
-              <Button small variant="ghost" icon={faImage} onClick={() => picker.current?.click()}>{detail.data.hasImage ? "Change picture" : "Add picture"}</Button>
-              {detail.data.hasImage && <Button small variant="ghost" onClick={() => act(() => api.removeImage(itemId))}>Remove picture</Button>}
-              <IconButton icon={faTrash} label="Delete item" danger onClick={remove} />
-              <input ref={picker} type="file" accept="image/*" hidden onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
-            </div>
-          )}
-        </div>
-        <DownloadMenu />
-      </header>
+          </>
+        }
+      >
+        {canEdit && (
+          <div className="inline-form">
+            <Button small variant="ghost" icon={faPen} onClick={() => setDraft(draft ? null : draftOf(item))}>{draft ? "Close" : "Edit"}</Button>
+            <Button small variant="ghost" icon={faImage} onClick={() => picker.current?.click()}>{detail.data.hasImage ? "Change picture" : "Add picture"}</Button>
+            {detail.data.hasImage && <Button small variant="ghost" onClick={() => act(() => api.removeImage(itemId))}>Remove picture</Button>}
+            <IconButton icon={faTrash} label="Delete item" danger onClick={remove} />
+            <input ref={picker} type="file" accept="image/*" hidden onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
+          </div>
+        )}
+      </DetailHeader>
 
       {draft && (
-        <section className="panel">
+        <Panel>
           <ItemEditor draft={draft} onChange={(change) => setDraft({ ...draft, ...change })} lookups={lookups} idPrefix="edit" />
           <div className="inline-form">
             <Button small onClick={save} disabled={draft.name.trim() === ""}>Save</Button>
             <Button small variant="ghost" onClick={() => setDraft(null)}>Cancel</Button>
           </div>
-        </section>
+        </Panel>
       )}
 
       {!draft && written.length > 0 && (
@@ -143,55 +153,28 @@ export function ItemPage() {
       )}
 
       <PriceSelector value={price} onChange={setPrice} date />
-      <div className="cards">
-        <div className="card"><span className="label-s sub">On the shelf</span><span className="value">{quantity(detail.data.onHandMilli)} {item.unit}</span></div>
-        {item.origin === "bought" && <div className="card"><span className="label-s sub">Bought</span><span className="value">{quantity(detail.data.boughtMilli)} {item.unit}</span></div>}
-        <div className="card">
-          <span className="label-s sub">{item.origin === "made" ? "Cost of one" : "Price of one"}</span>
-          <span className="value">{detail.data.unitE4 === null ? "—" : moneyE4(detail.data.unitE4)}</span>
-          {!detail.data.complete && detail.data.unitE4 !== null && <span className="hint error">Something in its cost has never been bought</span>}
-        </div>
-        <div className="card">
-          <span className="label-s sub">Value on the shelf</span>
-          <span className="value">{detail.data.unitE4 === null ? "—" : money(Math.round((detail.data.onHandMilli * detail.data.unitE4) / 100_000))}</span>
-        </div>
-      </div>
+      <Cards>
+        <Card caption="On the shelf">{quantity(detail.data.onHandMilli)} {item.unit}</Card>
+        {item.origin === "bought" && <Card caption="Bought">{quantity(detail.data.boughtMilli)} {item.unit}</Card>}
+        <Card
+          caption={item.origin === "made" ? "Cost of one" : "Price of one"}
+          hint={!detail.data.complete && detail.data.unitE4 !== null && <span className="hint error">Something in its cost has never been bought</span>}
+        >
+          {detail.data.unitE4 === null ? "—" : moneyE4(detail.data.unitE4)}
+        </Card>
+        <Card caption="Value on the shelf">
+          {detail.data.unitE4 === null ? "—" : money(Math.round((detail.data.onHandMilli * detail.data.unitE4) / 100_000))}
+        </Card>
+      </Cards>
 
       {item.origin === "bought" && history.length > 0 && (
         <LineChart title="Price paid per purchase" data={history.map((p) => ({ label: date(p.on), e4: p.unitE4 }))} height={200} />
       )}
 
       {bom && (
-        <section className="panel">
-          <div className="panel-head">
-            <h2>Made of</h2>
-            <span className="spacer" />
-            <Link to={`/inventory/components/${item.id}`} className="item-link">Open the bill of materials</Link>
-          </div>
-          <TableBox title="Made of">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <SortTh sort={byPart} by="part">PART</SortTh>
-                  <SortTh sort={byPart} by="quantity" className="num">QUANTITY</SortTh>
-                  <SortTh sort={byPart} by="unit" className="num">UNIT PRICE</SortTh>
-                  <SortTh sort={byPart} by="cost" className="num">COST</SortTh>
-                </tr>
-              </thead>
-              <tbody>
-                {byPart.sorted(bom.lines).map((l) => (
-                  <tr key={l.partId}>
-                    <td><Link to={`/inventory/items/${l.partId}`} className="item-link">{l.name}</Link></td>
-                    <td className="num">{quantity(l.quantityMilli)} {l.unit}</td>
-                    <td className="num">{l.unitE4 === null ? <span className="muted">never bought</span> : moneyE4(l.unitE4)}</td>
-                    <td className="num">{l.totalCents === null ? <span className="muted">—</span> : money(l.totalCents)}</td>
-                  </tr>
-                ))}
-                {bom.lines.length === 0 && <tr><td colSpan={4} className="empty">No parts yet</td></tr>}
-              </tbody>
-            </table>
-          </TableBox>
-        </section>
+        <Panel title="Made of" actions={<Link to={`/inventory/components/${item.id}`} className="item-link">Open the bill of materials</Link>}>
+          <DataTable title="Made of" columns={PART_COLUMNS} rows={bom.lines} rowKey={(l) => l.partId} empty="No parts yet" />
+        </Panel>
       )}
 
       {detail.data.usedIn.length > 0 && (
@@ -200,12 +183,11 @@ export function ItemPage() {
         </p>
       )}
 
-      <section className="panel">
-        <div className="panel-head">
-          <h2>Where it is</h2>
-          <span className="spacer" />
-          {canEdit && <Button small icon={faPlus} onClick={() => setReceiving(!receiving)}>{receiving ? "Close" : "More arrived"}</Button>}
-        </div>
+      {/* rows that open a form under them: built from the common pieces rather than DataTable */}
+      <Panel
+        title="Where it is"
+        actions={canEdit && <Button small icon={faPlus} onClick={() => setReceiving(!receiving)}>{receiving ? "Close" : "More arrived"}</Button>}
+      >
         {receiving && items.data && (
           <ReceiveForm items={items.data} presetItemId={itemId} lookups={lookups} onDone={() => setReceiving(false)} onCancel={() => setReceiving(false)} />
         )}
@@ -231,44 +213,15 @@ export function ItemPage() {
                   </td>
                 </FragmentRow>
               ))}
-              {stock.length === 0 && <tr><td colSpan={4} className="empty">None on the shelf</td></tr>}
+              {stock.length === 0 && <EmptyRow colSpan={4}>None on the shelf</EmptyRow>}
             </tbody>
           </table>
         </TableBox>
-      </section>
+      </Panel>
 
-      <section className="panel">
-        <h2>What happened</h2>
-        <TableBox title="What happened">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <SortTh sort={byMovement} by="date">DATE</SortTh>
-                <SortTh sort={byMovement} by="kind">WHAT</SortTh>
-                <SortTh sort={byMovement} by="quantity" className="num">QUANTITY</SortTh>
-                <SortTh sort={byMovement} by="place">PLACE</SortTh>
-                <SortTh sort={byMovement} by="project">PROJECT</SortTh>
-                <SortTh sort={byMovement} by="price" className="num">NET PRICE</SortTh>
-                <th>NOTE</th>
-              </tr>
-            </thead>
-            <tbody>
-              {byMovement.sorted(movements).map((m) => (
-                <tr key={m.id}>
-                  <td>{date(m.on)}</td>
-                  <td>{KIND[m.kind]}{m.budgetLineId !== null && <span className="muted"> · from the budget</span>}</td>
-                  <td className="num">{movementQuantity(m)}</td>
-                  <td>{m.location}{m.spot ? ` (${m.spot})` : ""}</td>
-                  <td>{m.projectName ?? <span className="muted">—</span>}</td>
-                  <td className="num">{m.unitNet === null ? "" : moneyE4(Math.round(Number(m.unitNet) * 10_000))}</td>
-                  <td>{m.note}</td>
-                </tr>
-              ))}
-              {movements.length === 0 && <tr><td colSpan={7} className="empty">Nothing yet</td></tr>}
-            </tbody>
-          </table>
-        </TableBox>
-      </section>
+      <Panel title="What happened">
+        <DataTable title="What happened" columns={MOVEMENT_COLUMNS} rows={movements} rowKey={(m) => m.id} empty="Nothing yet" />
+      </Panel>
     </>
   );
 }

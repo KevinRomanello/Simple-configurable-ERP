@@ -9,6 +9,7 @@ import { todayIso } from "../lib/today";
 import { SearchSelect } from "./SearchSelect";
 import { useAction } from "../lib/useAction";
 import { Button } from "./Button";
+import { Field } from "./ui";
 
 const KINDS = [
   { value: "use", label: "Use" },
@@ -66,42 +67,36 @@ export function MovementForm({
       </div>
       <div className="form-grid">
         {kind === "adjustment" ? (
-          <div className="field">
-            <label htmlFor="move-counted">How many there are, counted</label>
+          <Field label="How many there are, counted" htmlFor="move-counted">
             <input id="move-counted" className="input small" type="number" min="0" step="0.001" value={counted} onChange={(e) => setCounted(e.target.value)} />
-          </div>
+          </Field>
         ) : (
-          <div className="field">
-            <label htmlFor="move-quantity">Quantity ({item.unit})</label>
+          <Field label={<>Quantity ({item.unit})</>} htmlFor="move-quantity">
             <input id="move-quantity" className="input small" type="number" min="0" step="0.001" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          </div>
+          </Field>
         )}
-        <div className="field">
-          <label htmlFor="move-date">On</label>
+        <Field label="On" htmlFor="move-date">
           <input id="move-date" className="input small" type="date" min="2000-01-01" max="2100-12-31" value={occurredOn} onChange={(e) => setOccurredOn(e.target.value)} />
-        </div>
+        </Field>
         {kind === "transfer" && (
           <>
-            <div className="field">
-              <label htmlFor="move-to">Move to</label>
+            <Field label="Move to" htmlFor="move-to">
               <SearchSelect id="move-to" value={toLocation} onChange={setToLocation} choices={lookups.locations.map((l) => ({ value: l.code, label: l.label }))} />
-            </div>
-            <div className="field">
-              <label htmlFor="move-to-spot">Where exactly</label>
+            </Field>
+            <Field label="Where exactly" htmlFor="move-to-spot">
               <input id="move-to-spot" className="input small" maxLength={100} value={toSpot} onChange={(e) => setToSpot(e.target.value)} />
-            </div>
+            </Field>
           </>
         )}
         {kind === "use" && (
-          <div className="field">
-            <label htmlFor="move-project">For project (optional)</label>
+          <Field label="For project (optional)" htmlFor="move-project">
             <SearchSelect
               id="move-project"
               value={projectId}
               onChange={setProjectId}
               choices={[{ value: "", label: "(none)" }, ...(projects.data ?? []).map((p) => ({ value: String(p.id), label: `${p.areaName}: ${p.name}` }))]}
             />
-          </div>
+          </Field>
         )}
         <div className="field wide">
           <label htmlFor="move-note">Note (optional)</label>

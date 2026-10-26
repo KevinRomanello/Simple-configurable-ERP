@@ -1,18 +1,17 @@
-import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { Fund, FundSummaryRow, FundType, MonthlyInflow, NewContract, Phase } from "../api/types";
-import { BarsChart } from "../components/BarsChart";
-import { Button, IconButton } from "../components/Button";
-import { date, money, moneyFromDecimal, month } from "../lib/format";
-import { useMe } from "../lib/auth";
-import { useAction } from "../lib/useAction";
+import type { Fund, FundSummaryRow, FundType, NewContract, Phase } from "../api/types";
+import { IconButton } from "../components/Button";
 import { TableBox } from "../components/ExportBlocks";
-import { DownloadMenu } from "../components/DownloadMenu";
+import { MonthlyInflows } from "../components/MonthlyInflows";
 import { SortTh } from "../components/SortTh";
+import { DataTable, EmptyRow, Field, FormPanel, PageHeader, Panel, type Column } from "../components/ui";
+import { useMe } from "../lib/auth";
+import { date, money, moneyFromDecimal } from "../lib/format";
 import { useSort, type SortAccessors } from "../lib/sort";
+import { useAction } from "../lib/useAction";
 
 const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
 
@@ -28,24 +27,14 @@ const TYPE_SHORT: Record<FundType, string> = { fund: "Fund", gift: "Goods, no VA
 /** CASH FROM: the sponsors, their contracts, what is left of them, and who pays the VAT. */
 export function FundsPage() {
   const canEdit = useMe().permissions.canEditShared;
-  const [adding, setAdding] = useState(false);
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>CASH FROM</h1>
-          <p className="muted">
-            Sponsors and their contracts. Choose a sponsor in the budget and the VAT is worked out from how it is defined here.
-          </p>
-        </div>
-        <div className="actions">
-          {canEdit && <Button icon={faPlus} onClick={() => setAdding(!adding)}>{adding ? "Close" : "New sponsor"}</Button>}
-          <DownloadMenu />
-        </div>
-      </header>
-
-      {adding && <NewSponsor onDone={() => setAdding(false)} />}
+      <PageHeader
+        title="CASH FROM"
+        description="Sponsors and their contracts. Choose a sponsor in the budget and the VAT is worked out from how it is defined here."
+        add={canEdit ? { label: "New sponsor", form: (close) => <NewSponsor onDone={close} /> } : undefined}
+      />
       <SponsorsPanel />
       <div className="two-columns">
         <PhaseSummary phase="estimate" />
@@ -109,8 +98,7 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
   const isMoney = type === "fund"; // only a fund is a sum of money; goods have no contract
   const ready = name.trim() !== "" && (gift || rate !== "");
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
+  const submit = async () => {
     const contracts: NewContract[] =
       isMoney && amount !== "" ? PHASES_CHOICE[counts].map((phase) => ({ phase, amount, inflowDate: day || null })) : [];
     const ok = await act(() =>
@@ -120,72 +108,60 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
   };
 
   return (
-    <section className="panel">
-      <h2>New sponsor</h2>
-      <p className="muted">
-        A sponsor's fund pays what is chosen with it, VAT included at its VAT %: put 0% for a sponsor that pays no VAT.
-        Sponsors of the same group can pay one purchase together. Money that goes into the bank is not a sponsor: add it in
-        CASH FLOW, as an inflow.
-      </p>
-      <form className="stack tight" onSubmit={submit}>
-        <div className="form-grid">
-          <div className="field">
-            <label htmlFor="sponsor-name">Name</label>
-            <input id="sponsor-name" className="input small" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="field">
-            <label htmlFor="sponsor-type">Gives</label>
-            <select id="sponsor-type" className="input small" value={type} onChange={(e) => setType(e.target.value as FundType)}>
-              {(Object.keys(TYPE_LABEL) as FundType[]).map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="sponsor-rate">VAT %</label>
-            <select id="sponsor-rate" className="input small" value={gift ? "0" : rate} disabled={gift} onChange={(e) => setRate(e.target.value)}>
-              {!gift && <option value="">Choose…</option>}
-              {(rates.data ?? []).map((r) => <option key={r} value={r}>{r}%</option>)}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="sponsor-group">Group (optional)</label>
-            <input id="sponsor-group" className="input small" list={GROUPS_LIST} maxLength={60} value={group} onChange={(e) => setGroup(e.target.value)} />
-          </div>
-        </div>
+    <FormPanel
+      title="New sponsor"
+      description="A sponsor's fund pays what is chosen with it, VAT included at its VAT %: put 0% for a sponsor that pays no VAT. Sponsors of the same group can pay one purchase together. Money that goes into the bank is not a sponsor: add it in CASH FLOW, as an inflow."
+      submitLabel="Add sponsor"
+      canSubmit={ready}
+      onSubmit={submit}
+      onCancel={onDone}
+      layout="stack"
+    >
+      <div className="form-grid">
+        <Field label="Name" htmlFor="sponsor-name">
+          <input id="sponsor-name" className="input small" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="Gives" htmlFor="sponsor-type">
+          <select id="sponsor-type" className="input small" value={type} onChange={(e) => setType(e.target.value as FundType)}>
+            {(Object.keys(TYPE_LABEL) as FundType[]).map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
+          </select>
+        </Field>
+        <Field label="VAT %" htmlFor="sponsor-rate">
+          <select id="sponsor-rate" className="input small" value={gift ? "0" : rate} disabled={gift} onChange={(e) => setRate(e.target.value)}>
+            {!gift && <option value="">Choose…</option>}
+            {(rates.data ?? []).map((r) => <option key={r} value={r}>{r}%</option>)}
+          </select>
+        </Field>
+        <Field label="Group (optional)" htmlFor="sponsor-group">
+          <input id="sponsor-group" className="input small" list={GROUPS_LIST} maxLength={60} value={group} onChange={(e) => setGroup(e.target.value)} />
+        </Field>
+      </div>
 
-        {isMoney ? (
-          <div className="subsection">
-            <h3>The money of the fund</h3>
-            <div className="form-grid">
-              <div className="field">
-                <label htmlFor="sponsor-amount">Contract value</label>
-                <input id="sponsor-amount" className="input small" type="number" min="0" step="0.01" placeholder="Optional" value={amount} onChange={(e) => setAmount(e.target.value)} />
-              </div>
-              <div className="field">
-                <label htmlFor="sponsor-day">Arrives on</label>
-                <input id="sponsor-day" className="input small" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
-              </div>
-              <div className="field">
-                <label htmlFor="sponsor-counts">Counts in</label>
-                <select id="sponsor-counts" className="input small" value={counts} onChange={(e) => setCounts(e.target.value as keyof typeof PHASES_CHOICE)}>
-                  <option value="both">EXPECTED and ACTUAL</option>
-                  <option value="estimate">EXPECTED only</option>
-                  <option value="actual">ACTUAL only</option>
-                </select>
-              </div>
-            </div>
-            <p className="muted">Value and date can be changed later in the SPONSORS table.</p>
+      {isMoney ? (
+        <div className="subsection">
+          <h3>The money of the fund</h3>
+          <div className="form-grid">
+            <Field label="Contract value" htmlFor="sponsor-amount">
+              <input id="sponsor-amount" className="input small" type="number" min="0" step="0.01" placeholder="Optional" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            </Field>
+            <Field label="Arrives on" htmlFor="sponsor-day">
+              <input id="sponsor-day" className="input small" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
+            </Field>
+            <Field label="Counts in" htmlFor="sponsor-counts">
+              <select id="sponsor-counts" className="input small" value={counts} onChange={(e) => setCounts(e.target.value as keyof typeof PHASES_CHOICE)}>
+                <option value="both">EXPECTED and ACTUAL</option>
+                <option value="estimate">EXPECTED only</option>
+                <option value="actual">ACTUAL only</option>
+              </select>
+            </Field>
           </div>
-        ) : (
-          <p className="muted">A sponsor that gives goods has no sum of money: nothing to add here.</p>
-        )}
-
-        <div className="actions">
-          <Button type="submit" disabled={!ready}>Add sponsor</Button>
-          <Button variant="ghost" onClick={onDone}>Cancel</Button>
+          <p className="muted">Value and date can be changed later in the SPONSORS table.</p>
         </div>
-      </form>
+      ) : (
+        <p className="muted">A sponsor that gives goods has no sum of money: nothing to add here.</p>
+      )}
       <GroupSuggestions funds={funds.data ?? []} />
-    </section>
+    </FormPanel>
   );
 }
 
@@ -280,8 +256,8 @@ function SponsorsPanel() {
   const rateOptions = (rates.data ?? []).map((r) => <option key={r} value={r}>{r}%</option>);
 
   return (
-    <section className="panel">
-      <h2>SPONSORS</h2>
+    // a header on two rows (the money of each phase): built from the common pieces rather than DataTable
+    <Panel title="SPONSORS">
       <TableBox title="Sponsors">
         <table className="data-table">
           <thead>
@@ -324,88 +300,36 @@ function SponsorsPanel() {
                 <td className="num">{canEdit && <IconButton icon={faTrash} label="Delete sponsor" danger onClick={() => remove(f)} />}</td>
               </tr>
             ))}
-            {sponsors.length === 0 && <tr><td colSpan={9} className="empty">No sponsors yet</td></tr>}
+            {funds.isSuccess && sponsors.length === 0 && <EmptyRow colSpan={9}>No sponsors yet</EmptyRow>}
           </tbody>
         </table>
       </TableBox>
       <GroupSuggestions funds={funds.data ?? []} />
-    </section>
+    </Panel>
   );
 }
 
-/** What the sponsors' money comes to in a phase: what is left of each fund and when the money arrives. */
-const SUMMARY_SORT: SortAccessors<FundSummaryRow> = {
-  name: (r) => r.name,
-  contract: (r) => r.totalContractCents,
-  left: (r) => r.leftCents,
-};
-const MONTHLY_SORT: SortAccessors<MonthlyInflow> = {
-  month: (m) => m.month,
-  inflow: (m) => m.totalCents,
-};
+const SUMMARY_COLUMNS: Column<FundSummaryRow>[] = [
+  { key: "name", header: "CASH SOURCE", sort: (r) => r.name, cell: (r) => r.name },
+  { key: "contract", header: "TOTAL CONTRACT", num: true, sort: (r) => r.totalContractCents, cell: (r) => money(r.totalContractCents) },
+  {
+    key: "left",
+    header: "LEFT VALUE",
+    num: true,
+    className: "sum",
+    sort: (r) => r.leftCents,
+    cellClass: (r) => (r.leftCents < 0 ? "cell-negative" : undefined),
+    cell: (r) => money(r.leftCents),
+  },
+];
 
+/** What the sponsors' money comes to in a phase: what is left of each fund and when the money arrives. */
 function PhaseSummary({ phase }: { phase: Phase }) {
   const summary = useQuery({ queryKey: ["funds-summary", phase], queryFn: () => api.fundsSummary(phase) });
-  const bySource = useSort(SUMMARY_SORT);
-  const byMonth = useSort(MONTHLY_SORT);
-
   return (
-    <section className="panel">
-      <h2>{TITLE[phase]}</h2>
-
-      <TableBox title={`${TITLE[phase]} cash left per sponsor`}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <SortTh sort={bySource} by="name">CASH SOURCE</SortTh>
-              <SortTh sort={bySource} by="contract" className="num">TOTAL CONTRACT</SortTh>
-              <SortTh sort={bySource} by="left" className="num sum">LEFT VALUE</SortTh>
-            </tr>
-          </thead>
-          <tbody>
-            {bySource.sorted(summary.data?.rows ?? []).map((row) => (
-              <tr key={row.fundId}>
-                <td>{row.name}</td>
-                <td className="num">{money(row.totalContractCents)}</td>
-                <td className={`num sum${row.leftCents < 0 ? " cell-negative" : ""}`}>{money(row.leftCents)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </TableBox>
-
-      {summary.data && summary.data.monthly.length > 0 && (
-        <BarsChart
-          title={`${phase === "estimate" ? "Expected" : "Actual"} Cash Inflows Timeline`}
-          data={byMonth.sorted(summary.data.monthly).map((m) => ({ month: month(m.month), inflow: m.totalCents }))}
-          xKey="month"
-          series={[{ key: "inflow", label: "Inflow" }]}
-          height={240}
-        />
-      )}
-
-      {summary.data && summary.data.monthly.length > 0 && (
-        <TableBox title={`${phase === "estimate" ? "Expected" : "Actual"} cash inflows per month`}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <SortTh sort={byMonth} by="month">MONTH</SortTh>
-                <SortTh sort={byMonth} by="inflow" className="num">{`${phase === "estimate" ? "EXPECTED" : "ACTUAL"} INFLOW`}</SortTh>
-                <th>CASH SOURCE</th>
-              </tr>
-            </thead>
-            <tbody>
-              {byMonth.sorted(summary.data.monthly).map((m) => (
-                <tr key={m.month}>
-                  <td>{month(m.month)}</td>
-                  <td className="num">{money(m.totalCents, true)}</td>
-                  <td className="lines">{m.names.map((n) => <div key={n}>{n}</div>)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableBox>
-      )}
-    </section>
+    <Panel title={TITLE[phase]}>
+      <DataTable title={`${TITLE[phase]} cash left per sponsor`} columns={SUMMARY_COLUMNS} rows={summary.data?.rows} rowKey={(r) => r.fundId} />
+      <MonthlyInflows phase={phase} monthly={summary.data?.monthly ?? []} />
+    </Panel>
   );
 }

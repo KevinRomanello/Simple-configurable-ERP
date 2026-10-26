@@ -11,8 +11,8 @@ import { date, moneyE4, quantity } from "../lib/format";
 import { useInventoryLookups } from "../lib/inventory";
 import { usePrice } from "../lib/price";
 import { TableBox } from "../components/ExportBlocks";
-import { DownloadMenu } from "../components/DownloadMenu";
 import { SortTh } from "../components/SortTh";
+import { EmptyRow, PageHeader, Panel } from "../components/ui";
 import { useSort, type SortAccessors } from "../lib/sort";
 
 const SORT: SortAccessors<PendingRow> = {
@@ -41,18 +41,13 @@ export function PendingPage() {
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>PENDING</h1>
-          <p className="muted">
-            Purchases of the budget (the ACTUAL columns) that have not fully arrived. Receive what came, even in parts: the budget then
-            shows it as arrived.
-          </p>
-        </div>
-        <DownloadMenu />
-      </header>
+      <PageHeader
+        title="PENDING"
+        description="Purchases of the budget (the ACTUAL columns) that have not fully arrived. Receive what came, even in parts: the budget then shows it as arrived."
+      />
 
-      <section className="panel">
+      <Panel>
+        {/* rows that open a form under them: built from the common pieces rather than DataTable */}
         <TableBox title="Pending">
           <table className="data-table">
             <thead>
@@ -101,7 +96,7 @@ export function PendingPage() {
                   )}
                 </Fragment>
               ))}
-              {pending.isSuccess && rows.length === 0 && <tr><td colSpan={11} className="empty">Everything that was bought has arrived</td></tr>}
+              {pending.isSuccess && rows.length === 0 && <EmptyRow colSpan={11}>Everything that was bought has arrived</EmptyRow>}
             </tbody>
           </table>
         </TableBox>
@@ -111,7 +106,7 @@ export function PendingPage() {
             the shelf at the moment the goods arrive.
           </p>
         )}
-      </section>
+      </Panel>
     </>
   );
 }

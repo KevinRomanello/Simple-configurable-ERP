@@ -4,58 +4,57 @@ import { api } from "../api/client";
 import type { Totals } from "../api/types";
 import { BarsChart } from "../components/BarsChart";
 import { Chips } from "../components/Chips";
+import { DataTable, Loading, PageHeader, Panel, type Column } from "../components/ui";
 import { blockTitle } from "../lib/blocks";
 import { money, ratio } from "../lib/format";
-import { TableBox } from "../components/ExportBlocks";
-import { DownloadMenu } from "../components/DownloadMenu";
-import { SortTh } from "../components/SortTh";
-import { useSort, type SortAccessors } from "../lib/sort";
 
 type Figures = Totals["blocks"][number]["rows"][number];
+type Total = Totals["blocks"][number]["total"];
 
-const SORT: SortAccessors<Figures> = {
-  area: (r) => r.areaName,
-  estGross: (r) => r.estimateGrossCents,
-  estOutflow: (r) => r.estimateOutflowCents,
-  actGross: (r) => r.actualGrossCents,
-  actOutflow: (r) => r.actualOutflowCents,
-  variance: (r) => r.outflowVariance ?? null,
-};
+const COLUMNS: Column<Figures>[] = [
+  { key: "area", header: "AREA", sort: (r) => r.areaName, cellClass: () => "bold", cell: (r) => r.areaName },
+  { key: "estGross", header: "ESTIMATED GRAND TOTAL COST", num: true, sort: (r) => r.estimateGrossCents, cell: (r) => money(r.estimateGrossCents) },
+  { key: "estOutflow", header: "EXPECTED OUTFLOW", num: true, sort: (r) => r.estimateOutflowCents, cell: (r) => money(r.estimateOutflowCents) },
+  { key: "actGross", header: "ACTUAL GRAND TOTAL COST", num: true, sort: (r) => r.actualGrossCents, cell: (r) => money(r.actualGrossCents) },
+  { key: "actOutflow", header: "ACTUAL OUTFLOW", num: true, sort: (r) => r.actualOutflowCents, cell: (r) => money(r.actualOutflowCents) },
+  {
+    key: "variance",
+    header: "OUTFLOW VARIANCE",
+    num: true,
+    className: "sum",
+    sort: (r) => r.outflowVariance ?? null,
+    cellClass: (r) => (r.outflowOutOfRange ? "cell-negative" : undefined),
+    cell: (r) => ratio(r.outflowVariance),
+  },
+];
+
+/** The TOTAL row: its outflows are green within budget, red beyond. */
+function TotalRow({ total }: { total: Total }) {
+  const outflow = total.outflowStatus === "within" ? "cell-positive" : "cell-negative";
+  return (
+    <tr className="total">
+      <td className="bold">TOTAL</td>
+      <td className="num">{money(total.estimateGrossCents)}</td>
+      <td className={`num ${outflow}`}>{money(total.estimateOutflowCents)}</td>
+      <td className="num">{money(total.actualGrossCents)}</td>
+      <td className={`num ${outflow}`}>{money(total.actualOutflowCents)}</td>
+      <td className={`num sum${total.outflowOutOfRange ? " cell-negative" : ""}`}>{ratio(total.outflowVariance)}</td>
+    </tr>
+  );
+}
 
 /** TOTAL: estimate against actual, per area, for all items and for each category. */
 export function TotalPage() {
   const totals = useQuery({ queryKey: ["totals"], queryFn: api.totals });
   const [blockName, setBlockName] = useState("ALL");
-  const sort = useSort(SORT);
-  if (!totals.data) return <p className="empty">Loading…</p>;
+  if (!totals.data) return <Loading />;
 
   const block = totals.data.blocks.find((b) => b.block === blockName) ?? totals.data.blocks[0]!;
-  const threshold = ratio(totals.data.threshold);
-
-  const row = (label: string, f: Figures | Totals["blocks"][number]["total"], isTotal: boolean) => {
-    const outflowClass = isTotal && "outflowStatus" in f ? (f.outflowStatus === "within" ? "cell-positive" : "cell-negative") : "";
-    return (
-      <tr key={label} className={isTotal ? "total" : ""}>
-        <td className="bold">{label}</td>
-        <td className="num">{money(f.estimateGrossCents)}</td>
-        <td className={`num ${outflowClass}`}>{money(f.estimateOutflowCents)}</td>
-        <td className="num">{money(f.actualGrossCents)}</td>
-        <td className={`num ${outflowClass}`}>{money(f.actualOutflowCents)}</td>
-        <td className={`num sum ${f.outflowOutOfRange ? "cell-negative" : ""}`}>{ratio(f.outflowVariance)}</td>
-      </tr>
-    );
-  };
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>TOTAL</h1>
-          <p className="muted">Variances beyond ±{threshold} are highlighted.</p>
-        </div>
-        <DownloadMenu />
-      </header>
-      <section className="panel">
+      <PageHeader title="TOTAL" description={`Variances beyond ±${ratio(totals.data.threshold)} are highlighted.`} />
+      <Panel>
         <Chips
           label="Block"
           value={block.block}
@@ -80,25 +79,14 @@ export function TotalPage() {
             { key: "actOutflow", label: "Actual outflow" },
           ]}
         />
-        <TableBox title={`Totals (${blockTitle(block.block)})`}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <SortTh sort={sort} by="area">AREA</SortTh>
-                <SortTh sort={sort} by="estGross" className="num">ESTIMATED GRAND TOTAL COST</SortTh>
-                <SortTh sort={sort} by="estOutflow" className="num">EXPECTED OUTFLOW</SortTh>
-                <SortTh sort={sort} by="actGross" className="num">ACTUAL GRAND TOTAL COST</SortTh>
-                <SortTh sort={sort} by="actOutflow" className="num">ACTUAL OUTFLOW</SortTh>
-                <SortTh sort={sort} by="variance" className="num sum">OUTFLOW VARIANCE</SortTh>
-              </tr>
-            </thead>
-            <tbody>
-              {sort.sorted(block.rows).map((r) => row(r.areaName, r, false))}
-              {row("TOTAL", block.total, true)}
-            </tbody>
-          </table>
-        </TableBox>
-      </section>
+        <DataTable
+          title={`Totals (${blockTitle(block.block)})`}
+          columns={COLUMNS}
+          rows={block.rows}
+          rowKey={(r) => r.areaName}
+          footer={<TotalRow total={block.total} />}
+        />
+      </Panel>
     </>
   );
 }

@@ -8,8 +8,8 @@ import { Chips } from "../components/Chips";
 import { blockTitle } from "../lib/blocks";
 import { money, month } from "../lib/format";
 import { TableBox } from "../components/ExportBlocks";
-import { DownloadMenu } from "../components/DownloadMenu";
 import { SortTh } from "../components/SortTh";
+import { Loading, Message, PageHeader, Panel } from "../components/ui";
 import { useSort, type SortAccessors } from "../lib/sort";
 
 type ProjectRow = Gantt["blocks"][number]["areas"][number]["rows"][number];
@@ -22,24 +22,19 @@ export function GanttPage() {
   const gantt = useQuery({ queryKey: ["gantt", current], queryFn: () => api.gantt(current) });
   const [block, setBlock] = useState("ALL");
 
-  if (!gantt.data) return <p className="empty">Loading…</p>;
+  if (!gantt.data) return <Loading />;
   const data = gantt.data;
   const selected = data.blocks.find((b) => b.block === block) ?? data.blocks[0];
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>{current === "estimate" ? "EXPECTED" : "ACTUAL"} GANTT</h1>
-          <p className="muted">
-            Outflow per month. When the team pays the VAT, only the net leaves on the purchase date and the VAT leaves on its deadline.
-          </p>
-        </div>
-        <DownloadMenu />
-      </header>
+      <PageHeader
+        title={`${current === "estimate" ? "EXPECTED" : "ACTUAL"} GANTT`}
+        description="Outflow per month. When the team pays the VAT, only the net leaves on the purchase date and the VAT leaves on its deadline."
+      />
 
       {data.blocks.length === 0 ? (
-        <p className="empty">No purchase has a date yet.</p>
+        <Message>No purchase has a date yet.</Message>
       ) : (
         <BlockTable
           gantt={data}
@@ -77,7 +72,8 @@ function BlockTable({ gantt, blockName, chips }: { gantt: Gantt; blockName: stri
   }));
 
   return (
-    <section className="panel">
+    // tables by area with their sums: built from the common pieces rather than DataTable
+    <Panel>
       {chips}
       <h2>{blockTitle(blockName)}</h2>
       <BarsChart
@@ -122,7 +118,7 @@ function BlockTable({ gantt, blockName, chips }: { gantt: Gantt; blockName: stri
           </tbody>
         </table>
       </TableBox>
-    </section>
+    </Panel>
   );
 }
 
@@ -140,8 +136,7 @@ function TeamFundTable({ gantt }: { gantt: Gantt }) {
   if (rows.length === 0) return null;
 
   return (
-    <section className="panel">
-      <h2>Team's fund</h2>
+    <Panel title="Team's fund">
       <BarsChart
         title="Monthly Outflow (All)"
         data={rows.map((r) => ({ month: month(r.month), outflow: r.outflowAllCents }))}
@@ -178,6 +173,6 @@ function TeamFundTable({ gantt }: { gantt: Gantt }) {
           </tbody>
         </table>
       </TableBox>
-    </section>
+    </Panel>
   );
 }

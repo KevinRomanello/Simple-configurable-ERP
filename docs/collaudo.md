@@ -81,6 +81,16 @@ Trovati scrivendo i test e provando le schermate nel browser; tutti corretti, co
 
 Controllo di migrazione: la `0009` è stata provata su una **copia dei dati reali** che aveva ancora lo sponsor in cassa (10.000,00 € Expected senza data): è diventato un inflow identico, le colonne `mode` e `pays_vat` sono sparite e il database di prova (ricreato da zero a ogni esecuzione) la applica senza errori.
 
+### Riordino dell'interfaccia nei modelli (26 ottobre 2026)
+
+Le pagine sono state riscritte con i modelli di `components/ui/` ([stile-interfaccia.md](stile-interfaccia.md), «I modelli dell'interfaccia»). Controllo: prima di toccarle è stata salvata la **struttura** di 23 pagine, e dei moduli aperti dal pulsante giallo (ogni elemento con le sue classi, attributi e testo; esclusi l'interno della griglia AG Grid e dei grafici). Dopo il riordino lo stesso, e il confronto:
+
+- **identiche**: le sei aree del budget (anche col modulo New project aperto), CASH FROM, History;
+- **differenze volute o invisibili**: Download ora sta sempre nel gruppo dei comandi (`.actions`) anche dove era da solo; l'intestazione vuota della colonna dei pulsanti ha la classe `num`; testi che prima erano due pezzi («40» «pcs») ora sono uno («40 pcs»), uguali a schermo; il modulo New sponsor ha gli stessi pulsanti di tutti gli altri moduli (piccoli, col «+»); la descrizione di CASH FROM ANALYSES non diceva più il vero («il VAT di un fondo che non lo paga…») ed è stata corretta;
+- nessun elemento sparito o aggiunto oltre a questi.
+
+Il controllo si può ripetere dopo ogni modifica grande all'interfaccia.
+
 Controlli che **non** hanno trovato difetti: la riconciliazione col foglio dopo il nuovo modello dei fondi (1.995 controlli, sul foglio e su un database caricato da zero), il tetto dei fondi e la divisione per `1 + aliquota` (tolti uno alla volta, i test falliscono), il giro nel browser degli sponsor (creazione, ALSO FROM con la tendina dei soli fondi compatibili, avviso e cella rossa che spariscono aggiungendo il fondo, ingresso e IVA di uno sponsor in cassa), il motore di calcolo contro il calcolo esatto (255.000 righe, 400.000 arrotondamenti, ogni giorno 2000–2100), la riconciliazione col foglio (anche sul database), l'iniezione SQL (8 payload in tutti i campi di testo, 17 richieste ostili), il campo extra nelle modifiche, la scadenza della sessione a metà lavoro, il conflitto di versione tra due schede, il ripristino del BANK, l'ordine delle pagine di storico.
 
 ## 3. Cosa non è coperto

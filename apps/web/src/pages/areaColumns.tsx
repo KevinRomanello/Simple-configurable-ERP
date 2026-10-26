@@ -295,7 +295,7 @@ const arrivalColumn: ColDef<Row> = {
     const arrival = isLine(p.data) ? p.data.arrival : null;
     if (!arrival || arrival.status === "planned") return null;
     return (
-      <span style={{ display: "inline-flex", gap: "var(--space-xs)", alignItems: "center" }}>
+      <span className="icon-row">
         <ArrivalPill status={arrival.status} />
         <span className="muted">{quantity(arrival.receivedMilli)}/{quantity(arrival.boughtMilli)}</span>
       </span>
@@ -360,29 +360,29 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
         if (!isLine(row)) return null;
         const { status } = row.arrival;
         return (
-          <span style={{ display: "inline-flex", gap: "var(--space-xs)", alignItems: "center" }} aria-label={statusTip(row)}>
+          <span className="icon-row" aria-label={statusTip(row)}>
             {isIncomplete(row) && (
-              <span style={{ color: "var(--warning-default)" }}>
+              <span className="tone-warning">
                 <FontAwesomeIcon icon={faTriangleExclamation} />
               </span>
             )}
             {shortPhases(row).length > 0 && (
-              <span style={{ color: "var(--error-default)" }}>
+              <span className="tone-error">
                 <FontAwesomeIcon icon={faCoins} />
               </span>
             )}
             {(status === "ordered" || status === "partial") && (
-              <span style={{ color: "var(--warning-default)" }}>
+              <span className="tone-warning">
                 <FontAwesomeIcon icon={faHourglassHalf} />
               </span>
             )}
             {status === "received" && (
-              <span style={{ color: "var(--success-default)" }}>
+              <span className="tone-success">
                 <FontAwesomeIcon icon={faCheck} />
               </span>
             )}
             {status === "over" && (
-              <span style={{ color: "var(--error-default)" }}>
+              <span className="tone-error">
                 <FontAwesomeIcon icon={faTriangleExclamation} />
               </span>
             )}

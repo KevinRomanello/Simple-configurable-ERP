@@ -1,19 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { Role, UserRow } from "../api/types";
+import { DataTable, Message, PageHeader, Panel, type Column } from "../components/ui";
 import { useMe } from "../lib/auth";
 import { useAction } from "../lib/useAction";
-import { TableBox } from "../components/ExportBlocks";
-import { DownloadMenu } from "../components/DownloadMenu";
-import { SortTh } from "../components/SortTh";
-import { useSort, type SortAccessors } from "../lib/sort";
-
-const SORT: SortAccessors<UserRow> = {
-  name: (u) => u.name,
-  email: (u) => u.email,
-  role: (u) => u.role,
-  active: (u) => (u.active ? 1 : 0),
-};
 
 const ROLES: { value: Role; label: string }[] = [
   { value: "viewer", label: "viewer: looks only" },
@@ -31,90 +21,72 @@ export function UsersPage() {
   const allowed = me.permissions.canManageUsers;
   const users = useQuery({ queryKey: ["users"], queryFn: api.users, enabled: allowed });
   const areas = useQuery({ queryKey: ["areas"], queryFn: api.areas });
-  const sort = useSort(SORT);
 
-  if (!allowed) return <p className="empty">Only an admin can manage users.</p>;
+  if (!allowed) return <Message>Only an admin can manage users.</Message>;
 
   const change = (user: UserRow, body: Parameters<typeof api.updateUser>[1]) => act(() => api.updateUser(user.id, body));
   const toggleArea = (user: UserRow, areaId: number, on: boolean) =>
     change(user, { areaIds: on ? [...user.areaIds, areaId] : user.areaIds.filter((id) => id !== areaId) });
 
+  const columns: Column<UserRow>[] = [
+    { key: "name", header: "NAME", cell: (u) => u.name, sort: (u) => u.name },
+    { key: "email", header: "EMAIL", cell: (u) => u.email, sort: (u) => u.email },
+    {
+      key: "role",
+      header: "ROLE",
+      sort: (u) => u.role,
+      cell: (u) => (
+        <select className="input small" value={u.role} aria-label={`Role of ${u.name}`} onChange={(e) => change(u, { role: e.target.value as Role })}>
+          {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
+      ),
+    },
+    {
+      key: "areas",
+      header: "AREAS (PM)",
+      cell: (u) =>
+        u.role === "pm" ? (
+          <div className="area-boxes">
+            {areas.data?.map((area) => (
+              <label key={area.id} className="checkbox">
+                <input type="checkbox" checked={u.areaIds.includes(area.id)} onChange={(e) => toggleArea(u, area.id, e.target.checked)} />
+                {area.name}
+              </label>
+            ))}
+          </div>
+        ) : (
+          <span className="muted">—</span>
+        ),
+    },
+    {
+      key: "active",
+      header: "ACTIVE",
+      sort: (u) => (u.active ? 1 : 0),
+      cell: (u) => (
+        <label className="checkbox">
+          <input type="checkbox" checked={u.active} aria-label={`${u.name} is active`} onChange={(e) => change(u, { active: e.target.checked })} />
+          {u.active ? "yes" : "no"}
+        </label>
+      ),
+    },
+  ];
+
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Users</h1>
-          <p className="muted">
-            People appear here after their first sign-in, as viewers. A deactivated person cannot use the app
-            from their next request on.
-          </p>
-        </div>
-        <DownloadMenu />
-      </header>
-
-      <section className="panel">
-        <TableBox title="Users">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <SortTh sort={sort} by="name">NAME</SortTh>
-                <SortTh sort={sort} by="email">EMAIL</SortTh>
-                <SortTh sort={sort} by="role">ROLE</SortTh>
-                <th>AREAS (PM)</th>
-                <SortTh sort={sort} by="active">ACTIVE</SortTh>
-              </tr>
-            </thead>
-            <tbody>
-              {sort.sorted(users.data ?? []).map((user) => (
-                <tr key={user.id} className={user.active ? undefined : "inactive"}>
-                  <td>{user.name}</td>
-                  <td>{user.email}</td>
-                  <td>
-                    <select
-                      className="input small"
-                      value={user.role}
-                      aria-label={`Role of ${user.name}`}
-                      onChange={(e) => change(user, { role: e.target.value as Role })}
-                    >
-                      {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                    </select>
-                  </td>
-                  <td>
-                    {user.role === "pm" ? (
-                      <div className="area-boxes">
-                        {areas.data?.map((area) => (
-                          <label key={area.id} className="checkbox">
-                            <input
-                              type="checkbox"
-                              checked={user.areaIds.includes(area.id)}
-                              onChange={(e) => toggleArea(user, area.id, e.target.checked)}
-                            />
-                            {area.name}
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
-                  </td>
-                  <td>
-                    <label className="checkbox">
-                      <input
-                        type="checkbox"
-                        checked={user.active}
-                        aria-label={`${user.name} is active`}
-                        onChange={(e) => change(user, { active: e.target.checked })}
-                      />
-                      {user.active ? "yes" : "no"}
-                    </label>
-                  </td>
-                </tr>
-              ))}
-              {users.data?.length === 0 && <tr><td colSpan={5} className="empty">Nobody yet</td></tr>}
-            </tbody>
-          </table>
-        </TableBox>
-      </section>
+      <PageHeader
+        title="Users"
+        description="People appear here after their first sign-in, as viewers. A deactivated person cannot use the app from their next request on."
+      />
+      <Panel>
+        <DataTable
+          title="Users"
+          columns={columns}
+          rows={users.data}
+          rowKey={(u) => u.id}
+          rowClass={(u) => (u.active ? undefined : "inactive")}
+          empty="Nobody yet"
+        />
+      </Panel>
     </>
   );
 }

@@ -62,6 +62,28 @@ Nel file non esiste nessuna schermata dell'app: niente navigazione laterale, tab
 
 Quando esistono frame per queste parti, si passano i link e si allinea il codice.
 
+## I modelli dell'interfaccia
+
+**Una pagina non scrive a mano la sua struttura: la compone con i modelli** di `apps/web/src/components/ui/` (importati da `../components/ui`). Così una modifica a un modello arriva a **tutte** le pagine insieme, e non serve cercare pagina per pagina. I colori, i caratteri e gli spazi sono già in un punto solo (`theme/tokens.css` e `theme/components.css`): i modelli fanno lo stesso per la **struttura** (cosa c'è, in che ordine, con che classi).
+
+| Modello | Cosa disegna | Dove si usa |
+| --- | --- | --- |
+| `PageHeader` | l'intestazione: titolo, descrizione e, sotto, i comandi. Con `add={{ label, form }}` mette il pulsante giallo «+» che apre il modulo in un riquadro sotto l'intestazione (e diventa «Close»); con `actions` i comandi propri della pagina (Set BANK, il filtro di History); **Download è sempre l'ultimo**, da solo | tutte le pagine tranne articolo e componente |
+| `DetailHeader` | l'intestazione delle pagine di una cosa sola: immagine, nome, una riga, i comandi, Download | articolo, componente |
+| `Panel` | il riquadro: `title` (titolo), `actions` (titolo con comandi a destra), `head` (una testata tutta sua, per esempio il nome del progetto che si rinomina) | ogni blocco di ogni pagina |
+| `FormPanel` | il riquadro di un modulo che aggiunge qualcosa: titolo, spiegazione, campi e **sempre gli stessi due pulsanti** (quello che aggiunge, col «+», e Cancel). `layout="inline"` su una riga, `"stack"` per un modulo lungo | New sponsor, New project, New supplier, New component, New inflow |
+| `Field` | un campo: l'etichetta sopra la casella (`htmlFor` = id della casella) | tutti i moduli, anche quelli di arrivo merce, movimento, articolo, prezzo |
+| `DataTable` | una tabella: le si passano le **colonne** (`header`, `cell`, `sort` per ordinarla, `num` per i numeri a destra, `className` per le colonne riassuntive, `cellClass` per il colore di una cella) e le **righe**. Mette da solo il contenitore scaricabile, l'ordinamento uguale dappertutto, la riga «vuoto» (`empty`) e le righe di totale (`footer`) | quasi tutte le tabelle |
+| `EmptyRow` | la riga «vuoto» delle tabelle fatte a mano | SPONSORS, PENDING, «Where it is» |
+| `Cards`, `Card`, `MoneyCard` | le cifre in alto con la loro didascalia (in rosso se negative) | CASH FLOW, INVENTORY, articolo, componente |
+| `Message`, `Loading` | la riga al posto del contenuto: «Loading…», «non trovato», «niente ancora» | tutte le pagine |
+
+Pezzi comuni fuori da `ui/`, già condivisi: `SortTh` e `SortButton` (l'intestazione ordinabile, anche nella griglia del budget con `GridSortHeader`), `TableBox` (il contenitore scaricabile), `BarsChart` e `LineChart` (i grafici), `MonthlyInflows` (grafico e tabella degli ingressi per mese, uguali in CASH FROM e CASH FLOW), `Chips`, `PriceSelector`, `SearchSelect`.
+
+**Le tabelle particolari** restano costruite a mano, ma con gli stessi pezzi (`TableBox`, `SortTh`, `EmptyRow`) e con un commento che dice perché: SPONSORS (intestazione su due righe), il Gantt (gruppi per area con le somme), PENDING e «Where it is» (righe che aprono un modulo sotto di sé), VAT OUTFLOW / PROJECT (due righe per progetto). La griglia del budget è AG Grid: le sue colonne stanno in un punto solo, `pages/areaColumns.tsx`.
+
+**Regola per una pagina nuova**: si parte da `PageHeader` e `Panel`, le tabelle sono `DataTable`, i moduli `FormPanel` con `Field`. Niente `style={{…}}` nelle pagine: un aspetto nuovo è una classe in `components.css` (per esempio `icon-row`, `tone-warning`). Se un modello non basta, si allarga il modello (così cambia per tutti), non si copia l'HTML nella pagina.
+
 ## Come si applica
 
 1. I valori stanno solo in `theme/tokens.css`; i componenti usano `var(--…)`.

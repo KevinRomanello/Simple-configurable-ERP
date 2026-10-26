@@ -10,6 +10,7 @@ import { useAction } from "../lib/useAction";
 import { Button } from "./Button";
 import { SearchSelect } from "./SearchSelect";
 import { ItemEditor } from "./ItemEditor";
+import { Field } from "./ui";
 
 /**
  * Puts goods on the shelf. Started from a purchase of the budget (`line`) the prices, the project
@@ -79,57 +80,49 @@ export function ReceiveForm({
       </div>
 
       {mode === "existing" ? (
-        <div className="field">
-          <label htmlFor="receive-item">Item</label>
+        <Field label="Item" htmlFor="receive-item">
           <SearchSelect
             id="receive-item"
             value={itemId}
             onChange={setItemId}
             choices={[{ value: "", label: "Choose…" }, ...items.map((i) => ({ value: String(i.id), label: `${i.name}${i.code ? ` (${i.code})` : ""}` }))]}
           />
-        </div>
+        </Field>
       ) : (
         <ItemEditor draft={draft} onChange={(change) => setDraft({ ...draft, ...change })} lookups={lookups} idPrefix="receive-new" />
       )}
 
       <div className="form-grid">
-        <div className="field">
-          <label htmlFor="receive-quantity">Quantity arrived</label>
+        <Field label="Quantity arrived" htmlFor="receive-quantity">
           <input id="receive-quantity" className="input small" type="number" min="0" step="0.001" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="receive-date">Arrived on</label>
+        </Field>
+        <Field label="Arrived on" htmlFor="receive-date">
           <input id="receive-date" className="input small" type="date" min="2000-01-01" max="2100-12-31" value={receivedOn} onChange={(e) => setReceivedOn(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="receive-location">Put in</label>
+        </Field>
+        <Field label="Put in" htmlFor="receive-location">
           <SearchSelect id="receive-location" value={location} onChange={setLocation} choices={lookups.locations.map((l) => ({ value: l.code, label: l.label }))} />
-        </div>
-        <div className="field">
-          <label htmlFor="receive-spot">Where exactly</label>
+        </Field>
+        <Field label="Where exactly" htmlFor="receive-spot">
           <input id="receive-spot" className="input small" maxLength={100} placeholder="Shelf 2, red box" value={spot} onChange={(e) => setSpot(e.target.value)} />
-        </div>
+        </Field>
         {!line && (
           <>
-            <div className="field">
-              <label htmlFor="receive-net">Net price per unit (€)</label>
+            <Field label="Net price per unit (€)" htmlFor="receive-net">
               <input id="receive-net" className="input small" type="number" min="0" step="0.0001" value={unitNet} onChange={(e) => setUnitNet(e.target.value)} />
-            </div>
-            <div className="field">
-              <label htmlFor="receive-vat">VAT</label>
+            </Field>
+            <Field label="VAT" htmlFor="receive-vat">
               <select id="receive-vat" className="input small" value={vatRate} onChange={(e) => setVatRate(Number(e.target.value))}>
                 {lookups.vatRates.map((r) => <option key={r} value={r}>{r}%</option>)}
               </select>
-            </div>
-            <div className="field">
-              <label htmlFor="receive-project">For project (optional)</label>
+            </Field>
+            <Field label="For project (optional)" htmlFor="receive-project">
               <SearchSelect
                 id="receive-project"
                 value={projectId}
                 onChange={setProjectId}
                 choices={[{ value: "", label: "(none)" }, ...(projects.data ?? []).map((p) => ({ value: String(p.id), label: `${p.areaName}: ${p.name}` }))]}
               />
-            </div>
+            </Field>
             <label className="checkbox">
               <input type="checkbox" checked={free} onChange={(e) => setFree(e.target.checked)} />
               A gift: nothing paid by the team

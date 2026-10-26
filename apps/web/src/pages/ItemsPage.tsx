@@ -2,11 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api/client";
 import type { ItemsView } from "../api/types";
+import { DataTable, Field, PageHeader, Panel, type Column } from "../components/ui";
 import { date, money } from "../lib/format";
-import { TableBox } from "../components/ExportBlocks";
-import { DownloadMenu } from "../components/DownloadMenu";
-import { SortTh } from "../components/SortTh";
-import { useSort, type SortAccessors } from "../lib/sort";
+
+type ItemLine = ItemsView["rows"][number];
 
 const PRIORITY_OPTIONS = [
   ["all", "All priorities"],
@@ -15,29 +14,34 @@ const PRIORITY_OPTIONS = [
   ["Low", "Low"],
 ] as const;
 
-const COLUMNS: SortAccessors<ItemsView["rows"][number]> = {
-  area: (r) => r.areaName,
-  project: (r) => r.projectName,
-  item: (r) => r.item,
-  category: (r) => r.category,
-  priority: (r) => ({ High: 1, Medium: 2, Low: 3 })[r.priority as string] ?? null,
-  estOutflow: (r) => r.estimate.outflowCents,
-  estFund: (r) => r.estimate.fundName,
-  estSupplier: (r) => r.estimate.supplierName,
-  estDate: (r) => r.estimate.purchaseDate,
-  actOutflow: (r) => r.actual.outflowCents,
-  actFund: (r) => r.actual.fundName,
-  actSupplier: (r) => r.actual.supplierName,
-  actDate: (r) => r.actual.purchaseDate,
-};
+const bold = () => "bold";
+
+const COLUMNS: Column<ItemLine>[] = [
+  { key: "area", header: "AREA", sort: (r) => r.areaName, cellClass: bold, cell: (r) => r.areaName },
+  { key: "project", header: "PROJECT", sort: (r) => r.projectName, cellClass: bold, cell: (r) => r.projectName },
+  { key: "item", header: "ITEM", sort: (r) => r.item, cell: (r) => r.item },
+  { key: "category", header: "CATEGORY", sort: (r) => r.category, cell: (r) => r.category },
+  {
+    key: "priority",
+    header: "PRIORITY",
+    sort: (r) => ({ High: 1, Medium: 2, Low: 3 })[r.priority as string] ?? null,
+    cell: (r) => r.priority && <span className={`pill ${r.priority}`}>{r.priority}</span>,
+  },
+  { key: "estOutflow", header: "EXPECTED OUTFLOW", num: true, sort: (r) => r.estimate.outflowCents, cell: (r) => money(r.estimate.outflowCents) },
+  { key: "estFund", header: "EXPECTED CASH FROM", sort: (r) => r.estimate.fundName, cell: (r) => r.estimate.fundName },
+  { key: "estSupplier", header: "EXPECTED BOUGHT FROM", sort: (r) => r.estimate.supplierName, cell: (r) => r.estimate.supplierName },
+  { key: "estDate", header: "EXPECTED BUY DATE", sort: (r) => r.estimate.purchaseDate, cell: (r) => date(r.estimate.purchaseDate) },
+  { key: "actOutflow", header: "ACTUAL OUTFLOW", num: true, sort: (r) => r.actual.outflowCents, cell: (r) => money(r.actual.outflowCents) },
+  { key: "actFund", header: "ACTUAL CASH FROM", sort: (r) => r.actual.fundName, cell: (r) => r.actual.fundName },
+  { key: "actSupplier", header: "ACTUAL BOUGHT FROM", sort: (r) => r.actual.supplierName, cell: (r) => r.actual.supplierName },
+  { key: "actDate", header: "ACTUAL BUY DATE", sort: (r) => r.actual.purchaseDate, cell: (r) => date(r.actual.purchaseDate) },
+];
 
 /** CATEGORY ANALYSES: a read-only list of the items, filtered by category and priority. */
 export function ItemsPage() {
   const categories = useQuery({ queryKey: ["categories"], queryFn: api.categories });
   const [selected, setSelected] = useState<string[]>([]);
   const [priority, setPriority] = useState<string>("all");
-  // the oldest expected buy date first, until a header is clicked
-  const byColumn = useSort(COLUMNS, { key: "estDate", direction: 1 });
 
   const query = new URLSearchParams({ categories: selected.join(","), priority }).toString();
   const items = useQuery({ queryKey: ["items", query], queryFn: () => api.items(query) });
@@ -45,19 +49,11 @@ export function ItemsPage() {
   const toggle = (category: string) =>
     setSelected((current) => (current.includes(category) ? current.filter((c) => c !== category) : [...current, category]));
 
-  const rows = byColumn.sorted(items.data?.rows ?? []);
-
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>CATEGORY ANALYSES</h1>
-          <p className="muted">Items without a category are not listed here.</p>
-        </div>
-        <DownloadMenu />
-      </header>
+      <PageHeader title="CATEGORY ANALYSES" description="Items without a category are not listed here." />
 
-      <section className="panel">
+      <Panel>
         <div className="toggle-row" role="group" aria-label="Categories">
           <button type="button" className={`chip${selected.length === 0 ? " on" : ""}`} onClick={() => setSelected([])}>
             All Categories
@@ -70,56 +66,23 @@ export function ItemsPage() {
         </div>
 
         <div className="inline-form">
-          <div className="field">
-            <label htmlFor="priority">Priority</label>
+          <Field label="Priority" htmlFor="priority">
             <select id="priority" className="input small" value={priority} onChange={(e) => setPriority(e.target.value)}>
               {PRIORITY_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
-          </div>
+          </Field>
         </div>
 
-        <TableBox title="Category analyses">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <SortTh sort={byColumn} by="area">AREA</SortTh>
-                <SortTh sort={byColumn} by="project">PROJECT</SortTh>
-                <SortTh sort={byColumn} by="item">ITEM</SortTh>
-                <SortTh sort={byColumn} by="category">CATEGORY</SortTh>
-                <SortTh sort={byColumn} by="priority">PRIORITY</SortTh>
-                <SortTh sort={byColumn} by="estOutflow" className="num">EXPECTED OUTFLOW</SortTh>
-                <SortTh sort={byColumn} by="estFund">EXPECTED CASH FROM</SortTh>
-                <SortTh sort={byColumn} by="estSupplier">EXPECTED BOUGHT FROM</SortTh>
-                <SortTh sort={byColumn} by="estDate">EXPECTED BUY DATE</SortTh>
-                <SortTh sort={byColumn} by="actOutflow" className="num">ACTUAL OUTFLOW</SortTh>
-                <SortTh sort={byColumn} by="actFund">ACTUAL CASH FROM</SortTh>
-                <SortTh sort={byColumn} by="actSupplier">ACTUAL BOUGHT FROM</SortTh>
-                <SortTh sort={byColumn} by="actDate">ACTUAL BUY DATE</SortTh>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.lineId}>
-                  <td className="bold">{row.areaName}</td>
-                  <td className="bold">{row.projectName}</td>
-                  <td>{row.item}</td>
-                  <td>{row.category}</td>
-                  <td>{row.priority && <span className={`pill ${row.priority}`}>{row.priority}</span>}</td>
-                  <td className="num">{money(row.estimate.outflowCents)}</td>
-                  <td>{row.estimate.fundName}</td>
-                  <td>{row.estimate.supplierName}</td>
-                  <td>{date(row.estimate.purchaseDate)}</td>
-                  <td className="num">{money(row.actual.outflowCents)}</td>
-                  <td>{row.actual.fundName}</td>
-                  <td>{row.actual.supplierName}</td>
-                  <td>{date(row.actual.purchaseDate)}</td>
-                </tr>
-              ))}
-              {rows.length === 0 && <tr><td colSpan={13} className="empty">No items found for the selected filters.</td></tr>}
-            </tbody>
-          </table>
-        </TableBox>
-      </section>
+        {/* the oldest expected buy date first, until a header is clicked */}
+        <DataTable
+          title="Category analyses"
+          columns={COLUMNS}
+          rows={items.data?.rows}
+          rowKey={(r) => r.lineId}
+          initialSort={{ key: "estDate", direction: 1 }}
+          empty="No items found for the selected filters."
+        />
+      </Panel>
     </>
   );
 }
