@@ -98,6 +98,7 @@ Le idee da portarsi a casa:
 - **Indici univoci speciali** (in `schema.ts`):
   - `UNIQUE (season_id, lower(name))`: i nomi dei fondi sono unici *senza distinzione di maiuscole*.
   - `UNIQUE (season_id) WHERE kind = 'team'`: un indice *parziale*; garantisce che ci sia **un solo** "Team's fund" per stagione.
+- **Indici sulle chiavi esterne**: PostgreSQL non li crea da solo. Ogni colonna che punta a un'altra tabella ha un indice (o è la prima colonna di un vincolo univoco), altrimenti i controlli «è usato?» (un fornitore, un fondo, un progetto) e le cancellazioni a cascata leggono tutta la tabella. Chi aggiunge una chiave esterna in `schema.ts` aggiunge anche `index("tabella_colonna").on(t.colonna)`; la query che trova quelle senza indice è in [controllo-bug-e-prestazioni.md](controllo-bug-e-prestazioni.md) (§4) e deve dare zero righe.
 - **Tipo `numeric(14,2)`**: decimale **esatto**. I numeri in virgola mobile (quelli di JavaScript) non lo sono: `0.1 + 0.2` fa `0.30000000000000004`. Per i soldi è inaccettabile, quindi nel database stanno come `numeric`.
 - **Tipo `enum`** (`phase`, `sponsor_type`, `fund_kind`): una colonna può contenere solo valori di un elenco.
 - **Transazione**: un gruppo di operazioni che riesce **tutto o niente**. Se creo una voce e le sue cifre e la seconda operazione fallisce, anche la prima viene annullata. È la ragione principale per cui non abbiamo scelto Mongo.

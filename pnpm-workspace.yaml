@@ -6,10 +6,13 @@ allowBuilds:
   esbuild: true
   # core-js (pulled in by jspdf) only runs a "please donate" message after install: not needed
   core-js: false
-# Security fixes for dependencies of development tools that have not released one yet.
-# Check them again when exceljs or drizzle-kit are updated, then remove what is no longer needed.
+# Security fixes for dependencies of other packages that have not released one yet.
+# Check them again when fastify, exceljs or drizzle-kit are updated, then remove what is no longer needed.
 overrides:
   # exceljs asks for uuid 8 (bounds check bug with a buffer argument); 11 has the same v4() it uses
   uuid: ^11.1.1
   # drizzle-kit asks for an old esbuild through @esbuild-kit (the dev server flaw)
   "@esbuild-kit/core-utils>esbuild": ^0.25.4
+  # fastify's schema compilers (ajv, fast-json-stringify) ask for fast-uri versions with URI parsing flaws (scheme and host confusion)
+  "fast-uri@>=3.0.0 <3.1.9": 3.1.9
+  "fast-uri@>=4.0.0 <4.2.3": 4.2.3

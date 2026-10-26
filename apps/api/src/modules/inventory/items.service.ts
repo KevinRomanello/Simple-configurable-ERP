@@ -1,5 +1,5 @@
 import {
-  bom, costContext, onHandMilli, priceHistory, receivedMilli, stockRows, unitCost,
+  bom, byItem, costContext, onHandMilli, priceHistory, receivedMilli, stockRows, unitCost,
   type Bom, type PricePoint, type StockRow,
 } from "@erp/calc";
 import { and, desc, eq, sql } from "drizzle-orm";
@@ -109,7 +109,8 @@ export async function listItems(query: PriceQuery & { search?: string; category?
   const data = await loadInventory();
   const on = query.on ?? today();
   const ctx = costContext(data, query.basis);
-  const stock = stockRows(data.movements);
+  const stock = byItem(stockRows(data.movements));
+  const moved = byItem(data.movements);
   const withImage = new Set((await db.select({ id: itemImage.itemId }).from(itemImage)).map((r) => r.id));
   const [rows, labels] = [await db.select().from(inventoryItem), new Map((await listLocations()).map((l) => [l.code, l.label]))];
   const needle = query.search?.toLowerCase();
@@ -118,10 +119,11 @@ export async function listItems(query: PriceQuery & { search?: string; category?
     .filter((r) => (query.category ? r.category === query.category : true))
     .filter((r) => (query.origin ? r.origin === query.origin : true))
     .filter((r) => (needle ? [r.name, r.code, r.purpose, r.category].some((v) => v?.toLowerCase().includes(needle)) : true))
-    .filter((r) => (query.location ? stock.some((s) => s.itemId === r.id && s.location === query.location) : true))
+    .filter((r) => (query.location ? (stock.get(r.id) ?? []).some((s) => s.location === query.location) : true))
     .map((r): ItemRow => {
       const cost = unitCost(r.id, ctx, query.method, on);
-      const onHand = onHandMilli(stock, r.id);
+      const shelf = stock.get(r.id) ?? [];
+      const onHand = onHandMilli(shelf, r.id);
       return {
         id: r.id,
         code: r.code,
@@ -131,11 +133,11 @@ export async function listItems(query: PriceQuery & { search?: string; category?
         origin: r.origin,
         hasImage: withImage.has(r.id),
         onHandMilli: onHand,
-        boughtMilli: receivedMilli(data.movements, r.id),
+        boughtMilli: receivedMilli(moved.get(r.id) ?? [], r.id),
         unitE4: cost.unitE4,
         complete: cost.complete,
         valueCents: cost.unitE4 === null ? null : Math.round((onHand * cost.unitE4) / 100_000),
-        places: [...new Set(stock.filter((s) => s.itemId === r.id).map((s) => labels.get(s.location) ?? s.location))],
+        places: [...new Set(shelf.map((s) => labels.get(s.location) ?? s.location))],
       };
     })
     .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));

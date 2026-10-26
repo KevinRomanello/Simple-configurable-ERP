@@ -8,7 +8,7 @@ import {
   cashFlowFigures, fundBalances, lineOracle, readAnalysis, readCategoryAnalysis, readGantt,
   totalCells, vatReportDeadlines, vatReportRow, type GanttOracle,
 } from "./read-oracle";
-import { AREA_SHEETS, openWorkbook, readInputs, sheetOf } from "./read-inputs";
+import { openWorkbook, readInputs, sheetOf } from "./read-inputs";
 import { Report } from "./report";
 import { slug, toSnapshot } from "./to-snapshot";
 

@@ -51,35 +51,43 @@ export const area = pgTable("area", {
   position: integer().notNull(),
 });
 
-export const project = pgTable("project", {
-  id: id(),
-  seasonId: integer()
-    .notNull()
-    .references(() => season.id),
-  areaId: integer()
-    .notNull()
-    .references(() => area.id),
-  name: text().notNull(),
-  /** The person written in the yellow subtotal row of the old sheet. */
-  ownerName: text(),
-  position: integer().notNull(),
-});
+export const project = pgTable(
+  "project",
+  {
+    id: id(),
+    seasonId: integer()
+      .notNull()
+      .references(() => season.id),
+    areaId: integer()
+      .notNull()
+      .references(() => area.id),
+    name: text().notNull(),
+    /** The person written in the yellow subtotal row of the old sheet. */
+    ownerName: text(),
+    position: integer().notNull(),
+  },
+  (t) => [index("project_season").on(t.seasonId), index("project_area").on(t.areaId)],
+);
 
-export const budgetLine = pgTable("budget_line", {
-  id: id(),
-  projectId: integer()
-    .notNull()
-    .references(() => project.id, { onDelete: "cascade" }),
-  position: integer().notNull(),
-  item: text().notNull(),
-  // Validated by the service against listCategories()/PRIORITIES; plain text on purpose, because
-  // categories are hardcoded for now and will become a table (see docs/hardcoded-registry.md).
-  category: text(),
-  priority: text(),
-  note: text(),
-  /** Bumped on every change; a write carrying an older version is rejected (optimistic lock). */
-  version: integer().notNull().default(1),
-});
+export const budgetLine = pgTable(
+  "budget_line",
+  {
+    id: id(),
+    projectId: integer()
+      .notNull()
+      .references(() => project.id, { onDelete: "cascade" }),
+    position: integer().notNull(),
+    item: text().notNull(),
+    // Validated by the service against listCategories()/PRIORITIES; plain text on purpose, because
+    // categories are hardcoded for now and will become a table (see docs/hardcoded-registry.md).
+    category: text(),
+    priority: text(),
+    note: text(),
+    /** Bumped on every change; a write carrying an older version is rejected (optimistic lock). */
+    version: integer().notNull().default(1),
+  },
+  (t) => [index("budget_line_project").on(t.projectId)],
+);
 
 /** One row per line and phase. A missing phase means "all zeros". */
 export const lineFigures = pgTable(
@@ -102,6 +110,7 @@ export const lineFigures = pgTable(
   },
   (t) => [
     unique("line_figures_line_phase_uq").on(t.lineId, t.phase),
+    index("line_figures_supplier").on(t.supplierId),
     check("line_figures_non_negative", sql`${t.quantity} >= 0 and ${t.unitNetCost} >= 0`),
   ],
 );
@@ -152,6 +161,7 @@ export const lineFund = pgTable(
   (t) => [
     unique("line_fund_position_uq").on(t.figuresId, t.position),
     unique("line_fund_fund_uq").on(t.figuresId, t.fundId),
+    index("line_fund_fund").on(t.fundId),
   ],
 );
 
@@ -188,7 +198,7 @@ export const teamInflow = pgTable(
     amount: numeric({ precision: 14, scale: 2 }).notNull(),
     inflowDate: date(),
   },
-  (t) => [check("team_inflow_non_negative", sql`${t.amount} >= 0`)],
+  (t) => [index("team_inflow_season").on(t.seasonId), check("team_inflow_non_negative", sql`${t.amount} >= 0`)],
 );
 
 /** The BANK box of the CASH FLOW sheet: one balance at one date, valid for both phases. */
@@ -328,7 +338,7 @@ export const userArea = pgTable(
       .notNull()
       .references(() => area.id),
   },
-  (t) => [unique("user_area_user_area_uq").on(t.userId, t.areaId)],
+  (t) => [unique("user_area_user_area_uq").on(t.userId, t.areaId), index("user_area_area").on(t.areaId)],
 );
 
 /**
@@ -450,6 +460,7 @@ export const stockMovement = pgTable(
     check("stock_movement_transfer", sql`(${t.kind} = 'transfer') = (${t.toLocation} is not null)`),
     index("stock_movement_item").on(t.itemId),
     index("stock_movement_line").on(t.budgetLineId),
+    index("stock_movement_project").on(t.projectId),
   ],
 );
 
@@ -469,6 +480,7 @@ export const componentPart = pgTable(
   },
   (t) => [
     unique("component_part_uq").on(t.componentId, t.partId),
+    index("component_part_part").on(t.partId),
     check("component_part_quantity", sql`${t.quantity} > 0`),
     check("component_part_not_itself", sql`${t.componentId} <> ${t.partId}`),
   ],

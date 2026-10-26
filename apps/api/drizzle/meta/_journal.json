@@ -78,6 +78,13 @@
       "when": 1793013280338,
       "tag": "0010_admin_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793030077582,
+      "tag": "0011_indexes_on_foreign_keys",
+      "breakpoints": true
     }
   ]
 }

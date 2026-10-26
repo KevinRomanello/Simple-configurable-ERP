@@ -43,6 +43,8 @@ Nella griglia del budget, la colonna **ARRIVAL DATE** del consuntivo continua a 
 | `stock_movement` | un movimento: articolo, tipo, giorno, quantità, luogo (codice + testo libero), destinazione (spostamenti), tre prezzi (solo carichi), progetto, voce di budget d'origine, nota | i vincoli sono nel database: quantità positiva (tranne un conteggio), prezzi solo sui carichi, destinazione solo sugli spostamenti |
 | `component_part` | distinta: il componente, la parte, la quantità in un pezzo, una nota | una parte una volta sola; mai un componente dentro se stesso |
 
+**Velocità.** Il calcolo non rilegge tutti i movimenti per ogni articolo: li raggruppa per articolo una volta sola (`byItem`, in `packages/calc/src/inventory.ts`) e poi legge da lì (prezzi in `costContext`, giacenze e arrivi in `listItems`, statistiche). Con 2.000 articoli e 40.000 movimenti l'elenco si calcola in circa 12 ms invece di 243 ([controllo-bug-e-prestazioni.md](controllo-bug-e-prestazioni.md), P4). Chi aggiunge un calcolo per articolo deve partire da `byItem`, non da `movements.filter(...)` dentro un ciclo.
+
 I movimenti: **receipt** (arrivo, +), **use** (uso, −, con progetto facoltativo), **transfer** (spostamento da un luogo a un altro), **adjustment** (conteggio: "ne ho contati 7", si registra la differenza), **disposal** (smaltimento, −). Nulla può uscire da un luogo che non ne contiene abbastanza (409); le richieste simultanee sullo stesso articolo si mettono in fila.
 
 **Prezzi congelati.** Ogni arrivo salva tre prezzi **per unità**, in decimillesimi di euro: *netto* (prima dell'IVA), *lordo* (con IVA) e *costo per il team* (lordo meno lo sponsor, cioè l'`outflow` della voce; per uno sponsor totale resta l'IVA, come nel foglio: domanda Q1, confermata il 21/10/2026; zero per un regalo). Se il budget cambia dopo, i carichi già fatti non cambiano.
@@ -147,7 +149,7 @@ Schermate (menu **Inventory**): **INVENTORY** (elenco con miniature, filtri, sel
 
 | Dove | Cosa prova |
 | --- | --- |
-| `packages/calc/src/inventory.test.ts` | giacenze (arrivi, usi, spostamenti, conteggi), prezzi (ultimo, medio pesato, per giorno, i tre tipi, valori enormi esatti), costo di componenti e sottoassiemi, costo nel tempo, parti mai comprate, anelli, stati dell'arrivo, PENDING, statistiche |
+| `packages/calc/src/inventory.test.ts` | raggruppamento per articolo (`byItem`), giacenze (arrivi, usi, spostamenti, conteggi), prezzi (ultimo, medio pesato, per giorno, i tre tipi, valori enormi esatti), costo di componenti e sottoassiemi, costo nel tempo, parti mai comprate, anelli, stati dell'arrivo, PENDING, statistiche |
 | `apps/api/src/modules/inventory/inventory.routes.test.ts` | articoli, arrivi dal budget (parziali, simultanei, oltre il comprato, voce cancellata dopo), arrivi fuori budget, movimenti (anche dodici richieste insieme sullo stesso articolo), prezzi nel tempo, immagini (formato vero, dimensioni, ETag), permessi, storico |
 | `apps/api/src/modules/inventory/components.routes.test.ts` | costo, nel tempo, i tre prezzi, incompleto, anelli (anche con due richieste insieme), permessi, statistiche |
 | `apps/web/src/lib/*.test.ts` | formattazione di prezzi e quantità, riduzione delle immagini, campi per categoria |

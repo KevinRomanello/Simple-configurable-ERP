@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router";
+import { NavLink, Outlet, useLocation } from "react-router";
 import { api } from "../api/client";
 import { forgetUser, useMe } from "../lib/auth";
 import { IconButton } from "./Button";
@@ -49,6 +49,7 @@ export function Shell() {
   const areas = useQuery({ queryKey: ["areas"], queryFn: api.areas });
   const me = useMe();
   const queryClient = useQueryClient();
+  const { pathname } = useLocation();
 
   const signOut = async () => {
     await api.signOut();
@@ -127,7 +128,9 @@ export function Shell() {
       </aside>
       <main className="main">
         <ExportProvider>
-          <Outlet />
+          {/* one page per address: the areas, items and components share a page, and without the key
+              the form left open on one would still be open (and write) on the next */}
+          <Outlet key={pathname} />
         </ExportProvider>
       </main>
     </div>

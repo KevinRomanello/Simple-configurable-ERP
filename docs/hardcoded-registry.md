@@ -11,6 +11,7 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 | 3 | Regole delle scadenze IVA | `getVatRules` (lookups) ↔ `GET /api/lookups/vat-rules` | trimestre → 16/05, 20/08, 16/11, 16/02 dell'anno dopo; weekend → lunedì; nessuna festività né proroga | **spariranno** quando l'IVA delle righe si pagherà alla data di pagamento ([sponsor-e-fondi.md](sponsor-e-fondi.md)); oggi le usano solo le righe del budget |
 | 4 | Orizzonte del report IVA per area | `vatReportHorizon` dentro `getSettings` (lookups) ↔ `GET /api/lookups/settings` | dal 3° trimestre 2026 al 4° 2027 (si allarga da solo intorno alle date) | sparirà con la stessa modifica (il report diventerà per mese di pagamento) |
 | 5 | Stagione corrente | `getCurrentSeason` (seasons) ↔ `GET /api/seasons/current` | 2026-2027 | elenco stagioni, selettore, creazione della nuova stagione ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)) |
+| 6 | Fuso orario della squadra, per sapere che giorno è «oggi» | `today` (core) ↔ un'impostazione della pagina Settings | `Europe/Rome` | un'impostazione di Settings, se una squadra non sta in Italia ([controllo-bug-e-prestazioni.md](controllo-bug-e-prestazioni.md), P2) |
 
 ### Implementati (26 ottobre 2026)
 

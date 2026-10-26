@@ -78,6 +78,20 @@ export function valueCents(quantityMilli: number, unitE4: number): number {
   return Number(roundDivBig(BigInt(quantityMilli) * BigInt(unitE4), 100_000n));
 }
 
+/**
+ * Rows grouped by item, in one pass. Reading one item from this is instant; filtering every
+ * movement for each item would cost items x movements.
+ */
+export function byItem<T extends { itemId: number }>(rows: T[]): Map<number, T[]> {
+  const groups = new Map<number, T[]>();
+  for (const row of rows) {
+    const group = groups.get(row.itemId);
+    if (group) group.push(row);
+    else groups.set(row.itemId, [row]);
+  }
+  return groups;
+}
+
 // --- what is on the shelf -------------------------------------------------------------------------
 
 export interface StockRow {
@@ -188,8 +202,9 @@ export interface CostContext {
 export function costContext(data: InventoryData, basis: PriceBasis): CostContext {
   const parts = new Map<number, PartInput[]>();
   for (const part of data.parts) parts.set(part.componentId, [...(parts.get(part.componentId) ?? []), part]);
+  const moved = byItem(data.movements);
   const receipts = new Map<number, Receipt[]>();
-  for (const item of data.items) receipts.set(item.id, receiptsOf(data.movements, item.id, basis));
+  for (const item of data.items) receipts.set(item.id, receiptsOf(moved.get(item.id) ?? [], item.id, basis));
   return { items: new Map(data.items.map((i) => [i.id, i])), parts, receipts };
 }
 
@@ -406,7 +421,8 @@ export function stats(
   const items = new Map(data.items.map((i) => [i.id, i]));
   const projects = new Map(context.projects.map((p) => [p.id, p]));
   const areas = new Map(context.areas.map((a) => [a.id, a]));
-  const receipts = new Map(data.items.map((i) => [i.id, receiptsOf(data.movements, i.id, basis)]));
+  const moved = byItem(data.movements);
+  const receipts = new Map(data.items.map((i) => [i.id, receiptsOf(moved.get(i.id) ?? [], i.id, basis)]));
 
   const rows = new Map<string, StatsRow & { involved: Set<number> }>();
   const row = (target: { key: string; label: string }) => {

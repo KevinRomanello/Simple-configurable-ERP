@@ -3,7 +3,7 @@ import { arrivalOf, arrivalStatus, linePricesE4 } from "./arrival";
 import { daysBetween } from "./dates";
 import { figures, line, snapshot } from "./fixtures";
 import {
-  bom, costContext, costSeries, monthEnds, onHandMilli, pendingLines, priceHistory, receivedMilli, receiptsOf,
+  bom, byItem, costContext, costSeries, monthEnds, onHandMilli, pendingLines, priceHistory, receivedMilli, receiptsOf,
   stats, stockRows, unitCost, unitPriceE4, valueCents,
   type InventoryData, type ItemInput, type MovementInput, type PartInput,
 } from "./inventory";
@@ -26,6 +26,31 @@ const receipt = (itemId: number, qty: number, netEuros: number, on: string, extr
     ...extra,
   });
 const part = (componentId: number, partId: number, qty: number): PartInput => ({ componentId, partId, quantityMilli: qty * 1000 });
+
+describe("byItem", () => {
+  it("groups rows by item and keeps their order inside each group", () => {
+    const rows = [
+      receipt(2, 1, 1, "2026-09-01"),
+      receipt(1, 1, 1, "2026-09-02"),
+      receipt(2, 2, 1, "2026-09-03"),
+    ];
+    const groups = byItem(rows);
+    expect([...groups.keys()]).toEqual([2, 1]);
+    expect(groups.get(2)?.map((m) => m.on)).toEqual(["2026-09-01", "2026-09-03"]);
+    expect(groups.get(1)).toHaveLength(1);
+    expect(groups.get(3)).toBeUndefined();
+  });
+
+  it("gives the same prices as asking for one item at a time", () => {
+    const data: InventoryData = {
+      items: [item(1, "Bolt"), item(2, "Nut")],
+      movements: [receipt(1, 10, 1, "2026-09-01"), receipt(2, 4, 3, "2026-09-02"), receipt(1, 10, 2, "2026-09-03")],
+      parts: [],
+    };
+    const ctx = costContext(data, "net");
+    for (const id of [1, 2]) expect(ctx.receipts.get(id)).toEqual(receiptsOf(data.movements, id, "net"));
+  });
+});
 
 describe("stockRows", () => {
   it("adds receipts and counts, takes away uses and disposals, and moves transfers between places", () => {

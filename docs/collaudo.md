@@ -6,8 +6,8 @@ Questo documento dice **come si controlla che l'app non abbia difetti** (i livel
 
 | Livello | Dove | Cosa prova | Quanti |
 | --- | --- | --- | --- |
-| Motore di calcolo | `packages/calc/src/*.test.ts` | ogni regola del foglio; **esattezza**: fino a 60.000 righe casuali e 100.000 arrotondamenti confrontati con un calcolo esatto in `BigInt`; **calendario**: ogni giorno dal 2000 al 2100 (giorno della settimana, trimestre, scadenza IVA, lettura di ogni notazione di data) contro l'oggetto `Date` | 168 |
-| API con database vero | `apps/api/src/**/*.test.ts` | percorsi, regole, **ruoli**, accesso, storico, limiti dell'input, **richieste in parallelo**, attacchi (iniezione SQL, token falsi, CSRF), intestazioni, limite di richieste, permessi del database. Tutta la suite gira con l'utente limitato dell'API | 240 |
+| Motore di calcolo | `packages/calc/src/*.test.ts` | ogni regola del foglio; **esattezza**: fino a 60.000 righe casuali e 100.000 arrotondamenti confrontati con un calcolo esatto in `BigInt`; **calendario**: ogni giorno dal 2000 al 2100 (giorno della settimana, trimestre, scadenza IVA, lettura di ogni notazione di data) contro l'oggetto `Date` | 170 |
+| API con database vero | `apps/api/src/**/*.test.ts` | percorsi, regole, **ruoli**, accesso, storico, limiti dell'input, **richieste in parallelo**, attacchi (iniezione SQL, token falsi, CSRF), intestazioni, limite di richieste, permessi del database. Tutta la suite gira con l'utente limitato dell'API | 244 |
 | Sito | `apps/web/src/**/*.test.ts` | formattazione, permessi, parole degli errori di accesso, messaggi di errore, **download** (valori veri da testo, unioni di celle, nomi dei fogli e dei file), **ordinamento** (vuoti in fondo, numeri nel testo, tre stati del clic, comparazione della griglia) | 54 |
 | Importer | `tools/import-xlsx/src/*.test.ts` | dal foglio allo snapshot | 3 |
 | Riconciliazione | `pnpm reconcile` (e `-- --db`) | il motore contro 1.995 valori salvati dal foglio reale | 1.995 confronti |
@@ -91,9 +91,27 @@ Le pagine sono state riscritte con i modelli di `components/ui/` ([stile-interfa
 
 Il controllo si può ripetere dopo ogni modifica grande all'interfaccia.
 
+### Controllo di bug e prestazioni (26 ottobre 2026)
+
+Un controllo a fondo senza toccare il codice, poi le correzioni approvate: tutto, con le misure prima e dopo, in [controllo-bug-e-prestazioni.md](controllo-bug-e-prestazioni.md). Corretti:
+
+| # | Difetto | Come si vedeva | Correzione | Prova |
+| --- | --- | --- | --- | --- |
+| 36 | **Modulo aperto che scrive nell'area sbagliata** | «New project» aperto in un'area e un nome scritto: cambiando area dal menù il modulo restava e creava il progetto **nella nuova area** | la pagina ha come chiave il suo indirizzo (`Shell.tsx`): cambiando indirizzo si ricrea | giro nel browser (§4, punto 13) |
+| 37 | **«Oggi» in UTC** nell'API | fra mezzanotte e l'una (le due d'estate), ora italiana, i giorni di attesa di PENDING e i prezzi «di oggi» erano di ieri | `today()` usa `Europe/Rome` dentro la funzione, hardcode del [registro](hardcoded-registry.md) | `core/today.test.ts` |
+| 38 | **Inventario quadratico** | con 2.000 articoli e 40.000 movimenti l'elenco impiegava 243 ms (823 ms con un'altra forma dei dati): articoli × movimenti | `byItem` raggruppa i movimenti una volta sola: 12 ms | `inventory.test.ts` (`byItem`, prezzi) e i test dell'inventario di prima |
+| 39 | **Il browser si bloccava dopo ogni modifica** nelle pagine del budget | circa 0,6 s a ogni cella salvata in MT + DMT | oggetti stabili per le griglie (`DEFAULT_COL_DEF`, subtotale con `useMemo`): nessun blocco | giro nel browser (§4, punto 13) |
+| 40 | **Nove chiavi esterne senza indice** | nessun effetto con pochi dati; con tanti, i controlli «è usato?» e le cancellazioni a cascata leggono tutta la tabella | migrazione `0011_indexes_on_foreign_keys.sql` | la suite dell'API (database da zero) e la query del §4 di quel documento: zero righe |
+| 41 | **8 avvisi di sicurezza** su `fast-uri` (dentro Fastify) | `pnpm audit --prod`: 4 moderati e 4 bassi | due `overrides` in `pnpm-workspace.yaml` | `pnpm audit --prod` pulito |
+| 42 | Due import inutilizzati | `SortAccessors` (`GanttPage.tsx`), `AREA_SHEETS` (`reconcile.ts`) | tolti | controllo dei tipi |
+
+Ancora aperti, da decidere: il sito che si scarica tutto al primo accesso (P6), le molte piccole query di Settings (P8), CASH FLOW che calcola le righe quattro volte (P9), il linter, e la rinomina di una categoria mentre si salva una riga (P3, da lasciare così).
+
 Controlli che **non** hanno trovato difetti: la riconciliazione col foglio dopo il nuovo modello dei fondi (1.995 controlli, sul foglio e su un database caricato da zero), il tetto dei fondi e la divisione per `1 + aliquota` (tolti uno alla volta, i test falliscono), il giro nel browser degli sponsor (creazione, ALSO FROM con la tendina dei soli fondi compatibili, avviso e cella rossa che spariscono aggiungendo il fondo, ingresso e IVA di uno sponsor in cassa), il motore di calcolo contro il calcolo esatto (255.000 righe, 400.000 arrotondamenti, ogni giorno 2000–2100), la riconciliazione col foglio (anche sul database), l'iniezione SQL (8 payload in tutti i campi di testo, 17 richieste ostili), il campo extra nelle modifiche, la scadenza della sessione a metà lavoro, il conflitto di versione tra due schede, il ripristino del BANK, l'ordine delle pagine di storico.
 
 ## 3. Cosa non è coperto
+
+- **Problemi noti e non ancora corretti**: l'elenco, con la soluzione proposta, è in [controllo-bug-e-prestazioni.md](controllo-bug-e-prestazioni.md).
 
 - **Tre guasti isolati, non riprodotti** (22 ottobre 2026): provando la suite API con l'ordine dei file mescolato (14 semi), tre esecuzioni hanno avuto un test fallito (`auth.routes`, `components.routes` due volte, ogni volta un test diverso). Con lo stesso seme e con altre 20 ripetizioni (anche con il computer sotto carico) tutto è passato: non è un problema d'ordine come quello della riga 23. Se in CI ricompare un fallimento che sembra casuale, serve il **messaggio** del test (per leggerlo, `pnpm --filter @erp/api exec vitest run` e salvare l'uscita) prima di cercare la causa.
 - **Prove automatiche nel browser** (Playwright): il giro del §4 è a mano. È la lacuna più grande: si può aggiungere quando i percorsi si stabilizzano.
@@ -119,4 +137,5 @@ Con `docker compose up -d` e l'accesso di sviluppo (vedi [avvio.md](avvio.md)):
 10. **Download**: in ogni pagina con il pulsante, scarica un PDF e un Excel con tutto selezionato e uno con una sola parte; riapri i file (numeri e date vere nell'Excel, tabelle intere nel PDF, grafici su fondo bianco con legenda). Vedi [download.md](download.md).
 11. **Settings** (come admin): cambia un interruttore del calcolo (per esempio l'IVA sugli inflow) e controlla che CASH FLOW cambi; aggiungi e togli una categoria, un'aliquota, un'unità, un posto; il cestino di ciò che è usato è spento. Come `pm` la voce Settings non c'è e `/api/settings` risponde 403. **Rimetti com'era** ciò che hai cambiato.
 12. **Intestazioni e ordinamento**: in ogni pagina i comandi stanno sotto la descrizione; i moduli (nuovo progetto, fornitore, componente, incasso, sponsor, merce) compaiono solo dopo il clic sul pulsante giallo. Su una tabella clicca un'intestazione tre volte (crescente, decrescente, ordine originale); nella griglia del budget ordina per una quantità e per un importo: l'intestazione ha la stessa freccina delle tabelle, i numeri vanno in ordine di valore, i vuoti restano in fondo (anche in decrescente) e i subtotali in fondo alla griglia. Scarica il file: segue l'ordine a schermo.
-13. **Ripulisci**: cancella quello che hai creato e, se serve, le righe di storico dei tuoi giri.
+13. **Una pagina per indirizzo, e griglie che non si bloccano**: apri «New project» in un'area, scrivi un nome e passa a un'altra area dal menù: il modulo deve essere chiuso. In MT + DMT cambia una quantità e rimettila com'era: la pagina risponde subito (con un `PerformanceObserver` sui `longtask` non deve comparire nessun blocco sopra i 50 ms).
+14. **Ripulisci**: cancella quello che hai creato e, se serve, le righe di storico dei tuoi giri.

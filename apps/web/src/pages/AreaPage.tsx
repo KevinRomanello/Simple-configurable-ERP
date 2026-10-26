@@ -1,5 +1,6 @@
 import { faCheck, faPen, faPlus, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
+import type { ColDef } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router";
@@ -92,6 +93,18 @@ export function AreaPage() {
   );
 }
 
+// A constant, like the subtotal row of each project (memoised): objects made again on every render make
+// every grid of the page apply its columns again, which froze the browser for 0.4 s after each edit.
+const DEFAULT_COL_DEF: ColDef<Row> = {
+  resizable: true,
+  sortable: true,
+  comparator: (a, b, _x, _y, isDescending) => gridCompare(a, b, isDescending),
+  headerComponent: GridSortHeader,
+  suppressMovable: true,
+  wrapHeaderText: true,
+  autoHeaderHeight: true,
+};
+
 function subtotalRow(project: SheetProject): SubtotalRow {
   const phase = (which: Phase) => ({
     amounts: { ...project.subtotal[which], complete: true },
@@ -111,6 +124,7 @@ function ProjectPanel({ project, buildColumns, canEdit }: { project: SheetProjec
     element: () => panel.current,
     collect: () => (gridRef.current?.api ? { kind: "table", table: tableFromGrid(gridRef.current.api) } : null),
   });
+  const subtotal = useMemo(() => [subtotalRow(project)], [project]);
   const more = needsMoreFunds(project.lines);
   const columns = useMemo(() => buildColumns(more), [buildColumns, more.estimate, more.actual]); // eslint-disable-line react-hooks/exhaustive-deps
   // a column that appears (or goes away) changes what the others can share: fit them again
@@ -166,9 +180,9 @@ function ProjectPanel({ project, buildColumns, canEdit }: { project: SheetProjec
         theme={gridTheme}
         domLayout="autoHeight"
         rowData={project.lines}
-        pinnedBottomRowData={[subtotalRow(project)]}
+        pinnedBottomRowData={subtotal}
         columnDefs={columns}
-        defaultColDef={{ resizable: true, sortable: true, comparator: (a, b, _x, _y, isDescending) => gridCompare(a, b, isDescending), headerComponent: GridSortHeader, suppressMovable: true, wrapHeaderText: true, autoHeaderHeight: true }}
+        defaultColDef={DEFAULT_COL_DEF}
         // each column takes the room its content needs, no more; fitted again whenever the rows change
         // (the grid can only measure columns it draws, so all of them are drawn)
         suppressColumnVirtualisation

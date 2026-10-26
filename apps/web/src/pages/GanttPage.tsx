@@ -10,7 +10,7 @@ import { money, month } from "../lib/format";
 import { TableBox } from "../components/ExportBlocks";
 import { SortTh } from "../components/SortTh";
 import { Loading, Message, PageHeader, Panel } from "../components/ui";
-import { useSort, type SortAccessors } from "../lib/sort";
+import { useSort } from "../lib/sort";
 
 type ProjectRow = Gantt["blocks"][number]["areas"][number]["rows"][number];
 type TeamFundRow = Gantt["teamFund"]["rows"][number];

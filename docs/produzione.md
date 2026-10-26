@@ -200,7 +200,7 @@ Il collaudo di robustezza (numeri e testi fuori misura, richieste simultanee, da
 | --- | --- |
 | **SQL injection**: ogni query passa da Drizzle (valori sempre come parametri); nessun `sql.raw` né testo SQL costruito a pezzi; ogni input passa prima da Zod (id numerici, enum, date, decimali con regex, campi sconosciuti scartati) | **nessun punto vulnerabile trovato**. Prova (ora un test permanente, `src/security.test.ts`) con 8 payload classici in tutti i campi di testo (restano testo, le tabelle restano) e 17 richieste ostili su id, percorsi, query string, corpi e callback di login: nessuna risposta 500, nessun effetto |
 | Mass assignment (campi extra come `projectId` o `id` in una modifica) | scartati da Zod, la riga non cambia |
-| Dipendenze (`pnpm audit`) | 2 avvisi *moderati*, entrambi in strumenti di sviluppo (`esbuild` via `drizzle-kit`, `uuid` via `exceljs`), non raggiungibili dall'API. **Risolti** con due `overrides` |
+| Dipendenze (`pnpm audit`) | 2 avvisi *moderati*, entrambi in strumenti di sviluppo (`esbuild` via `drizzle-kit`, `uuid` via `exceljs`), non raggiungibili dall'API. **Risolti** con due `overrides` (poi un terzo il 26 ottobre 2026, per `fast-uri` dentro Fastify) |
 | Utente del database | l'app si collegava come **superutente** PostgreSQL (`erp`). **Risolto**: ora usa `erp_app` |
 
 **Fatto il 20 ottobre 2026** (dopo le verifiche sopra):
@@ -208,7 +208,7 @@ Il collaudo di robustezza (numeri e testi fuori misura, richieste simultanee, da
 - [x] **Ruoli del database.** L'API si collega come `erp_app`: legge e scrive i dati, non può creare, modificare o cancellare tabelle, non può spegnere il trigger e non può scrivere `audit_log` (lo scrive il trigger con i diritti del proprietario, migrazione `0003`). Il proprietario (`erp`) serve solo a migrazioni, seed e `pnpm db:roles`. Tutta la suite di test gira come utente limitato; `src/db/app-role.test.ts` elenca cosa è vietato.
 - [x] **Limite di richieste.** 1.200 al minuto per indirizzo su tutta l'API, **10 al minuto** sulle rotte di accesso; il controllo di salute è escluso. In memoria (un processo: un riavvio azzera i contatori). Dietro un proxy serve `TRUST_PROXY=true`, e **solo** se l'API è raggiungibile unicamente dal proxy: altrimenti chiunque può inventarsi `X-Forwarded-For` e aggirare il limite.
 - [x] **Intestazioni di sicurezza dell'API** (`helmet`: CSP `default-src 'none'`, `frame-ancestors 'none'`, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, HSTS) e `Cache-Control: no-store` su ogni risposta.
-- [x] **Dipendenze.** `pnpm audit` pulito (due `overrides` in `pnpm-workspace.yaml` per `uuid` ed `esbuild`, da riverificare quando escono `exceljs`/`drizzle-kit` nuovi); Dependabot settimanale; `pnpm audit --prod --audit-level=high` in CI.
+- [x] **Dipendenze.** `pnpm audit` pulito (tre `overrides` in `pnpm-workspace.yaml` per `uuid`, `esbuild` e `fast-uri`, da riverificare quando escono `exceljs`/`drizzle-kit`/`fastify` nuovi); Dependabot settimanale; `pnpm audit --prod --audit-level=high` in CI.
 - [x] **Controlli contro l'SQL injection nei test**: nessun `sql.raw`/`.unsafe(`, solo modelli `sql` in `execute()`/`query()`, e un attacco con payload classici a tutti i campi (`src/security.test.ts`).
 - [x] **Messaggio di accesso**: il server manda una parola (`cancelled`, `expired`, `domain`, `deactivated`, `failed`) e il sito la traduce; un link costruito non può scrivere testo nella pagina.
 
