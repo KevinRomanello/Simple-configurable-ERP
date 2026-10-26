@@ -105,8 +105,6 @@ export async function loadSnapshot(): Promise<Snapshot> {
           id: f.id,
           name: f.name,
           kind: f.kind,
-          paysVat: f.paysVat,
-          mode: f.mode,
           type: f.type,
           vatRate: f.vatRate === null ? null : Number(f.vatRate),
           group: f.groupName,

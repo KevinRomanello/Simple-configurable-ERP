@@ -1,42 +1,28 @@
 import { percentOf } from "./money";
 import type { InflowInput, Snapshot } from "./snapshot";
 import type { Phase } from "./types";
-import { vatDeadline } from "./vat";
+import { firstDayOfNextQuarter } from "./vat";
 
-/** Money that reaches the bank in a phase. */
-export type BankInflow = Pick<InflowInput, "sourceName" | "amountCents" | "inflowDate">;
-
-/** The contracts of the sponsors whose money is paid into the bank, with the sponsor's name. */
-function cashContracts(snapshot: Snapshot, phase: Phase): BankInflow[] {
-  const names = new Map(snapshot.funds.filter((f) => f.mode === "cash").map((f) => [f.id, f.name]));
-  return snapshot.contracts
-    .filter((c) => c.phase === phase && names.has(c.fundId))
-    .map((c) => ({ sourceName: names.get(c.fundId)!, amountCents: c.amountCents, inflowDate: c.inflowDate }));
+/** Everything that reaches the bank in a phase: the inflows typed in CASH FLOW. */
+export function bankInflows(snapshot: Snapshot, phase: Phase): InflowInput[] {
+  return snapshot.inflows.filter((i) => i.phase === phase);
 }
 
-/**
- * Everything that reaches the bank in a phase: the inflows typed in CASH FLOW plus the contracts
- * of cash sponsors, which count by themselves (they are not copied into the CASH FLOW table).
- */
-export function bankInflows(snapshot: Snapshot, phase: Phase): BankInflow[] {
-  return [...snapshot.inflows.filter((i) => i.phase === phase), ...cashContracts(snapshot, phase)];
-}
-
-export interface CashSponsorVat {
-  /** The usual quarterly VAT deadline of the day the money came in. */
+export interface InflowVat {
+  /** The first day of the quarter after the inflow. */
   dueDate: string;
   cents: number;
 }
 
 /**
- * The VAT the team owes on the money of cash sponsors: a fixed rate by law (the sponsorship is
- * invoiced), paid on the same quarterly deadlines as every other VAT. A contract without an inflow
- * date has no deadline yet and is left out.
+ * The VAT the team owes on its inflows: money that comes in is sponsorship, which is invoiced, at
+ * a fixed rate by law. It is paid on the first day of the quarter after the inflow. An inflow
+ * without a date has no day to pay on yet and is left out.
  */
-export function cashSponsorVat(snapshot: Snapshot, phase: Phase): CashSponsorVat[] {
-  const { settings, vatRules } = snapshot.lookups;
-  return cashContracts(snapshot, phase)
-    .filter((c): c is BankInflow & { inflowDate: string } => c.inflowDate !== null)
-    .map((c) => ({ dueDate: vatDeadline(c.inflowDate, vatRules), cents: percentOf(c.amountCents, settings.cashSponsorVatRate) }))
+export function inflowVat(snapshot: Snapshot, phase: Phase): InflowVat[] {
+  const rate = snapshot.lookups.settings.inflowVatRate;
+  return bankInflows(snapshot, phase)
+    .filter((i): i is InflowInput & { inflowDate: string } => i.inflowDate !== null)
+    .map((i) => ({ dueDate: firstDayOfNextQuarter(i.inflowDate), cents: percentOf(i.amountCents, rate) }))
     .filter((v) => v.cents > 0);
 }

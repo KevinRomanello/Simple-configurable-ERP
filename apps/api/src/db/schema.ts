@@ -1,4 +1,4 @@
-import { FUND_MODES, FUND_TYPES, MOVEMENT_KINDS, PHASES, SPONSOR_TYPES } from "@erp/calc";
+import { FUND_TYPES, MOVEMENT_KINDS, PHASES, SPONSOR_TYPES } from "@erp/calc";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -25,7 +25,6 @@ import {
 export const phaseEnum = pgEnum("phase", PHASES);
 export const sponsorTypeEnum = pgEnum("sponsor_type", SPONSOR_TYPES);
 export const fundKindEnum = pgEnum("fund_kind", ["team", "external"]);
-export const fundModeEnum = pgEnum("fund_mode", FUND_MODES);
 export const fundTypeEnum = pgEnum("fund_type", FUND_TYPES);
 export const userRoleEnum = pgEnum("user_role", ["admin", "pm", "viewer"]);
 export const movementKindEnum = pgEnum("movement_kind", MOVEMENT_KINDS);
@@ -116,12 +115,9 @@ export const fund = pgTable(
       .references(() => season.id),
     name: text().notNull(),
     kind: fundKindEnum().notNull(),
-    // Whether the fund also covers the VAT of what it pays; otherwise the team pays it. One box per
-    // fund (the old sheet had one per phase: question Q5, answered on 21 October 2026).
-    paysVat: boolean().notNull().default(false),
     // The sponsor's definition: the funds are black boxes that work out VAT and coverage from it
-    // (docs/sponsor-e-fondi.md). The team fund is plain: its VAT rate is chosen on each line.
-    mode: fundModeEnum().notNull().default("virtual"),
+    // (docs/sponsor-e-fondi.md). A sponsor's fund covers the VAT of its purchases at its own rate
+    // (0% = no VAT). The team fund is plain: its VAT rate is chosen on each line.
     type: fundTypeEnum().notNull().default("fund"),
     vatRate: numeric({ precision: 5, scale: 2 }),
     /** Funds with the same group (any spelling) can pay one line together. */
@@ -134,9 +130,8 @@ export const fund = pgTable(
       .where(sql`${t.kind} = 'team'`),
     check(
       "fund_team_is_plain",
-      sql`${t.kind} <> 'team' or (${t.mode} = 'virtual' and ${t.type} = 'fund' and ${t.vatRate} is null and ${t.groupName} is null)`,
+      sql`${t.kind} <> 'team' or (${t.type} = 'fund' and ${t.vatRate} is null and ${t.groupName} is null)`,
     ),
-    check("fund_cash_gives_fund", sql`${t.mode} = 'virtual' or ${t.type} = 'fund'`),
     check("fund_sponsor_has_rate", sql`${t.kind} = 'team' or ${t.vatRate} is not null`),
   ],
 );

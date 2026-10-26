@@ -1,4 +1,4 @@
-import type { FundMode, FundType, Phase } from "@erp/calc";
+import type { FundType, Phase } from "@erp/calc";
 import { and, eq, exists, inArray, sql } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
@@ -43,19 +43,16 @@ function fundOut(row: FundRow, money: MoneyByPhase = NO_MONEY) {
     id: row.id,
     name: row.name,
     kind: row.kind,
-    mode: row.mode,
     type: row.type,
     vatRate: row.vatRate === null ? null : Number(row.vatRate),
     group: row.groupName,
-    paysVat: row.paysVat,
     contracts: money,
   };
 }
 
 /**
  * The funds a line can be paid from in a phase: the team fund, every gift (it needs no money) and
- * every virtual fund that has a contract in that phase (GET /api/funds?phase=). A sponsor whose
- * money goes into the bank is never offered: its money is the team's. Without a phase, every fund.
+ * every sponsor that has a contract in that phase (GET /api/funds?phase=). Without a phase, every fund.
  */
 export async function listFunds(phase?: Phase) {
   const season = await getCurrentSeason();
@@ -69,7 +66,7 @@ export async function listFunds(phase?: Phase) {
     .from(fund)
     .where(
       phase
-        ? and(inSeason, sql`(${fund.kind} = 'team' or (${fund.mode} = 'virtual' and (${fund.type} <> 'fund' or ${hasContract(phase)})))`)
+        ? and(inSeason, sql`(${fund.kind} = 'team' or ${fund.type} <> 'fund' or ${hasContract(phase)})`)
         : inSeason,
     )
     .orderBy(sql`${fund.kind} = 'team' desc`, sql`lower(${fund.name})`);
@@ -81,11 +78,9 @@ export async function listFunds(phase?: Phase) {
 
 export interface SponsorInput {
   name: string;
-  mode: FundMode;
   type: FundType;
   vatRate: number | null;
   group: string | null;
-  paysVat: boolean;
 }
 
 /** The money a new sponsor brings: one contract per phase it counts in. */
@@ -96,10 +91,7 @@ export interface ContractInput {
 }
 
 /** The rules every sponsor must follow; gives back the VAT rate to store. */
-async function checkedRate(input: Pick<SponsorInput, "mode" | "type" | "vatRate">): Promise<number> {
-  if (input.mode === "cash" && input.type !== "fund") {
-    throw invalid("A sponsor that pays into the bank can only give a fund, not goods");
-  }
+async function checkedRate(input: Pick<SponsorInput, "type" | "vatRate">): Promise<number> {
   const rate = input.type === "gift" ? 0 : input.vatRate; // a plain gift owes no VAT at all
   if (rate === null) throw invalid("Choose the VAT rate of the sponsor");
   if (!(await listVatRates()).includes(rate)) throw invalid(`VAT rate ${rate}% is not one of the allowed rates`);
@@ -108,11 +100,9 @@ async function checkedRate(input: Pick<SponsorInput, "mode" | "type" | "vatRate"
 
 const sponsorValues = (input: SponsorInput, rate: number) => ({
   name: input.name,
-  mode: input.mode,
   type: input.type,
   vatRate: rate.toFixed(2),
   groupName: input.group,
-  paysVat: input.paysVat,
 });
 
 /**
@@ -158,11 +148,9 @@ export async function updateFund(fundId: number, input: Partial<SponsorInput>) {
 
     const merged: SponsorInput = {
       name: input.name ?? target.name,
-      mode: input.mode ?? target.mode,
       type: input.type ?? target.type,
       vatRate: input.vatRate !== undefined ? input.vatRate : target.vatRate === null ? null : Number(target.vatRate),
       group: input.group !== undefined ? input.group : target.groupName,
-      paysVat: input.paysVat ?? target.paysVat,
     };
     const rate = await checkedRate(merged);
     if (merged.type !== "fund" && (await moneyOf(tx, [fundId])).has(fundId)) {

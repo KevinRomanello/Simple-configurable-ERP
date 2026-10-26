@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../api/client";
-import type { Fund, FundMode, FundSummaryRow, FundType, MonthlyInflow, NewContract, Phase } from "../api/types";
+import type { Fund, FundSummaryRow, FundType, MonthlyInflow, NewContract, Phase } from "../api/types";
 import { BarsChart } from "../components/BarsChart";
 import { Button, IconButton } from "../components/Button";
 import { date, money, moneyFromDecimal, month } from "../lib/format";
@@ -16,7 +16,6 @@ import { useSort, type SortAccessors } from "../lib/sort";
 
 const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
 
-const MODE_LABEL: Record<FundMode, string> = { virtual: "Virtual", cash: "Team's fund" };
 const TYPE_LABEL: Record<FundType, string> = {
   fund: "Gives a fund",
   gift: "Gives goods, no VAT",
@@ -99,11 +98,9 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
   const rates = useQuery({ queryKey: ["vat-rates"], queryFn: api.vatRates });
 
   const [name, setName] = useState("");
-  const [mode, setMode] = useState<FundMode>("virtual");
   const [type, setType] = useState<FundType>("fund");
   const [rate, setRate] = useState("");
   const [group, setGroup] = useState("");
-  const [paysVat, setPaysVat] = useState(false);
   const [amount, setAmount] = useState("");
   const [day, setDay] = useState("");
   const [counts, setCounts] = useState<keyof typeof PHASES_CHOICE>("both");
@@ -117,7 +114,7 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
     const contracts: NewContract[] =
       isMoney && amount !== "" ? PHASES_CHOICE[counts].map((phase) => ({ phase, amount, inflowDate: day || null })) : [];
     const ok = await act(() =>
-      api.createFund({ name: name.trim(), mode, type, vatRate: gift ? 0 : Number(rate), group: group.trim() || null, paysVat, contracts }),
+      api.createFund({ name: name.trim(), type, vatRate: gift ? 0 : Number(rate), group: group.trim() || null, contracts }),
     );
     if (ok) onDone();
   };
@@ -126,9 +123,9 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
     <section className="panel">
       <h2>New sponsor</h2>
       <p className="muted">
-        <strong>Virtual</strong>: the money does not reach the bank; the VAT of the purchases is paid by the team unless
-        the sponsor pays it. <strong>Team's fund</strong>: the money is paid into the bank, and the team owes 11% VAT on it
-        every quarter. Sponsors of the same group can pay one purchase together.
+        A sponsor's fund pays what is chosen with it, VAT included at its VAT %: put 0% for a sponsor that pays no VAT.
+        Sponsors of the same group can pay one purchase together. Money that goes into the bank is not a sponsor: add it in
+        CASH FLOW, as an inflow.
       </p>
       <form className="stack tight" onSubmit={submit}>
         <div className="form-grid">
@@ -137,22 +134,8 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
             <input id="sponsor-name" className="input small" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="field">
-            <label htmlFor="sponsor-mode">Money goes to</label>
-            <select
-              id="sponsor-mode"
-              className="input small"
-              value={mode}
-              onChange={(e) => {
-                setMode(e.target.value as FundMode);
-                if (e.target.value === "cash") setType("fund"); // goods never go through the bank
-              }}
-            >
-              {(Object.keys(MODE_LABEL) as FundMode[]).map((m) => <option key={m} value={m}>{MODE_LABEL[m]}</option>)}
-            </select>
-          </div>
-          <div className="field">
             <label htmlFor="sponsor-type">Gives</label>
-            <select id="sponsor-type" className="input small" value={type} disabled={mode === "cash"} onChange={(e) => setType(e.target.value as FundType)}>
+            <select id="sponsor-type" className="input small" value={type} onChange={(e) => setType(e.target.value as FundType)}>
               {(Object.keys(TYPE_LABEL) as FundType[]).map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
             </select>
           </div>
@@ -166,10 +149,6 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
           <div className="field">
             <label htmlFor="sponsor-group">Group (optional)</label>
             <input id="sponsor-group" className="input small" list={GROUPS_LIST} maxLength={60} value={group} onChange={(e) => setGroup(e.target.value)} />
-          </div>
-          <div className="field">
-            <span className="label">Pays VAT</span>
-            <label className="checkbox"><input type="checkbox" checked={paysVat} onChange={(e) => setPaysVat(e.target.checked)} />The fund covers the VAT too</label>
           </div>
         </div>
 
@@ -280,11 +259,9 @@ const SPONSOR_SORT: SortAccessors<Fund> = {
   actualValue: (f) => (f.contracts.actual ? Number(f.contracts.actual.amount) : null),
   estimateDate: (f) => f.contracts.estimate?.inflowDate ?? null,
   actualDate: (f) => f.contracts.actual?.inflowDate ?? null,
-  mode: (f) => MODE_LABEL[f.mode],
   type: (f) => TYPE_SHORT[f.type],
   vat: (f) => f.vatRate,
   group: (f) => f.group || null,
-  paysVat: (f) => (f.paysVat ? 1 : 0),
 };
 
 /** The definition of every sponsor and what it is worth, one row each, edited in place. */
@@ -311,11 +288,9 @@ function SponsorsPanel() {
             <tr>
               <SortTh sort={sort} by="name" rowSpan={2}>NAME</SortTh>
               <th colSpan={2} className="group-start">EXPECTED</th><th colSpan={2} className="group-start">ACTUAL</th>
-              <SortTh sort={sort} by="mode" rowSpan={2} className="group-start">MONEY GOES TO</SortTh>
-              <SortTh sort={sort} by="type" rowSpan={2}>GIVES</SortTh>
+              <SortTh sort={sort} by="type" rowSpan={2} className="group-start">GIVES</SortTh>
               <SortTh sort={sort} by="vat" rowSpan={2}>VAT %</SortTh>
               <SortTh sort={sort} by="group" rowSpan={2}>GROUP</SortTh>
-              <SortTh sort={sort} by="paysVat" rowSpan={2}>PAYS VAT</SortTh>
               <th rowSpan={2} />
             </tr>
             <tr>
@@ -333,14 +308,7 @@ function SponsorsPanel() {
                 <MoneyCells fund={f} phase="actual" canEdit={canEdit} />
                 <td className="group-start">
                   {canEdit ? (
-                    <select className="input small" aria-label={`Money of ${f.name}`} value={f.mode} onChange={(e) => change(f, { mode: e.target.value as FundMode })}>
-                      {(Object.keys(MODE_LABEL) as FundMode[]).map((m) => <option key={m} value={m}>{MODE_LABEL[m]}</option>)}
-                    </select>
-                  ) : MODE_LABEL[f.mode]}
-                </td>
-                <td>
-                  {canEdit ? (
-                    <select className="input small" aria-label={`What ${f.name} gives`} value={f.type} disabled={f.mode === "cash"} onChange={(e) => change(f, { type: e.target.value as FundType })}>
+                    <select className="input small" aria-label={`What ${f.name} gives`} value={f.type} onChange={(e) => change(f, { type: e.target.value as FundType })}>
                       {(Object.keys(TYPE_SHORT) as FundType[]).map((t) => <option key={t} value={t}>{TYPE_SHORT[t]}</option>)}
                     </select>
                   ) : TYPE_SHORT[f.type]}
@@ -353,13 +321,10 @@ function SponsorsPanel() {
                   ) : rateLabel(f.vatRate)}
                 </td>
                 <td>{canEdit ? <CommitInput value={f.group ?? ""} label={`Group of ${f.name}`} list={GROUPS_LIST} onCommit={(text) => change(f, { group: text || null })} /> : f.group}</td>
-                <td>
-                  <input type="checkbox" aria-label={`${f.name} pays VAT`} checked={f.paysVat} disabled={!canEdit} onChange={(e) => change(f, { paysVat: e.target.checked })} />
-                </td>
                 <td className="num">{canEdit && <IconButton icon={faTrash} label="Delete sponsor" danger onClick={() => remove(f)} />}</td>
               </tr>
             ))}
-            {sponsors.length === 0 && <tr><td colSpan={11} className="empty">No sponsors yet</td></tr>}
+            {sponsors.length === 0 && <tr><td colSpan={9} className="empty">No sponsors yet</td></tr>}
           </tbody>
         </table>
       </TableBox>

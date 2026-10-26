@@ -9,13 +9,15 @@ beforeEach(resetData);
 const contract = (body: { fundName: string; [key: string]: unknown }) => addContract(api, body as Parameters<typeof addContract>[1]);
 
 describe("sponsors", () => {
-  it("creates a virtual fund by default, with the VAT rate that must be chosen", async () => {
+  it("creates a plain fund by default, with the VAT rate that must be chosen", async () => {
     const created = await api.post("/api/funds", { name: "Sponsor A", vatRate: 11, group: " Cars " });
     expect(created.status).toBe(201);
     expect(created.body).toMatchObject({
-      name: "Sponsor A", kind: "external", mode: "virtual", type: "fund", vatRate: 11, group: "Cars",
-      paysVat: false,
+      name: "Sponsor A", kind: "external", type: "fund", vatRate: 11, group: "Cars",
     });
+    // a sponsor is always a virtual fund that covers its VAT: there is nothing to choose about either
+    expect(created.body).not.toHaveProperty("mode");
+    expect(created.body).not.toHaveProperty("paysVat");
     expect((await api.post("/api/funds", { name: "No rate" })).status).toBe(400); // a fund needs its VAT rate
   });
 
@@ -35,20 +37,17 @@ describe("sponsors", () => {
     expect((await api.post("/api/funds", { name: "Barter 2", type: "gift_vat" })).status).toBe(400);
   });
 
-  it("only a fund can pay into the bank, and only an allowed VAT rate is accepted", async () => {
-    expect((await api.post("/api/funds", { name: "Cash", mode: "cash", vatRate: 11 })).status).toBe(201);
-    expect((await api.post("/api/funds", { name: "Cash gift", mode: "cash", type: "gift" })).status).toBe(400);
+  it("accepts only an allowed VAT rate and a known type", async () => {
+    expect((await api.post("/api/funds", { name: "Eleven", vatRate: 11 })).status).toBe(201);
     expect((await api.post("/api/funds", { name: "Odd", vatRate: 17 })).status).toBe(400);
-    expect((await api.post("/api/funds", { name: "Bad", mode: "never", vatRate: 22 })).status).toBe(400);
+    expect((await api.post("/api/funds", { name: "Bad", type: "loan", vatRate: 22 })).status).toBe(400);
   });
 
   it("changes every parameter, checking the result as a whole", async () => {
     const fund = (await api.post("/api/funds", { name: "S", vatRate: 22 })).body;
-    const changed = await api.patch(`/api/funds/${fund.id}`, {
-      name: "Renamed", mode: "cash", vatRate: 0, group: "g", paysVat: true,
-    });
-    expect(changed.body).toMatchObject({ name: "Renamed", mode: "cash", vatRate: 0, group: "g", paysVat: true });
-    expect((await api.patch(`/api/funds/${fund.id}`, { type: "gift" })).status).toBe(400); // a cash sponsor gives a fund
+    const changed = await api.patch(`/api/funds/${fund.id}`, { name: "Renamed", vatRate: 0, group: "g" });
+    expect(changed.body).toMatchObject({ name: "Renamed", vatRate: 0, group: "g" });
+    expect((await api.patch(`/api/funds/${fund.id}`, { type: "gift" })).body).toMatchObject({ type: "gift", vatRate: 0 });
     expect((await api.patch(`/api/funds/${fund.id}`, { group: null })).body.group).toBeNull();
     expect((await api.patch("/api/funds/9999", { group: "g" })).status).toBe(404);
   });
@@ -88,7 +87,7 @@ describe("sponsors", () => {
 
   it("the team fund has no sponsor settings", async () => {
     const team = (await api.get("/api/funds")).body[0];
-    expect(team).toMatchObject({ kind: "team", mode: "virtual", type: "fund", vatRate: null, group: null });
+    expect(team).toMatchObject({ kind: "team", type: "fund", vatRate: null, group: null });
     expect((await api.patch(`/api/funds/${team.id}`, { group: "g" })).status).toBe(400);
   });
 });
@@ -112,16 +111,14 @@ describe("the money of a sponsor", () => {
     expect((await api.del(`/api/funds/${id}/contracts/estimate`)).status).toBe(404);
   });
 
-  it("makes a fund usable in a phase: offered there if it has money, a gift always, a sponsor in the team's fund never", async () => {
+  it("makes a fund usable in a phase: offered there if it has money, a gift always", async () => {
     await contract({ fundName: "Only estimate" });
     await contract({ fundName: "Only actual", phase: "actual", amount: "1" });
     await api.post("/api/funds", { name: "Gift", type: "gift" });
-    await api.post("/api/funds", { name: "Cash", mode: "cash", vatRate: 22 });
-    await contract({ fundName: "Cash" });
     const names = async (phase: string) => (await api.get(`/api/funds?phase=${phase}`)).body.map((f: any) => f.name);
     expect(await names("estimate")).toEqual(["Team's fund", "Gift", "Only estimate"]);
     expect(await names("actual")).toEqual(["Team's fund", "Gift", "Only actual"]);
-    expect((await names("estimate")).length).toBeLessThan((await api.get("/api/funds")).body.length); // "Cash" is in the full list
+    expect((await names("estimate")).length).toBeLessThan((await api.get("/api/funds")).body.length); // "Only actual" is in the full list
   });
 
   it("the team fund and a gift have none; an unknown fund answers 404", async () => {
@@ -139,12 +136,6 @@ describe("the money of a sponsor", () => {
     expect((await api.patch(`/api/funds/${id}`, { type: "gift" })).status).toBe(400);
     await api.del(`/api/funds/${id}/contracts/estimate`);
     expect((await api.patch(`/api/funds/${id}`, { type: "gift" })).status).toBe(200);
-  });
-
-  it("has one pays-VAT box per fund, for every phase", async () => {
-    const fund = (await contract({ fundName: "X" })).body.fundId;
-    expect((await api.patch(`/api/funds/${fund}`, { paysVat: true })).body.paysVat).toBe(true);
-    expect((await api.patch(`/api/funds/${fund}`, { paysVat: false })).body.paysVat).toBe(false);
   });
 
   it("deletes a sponsor together with its money, but not one that pays budget lines", async () => {

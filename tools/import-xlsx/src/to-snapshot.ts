@@ -37,7 +37,7 @@ export function toSnapshot(raw: RawInputs, lookups: Lookups): Converted {
 
   // --- funds: the team fund plus every external name found anywhere ------------------------
   const funds: FundInput[] = [
-    { id: 1, name: TEAM_FUND, kind: "team", paysVat: false, mode: "virtual", type: "fund", vatRate: null, group: null },
+    { id: 1, name: TEAM_FUND, kind: "team", type: "fund", vatRate: null, group: null },
   ];
   // The sheet keeps the VAT rate on each line, a sponsor's fund now has one of its own: the one its
   // lines use most (22 when none of them has one). Collected while the lines are read.
@@ -47,13 +47,13 @@ export function toSnapshot(raw: RawInputs, lookups: Lookups): Converted {
     const known = fundId.get(lower(name));
     if (known !== undefined) return known;
     const id = funds.length + 1;
-    funds.push({ id, name, kind: "external", paysVat: false, mode: "virtual", type: "fund", vatRate: 22, group: null });
+    funds.push({ id, name, kind: "external", type: "fund", vatRate: 22, group: null });
     fundId.set(lower(name), id);
     return id;
   };
   for (const phase of ["estimate", "actual"] as const) {
     for (const row of raw.contracts[phase]) fundNamed(row.name);
-    for (const name of raw.paysVat[phase].keys()) fundNamed(name);
+    for (const name of raw.sponsorNames[phase]) fundNamed(name);
   }
 
   // --- suppliers: one list ---------------------------------------------------------------
@@ -151,10 +151,6 @@ export function toSnapshot(raw: RawInputs, lookups: Lookups): Converted {
     const count = (rate: number) => rates.filter((r) => r === rate).length;
     // the most common rate; on a tie the first one that was used
     if (rates.length > 0) fund.vatRate = rates.reduce((best, rate) => (count(rate) > count(best) ? rate : best));
-  }
-  for (const phase of ["estimate", "actual"] as Phase[]) {
-    // the sheet has a box per phase, the app one per fund: ticked if either was
-    for (const [name, pays] of raw.paysVat[phase]) funds[fundNamed(name) - 1]!.paysVat ||= pays;
   }
   const contracts: Snapshot["contracts"] = [];
   const inflows: Snapshot["inflows"] = [];

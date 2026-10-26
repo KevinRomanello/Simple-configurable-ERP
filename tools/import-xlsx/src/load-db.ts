@@ -56,8 +56,6 @@ await db.transaction(async (tx) => {
         seasonId: season.id,
         name: f.name,
         kind: "external",
-        paysVat: f.paysVat,
-        mode: f.mode,
         type: f.type,
         vatRate: f.vatRate === null ? null : f.vatRate.toFixed(2),
         groupName: f.group,

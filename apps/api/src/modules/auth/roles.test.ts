@@ -47,7 +47,7 @@ describe("viewer", () => {
       await as.del(`/api/lines/${s.myLine.id}`),
       await as.put(`/api/funds/${s.contract.fundId}/contracts/estimate`, { amount: "1" }),
       await as.post("/api/funds", { name: "X", vatRate: 22 }),
-      await as.patch(`/api/funds/${s.contract.fundId}`, { paysVat: true }),
+      await as.patch(`/api/funds/${s.contract.fundId}`, { group: "g" }),
       await as.del(`/api/funds/${s.contract.fundId}/contracts/estimate`),
       await as.post("/api/inflows", { phase: "estimate", sourceName: "X", amount: "1" }),
       await as.del(`/api/inflows/${s.inflow.id}`),
@@ -100,7 +100,7 @@ describe("pm", () => {
     const attempts = [
       await as.put(`/api/funds/${s.contract.fundId}/contracts/estimate`, { amount: "1" }),
       await as.post("/api/funds", { name: "X", vatRate: 22 }),
-      await as.patch(`/api/funds/${s.contract.fundId}`, { paysVat: true }),
+      await as.patch(`/api/funds/${s.contract.fundId}`, { group: "g" }),
       await as.del(`/api/funds/${s.contract.fundId}/contracts/estimate`),
       await as.del(`/api/funds/${s.contract.fundId}`),
       await as.post("/api/inflows", { phase: "estimate", sourceName: "X", amount: "1" }),

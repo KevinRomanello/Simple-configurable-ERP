@@ -13,10 +13,6 @@ export type Priority = (typeof PRIORITIES)[number];
 export const SPONSOR_TYPES = ["none", "partial", "total"] as const;
 export type SponsorType = (typeof SPONSOR_TYPES)[number];
 
-/** Whether a sponsor's money reaches the bank (`cash`) or stays a credit with the sponsor (`virtual`). */
-export const FUND_MODES = ["virtual", "cash"] as const;
-export type FundMode = (typeof FUND_MODES)[number];
-
 /**
  * What a sponsor gives, in the words of the treasurer:
  *  - `fund`:     a sum to pay purchases from; the VAT of those purchases is added at the sponsor's rate;
@@ -57,8 +53,8 @@ export interface Settings {
   varianceThreshold: number;
   /** Open question Q1: which amount the VAT is computed on when the sponsor covers everything. */
   vatBaseWhenTotalSponsor: "net" | "net-minus-sponsor";
-  /** VAT, in percent, that the team owes on the money a cash sponsor pays into the bank (by law). */
-  cashSponsorVatRate: number;
+  /** VAT, in percent, that the team owes on every inflow: it is sponsorship, invoiced (by law). */
+  inflowVatRate: number;
   /** Open question Q2: how outflows/inflows are compared with the BANK date. */
   bankCompare: { summary: BankCompareMode; timeline: BankCompareMode };
   /** Default span of the per-area VAT report; it widens automatically around purchase dates. */

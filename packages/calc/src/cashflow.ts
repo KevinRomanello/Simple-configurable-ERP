@@ -1,5 +1,5 @@
 import { isAfterBank } from "./bank";
-import { bankInflows, cashSponsorVat } from "./cash";
+import { bankInflows, inflowVat } from "./cash";
 import { fundSummary, inflowsByMonth, type MonthlyInflow } from "./funds";
 import { computeLines } from "./lines";
 import type { Snapshot } from "./snapshot";
@@ -41,7 +41,7 @@ export function cashFlowSummary(snapshot: Snapshot, phase: Phase): CashFlowSumma
     .reduce((sum, p) => sum + p.teamFundCents, 0);
   const teamVat =
     lines.filter((p) => p.teamVatCents > 0 && counts(p.vatDueDate)).reduce((sum, p) => sum + p.teamVatCents, 0) +
-    cashSponsorVat(snapshot, phase).filter((v) => counts(v.dueDate)).reduce((sum, v) => sum + v.cents, 0);
+    inflowVat(snapshot, phase).filter((v) => counts(v.dueDate)).reduce((sum, v) => sum + v.cents, 0);
 
   const teamOutflowsCents = teamPurchases + teamVat;
   const leftValueCents = totalCashFlowCents - teamOutflowsCents;

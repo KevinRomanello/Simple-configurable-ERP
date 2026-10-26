@@ -10,7 +10,6 @@ export interface FundSummaryRow {
   /** Outflow of the lines paid from this fund, in this phase. */
   outflowCents: number;
   vatCents: number;
-  paysVat: boolean;
   /** What is left of the contracts. Negative means the fund is overspent. */
   leftCents: number;
 }
@@ -19,16 +18,15 @@ const byName = (a: { name: string }, b: { name: string }) =>
   a.name.toLowerCase().localeCompare(b.name.toLowerCase());
 
 /**
- * The CASH FROM summary: one row per virtual external fund that has a contract in the phase (a
- * cash sponsor's money is in the bank, not in a fund). A line paid by several funds counts for
- * each of them only with its part.
- * left = contracts - (outflow - VAT when the fund does not cover VAT).
+ * The CASH FROM summary: one row per sponsor that has a contract in the phase. A line paid by
+ * several funds counts for each of them only with its part.
+ * left = contracts - outflow (the fund covers the VAT of its purchases).
  */
 export function fundSummary(snapshot: Snapshot, phase: Phase): FundSummaryRow[] {
   const lines = computeLines(snapshot);
 
   return snapshot.funds
-    .filter((fund) => fund.kind === "external" && fund.mode === "virtual")
+    .filter((fund) => fund.kind === "external")
     .map((fund) => {
       const contracts = snapshot.contracts.filter((c) => c.fundId === fund.id && c.phase === phase);
       if (contracts.length === 0) return null;
@@ -37,7 +35,6 @@ export function fundSummary(snapshot: Snapshot, phase: Phase): FundSummaryRow[] 
       const own = lines.flatMap((l) => l[phase].shares).filter((share) => share.fundId === fund.id);
       const outflowCents = own.reduce((sum, s) => sum + s.netCents + s.vatCents, 0);
       const vatCents = own.reduce((sum, s) => sum + s.vatCents, 0);
-      const paysVat = fund.paysVat;
 
       return {
         fundId: fund.id,
@@ -45,8 +42,7 @@ export function fundSummary(snapshot: Snapshot, phase: Phase): FundSummaryRow[] 
         totalContractCents,
         outflowCents,
         vatCents,
-        paysVat,
-        leftCents: totalContractCents - (outflowCents - (paysVat ? 0 : vatCents)),
+        leftCents: totalContractCents - outflowCents,
       };
     })
     .filter((row): row is FundSummaryRow => row !== null)

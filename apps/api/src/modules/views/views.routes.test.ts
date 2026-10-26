@@ -32,7 +32,8 @@ describe("views over data written through the API", () => {
     await buildScenario();
     const { body } = await api.get("/api/views/cashflow");
     expect(body.bank).toEqual({ amountCents: 500_000, asOfDate: "2026-11-15" });
-    expect(body.estimate.summary).toMatchObject({ totalCashFlowCents: 600_000, teamOutflowsCents: 61_000, leftValueCents: 539_000 });
+    // the purchase and its VAT (610.00) plus the 11% VAT on the two inflows (220.00 + 110.00, paid on 1 Jan 2027)
+    expect(body.estimate.summary).toMatchObject({ totalCashFlowCents: 600_000, teamOutflowsCents: 61_000 + 33_000, leftValueCents: 506_000 });
     expect(body.estimate.monthly).toHaveLength(2);
   });
 
@@ -40,7 +41,7 @@ describe("views over data written through the API", () => {
     await buildScenario();
     const { body } = await api.get("/api/views/gantt?phase=estimate");
     expect(body.months).toEqual(["2026-11", "2026-12", "2027-01", "2027-02"]);
-    expect(body.teamFund.rows.map((r: any) => r.finalCents)).toEqual([500_000, 600_000, 600_000, 589_000]);
+    expect(body.teamFund.rows.map((r: any) => r.finalCents)).toEqual([500_000, 600_000, 567_000, 556_000]);
   });
 
   it("totals, VAT report and the items list see the line", async () => {
@@ -57,7 +58,6 @@ describe("views over data written through the API", () => {
 
   it("fund summary and analyses follow the contracts and spending", async () => {
     const created = (await addContract(api, { fundName: "Sponsor", amount: "1000", inflowDate: "2026-01-09" })).body;
-    await api.patch(`/api/funds/${created.fundId}`, { paysVat: true });
     const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
     await api.post(`/api/projects/${project.id}/lines`, {
       item: "A",

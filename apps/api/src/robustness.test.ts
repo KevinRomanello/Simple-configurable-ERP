@@ -69,7 +69,7 @@ describe("ids", () => {
       await api.patch(`/api/projects/${huge}`, { name: "x" }),
       await api.del(`/api/projects/${huge}`),
       await api.del(`/api/funds/${huge}/contracts/estimate`),
-      await api.patch(`/api/funds/${huge}`, { paysVat: true }),
+      await api.patch(`/api/funds/${huge}`, { group: "g" }),
       await api.del(`/api/funds/${huge}`),
       await api.del(`/api/inflows/${huge}`),
       await api.del(`/api/suppliers/${huge}`),

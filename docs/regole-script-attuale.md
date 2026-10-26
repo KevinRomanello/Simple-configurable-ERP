@@ -3,6 +3,8 @@
 Specifica di parità: le regole estratte leggendo `fonti/script attuale` (Google Apps Script, 3370 righe) e **verificate sul foglio reale** `fonti/Budget 26-27.xlsx`. Ogni regola avrà almeno un test in `packages/calc`.
 
 > **Dal 21 ottobre 2026** il modello degli sponsor e dei fondi va oltre lo script: l'aliquota e la copertura di una riga vengono dallo sponsor scelto e una riga può avere più fondi ([sponsor-e-fondi.md](sponsor-e-fondi.md)). Questo documento resta la specifica di parità col foglio: con i dati del foglio i numeri sono gli stessi (1.995 controlli), e le righe senza fondo usano ancora la formula del §3.
+>
+> **Dal 26 ottobre 2026** altre due differenze volute: un fondo copre sempre l'IVA dei suoi acquisti (la casella «paga IVA» non c'è più: per non farla pagare si mette 0%) e **ogni inflow di CASH FLOW paga l'11% di IVA** il primo giorno del trimestre successivo (lo script non aveva IVA sugli inflow). Il foglio reale non ha inflow e tutti i suoi sponsor coprono l'IVA, quindi i 1.995 controlli restano uguali.
 
 - `L123` = riga dello script. ⚠ = comportamento da confermare col tesoriere (domande Q1–Q7 del piano originale), isolato in un'impostazione di `getSettings()` (vedi [hardcoded-registry.md](hardcoded-registry.md)).
 - Fasi: **estimate** = colonne EXPECTED/ESTIMATED, **actual** = colonne ACTUAL. Le regole sono identiche per le due fasi, salvo dove indicato.
@@ -197,7 +199,7 @@ L'app usa date vere (selettore di data, selettore di mese). Il parser flessibile
 | Q2 confronto con BANK | per giorno nel riepilogo CASH FLOW, per mese nel Gantt (ingressi e uscite del mese BANK) | `getSettings().bankCompare` |
 | Q3 scadenze IVA | tabella §4, weekend → lunedì, niente proroghe — **confermato** (21/10/2026) | `getVatRules()` |
 | Q4 CASH FROM e CASH FLOW | due tabelle indipendenti, in sospeso; fa eccezione il contratto di uno sponsor **cash**, che conta da solo come ingresso ([sponsor-e-fondi.md](sponsor-e-fondi.md#5-sponsor-in-cassa)) | schema (collegamento facoltativo, dopo) |
-| Q5 flag "paga IVA" | nel foglio uno per fase — **chiusa il 21/10/2026: una sola casella per sponsor** (spuntata se lo era una delle due) | schema: `fund.pays_vat` |
+| Q5 flag "paga IVA" | nel foglio uno per fase — chiusa il 21/10/2026 con una sola casella per sponsor; **tolta il 26/10/2026**: un fondo copre sempre l'IVA, 0% = niente IVA | nessuna colonna |
 | Q6 fondo in negativo | solo evidenziazione rossa | interfaccia |
 | Q7 arrotondamento | per riga, al centesimo — **confermato** | `roundDiv` in `calc/money.ts` |
 

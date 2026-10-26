@@ -155,7 +155,6 @@ async function saveFunds(tx: Tx, figuresId: number, ids: number[]) {
   });
 
   for (const [index, f] of chosen.entries()) {
-    if (f.mode === "cash") throw invalid(`"${f.name}" pays into the bank: its money is the team's, pay from the team fund`);
     if (f.kind === "external" && f.type !== "fund" && chosen.length > 1) {
       throw invalid(`"${f.name}" covers the whole line: it cannot be combined with other funds`);
     }

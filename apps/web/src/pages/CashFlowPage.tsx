@@ -38,7 +38,8 @@ export function CashFlowPage() {
         <div>
           <h1>CASH FLOW</h1>
           <p className="muted">
-            Left value = BANK + inflows after the BANK date − the team's purchases and VAT after that date.
+            Left value = BANK + inflows after the BANK date − the team's purchases and VAT after that date. Every inflow owes
+            11% VAT, paid on the first day of the next quarter.
           </p>
         </div>
         <div className="actions">
@@ -117,6 +118,7 @@ function NewInflow({ onDone }: { onDone: () => void }) {
   return (
     <section className="panel">
       <h2>New inflow</h2>
+      <p className="muted">Money that comes in is sponsorship: the team owes 11% VAT on it, paid on the first day of the next quarter.</p>
       <form className="inline-form" onSubmit={add}>
         <div className="field">
           <label htmlFor="inflow-phase">Side</label>

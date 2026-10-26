@@ -3,8 +3,8 @@ import { analysisByFund, analysisBySupplier } from "./analysis";
 import { figures, line, snapshot, sponsorFund, teamFund } from "./fixtures";
 import type { FundInput } from "./snapshot";
 
-const fundA: FundInput = sponsorFund(2, { name: "Alpha", paysVat: false });
-const fundB: FundInput = sponsorFund(3, { name: "beta", paysVat: true });
+const fundA: FundInput = sponsorFund(2, { name: "Alpha" });
+const fundB: FundInput = sponsorFund(3, { name: "beta" });
 
 const s = snapshot({
   projects: [{ id: 1, areaId: 1, name: "P", ownerName: null, position: 1 }],
@@ -22,7 +22,7 @@ const s = snapshot({
     { id: 2, name: "Farnell" },
   ],
   lines: [
-    // Alpha does not cover VAT: outflow 1220.00 counts as 1000.00 for the fund, in both phases
+    // Alpha covers the VAT of its purchases: outflow 1220.00 counts in full for the fund, in both phases
     line(1, 1, figures(10, 100, { fundIds: [2], supplierId: 1 }), figures(10, 100, { fundIds: [2], supplierId: 2 }), {
       category: "Asset",
     }),
@@ -41,10 +41,10 @@ describe("analysisByFund", () => {
     ]);
   });
 
-  it("drops the VAT from the outflow of a fund that does not cover it", () => {
+  it("keeps the VAT in the outflow of a fund: the fund covers it", () => {
     const all = analysis.blocks.find((b) => b.block === "ALL")!;
-    expect(all.rows[0]!.estimate).toEqual({ grossCents: 122_000, sponsorCents: 0, outflowCents: 100_000 });
-    expect(all.rows[0]!.actual).toEqual({ grossCents: 122_000, sponsorCents: 0, outflowCents: 100_000 });
+    expect(all.rows[0]!.estimate).toEqual({ grossCents: 122_000, sponsorCents: 0, outflowCents: 122_000 });
+    expect(all.rows[0]!.actual).toEqual({ grossCents: 122_000, sponsorCents: 0, outflowCents: 122_000 });
   });
 
   it("keeps the team fund's VAT in its outflow", () => {
@@ -62,9 +62,9 @@ describe("analysisByFund", () => {
     const asset = analysis.blocks.find((b) => b.block === "Asset")!;
     expect(asset.rows[0]!.estimate!.grossCents).toBe(122_000);
     expect(asset.rows[2]!.estimate!.grossCents).toBe(0); // the team's line has no category
-    expect(asset.total.estimate.outflowCents).toBe(100_000);
+    expect(asset.total.estimate.outflowCents).toBe(122_000);
     const all = analysis.blocks.find((b) => b.block === "ALL")!;
-    expect(all.total.estimate.outflowCents).toBe(110_000);
+    expect(all.total.estimate.outflowCents).toBe(132_000);
   });
 });
 

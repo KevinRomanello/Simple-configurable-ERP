@@ -14,7 +14,6 @@ export interface Area {
   position: number;
 }
 
-export type FundMode = "virtual" | "cash";
 export type FundType = "fund" | "gift" | "gift_vat";
 
 /** A fund as the API serves it: the team fund, or a sponsor with the rules that decide VAT and coverage. */
@@ -22,13 +21,10 @@ export interface Fund {
   id: number;
   name: string;
   kind: "team" | "external";
-  mode: FundMode;
   type: FundType;
   /** The sponsor's VAT rate in percent; null for the team fund. */
   vatRate: number | null;
   group: string | null;
-  /** True when the fund covers the VAT too; otherwise the team pays it. */
-  paysVat: boolean;
   /** What the sponsor brings in each phase: one value and the day it arrives (null: nothing). */
   contracts: Record<Phase, Money | null>;
 }
@@ -41,11 +37,9 @@ export interface Money {
 /** What the sponsor form sends. */
 export interface SponsorBody {
   name: string;
-  mode: FundMode;
   type: FundType;
   vatRate: number | null;
   group: string | null;
-  paysVat: boolean;
 }
 
 /** The money a new sponsor brings: a contract per phase it counts in. */

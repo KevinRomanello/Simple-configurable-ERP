@@ -1,4 +1,4 @@
-import { FUND_MODES, FUND_TYPES, PHASES } from "@erp/calc";
+import { FUND_TYPES, PHASES } from "@erp/calc";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { decimal, id, isoDate, LIMITS, optionalText, shortText } from "../../core/validation";
@@ -7,14 +7,12 @@ import { clearContract, createFund, deleteFund, listFunds, setContract, updateFu
 const phase = z.enum(PHASES);
 const idParam = z.object({ id });
 
-// A sponsor's definition. A new one is a virtual fund unless said otherwise; its VAT rate must be chosen.
+// A sponsor's definition. A new one is a plain fund unless said otherwise; its VAT rate must be chosen.
 const sponsor = {
   name: shortText(),
-  mode: z.enum(FUND_MODES),
   type: z.enum(FUND_TYPES),
   vatRate: z.number().min(0).max(100).nullable(),
   group: optionalText(60),
-  paysVat: z.boolean(),
 };
 const contractFields = {
   phase,
@@ -24,7 +22,7 @@ const contractFields = {
 // the money a new sponsor brings, up to one contract per phase
 const createFundInput = z
   .object(sponsor)
-  .partial({ mode: true, type: true, vatRate: true, group: true, paysVat: true })
+  .partial({ type: true, vatRate: true, group: true })
   .extend({ contracts: z.array(z.object(contractFields)).max(PHASES.length).optional() });
 
 export async function fundsRoutes(app: FastifyInstance) {
@@ -35,7 +33,7 @@ export async function fundsRoutes(app: FastifyInstance) {
     const { contracts = [], ...body } = createFundInput.parse(request.body);
     return reply.code(201).send(
       await createFund(
-        { mode: "virtual", type: "fund", vatRate: null, group: null, paysVat: false, ...body },
+        { type: "fund", vatRate: null, group: null, ...body },
         contracts.map((c) => ({ ...c, inflowDate: c.inflowDate ?? null })),
       ),
     );

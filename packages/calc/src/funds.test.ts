@@ -3,17 +3,16 @@ import { figures, line, snapshot, sponsorFund, teamFund } from "./fixtures";
 import { fundContractsByMonth, fundSummary, inflowsByMonth } from "./funds";
 import type { FundInput } from "./snapshot";
 
-const sponsor = (paysVat: boolean): FundInput =>
-  sponsorFund(2, { name: "Sponsor A", vatRate: 20, paysVat });
+const sponsor: FundInput = sponsorFund(2, { name: "Sponsor A", vatRate: 20 });
 
 // docs/regole-script-attuale.md, section 17: contract 10 000.00; the fund's lines have a total
 // outflow of 6 000.00, of which 1 000.00 is VAT (the fund's rate, 20%, applies to every line).
-function withSponsor(paysVat: boolean) {
+function withSponsor() {
   return snapshot({
     projects: [{ id: 1, areaId: 1, name: "P", ownerName: null, position: 1 }],
     funds: [
       teamFund,
-      sponsor(paysVat),
+      sponsor,
     ],
     contracts: [{ id: 1, fundId: 2, phase: "estimate", amountCents: 1_000_000, inflowDate: null }],
     lines: [
@@ -25,35 +24,29 @@ function withSponsor(paysVat: boolean) {
 }
 
 describe("fundSummary", () => {
-  it("leaves VAT out of the balance of a fund that does not pay it", () => {
-    const [row] = fundSummary(withSponsor(false), "estimate");
+  it("charges the lines to the fund with their VAT: the fund covers it", () => {
+    const [row] = fundSummary(withSponsor(), "estimate");
     expect(row).toMatchObject({
       name: "Sponsor A",
       totalContractCents: 1_000_000,
       outflowCents: 600_000,
       vatCents: 100_000,
-      paysVat: false,
-      leftCents: 500_000,
+      leftCents: 400_000,
     });
   });
 
-  it("charges VAT to a fund that pays it", () => {
-    const [row] = fundSummary(withSponsor(true), "estimate");
-    expect(row!.leftCents).toBe(400_000);
-  });
-
   it("goes negative when the fund is overspent", () => {
-    const s = withSponsor(true);
+    const s = withSponsor();
     s.contracts[0]!.amountCents = 100_000;
     expect(fundSummary(s, "estimate")[0]!.leftCents).toBe(-500_000);
   });
 
   it("lists only external funds that have a contract in the phase", () => {
-    expect(fundSummary(withSponsor(true), "actual")).toEqual([]);
+    expect(fundSummary(withSponsor(), "actual")).toEqual([]);
   });
 
   it("sums several contracts of the same fund", () => {
-    const s = withSponsor(true);
+    const s = withSponsor();
     s.contracts.push({ id: 2, fundId: 2, phase: "estimate", amountCents: 50_000, inflowDate: "2026-02-01" });
     expect(fundSummary(s, "estimate")[0]!.totalContractCents).toBe(1_050_000);
   });
@@ -89,7 +82,7 @@ describe("inflowsByMonth", () => {
 
 describe("fundContractsByMonth", () => {
   it("names the funds behind each month", () => {
-    const s = withSponsor(true);
+    const s = withSponsor();
     s.contracts[0]!.inflowDate = "2026-01-09";
     expect(fundContractsByMonth(s, "estimate")).toEqual([
       { month: "2026-01", totalCents: 1_000_000, names: ["Sponsor A"] },

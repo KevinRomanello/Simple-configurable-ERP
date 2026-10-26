@@ -16,7 +16,7 @@ export const vatRules: VatRules = {
 export const settings: Settings = {
   varianceThreshold: 0.15,
   vatBaseWhenTotalSponsor: "net",
-  cashSponsorVatRate: 11,
+  inflowVatRate: 11,
   bankCompare: { summary: "day", timeline: "month" },
   vatReportHorizon: { from: { year: 2026, quarter: 3 }, to: { year: 2027, quarter: 4 } },
 };
@@ -26,8 +26,6 @@ export const teamFund: FundInput = {
   id: 1,
   name: "Team's fund",
   kind: "team",
-  paysVat: false,
-  mode: "virtual",
   type: "fund",
   vatRate: null,
   group: null,
@@ -39,8 +37,6 @@ export function sponsorFund(id: number, overrides: Partial<FundInput> = {}): Fun
     id,
     name: `Sponsor ${id}`,
     kind: "external",
-    paysVat: false,
-    mode: "virtual",
     type: "fund",
     vatRate: 22,
     group: null,

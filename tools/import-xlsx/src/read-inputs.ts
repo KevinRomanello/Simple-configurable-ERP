@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { bool, fill, isoDate, num, str } from "./cells";
+import { fill, isoDate, num, str } from "./cells";
 
 // Reads only what a person typed into the sheet. Everything calculated (net, VAT, totals,
 // summaries) is ignored here: the engine recomputes it, and read-oracle.ts reads the sheet's own
@@ -52,8 +52,8 @@ export interface RawInputs {
   areas: RawArea[];
   /** The CASH FROM contract tables. */
   contracts: { estimate: RawMoneyRow[]; actual: RawMoneyRow[] };
-  /** The "DOES IT PAY VAT?" checkboxes of the CASH FROM summaries, by fund name. */
-  paysVat: { estimate: Map<string, boolean>; actual: Map<string, boolean> };
+  /** The sponsors listed in the CASH FROM summaries (their "DOES IT PAY VAT?" boxes are not used: a sponsor's rate says it). */
+  sponsorNames: { estimate: string[]; actual: string[] };
   /** The CASH FLOW inflow tables. */
   inflows: { estimate: RawMoneyRow[]; actual: RawMoneyRow[] };
   suppliers: { estimate: string[]; actual: string[] };
@@ -159,15 +159,15 @@ function readMoneyTable(sheet: ExcelJS.Worksheet, nameCol: number): RawMoneyRow[
   return rows;
 }
 
-/** The summary rows under "CASH SOURCE": name in `nameCol`, the VAT checkbox `offset` columns on. */
-function readPaysVat(sheet: ExcelJS.Worksheet, nameCol: number, boxCol: number): Map<string, boolean> {
-  const flags = new Map<string, boolean>();
+/** The names of the summary rows under "CASH SOURCE", in `nameCol`. */
+function readSponsorNames(sheet: ExcelJS.Worksheet, nameCol: number): string[] {
+  const names: string[] = [];
   for (let row = summaryRowOf(sheet) + 2; row <= sheet.rowCount; row++) {
     const name = str(sheet, row, nameCol);
     if (name === null || name.toUpperCase().endsWith("DATE SUMMARY")) break;
-    flags.set(name, bool(sheet, row, boxCol) === true);
+    names.push(name);
   }
-  return flags;
+  return names;
 }
 
 function readNames(sheet: ExcelJS.Worksheet, col: number): string[] {
@@ -203,7 +203,7 @@ export function readInputs(workbook: ExcelJS.Workbook): RawInputs {
   return {
     areas: AREA_SHEETS.map((name) => readArea(sheet(name), warnings)),
     contracts: { estimate: readMoneyTable(cashFrom, 1), actual: readMoneyTable(cashFrom, 7) },
-    paysVat: { estimate: readPaysVat(cashFrom, 1, 4), actual: readPaysVat(cashFrom, 7, 10) },
+    sponsorNames: { estimate: readSponsorNames(cashFrom, 1), actual: readSponsorNames(cashFrom, 7) },
     inflows: { estimate: readMoneyTable(cashFlow, 1), actual: readMoneyTable(cashFlow, 7) },
     suppliers: { estimate: readNames(bought, 2), actual: readNames(bought, 6) },
     bank: bankAmount === null ? null : { amount: bankAmount, date: isoDate(cashFlow, 14, 14) },

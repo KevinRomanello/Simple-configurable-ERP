@@ -5,7 +5,8 @@ import type { Snapshot } from "./snapshot";
 
 // The scenario of docs/regole-script-attuale.md, section 17: BANK 5 000.00 on 15 Nov 2026,
 // inflows of 2 000.00 (10 Nov) and 1 000.00 (5 Dec), one team-fund purchase on 20 Nov with
-// outflow 600.00 of which 100.00 VAT (due 16 Feb 2027).
+// outflow 600.00 of which 100.00 VAT (due 16 Feb 2027). The inflows owe 11% VAT on 1 Jan 2027
+// (220.00 + 110.00).
 function scenario(overrides: Partial<Snapshot> = {}): Snapshot {
   return snapshot({
     projects: [{ id: 1, areaId: 1, name: "P", ownerName: null, position: 1 }],
@@ -30,8 +31,8 @@ describe("gantt: Team's fund table", () => {
     expect(teamFund.rows.map((r) => [r.inflowCents, r.outflowAllCents, r.outflowVatCents, r.finalCents])).toEqual([
       [500_000, 0, 0, 500_000], // BANK only: the 10 Nov inflow and 20 Nov purchase are in the balance
       [100_000, 0, 0, 600_000],
-      [0, 0, 0, 600_000],
-      [0, 10_000, 10_000, 590_000], // VAT due 16 Feb
+      [0, 33_000, 33_000, 567_000], // the VAT on the inflows, 1 Jan
+      [0, 10_000, 10_000, 557_000], // the VAT of the purchase, due 16 Feb
     ]);
   });
 
@@ -43,7 +44,7 @@ describe("gantt: Team's fund table", () => {
     };
     const { teamFund } = gantt(s, "estimate");
     expect(teamFund.rows[0]).toMatchObject({ outflowAllCents: 50_000, finalCents: 450_000 });
-    expect(teamFund.rows.at(-1)!.finalCents).toBe(540_000); // matches the summary's left value
+    expect(teamFund.rows.at(-1)!.finalCents).toBe(507_000); // matches the summary's left value
   });
 
   it("splits team purchases by category, without the VAT", () => {
@@ -55,14 +56,14 @@ describe("gantt: Team's fund table", () => {
 
   it("without a BANK it starts from zero, counts every inflow and has no blank months", () => {
     const { teamFund } = gantt(scenario({ bank: null }), "estimate");
-    expect(teamFund.rows.map((r) => r.finalCents)).toEqual([150_000, 250_000, 250_000, 240_000]);
+    expect(teamFund.rows.map((r) => r.finalCents)).toEqual([150_000, 250_000, 217_000, 207_000]);
   });
 
   it("a BANK without a date is the starting balance of the whole timeline", () => {
     const s = scenario({ bank: { amountCents: 500_000, asOfDate: null } });
     const { teamFund } = gantt(s, "estimate");
     expect(teamFund.rows[0]!.finalCents).toBe(500_000 + 200_000 - 50_000);
-    expect(teamFund.rows.at(-1)!.finalCents).toBe(500_000 + 300_000 - 60_000);
+    expect(teamFund.rows.at(-1)!.finalCents).toBe(500_000 + 300_000 - 60_000 - 33_000);
   });
 
   it("leaves the months before the BANK date blank", () => {
@@ -73,7 +74,7 @@ describe("gantt: Team's fund table", () => {
     expect(teamFund.rows.map((r) => r.finalCents)).toEqual([null, null, 500_000, 500_000, 500_000, 490_000]);
   });
 
-  it("counts only the VAT the team pays, whichever fund it comes from", () => {
+  it("leaves out the VAT of a purchase from a sponsor's fund: the fund covers it", () => {
     const s = scenario({
       funds: [
         team,
@@ -82,8 +83,8 @@ describe("gantt: Team's fund table", () => {
       lines: [line(1, 1, figures(1, 500, { fundIds: [2], purchaseDate: "2026-11-20" }))],
     });
     const { teamFund } = gantt(s, "estimate");
-    // the sponsor's purchase is not a team outflow, but its uncovered VAT is
-    expect(teamFund.rows.at(-1)).toMatchObject({ outflowAllCents: 10_000, outflowVatCents: 10_000 });
+    // the sponsor's purchase is not a team outflow and neither is its VAT: only the VAT on the inflows is
+    expect(teamFund.rows.at(-1)).toMatchObject({ outflowAllCents: 33_000, outflowVatCents: 33_000 });
   });
 });
 

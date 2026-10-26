@@ -6,8 +6,8 @@ Questo documento dice **come si controlla che l'app non abbia difetti** (i livel
 
 | Livello | Dove | Cosa prova | Quanti |
 | --- | --- | --- | --- |
-| Motore di calcolo | `packages/calc/src/*.test.ts` | ogni regola del foglio; **esattezza**: fino a 60.000 righe casuali e 100.000 arrotondamenti confrontati con un calcolo esatto in `BigInt`; **calendario**: ogni giorno dal 2000 al 2100 (giorno della settimana, trimestre, scadenza IVA, lettura di ogni notazione di data) contro l'oggetto `Date` | 164 |
-| API con database vero | `apps/api/src/**/*.test.ts` | percorsi, regole, **ruoli**, accesso, storico, limiti dell'input, **richieste in parallelo**, attacchi (iniezione SQL, token falsi, CSRF), intestazioni, limite di richieste, permessi del database. Tutta la suite gira con l'utente limitato dell'API | 225 |
+| Motore di calcolo | `packages/calc/src/*.test.ts` | ogni regola del foglio; **esattezza**: fino a 60.000 righe casuali e 100.000 arrotondamenti confrontati con un calcolo esatto in `BigInt`; **calendario**: ogni giorno dal 2000 al 2100 (giorno della settimana, trimestre, scadenza IVA, lettura di ogni notazione di data) contro l'oggetto `Date` | 168 |
+| API con database vero | `apps/api/src/**/*.test.ts` | percorsi, regole, **ruoli**, accesso, storico, limiti dell'input, **richieste in parallelo**, attacchi (iniezione SQL, token falsi, CSRF), intestazioni, limite di richieste, permessi del database. Tutta la suite gira con l'utente limitato dell'API | 224 |
 | Sito | `apps/web/src/**/*.test.ts` | formattazione, permessi, parole degli errori di accesso, messaggi di errore, **download** (valori veri da testo, unioni di celle, nomi dei fogli e dei file), **ordinamento** (vuoti in fondo, numeri nel testo, tre stati del clic, comparazione della griglia) | 54 |
 | Importer | `tools/import-xlsx/src/*.test.ts` | dal foglio allo snapshot | 3 |
 | Riconciliazione | `pnpm reconcile` (e `-- --db`) | il motore contro 1.995 valori salvati dal foglio reale | 1.995 confronti |
@@ -71,6 +71,16 @@ Trovati scrivendo i test e provando le schermate nel browser; tutti corretti, co
 | 31 | Il titolo del grafico compariva **due volte** nel PDF (intestazione e immagine) | PDF di TOTAL | nel PDF un grafico non ha intestazione sua: il titolo è nell'immagine | stesso PDF |
 | 32 | In una colonna stretta il simbolo **€ andava a capo** dal numero ("7,23" / "€") | subtotali del PDF di un'area | spazio non separabile fra numero ed € (`pdfText`) | stesso PDF |
 
+### Durante la fine degli sponsor in cassa e della casella «paga IVA» (26 ottobre 2026)
+
+| # | Difetto | Come si vedeva | Correzione | Prova |
+| --- | --- | --- | --- | --- |
+| 33 | Dopo aver tolto la casella «paga IVA» i test dei fondi usati insieme **non avevano più i numeri giusti** (il fondo ora consuma netto + IVA) | 8 test del motore e 5 dell'API rossi | numeri ricalcolati **a mano da zero** (per esempio 100,00 € coprono 81,96 € netti a 22%) prima di guardare cosa dava il codice: coincidevano | `settle.test.ts`, `analysis.test.ts`, `budget.routes.test.ts` |
+| 34 | Con l'IVA coperta dal fondo, **cinque fondi da 100,00 € non bastano più** per una riga da 450,00 € netti (servono 549,00 € lordi): il test «finché la riga è coperta» si fermava un fondo prima | test API rosso al quinto fondo | il test usa sei fondi | `budget.routes.test.ts` |
+| 35 | I tre test che usavano il flag «paga IVA» come **scrittura di esempio** (ruoli, input assurdi) non scrivevano più niente: il campo era ignorato | nessun errore, ma la prova era vuota | usano un campo che esiste (`group`) | `roles.test.ts`, `robustness.test.ts` |
+
+Controllo di migrazione: la `0009` è stata provata su una **copia dei dati reali** che aveva ancora lo sponsor in cassa (10.000,00 € Expected senza data): è diventato un inflow identico, le colonne `mode` e `pays_vat` sono sparite e il database di prova (ricreato da zero a ogni esecuzione) la applica senza errori.
+
 Controlli che **non** hanno trovato difetti: la riconciliazione col foglio dopo il nuovo modello dei fondi (1.995 controlli, sul foglio e su un database caricato da zero), il tetto dei fondi e la divisione per `1 + aliquota` (tolti uno alla volta, i test falliscono), il giro nel browser degli sponsor (creazione, ALSO FROM con la tendina dei soli fondi compatibili, avviso e cella rossa che spariscono aggiungendo il fondo, ingresso e IVA di uno sponsor in cassa), il motore di calcolo contro il calcolo esatto (255.000 righe, 400.000 arrotondamenti, ogni giorno 2000–2100), la riconciliazione col foglio (anche sul database), l'iniezione SQL (8 payload in tutti i campi di testo, 17 richieste ostili), il campo extra nelle modifiche, la scadenza della sessione a metà lavoro, il conflitto di versione tra due schede, il ripristino del BANK, l'ordine delle pagine di storico.
 
 ## 3. Cosa non è coperto
@@ -89,7 +99,7 @@ Con `docker compose up -d` e l'accesso di sviluppo (vedi [avvio.md](avvio.md)):
 1. Tutte le pagine del menu, più un indirizzo sbagliato: nessun errore in console, nessun `NaN` o `undefined` a schermo.
 2. In un'area: crea un progetto e una voce dal form; modifica **a clic** la voce, la quantità, il costo unitario, lo sponsor e l'IVA e controlla netto, IVA, totale e subtotale (7 × 12,50 € con IVA 22% = 87,50 + 19,25 = 106,75 €).
 3. Conflitto: cambia la stessa voce con la versione vecchia (da un'altra scheda o dalla console) e poi modificala dalla pagina: deve comparire l'avviso e il dato dell'altra persona deve restare.
-4. CASH FROM: contratto con data, casella "paga IVA", cancellazione. CASH FLOW: BANK (poi **rimettilo com'era**) e un ingresso. BOUGHT FROM: aggiungi, duplicato (avviso), elimina.
+4. CASH FROM: nuovo sponsor con soldi e data, cambio di aliquota, cancellazione. CASH FLOW: BANK (poi **rimettilo com'era**) e un inflow (controlla che la IVA dell'11% compaia nel "Left value" e nella riga VAT del Gantt, il primo giorno del trimestre dopo). BOUGHT FROM: aggiungi, duplicato (avviso), elimina.
 5. Esci dalla console (`/api/auth/logout`) e fai un'azione: deve comparire la pagina di accesso.
 6. History: filtro per tipo e "Load older changes".
 7. Un valore fuori misura (contratto da 5 miliardi): l'avviso dice il campo e il limite.

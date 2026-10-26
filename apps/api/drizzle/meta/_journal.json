@@ -64,6 +64,13 @@
       "when": 1792616908555,
       "tag": "0008_one_contract_per_phase",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793008499701,
+      "tag": "0009_one_kind_of_sponsor",
+      "breakpoints": true
     }
   ]
 }

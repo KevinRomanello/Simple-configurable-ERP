@@ -1,4 +1,4 @@
-import type { FundMode, FundType, Phase, Priority, Settings, SponsorType, VatRules } from "./types";
+import type { FundType, Phase, Priority, Settings, SponsorType, VatRules } from "./types";
 
 // The Snapshot is everything the engine needs, as plain JSON. The API builds it from the
 // database (loadSnapshot); tests build it by hand; nothing in here knows about either.
@@ -53,9 +53,6 @@ export interface FundInput {
   id: number;
   name: string;
   kind: "team" | "external";
-  /** Whether the fund also covers the VAT of the purchases paid from it (otherwise the team pays it). */
-  paysVat: boolean;
-  mode: FundMode;
   type: FundType;
   /** The sponsor's VAT rate in percent; null for the team fund, whose rate is chosen per line. */
   vatRate: number | null;

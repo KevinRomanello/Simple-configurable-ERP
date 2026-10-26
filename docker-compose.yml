@@ -5,7 +5,7 @@ name: erp
 services:
   db:
     image: postgres:16
-    restart: unless-stopped # comes back by itself when Docker (OrbStack) is started again
+    restart: unless-stopped # comes back by itself when Docker is started again
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

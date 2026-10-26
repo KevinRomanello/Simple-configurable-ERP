@@ -3,7 +3,7 @@ import { figures, line, snapshot, sponsorFund, teamFund } from "./fixtures";
 import { computeLines } from "./lines";
 import type { FundInput } from "./snapshot";
 
-const sponsor: FundInput = sponsorFund(2, { name: "Sponsor A", paysVat: true });
+const sponsor: FundInput = sponsorFund(2, { name: "Sponsor A" });
 
 // One project in the first area, one line per test; the fund decides who pays the VAT.
 function build(estimateFigures: ReturnType<typeof figures>, actualFigures = null as ReturnType<typeof figures> | null) {

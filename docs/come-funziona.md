@@ -138,7 +138,7 @@ erDiagram
 ```
 
 - **`budget_line`** è la voce (nome, categoria, priorità, nota, `version`). Le **cifre** stanno in `line_figures`, **una riga per fase** (`estimate` e `actual`): è il modo di non avere le colonne duplicate del foglio. Una fase senza riga vale "tutto zero".
-- **`fund`** unisce due cose del foglio: l'elenco dei fondi e il "Team's fund". La casella `pays_vat` è il "DOES IT PAY VAT?" (una sola per fondo). Un fondo esterno è uno **sponsor**: ha aliquota, gruppo, modo e tipo, e decide da solo IVA e copertura delle righe che paga ([sponsor-e-fondi.md](sponsor-e-fondi.md)). I fondi di una riga stanno in **`line_fund`**, in ordine.
+- **`fund`** unisce due cose del foglio: l'elenco dei fondi e il "Team's fund". Un fondo esterno è uno **sponsor**: ha aliquota (0% se non paga IVA), gruppo e tipo, e decide da solo IVA e copertura delle righe che paga ([sponsor-e-fondi.md](sponsor-e-fondi.md)). I fondi di una riga stanno in **`line_fund`**, in ordine.
 - **`fund_contract`** sono le righe delle tabelle CASH FROM; **`team_inflow`** quelle di CASH FLOW; **`bank_snapshot`** il riquadro BANK (un importo a una data).
 - **`project.owner_name`** è la persona scritta nella riga gialla del foglio.
 
@@ -223,7 +223,6 @@ Cosa la riconciliazione **non** copre: i dati reali sono semplici (IVA quasi sem
 | la tendina "TOTAL SPONSORIZED" (9 voci) | due campi: `sponsor_type` (none/partial/total) e `vat_rate` (0/11/22) |
 | CASH FROM (sponsor, tabelle e riepilogo) | `fund` + `fund_contract`; riepilogo = `fundSummary()`; regole degli sponsor = `settleLine()` |
 | "Team's fund" | `fund` con `kind = 'team'`, uno per stagione |
-| DOES IT PAY VAT? (oggi "PAYS VAT" nella tabella SPONSORS) | `fund.pays_vat` |
 | BOUGHT FROM | `supplier` (una lista unica) |
 | CASH FLOW (tabelle) e BANK | `team_inflow` e `bank_snapshot` |
 | EXPECTED / ACTUAL OUTFLOW | `outflowCents` di una voce in una fase |

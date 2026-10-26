@@ -88,7 +88,7 @@ function settleTotal(
   const { sponsor, vatBase } = sponsorSplit("total", null, net, settings);
   const vat = rate === null ? 0 : percentOf(vatBase, rate);
 
-  const teamPays = team || isGift(fund) || !fund.paysVat;
+  const teamPays = team || isGift(fund);
   const drawn = teamPays ? 0 : vat;
   if (drawn > 0) balances.set(fund.id, (balances.get(fund.id) ?? 0) - drawn);
 
@@ -126,7 +126,7 @@ function settleShares(
     const team = fund.kind === "team";
     const rate = team ? figures.vatRate : fund.vatRate;
     if (rate === null) complete = false;
-    const coversVat = !team && fund.paysVat;
+    const coversVat = !team; // a sponsor's fund covers the VAT at its own rate (0% = no VAT)
 
     const before = team ? Infinity : Math.max(0, balances.get(fund.id) ?? 0);
     const last = index === funds.length - 1;

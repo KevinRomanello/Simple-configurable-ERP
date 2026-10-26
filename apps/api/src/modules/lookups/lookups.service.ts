@@ -50,8 +50,9 @@ export async function getSettings(): Promise<Settings> {
   return {
     varianceThreshold: 0.15,
     vatBaseWhenTotalSponsor: "net",
-    // The ASD rule: 11% of the money a sponsor pays into the bank goes to the VAT, every quarter.
-    cashSponsorVatRate: 11,
+    // The ASD rule: 11% of the money that comes in (sponsorship, invoiced) goes to the VAT, paid on the
+    // first day of the next quarter.
+    inflowVatRate: 11,
     bankCompare: { summary: "day", timeline: "month" },
     vatReportHorizon: {
       from: { year: 2026, quarter: 3 },

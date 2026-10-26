@@ -23,7 +23,7 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 | --- | --- | --- |
 | `varianceThreshold` | `0.15` (evidenzia oltre ±15% nel TOTAL) | — |
 | `vatBaseWhenTotalSponsor` | `"net"` (IVA sull'intero netto; alternativa `"net-minus-sponsor"`) | Q1, **confermata** il 21/10/2026 (regalo con controfattura: [sponsor-e-fondi.md](sponsor-e-fondi.md)) |
-| `cashSponsorVatRate` | `11` (% di IVA che il team deve sui soldi di uno sponsor in cassa, per legge, a ogni trimestre) | — |
+| `inflowVatRate` | `11` (% di IVA che il team deve su ogni inflow, per legge: è sponsorizzazione fatturata; si paga il primo giorno del trimestre successivo) | scelta del tesoriere, 26/10/2026 |
 | `bankCompare` | `{ summary: "day", timeline: "month" }` (come il foglio: due confronti diversi) | Q2 |
 | `vatReportHorizon` | `{ from: "2026-Q3", to: "2027-Q4" }` (si estende da solo) | — |
 

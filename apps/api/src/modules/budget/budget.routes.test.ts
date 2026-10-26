@@ -190,10 +190,10 @@ describe("the funds that pay a line", () => {
     const { estimate } = await paid([a, b], 1000);
     expect(estimate.fundName).toBe("A + B");
     expect(estimate.shares.map((s: any) => [s.fundName, s.netCents, s.vatCents])).toEqual([
-      ["A", 60_000, 13_200],
-      ["B", 40_000, 4_400],
+      ["A", 49_180, 10_820], // all of its 600.00: the net that fits with 22% VAT
+      ["B", 50_820, 5_590], // the rest, with 11% VAT
     ]);
-    expect(estimate.amounts.vatCents).toBe(17_600); // each part with its own sponsor's rate
+    expect(estimate.amounts.vatCents).toBe(16_410); // each part with its own sponsor's rate
     expect(estimate.shortCents).toBe(0);
   });
 
@@ -201,11 +201,11 @@ describe("the funds that pay a line", () => {
     const a = await fund("A", 600, { group: "g" });
     const b = await fund("B", 100, { group: "g" });
     const { lineId, estimate } = await paid([a], 1000);
-    expect(estimate.shortCents).toBe(40_000);
+    expect(estimate.shortCents).toBe(62_000); // 1 220.00 with its VAT, on a 600.00 contract
     const both = await api.patch(`/api/lines/${lineId}`, { version: 1, figures: { estimate: { fundIds: [a, b] } } });
     expect(both.status).toBe(200);
     const [line] = (await sheet()).projects[0].lines;
-    expect(line.estimate.shortCents).toBe(30_000); // B only had 100.00 of the 400.00 left to cover
+    expect(line.estimate.shortCents).toBe(52_000); // B only had 100.00 of the 620.00 left to cover
     expect(line.estimate.figures.fundIds).toEqual([a, b]);
 
     await api.patch(`/api/lines/${lineId}`, { version: 2, figures: { estimate: { fundIds: [] } } });
@@ -234,7 +234,6 @@ describe("the funds that pay a line", () => {
     const other = await fund("Other", 100, { group: "h" });
     const loner = await fund("Loner", 100);
     const gift = await fund("Gift", 0, { type: "gift" });
-    const cash = await fund("Cash", 100, { mode: "cash" });
     const team = (await api.get("/api/funds")).body[0].id;
     const { lineId } = await paid([]);
     const set = (fundIds: number[]) => api.patch(`/api/lines/${lineId}`, { version: 1, figures: { estimate: { fundIds } } });
@@ -248,7 +247,6 @@ describe("the funds that pay a line", () => {
       await set([a, team]), // ...in whatever order
       await set([a, gift]),
       await set([gift, a]),
-      await set([cash]), // its money is the team's
       await set([a, b, other]),
       await set([a, b, a, b, a]), // twice
       await set(Array.from({ length: 11 }, (_, i) => 1000 + i)), // too many
@@ -261,14 +259,14 @@ describe("the funds that pay a line", () => {
   });
 
   it("goes on with as many funds as it takes, one after the other, until the line is covered", async () => {
-    const names = ["F1", "F2", "F3", "F4", "F5"];
+    const names = ["F1", "F2", "F3", "F4", "F5", "F6"];
     const ids: number[] = [];
     for (const name of names) ids.push(await fund(name, 100, { group: "g" }));
     const { lineId, estimate } = await paid([ids[0]!], 450);
-    expect(estimate.shortCents).toBe(35_000);
+    expect(estimate.shortCents).toBe(44_900); // 450.00 and its 99.00 of VAT, on a 100.00 contract
     let version = 1;
-    // each added fund covers its 100.00 and the line is short by less, until the fifth one covers it
-    for (const [count, shortCents] of [[2, 25_000], [3, 15_000], [4, 5_000], [5, 0]] as const) {
+    // each added fund covers about its 100.00 (VAT included) and the line is short by less, until the sixth one covers it
+    for (const [count, shortCents] of [[2, 34_901], [3, 24_902], [4, 14_903], [5, 4_904], [6, 0]] as const) {
       const answer = await api.patch(`/api/lines/${lineId}`, { version, figures: { estimate: { fundIds: ids.slice(0, count) } } });
       expect(answer.status).toBe(200);
       version += 1;
