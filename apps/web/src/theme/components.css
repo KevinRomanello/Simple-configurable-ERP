@@ -877,3 +877,22 @@ textarea.input {
   max-width: 220px;
 }
 
+/* --- Settings: a switch with its explanation beside it ----------------------------------------- */
+.setting {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) 1fr;
+  gap: var(--space-m);
+  align-items: start;
+  padding-bottom: var(--space-s);
+  border-bottom: 1px solid var(--stroke-sub);
+}
+.setting .muted p,
+.setting .muted ul {
+  margin: 0 0 var(--space-2xs);
+}
+@media (max-width: 760px) {
+  .setting {
+    grid-template-columns: 1fr;
+  }
+}
+

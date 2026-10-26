@@ -1,8 +1,5 @@
 import type {
-  Analysis, Area, AreaSheet, Bank, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Fund,
-  FundSummaryRow, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemRow, ItemsView, Location, Me, MonthlyInflow,
-  NewContract, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, SignInOptions, SponsorBody, StatsResult, Supplier, Totals,
-  UserRow, VatReport,
+  Analysis, Area, AreaSheet, Bank, Calculation, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Fund, FundSummaryRow, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, Location, Me, MonthlyInflow, NewContract, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, SettingsView, SignInOptions, SponsorBody, StatsResult, Supplier, Totals, UserRow, VatReport,
 } from "./types";
 
 /** An error answer of the API: carries the HTTP status so screens can react to a 409. */
@@ -146,6 +143,25 @@ export const api = {
     if (query.before) params.set("before", String(query.before));
     return get<HistoryPage>(`/audit?${params}`);
   },
+
+  // the Settings page (admin)
+  settings: () => get<SettingsView>("/settings"),
+  createCategory: (name: string) => post<{ id: number }>("/settings/categories", { name }),
+  updateCategory: (id: number, body: { name?: string; fields?: ItemField[] }) => patch<void>(`/settings/categories/${id}`, body),
+  deleteCategory: (id: number) => del(`/settings/categories/${id}`),
+  orderCategories: (ids: number[]) => put<void>("/settings/categories/order", { ids }),
+  setUncategorizedFields: (fields: ItemField[]) => put<void>("/settings/uncategorized-fields", { fields }),
+  createVatRate: (rate: number) => post<{ id: number }>("/settings/vat-rates", { rate }),
+  deleteVatRate: (id: number) => del(`/settings/vat-rates/${id}`),
+  createUnit: (name: string) => post<{ id: number }>("/settings/units", { name }),
+  renameUnit: (id: number, name: string) => patch<void>(`/settings/units/${id}`, { name }),
+  deleteUnit: (id: number) => del(`/settings/units/${id}`),
+  createLocation: (body: { site: string; room: string }) => post<{ id: number; code: string }>("/settings/locations", body),
+  updateLocation: (id: number, body: { site?: string; room?: string }) => patch<void>(`/settings/locations/${id}`, body),
+  deleteLocation: (id: number) => del(`/settings/locations/${id}`),
+  orderLocations: (ids: number[]) => put<void>("/settings/locations/order", { ids }),
+  updateCalculation: (body: Partial<Omit<Calculation, "bankCompare">> & { bankCompare?: Partial<Calculation["bankCompare"]> }) =>
+    patch<void>("/settings/calculation", body),
 
   // inventory
   locations: () => get<Location[]>("/lookups/locations"),

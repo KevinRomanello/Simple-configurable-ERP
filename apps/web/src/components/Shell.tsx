@@ -1,6 +1,6 @@
 import {
   faAnglesLeft, faBars, faBoxesStacked, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece, faRepeat, faRightFromBracket, faSackDollar,
-  faScaleBalanced, faTable, faTruckFast, faUsers,
+  faScaleBalanced, faSliders, faTable, faTruckFast, faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -108,10 +108,11 @@ export function Shell() {
           <Item to="/inventory/stats" icon={faChartPie}>INVENTORY STATS</Item>
         </nav>
 
-        {(me.permissions.canManageUsers || me.permissions.canViewHistory) && (
+        {(me.permissions.canManageUsers || me.permissions.canViewHistory || me.permissions.canManageSettings) && (
           <nav className="nav-group">
             <span className="nav-title label-xs bold">Admin</span>
             {me.permissions.canManageUsers && <Item to="/users" icon={faUsers}>Users</Item>}
+            {me.permissions.canManageSettings && <Item to="/settings" icon={faSliders}>Settings</Item>}
             {me.permissions.canViewHistory && <Item to="/history" icon={faClockRotateLeft}>History</Item>}
           </nav>
         )}

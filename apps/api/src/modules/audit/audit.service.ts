@@ -65,6 +65,14 @@ function labelOf(table: string, row: Json): string {
       return pick("name");
     case "stock_movement":
       return `${pick("kind")} of item ${String(row.item_id ?? "")}`;
+    case "category_field":
+      return `${pick("field")} of ${row.category_id == null ? "items without a category" : `category ${String(row.category_id)}`}`;
+    case "vat_rate":
+      return `${String(row.rate ?? "")}%`;
+    case "location":
+      return `${pick("site")} / ${pick("room")}`;
+    case "setting":
+      return "settings";
     case "component_part":
       return `part ${String(row.part_id ?? "")} of item ${String(row.component_id ?? "")}`;
     default:

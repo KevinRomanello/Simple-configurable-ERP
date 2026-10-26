@@ -19,6 +19,7 @@ import { ItemsPage } from "./pages/ItemsPage";
 import { PendingPage } from "./pages/PendingPage";
 import { SuppliersPage } from "./pages/SuppliersPage";
 import { TotalPage } from "./pages/TotalPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { UsersPage } from "./pages/UsersPage";
 
 const queryClient = new QueryClient({
@@ -52,6 +53,7 @@ export function App() {
                 <Route path="inventory/components/:id" element={<ComponentPage />} />
                 <Route path="inventory/stats" element={<InventoryStatsPage />} />
                 <Route path="users" element={<UsersPage />} />
+                <Route path="settings" element={<SettingsPage />} />
                 <Route path="history" element={<HistoryPage />} />
                 <Route path="*" element={<p className="empty">This page does not exist.</p>} />
               </Route>

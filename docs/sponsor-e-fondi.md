@@ -78,7 +78,7 @@ La migrazione `0009_one_kind_of_sponsor.sql` ha trasformato gli sponsor in cassa
 | saldi e analisi per fondo con le quote | `funds.ts`, `analysis.ts` |
 | tabelle | `fund` (con `type`, `vat_rate`, `group_name`), `fund_contract`, `line_fund` (i fondi di una riga: `figures_id`, `position`, `fund_id`): migrazioni `0006_sponsors.sql` e `0009_one_kind_of_sponsor.sql`, con il trigger dello storico; gli inflow sono `team_inflow` |
 | controlli di compatibilità | `saveFunds` in `apps/api/src/modules/budget/budget.service.ts`; la definizione dello sponsor in `funds.service.ts` |
-| 11% | `getSettings().inflowVatRate` (`// HARDCODED`, [hardcoded-registry.md](hardcoded-registry.md)) |
+| 11% | `getSettings().inflowVatRate`: si cambia dalla pagina Settings ([impostazioni.md](impostazioni.md)) |
 | schermate | `FundsPage.tsx` (bottone New sponsor e suo form, tabella SPONSORS con i soldi, riquadri dei risultati), `areaColumns.tsx` (CASH FROM, ALSO FROM, icona di avviso) |
 
 **API** (tutte con login; scrive solo l'admin):

@@ -46,7 +46,7 @@ Cose emerse dal file che lo script da solo non mostrava:
 | Cosa | Nello script | Nell'app |
 | --- | --- | --- |
 | Aree | MT + DMT, SW, HW, CM, MGT, RT | tabella `area` (seed) |
-| Categorie | Components, Manufacturing, Consumable, Asset, Logistic, Administration, Software | `listCategories()` hardcoded |
+| Categorie | Components, Manufacturing, Consumable, Asset, Logistic, Administration, Software | `listCategories()`, dal database: si cambiano dalla pagina Settings (la riconciliazione usa comunque questi) |
 | Priorità | High, Medium, Low (rosso, arancio, verde); vecchi valori 1/2/3 = High/Medium/Low | enum; la mappatura 1/2/3 solo nell'importer |
 | Opzioni "TOTAL SPONSORIZED" | 9 voci: {nessuno, parziale, totale} × {senza IVA, IVA 11%, IVA 22%} | due campi: `sponsor_type` e `vat_rate` (0, 11, 22) |
 | Fondo speciale | "Team's fund" sempre nelle tendine | `fund` con `kind = team`, sempre presente |
@@ -196,7 +196,7 @@ L'app usa date vere (selettore di data, selettore di mese). Il parser flessibile
 | Domanda | Comportamento portato | Si cambia in |
 | --- | --- | --- |
 | Q1 IVA con sponsor totale | IVA sull'intero netto, a carico del team — **confermato** (21/10/2026: è il tipo C degli sponsor, [sponsor-e-fondi.md](sponsor-e-fondi.md)) | `getSettings().vatBaseWhenTotalSponsor` |
-| Q2 confronto con BANK | per giorno nel riepilogo CASH FLOW, per mese nel Gantt (ingressi e uscite del mese BANK) | `getSettings().bankCompare` |
+| Q2 confronto con BANK | per giorno nel riepilogo CASH FLOW, per mese nel Gantt (ingressi e uscite del mese BANK) | `getSettings().bankCompare`, modificabile dalla pagina Settings |
 | Q3 scadenze IVA | tabella §4, weekend → lunedì, niente proroghe — **confermato** (21/10/2026) | `getVatRules()` |
 | Q4 CASH FROM e CASH FLOW | due tabelle indipendenti, in sospeso; fa eccezione il contratto di uno sponsor **cash**, che conta da solo come ingresso ([sponsor-e-fondi.md](sponsor-e-fondi.md#5-sponsor-in-cassa)) | schema (collegamento facoltativo, dopo) |
 | Q5 flag "paga IVA" | nel foglio uno per fase — chiusa il 21/10/2026 con una sola casella per sponsor; **tolta il 26/10/2026**: un fondo copre sempre l'IVA, 0% = niente IVA | nessuna colonna |

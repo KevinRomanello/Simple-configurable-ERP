@@ -82,6 +82,7 @@ export interface Permissions {
   canManageInventory: boolean;
   canViewHistory: boolean;
   canManageUsers: boolean;
+  canManageSettings: boolean;
 }
 
 /** GET /api/me */
@@ -267,3 +268,23 @@ export interface PriceChoice {
   method: PriceMethod;
   on?: string;
 }
+
+/** What the Settings page shows (admin only): the lists with how much each entry is used, and the switches. */
+export interface SettingsView {
+  categories: { id: number; name: string; fields: ItemField[]; usedBy: number }[];
+  uncategorizedFields: ItemField[];
+  vatRates: { id: number; rate: number; usedBy: number }[];
+  units: { id: number; name: string; usedBy: number }[];
+  locations: { id: number; code: string; site: string; room: string; usedBy: number }[];
+  calculation: Calculation;
+}
+
+export type BankCompare = "day" | "month";
+
+export interface Calculation {
+  varianceThreshold: number;
+  vatBaseWhenTotalSponsor: "net" | "net-minus-sponsor";
+  inflowVatRate: number;
+  bankCompare: { summary: BankCompare; timeline: BankCompare };
+}
+

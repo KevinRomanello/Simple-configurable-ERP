@@ -11,6 +11,7 @@
 | Ruoli | `admin` (il tesoriere), `pm` (per **area**), `viewer` |
 | Primo accesso | chi ha un account del team entra da solo come **`viewer`**; un admin lo promuove |
 | Fondi, contratti, ingressi, BANK | **solo `admin`** |
+| Impostazioni (categorie, aliquote, unità, posti, interruttori del calcolo: pagina Settings) | **solo `admin`** |
 | Fornitori | `admin` e `pm` possono aggiungerli (e toglierli, se non usati) |
 | Storico | **tabella** `audit_log` scritta da **trigger** del database; lo vedono `admin` e `pm` |
 | Deploy | da decidere dopo ([produzione.md](produzione.md)) |
@@ -111,9 +112,10 @@ Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modific
 | Fornitori (aggiungere, eliminare) | sì | **sì** | no |
 | **Inventario** (articoli, arrivi, movimenti, immagini, distinte dei componenti) | sì | **sì**, qualunque area | no (lo vede) |
 | Utenti, ruoli, aree assegnate | sì | no | no |
+| Impostazioni (pagina Settings, [impostazioni.md](impostazioni.md)) | sì | no | no |
 | Storico delle modifiche | sì | **sì** (tutto) | no |
 
-`canWrite(utente, area)` (in `auth.service.ts`): `admin` → sì; `pm` → sì solo se l'area è tra le sue; `viewer` → no. Per i dati condivisi si chiede `canWrite(utente, null)`: **solo `admin`**. I fornitori usano `canManageSuppliers` (chiunque non sia `viewer`) e lo storico `canViewHistory` (idem).
+`canWrite(utente, area)` (in `auth.service.ts`): `admin` → sì; `pm` → sì solo se l'area è tra le sue; `viewer` → no. Per i dati condivisi si chiede `canWrite(utente, null)`: **solo `admin`**. I fornitori usano `canManageSuppliers` (chiunque non sia `viewer`) e lo storico `canViewHistory` (idem); la pagina Settings `canManageSettings` (solo `admin`).
 
 Un `pm` senza aree assegnate non modifica nessuna area, ma può gestire i fornitori e leggere lo storico. Se un `pm` deve poter modificare tutto, gli si assegnano tutte le aree.
 
@@ -167,7 +169,7 @@ Non sa *perché* è stato modificato, vede solo i valori. Per un bilancio basta.
 | --- | --- |
 | login Google completo (codice, PKCE, verifica del token, dominio) provato con un Google finto e chiavi di prova | il **dominio** esatto e un **client OAuth** su Google Cloud (serve chi amministra il Workspace) per provarlo con Google vero |
 | JWT 24 h, utente riletto dal database, accesso di sviluppo, controllo CSRF | le email dei **primi admin** per `ADMIN_EMAILS` in produzione |
-| ruoli con aree, pagine Users e History, interfaccia che segue i permessi (provata nel browser con admin, pm e viewer) | **layout** di accesso, Users e History **non progettati su Figma**: usano solo token e componenti del design system; da rivedere quando ci sarà il disegno |
+| ruoli con aree, pagine Users e History, interfaccia che segue i permessi (provata nel browser con admin, pm e viewer) | **layout** di accesso, Users, History e Settings **non progettati su Figma**: usano solo token e componenti del design system; da rivedere quando ci sarà il disegno |
 | storico con trigger, lettura con filtri e paginazione | server, HTTPS, proxy, rilascio, backup ([produzione.md](produzione.md)) |
 
 Il limite di richieste e le intestazioni dell'API ci sono; mancano HTTPS e le intestazioni delle pagine del sito (le serve il proxy, da decidere: [produzione.md](produzione.md)).

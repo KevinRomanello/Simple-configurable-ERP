@@ -144,28 +144,23 @@ erDiagram
 
 ## 6. Dove stanno gli "hardcode" e perché (regola 4)
 
-Alcune cose sono fisse *per ora* ma diventeranno impostazioni: le categorie, le aliquote IVA, le scadenze IVA, la soglia del ±15%, il modo di confrontare con la data BANK, l'utente corrente, i permessi.
-
-Invece di scriverle come costanti sparse, **ognuna vive dentro la funzione che un giorno sarà l'API di quella cosa**:
+Alcune cose erano fisse *per un po'* ma dovevano diventare impostazioni. Invece di scriverle come costanti sparse, **ognuna viveva dentro la funzione che un giorno sarebbe stata l'API di quella cosa**. Il 26 ottobre 2026 è successo per categorie, aliquote, unità, posti e interruttori del calcolo ([impostazioni.md](impostazioni.md)), ed è cambiato **solo il corpo** di quelle funzioni:
 
 ```ts
 // apps/api/src/modules/lookups/lookups.service.ts
 export async function getSettings(): Promise<Settings> {
-  // HARDCODED: becomes the `setting` table / an admin page. Values reproduce the old script.
-  return {
-    varianceThreshold: 0.15,
-    vatBaseWhenTotalSponsor: "net",
-    bankCompare: { summary: "day", timeline: "month" },
-    vatReportHorizon: { from: { year: 2026, quarter: 3 }, to: { year: 2027, quarter: 4 } },
-  };
+  const [row] = await db.select().from(setting); // prima: un oggetto scritto qui, con // HARDCODED
+  return { varianceThreshold: Number(row.varianceThreshold), /* … */ };
 }
 ```
+
+Chi chiamava `getSettings()` (lo snapshot, il calcolo, le pagine) non se n'è accorto. Restano scritti nel codice, con lo stesso schema, le scadenze IVA (`getVatRules`) e la stagione corrente: sono nel [registro](hardcoded-registry.md).
 
 Il valore fa questo viaggio:
 
 1. `getSettings()` → 2. `loadLookups()` lo raccoglie con categorie e regole IVA → 3. entra nello **snapshot** (`snapshot.lookups`) → 4. il motore lo legge (per esempio `cashFlowSummary` usa `bankCompare.summary`).
 
-Il motore non chiama mai l'API (è puro): i valori gli arrivano nello snapshot. Così, per rispondere alla domanda Q2 del tesoriere basta cambiare **una riga** qui; il giorno in cui diventa una tabella si cambia **il corpo** di `getSettings()` (una query al posto del `return`) e nessun altro file. Ogni hardcode ha una riga in [hardcoded-registry.md](hardcoded-registry.md) e il commento `// HARDCODED:` nel codice (`grep -rn HARDCODED apps` li trova tutti).
+Il motore non chiama mai l'API (è puro): i valori gli arrivano nello snapshot. Così, per cambiare la risposta alla domanda Q2 del tesoriere basta una scelta nella pagina **Settings**, e il motore non cambia.
 
 ## 7. Come sappiamo che i numeri sono giusti
 
@@ -199,7 +194,7 @@ Cosa la riconciliazione **non** copre: i dati reali sono semplici (IVA quasi sem
 | Voglio… | Tocco |
 | --- | --- |
 | una categoria in più, un'aliquota IVA, le scadenze IVA | la funzione giusta in `apps/api/src/modules/lookups/lookups.service.ts` |
-| rispondere a Q1 (IVA con sponsor totale) o Q2 (confronto con BANK) | `getSettings()`, stesso file |
+| cambiare la risposta a Q1 (IVA con sponsor totale) o Q2 (confronto con BANK) | la pagina **Settings** (tabella `setting`); nel codice `getSettings()` |
 | il modo di arrotondare (Q7) | `roundDiv` in `packages/calc/src/money.ts` |
 | un colore, un font, una spaziatura | `apps/web/src/theme/tokens.css` (e Figma) |
 | una **colonna nuova** su una voce | `schema.ts` → `pnpm db:generate` → `db:migrate` → Zod in `budget.schema.ts` → `saveFigures`/`updateLine` in `budget.service.ts` → tipo `Figures` in `calc/snapshot.ts` e `loadSnapshot` in `snapshot.ts` → colonna in `areaColumns.tsx` |

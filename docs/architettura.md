@@ -41,7 +41,8 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   │           ├── auth/         # login Google, JWT, controllo delle richieste, ruoli e permessi
 │   │           ├── users/        # utenti, ruoli, aree dei pm
 │   │           ├── audit/        # lettura dello storico delle modifiche
-│   │           ├── lookups/      # categorie, aliquote, regole IVA, impostazioni (HARDCODED)
+│   │           ├── lookups/      # categorie, aliquote, unità, posti, impostazioni (dal database); regole IVA (HARDCODED)
+│   │           ├── settings/     # la pagina Settings: le scritture dell'admin su quegli elenchi (impostazioni.md)
 │   │           ├── seasons/      # stagione corrente (HARDCODED)
 │   │           ├── budget/       # aree, progetti, righe
 │   │           ├── funds/        # fondi e contratti

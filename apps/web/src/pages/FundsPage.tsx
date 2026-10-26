@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Fund, FundSummaryRow, FundType, NewContract, Phase } from "../api/types";
 import { IconButton } from "../components/Button";
+import { CommitInput } from "../components/CommitInput";
 import { TableBox } from "../components/ExportBlocks";
 import { MonthlyInflows } from "../components/MonthlyInflows";
 import { SortTh } from "../components/SortTh";
@@ -41,27 +42,6 @@ export function FundsPage() {
         <PhaseSummary phase="actual" />
       </div>
     </>
-  );
-}
-
-/** A text box that saves when it loses focus (or on Enter) and only if the text changed. */
-function CommitInput({ value, label, list, wide, onCommit }: { value: string; label: string; list?: string; wide?: boolean; onCommit: (text: string) => void }) {
-  const [text, setText] = useState(value);
-  useEffect(() => setText(value), [value]);
-  const commit = () => {
-    if (text.trim() !== value) onCommit(text.trim());
-    else setText(value);
-  };
-  return (
-    <input
-      className={`input small${wide ? " wide" : ""}`}
-      value={text}
-      list={list}
-      aria-label={label}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-    />
   );
 }
 

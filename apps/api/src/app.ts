@@ -18,6 +18,7 @@ import { seasonsRoutes } from "./modules/seasons/seasons.routes";
 import { suppliersRoutes } from "./modules/suppliers/suppliers.routes";
 import { usersRoutes } from "./modules/users/users.routes";
 import { viewsRoutes } from "./modules/views/views.routes";
+import { settingsRoutes } from "./modules/settings/settings.routes";
 
 export interface AppOptions {
   /** Defaults to the values of the environment. */
@@ -80,6 +81,7 @@ export function buildApp(options: AppOptions = {}) {
       await api.register(inventoryRoutes);
       await api.register(cashflowRoutes);
       await api.register(viewsRoutes);
+      await api.register(settingsRoutes);
     },
     { prefix: "/api" },
   );

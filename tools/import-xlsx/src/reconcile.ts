@@ -2,7 +2,7 @@ import {
   analysisByFund, analysisBySupplier, cashFlowSummary, computeLines, fundSummary, gantt, itemsView,
   totals, vatReport, type Analysis, type Phase, type Snapshot,
 } from "@erp/calc";
-import { loadLookups } from "@erp/api/lookups";
+import { defaultLookups } from "@erp/api/lookups";
 import { loadSnapshot } from "@erp/api/snapshot";
 import {
   cashFlowFigures, fundBalances, lineOracle, readAnalysis, readCategoryAnalysis, readGantt,
@@ -27,7 +27,8 @@ const fromDb = args.includes("--db");
 const path = args.find((a) => !a.startsWith("--")) ?? "../../fonti/Budget 26-27.xlsx";
 const workbook = await openWorkbook(path);
 const raw = readInputs(workbook);
-const lookups = await loadLookups();
+// the lists and switches of the old sheet, whatever an admin changed since on the Settings page
+const lookups = await defaultLookups();
 const converted = toSnapshot(raw, lookups);
 const warnings = converted.warnings;
 const snapshot: Snapshot = fromDb ? await loadSnapshot() : converted.snapshot;

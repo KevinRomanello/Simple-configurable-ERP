@@ -61,7 +61,7 @@ I movimenti: **receipt** (arrivo, +), **use** (uso, −, con progetto facoltativ
 | codici di sicurezza | `safetyCodes`: frasi H/P e numero UN dei materiali pericolosi, come sulla scheda di sicurezza |
 | stoccaggio / mantenimento | `storageNotes`, `maintenanceNotes` |
 
-**Facoltativi per categoria.** Nessun campo è obbligatorio, e il modulo mostra solo quelli utili alla categoria (la funzione `getCategoryFields`, hardcoded: [registro](hardcoded-registry.md)):
+**Facoltativi per categoria.** Nessun campo è obbligatorio, e il modulo mostra solo quelli utili alla categoria (la funzione `getCategoryFields`, dal database; l'admin li sceglie dalla pagina Settings, [impostazioni.md](impostazioni.md): [registro](hardcoded-registry.md)):
 
 | Categoria | Campi mostrati oltre a nome, codice, categoria e unità |
 | --- | --- |
@@ -72,9 +72,9 @@ I movimenti: **receipt** (arrivo, +), **use** (uso, −, con progetto facoltativ
 
 Cambiando categoria i campi nascosti **non si cancellano**: restano nel database e ricompaiono tornando alla categoria. Il modulo manda solo i campi che mostra. Nella pagina dell'articolo i codici di sicurezza sono evidenziati.
 
-## 6. Sedi e stanze (hardcoded per ora)
+## 6. Sedi e stanze
 
-`listLocations()` ([lookups.service.ts](../apps/api/src/modules/lookups/lookups.service.ts)) restituisce due sedi con cinque stanze ciascuna ("Site 1 / Room 1"…), solo per avere qualcosa da scegliere. Nel database si salva il codice (`s1-r2`) e, a parte, un testo libero per il punto preciso. Diventerà la tabella `location`. Anche le unità (`pcs`, `set`, `box`, `m`, `kg`, `g`, `l`, `ml`) sono hardcoded (`listUnits()`).
+`listLocations()` ([lookups.service.ts](../apps/api/src/modules/lookups/lookups.service.ts)) legge la tabella `location`: all'inizio due sedi con cinque stanze ciascuna ("Site 1 / Room 1"…), solo per avere qualcosa da scegliere; l'admin le aggiunge, rinomina, ordina e cancella dalla pagina **Settings** ([impostazioni.md](impostazioni.md)). Nel database del magazzino si salva il **codice** del posto (`s1-r2`), che non cambia mai, e a parte un testo libero per il punto preciso. Un posto usato da un movimento non si può cancellare.
 
 ## 7. Immagini
 
@@ -127,7 +127,7 @@ Per progetto e area (dal progetto della voce di budget, o scelto a mano) non c'�
 | `POST /inventory/movements` | uso, spostamento, conteggio (`counted`), smaltimento |
 | `GET /inventory/components`, `GET /inventory/components/:id`, `POST/PATCH/DELETE …/parts` | componenti, distinta, costo e serie nel tempo |
 | `GET /inventory/stats`, `GET /inventory/projects` | statistiche; i progetti della stagione (per i moduli) |
-| `GET /lookups/locations`, `/units`, `/category-fields` | gli elenchi hardcoded |
+| `GET /lookups/locations`, `/units`, `/category-fields` | gli elenchi, che l'admin tiene dalla pagina Settings |
 
 Schermate (menu **Inventory**): **INVENTORY** (elenco con miniature, filtri, selettore prezzo, "Add goods"), pagina dell'articolo (immagine, informazioni, giacenze per luogo con "Use, move, count…", prezzi nel tempo, movimenti, "More arrived"), **PENDING**, **COMPONENTS** (+ pagina del componente con distinta, costo e grafico), **INVENTORY STATS**. Nel budget, la colonna di stato a sinistra mostra clessidra o spunta e in ACTUAL c'è la colonna **ARRIVED** con "pending 0/8", "partial 3/8", "arrived 8/8".
 

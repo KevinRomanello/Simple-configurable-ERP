@@ -17,6 +17,7 @@
 | [sponsor-e-fondi.md](sponsor-e-fondi.md) | **Sponsor e fondi**: come si definisce uno sponsor (tipo A/B/C, aliquota, gruppo), come il sito ne deduce IVA e copertura, più fondi sulla stessa riga con avviso se non bastano, i soldi che entrano nel conto come inflow di CASH FLOW (IVA all'11% il primo giorno del trimestre dopo), le risposte del tesoriere |
 | [stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md) | **Piano (non ancora fatto)**: dividere gli acquisti per stagione (settembre–agosto), anno fiscale e macchina; cosa dicono i dati, le fasi di lavoro, le decisioni da prendere |
 | [download.md](download.md) | **Scaricare tabelle e grafici**: il pulsante Download nell'intestazione di ogni pagina, la scelta di cosa includere, PDF ed Excel fatti dal browser, grafici su fondo bianco, come aggiungere un blocco o un formato |
+| [impostazioni.md](impostazioni.md) | **Impostazioni** (pagina Settings, solo admin): categorie con i loro campi e il loro ordine, aliquote IVA, unità, sedi e stanze, interruttori del calcolo con la loro spiegazione; prima erano scritti nel codice |
 | [ci.md](ci.md) | La CI su GitHub: cosa controlla, come leggerla, come provarla in locale |
 
 Materiale di partenza, in `fonti/` (locale, ignorata da git): `script attuale`, `Budget 26-27.xlsx`, `Piano d'azione — Budget e Inventario custom.md` (visione completa in 8 fasi e sette domande per il tesoriere).

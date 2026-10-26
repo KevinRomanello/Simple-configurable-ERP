@@ -202,6 +202,92 @@ export const bankSnapshot = pgTable("bank_snapshot", {
   asOfDate: date(),
 });
 
+// --- what an admin sets on the Settings page (the lists and the switches of the calculation) ------
+// They started as values in the code ("hardcoded", project rule 4); migration 0010 wrote those
+// values here. docs/impostazioni.md.
+
+/** The categories of the budget and of the inventory, in their order (the blocks of TOTAL and the Gantt). */
+export const category = pgTable(
+  "category",
+  {
+    id: id(),
+    name: text().notNull(),
+    position: integer().notNull(),
+  },
+  (t) => [uniqueIndex("category_name_uq").on(sql`lower(${t.name})`)],
+);
+
+/** Which optional fields an item of a category shows; `category_id` null: the items without a category. */
+export const categoryField = pgTable(
+  "category_field",
+  {
+    id: id(),
+    categoryId: integer().references(() => category.id, { onDelete: "cascade" }),
+    field: text().notNull(),
+  },
+  (t) => [
+    unique("category_field_uq").on(t.categoryId, t.field).nullsNotDistinct(),
+    check("category_field_known", sql`${t.field} in ('purpose', 'safetyCodes', 'disposal', 'storageNotes', 'maintenanceNotes')`),
+  ],
+);
+
+/** The VAT rates a line, a sponsor or an arrival can use, in percent. */
+export const vatRate = pgTable(
+  "vat_rate",
+  {
+    id: id(),
+    rate: numeric({ precision: 5, scale: 2 }).notNull().unique(),
+  },
+  (t) => [check("vat_rate_range", sql`${t.rate} >= 0 and ${t.rate} <= 100`)],
+);
+
+/** How an item is counted (pcs, m, kg…). */
+export const unit = pgTable(
+  "unit",
+  {
+    id: id(),
+    name: text().notNull(),
+  },
+  (t) => [uniqueIndex("unit_name_uq").on(sql`lower(${t.name})`)],
+);
+
+/** Where things are kept: a site and a room. The code is what movements store, and never changes. */
+export const location = pgTable(
+  "location",
+  {
+    id: id(),
+    code: text().notNull().unique(),
+    site: text().notNull(),
+    room: text().notNull(),
+    position: integer().notNull(),
+  },
+  (t) => [uniqueIndex("location_site_room_uq").on(sql`lower(${t.site})`, sql`lower(${t.room})`)],
+);
+
+/** The switches of the calculation: one row. */
+export const setting = pgTable(
+  "setting",
+  {
+    id: integer().primaryKey().default(1),
+    /** TOTAL: variances beyond +/- this ratio are flagged. */
+    varianceThreshold: numeric({ precision: 5, scale: 4 }).notNull(),
+    /** What the VAT is computed on when a sponsor covers the whole line (question Q1). */
+    vatBaseWhenTotalSponsor: text().notNull(),
+    /** VAT, in percent, that the team owes on every inflow. */
+    inflowVatRate: numeric({ precision: 5, scale: 2 }).notNull(),
+    /** How dates are compared with the BANK date: in the CASH FLOW summary and in the Gantt (question Q2). */
+    bankCompareSummary: text().notNull(),
+    bankCompareTimeline: text().notNull(),
+  },
+  (t) => [
+    check("setting_one_row", sql`${t.id} = 1`),
+    check("setting_threshold", sql`${t.varianceThreshold} >= 0 and ${t.varianceThreshold} <= 1`),
+    check("setting_vat_base", sql`${t.vatBaseWhenTotalSponsor} in ('net', 'net-minus-sponsor')`),
+    check("setting_inflow_vat", sql`${t.inflowVatRate} >= 0 and ${t.inflowVatRate} <= 100`),
+    check("setting_bank_compare", sql`${t.bankCompareSummary} in ('day', 'month') and ${t.bankCompareTimeline} in ('day', 'month')`),
+  ],
+);
+
 /** A single supplier list (the old sheet had one per phase). Not tied to a season. */
 export const supplier = pgTable(
   "supplier",

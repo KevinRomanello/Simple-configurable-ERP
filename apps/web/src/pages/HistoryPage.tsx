@@ -19,6 +19,12 @@ const TABLES: Record<string, string> = {
   supplier: "Supplier",
   app_user: "User",
   user_area: "User area",
+  category: "Category",
+  category_field: "Category field",
+  vat_rate: "VAT rate",
+  unit: "Unit",
+  location: "Place",
+  setting: "Settings",
 };
 const ACTION = { insert: "added", update: "changed", delete: "deleted" } as const;
 

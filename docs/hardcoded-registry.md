@@ -8,24 +8,24 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 
 | # | Cosa | Funzione (modulo) ↔ endpoint | Valore oggi | Diventerà |
 | --- | --- | --- | --- | --- |
-| 1 | Categorie | `listCategories` (lookups) ↔ `GET /api/lookups/categories` | Components, Manufacturing, Consumable, Asset, Logistic, Administration, Software | tabella `category`, modificabile dall'admin; `budget_line.category` diventa chiave esterna |
-| 2 | Aliquote IVA | `listVatRates` (lookups) ↔ `GET /api/lookups/vat-rates` | 0, 11, 22 | elenco configurabile |
-| 3 | Regole delle scadenze IVA | `getVatRules` (lookups) ↔ `GET /api/lookups/vat-rules` | trimestre → 16/05, 20/08, 16/11, 16/02 dell'anno dopo; weekend → lunedì; nessuna festività né proroga | tabella `vat_rule` (date confermate dal tesoriere il 21/10/2026, Q3) |
-| 4 | Impostazioni di calcolo | `getSettings` (lookups) ↔ `GET /api/lookups/settings` | vedi sotto | tabella `setting` o pagina admin |
-| 5 | Stagione corrente | `getCurrentSeason` (seasons) ↔ `GET /api/seasons/current` | 2026-2027 | elenco stagioni, selettore, creazione della nuova stagione |
-| 6 | Sedi e stanze | `listLocations` (lookups) ↔ `GET /api/lookups/locations` | due sedi con cinque stanze ("Site 1 / Room 1"…), codici `s1-r1`… | tabella `location`, tenuta da un admin; i movimenti già registrati conservano il codice |
-| 7 | Unità di misura | `listUnits` (lookups) ↔ `GET /api/lookups/units` | pcs, set, box, m, kg, g, l, ml | elenco configurabile |
-| 8 | Campi facoltativi per categoria | `getCategoryFields` (lookups) ↔ `GET /api/lookups/category-fields` | per categoria, quali fra a cosa serve / codici di sicurezza / smaltimento / stoccaggio / manutenzione ([inventario.md](inventario.md#5-le-informazioni-di-un-articolo)) | tabella categoria × campo, modificabile dall'admin |
+| 3 | Regole delle scadenze IVA | `getVatRules` (lookups) ↔ `GET /api/lookups/vat-rules` | trimestre → 16/05, 20/08, 16/11, 16/02 dell'anno dopo; weekend → lunedì; nessuna festività né proroga | **spariranno** quando l'IVA delle righe si pagherà alla data di pagamento ([sponsor-e-fondi.md](sponsor-e-fondi.md)); oggi le usano solo le righe del budget |
+| 4 | Orizzonte del report IVA per area | `vatReportHorizon` dentro `getSettings` (lookups) ↔ `GET /api/lookups/settings` | dal 3° trimestre 2026 al 4° 2027 (si allarga da solo intorno alle date) | sparirà con la stessa modifica (il report diventerà per mese di pagamento) |
+| 5 | Stagione corrente | `getCurrentSeason` (seasons) ↔ `GET /api/seasons/current` | 2026-2027 | elenco stagioni, selettore, creazione della nuova stagione ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)) |
 
-### Chiavi di `getSettings()`
+### Implementati (26 ottobre 2026)
 
-| Chiave | Valore oggi | Domanda |
+Erano le righe 1, 2, 4, 6, 7 e 8: ora stanno nel database e li cambia l'admin dalla pagina **Settings** ([impostazioni.md](impostazioni.md)). Le funzioni sono le stesse, è cambiato solo il loro corpo.
+
+| Cosa | Funzione | Tabella |
 | --- | --- | --- |
-| `varianceThreshold` | `0.15` (evidenzia oltre ±15% nel TOTAL) | — |
-| `vatBaseWhenTotalSponsor` | `"net"` (IVA sull'intero netto; alternativa `"net-minus-sponsor"`) | Q1, **confermata** il 21/10/2026 (regalo con controfattura: [sponsor-e-fondi.md](sponsor-e-fondi.md)) |
-| `inflowVatRate` | `11` (% di IVA che il team deve su ogni inflow, per legge: è sponsorizzazione fatturata; si paga il primo giorno del trimestre successivo) | scelta del tesoriere, 26/10/2026 |
-| `bankCompare` | `{ summary: "day", timeline: "month" }` (come il foglio: due confronti diversi) | Q2 |
-| `vatReportHorizon` | `{ from: "2026-Q3", to: "2027-Q4" }` (si estende da solo) | — |
+| Categorie (e il loro ordine) | `listCategories` | `category` |
+| Aliquote IVA | `listVatRates` | `vat_rate` |
+| Impostazioni di calcolo: soglia di TOTAL, IVA sugli inflow, IVA con sponsor totale (Q1), confronti con BANK (Q2) | `getSettings` | `setting` |
+| Sedi e stanze | `listLocations` | `location` |
+| Unità di misura | `listUnits` | `unit` |
+| Campi facoltativi per categoria | `getCategoryFields` | `category_field` |
+
+I valori con cui partono sono quelli del vecchio foglio (`LOOKUP_DEFAULTS` in `apps/api/src/modules/lookups/defaults.ts`, gli stessi della migrazione `0010`): li usano i test e la riconciliazione col foglio.
 
 L'arrotondamento (Q7) non è un'impostazione: il motore lavora in interi e arrotonda l'IVA al centesimo riga per riga (`roundDiv` in `packages/calc/src/money.ts`). Cambiarlo vuol dire cambiare quella funzione.
 

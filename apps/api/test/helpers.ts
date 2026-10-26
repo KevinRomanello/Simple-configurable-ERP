@@ -10,6 +10,7 @@ import type { User } from "../src/modules/auth/auth.service";
 import { SESSION_COOKIE } from "../src/modules/auth/auth.routes";
 import type { GoogleClient } from "../src/modules/auth/google";
 import { signSessionToken } from "../src/modules/auth/tokens";
+import { LOOKUP_DEFAULTS } from "../src/modules/lookups/defaults";
 import { testOwnerUrl } from "./db-urls";
 
 export interface Reply {
@@ -130,7 +131,37 @@ export function testApp(
 const ownerPool = new pg.Pool({ connectionString: testOwnerUrl });
 
 /** Empties everything a test can create, keeping the seed (season, areas, team fund) and the users. */
+/** Puts back the lists and the switches of the Settings page as they start (a test may have changed them). */
+async function restoreSettings() {
+  const d = LOOKUP_DEFAULTS;
+  const values = (rows: unknown[][]) => {
+    const params = rows.flat();
+    const width = rows[0]!.length;
+    return { text: rows.map((_, i) => `(${Array.from({ length: width }, (_, j) => `$${i * width + j + 1}`).join(", ")})`).join(", "), params };
+  };
+  await ownerPool.query("truncate table category, category_field, vat_rate, unit, location, setting restart identity cascade");
+  const categories = values(d.categories.map((c, i) => [c.name, i + 1]));
+  await ownerPool.query(`insert into category (name, position) values ${categories.text}`, categories.params);
+  const fields = values([
+    ...d.categories.flatMap((c, i) => c.fields.map((f) => [i + 1, f])),
+    ...d.uncategorizedFields.map((f) => [null, f]),
+  ]);
+  await ownerPool.query(`insert into category_field (category_id, field) values ${fields.text}`, fields.params);
+  const rates = values(d.vatRates.map((r) => [r]));
+  await ownerPool.query(`insert into vat_rate (rate) values ${rates.text}`, rates.params);
+  const units = values(d.units.map((u) => [u]));
+  await ownerPool.query(`insert into unit (name) values ${units.text}`, units.params);
+  const places = values(d.locations.map((l, i) => [l.code, l.site, l.room, i + 1]));
+  await ownerPool.query(`insert into location (code, site, room, position) values ${places.text}`, places.params);
+  const s = d.settings;
+  await ownerPool.query(
+    "insert into setting (id, variance_threshold, vat_base_when_total_sponsor, inflow_vat_rate, bank_compare_summary, bank_compare_timeline) values (1, $1, $2, $3, $4, $5)",
+    [s.varianceThreshold, s.vatBaseWhenTotalSponsor, s.inflowVatRate, s.bankCompare.summary, s.bankCompare.timeline],
+  );
+}
+
 export async function resetData() {
+  await restoreSettings(); // first: its history rows go with the truncate below
   await ownerPool.query(
     "truncate table line_figures, budget_line, project, fund_contract, team_inflow, bank_snapshot, supplier, audit_log, stock_movement, component_part, item_image, inventory_item restart identity cascade",
   );

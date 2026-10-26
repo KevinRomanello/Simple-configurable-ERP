@@ -60,5 +60,6 @@ export function permissionsOf(user: User) {
     canManageInventory: user.role !== "viewer",
     canViewHistory: user.role !== "viewer",
     canManageUsers: user.role === "admin",
+    canManageSettings: user.role === "admin",
   };
 }
