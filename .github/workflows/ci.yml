@@ -44,7 +44,7 @@ jobs:
       DATABASE_OWNER_URL: postgres://erp:ci_password@localhost:5432/erp
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -88,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: The Compose file is valid
         run: |
