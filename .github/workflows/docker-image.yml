@@ -25,7 +25,7 @@ jobs:
         target: [api, web]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Registry names must be lowercase, and the owner's name may not be.
       - name: Image name
