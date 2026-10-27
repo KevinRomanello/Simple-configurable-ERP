@@ -20,5 +20,6 @@
 | [impostazioni.md](impostazioni.md) | **Impostazioni** (pagina Settings, solo admin): categorie con i loro campi e il loro ordine, aliquote IVA, unità, sedi e stanze, interruttori del calcolo con la loro spiegazione; prima erano scritti nel codice |
 | [controllo-bug-e-prestazioni.md](controllo-bug-e-prestazioni.md) | **Controllo di bug e prestazioni** (26/10/2026): cosa è stato provato e misurato, i problemi trovati (P1–P11) con gravità, causa e soluzione proposta, e il loro stato |
 | [ci.md](ci.md) | La CI su GitHub: cosa controlla, come leggerla, come provarla in locale |
+| [rilascio.md](rilascio.md) | **Rilascio**: il workflow che costruisce le immagini Docker di produzione su GitHub, come fare un rilascio (tag), come metterle su un server e aggiornarle, il file `.env` del server, cosa è stato provato e cosa no |
 
 Materiale di partenza, in `fonti/` (locale, ignorata da git): `script attuale`, `Budget 26-27.xlsx`, `Piano d'azione — Budget e Inventario custom.md` (visione completa in 8 fasi e sette domande per il tesoriere).

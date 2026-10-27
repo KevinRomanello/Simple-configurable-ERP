@@ -1,0 +1,45 @@
+# Production images, built by .github/workflows/docker-image.yml (and checked by CI on every change).
+# Two final stages, chosen with --target:
+#   api  the server (Node), with only the dependencies it needs to run
+#   web  Caddy with the compiled site: it serves the pages, forwards /api to the api and does HTTPS
+# Only the folders listed in COPY go in (never fonti/, database copies or .env), because these
+# images are uploaded to a registry.
+FROM node:24-slim AS base
+RUN npm install -g pnpm@12.14.0
+WORKDIR /app
+# The manifests first: the dependency layers are rebuilt only when they change.
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+COPY packages/calc/package.json packages/calc/
+COPY tools/import-xlsx/package.json tools/import-xlsx/
+
+# --- api -------------------------------------------------------------------------------------------
+FROM base AS api
+ENV NODE_ENV=production
+RUN pnpm install --frozen-lockfile --prod --filter "@erp/api..."
+COPY packages/calc/tsconfig.json packages/calc/
+COPY packages/calc/src packages/calc/src
+COPY apps/api/tsconfig.json apps/api/
+COPY apps/api/drizzle apps/api/drizzle
+COPY apps/api/src apps/api/src
+# The API is not root and does not write anywhere in /app: it only has to be able to read it (files
+# copied from a computer keep that computer's modes, and some are readable by their owner only).
+RUN chmod -R a+rX /app
+USER node
+EXPOSE 3000
+CMD ["pnpm", "--filter", "@erp/api", "start"]
+
+# --- the site, compiled -------------------------------------------------------------------------------
+FROM base AS site
+RUN pnpm install --frozen-lockfile --filter "@erp/web..."
+COPY packages/calc/tsconfig.json packages/calc/
+COPY packages/calc/src packages/calc/src
+COPY apps/web/tsconfig.json apps/web/vite.config.ts apps/web/index.html apps/web/
+COPY apps/web/src apps/web/src
+RUN pnpm --filter @erp/web build
+
+# --- web -------------------------------------------------------------------------------------------
+FROM caddy:2-alpine AS web
+COPY --from=site /app/apps/web/dist /srv/web
+COPY Caddyfile /etc/caddy/Caddyfile

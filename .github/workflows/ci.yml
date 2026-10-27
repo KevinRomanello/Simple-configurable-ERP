@@ -97,3 +97,13 @@ jobs:
 
       - name: The image builds
         run: docker build --tag erp-dev .
+
+      # The images of production are built only when a version is tagged: a mistake in them
+      # would show up then, so they are built (not uploaded) on every change as well.
+      - name: The production Compose file is valid
+        run: docker compose -f docker-compose.prod.yml --env-file .env.prod.example config --quiet
+
+      - name: The production images build
+        run: |
+          docker build --file Dockerfile.prod --target api --tag erp-api .
+          docker build --file Dockerfile.prod --target web --tag erp-web .

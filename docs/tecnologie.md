@@ -77,7 +77,7 @@ Le idee da portarsi a casa:
 - **`ports: "127.0.0.1:3000:3000"`** = "porta 3000 del contenitore → porta 3000 del tuo computer, solo da dentro il tuo computer". Senza `127.0.0.1` sarebbe raggiungibile da tutta la rete: per questo è scritto.
 - **Volume `db-data`**: è dove Postgres tiene i file. `docker compose down` lo lascia; `down -v` lo cancella (e con lui tutti i dati).
 - **Bind mount** (`./apps/api/src:/app/apps/api/src`): la cartella del tuo computer *è* quella nel contenitore. Salvi un file e il contenitore lo vede subito: per questo l'API si riavvia da sola. Ogni servizio condivide solo le cartelle che gli servono (`api`: `apps/api/src`, `apps/api/drizzle`, `packages/calc/src`, `tools/import-xlsx/src`; `web`: `apps/web/src`, `packages/calc/src`); di tutto il resto ha la copia fatta alla costruzione dell'immagine. Le dipendenze (`node_modules`) restano quelle installate nell'immagine, perché quelle installate sul Mac (binari per macOS) non funzionerebbero su Linux. Conseguenza pratica: un test va lanciato nel contenitore che condivide quel codice (l'ho scoperto lanciando i test del sito nel contenitore `api`, che ne aveva una copia vecchia).
-- **Un solo `Dockerfile` per api e web**: stessa immagine, comando diverso (`command:`). Copia prima solo i `package.json` e installa le dipendenze, poi copia il resto: così Docker riusa lo strato delle dipendenze finché non cambiano.
+- **Per lo sviluppo, un solo `Dockerfile` per api e web** (le immagini del server sono altre, `Dockerfile.prod`, vedi [rilascio.md](rilascio.md)): stessa immagine, comando diverso (`command:`). Copia prima solo i `package.json` e installa le dipendenze, poi copia il resto: così Docker riusa lo strato delle dipendenze finché non cambiano.
 - **`.env`**: Compose lo legge da solo e sostituisce `${POSTGRES_USER}` ecc. È ignorato da git.
 
 **Trappole.** Se aggiungi una dipendenza devi ricostruire (`up --build`). `down -v` cancella il database. Se un'altra app usa già la porta 5432 (un Postgres installato a mano) il database non parte.
@@ -633,4 +633,4 @@ Non abbiamo usato una libreria di login completa (Passport, Auth.js, un servizio
 | Tailwind / librerie di componenti | i token di Figma sono già variabili CSS: due sistemi di stile sarebbero ridondanti             |
 | Sessioni nel database             | scelta dell'utente: un JWT di 24 ore basta; si revoca disattivando la persona                   |
 | Passport / Auth.js / Auth0        | un solo provider e tre ruoli: poche righe nostre, tutte provate dai test                        |
-| Caddy / HTTPS, backup             | arrivano col deploy                                                                             |
+| Caddy / HTTPS, backup             | Caddy fatto ([rilascio.md](rilascio.md)); backup col deploy                                                                             |

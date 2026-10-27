@@ -1,6 +1,6 @@
 # Dalla v0 alla produzione: cosa manca, cosa è temporaneo, come ospitarlo
 
-Stato al 20 ottobre 2026. **Nessun file di produzione è ancora nel repository**: ciò che segue è la spiegazione e il piano. Le bozze di configurazione (Caddy, ecc.) non sono state provate su un server.
+Stato al 20 ottobre 2026; **dal 27 ottobre 2026 ci sono le immagini di produzione, il `docker-compose.prod.yml`, il `Caddyfile` e il workflow che costruisce le immagini** ([rilascio.md](rilascio.md): come si usano e cosa è stato provato). Il resto di questo documento è la spiegazione e il piano; backup, server e dominio non sono ancora fatti, e nulla è stato provato su un server vero.
 
 ## 1. Dove siamo
 
@@ -18,7 +18,7 @@ La differenza tra le due cose si riassume in sei parole: **chi sei, chi può far
 | **Password del database** | `erp_dev_password` (proprietario) ed `erp_app_dev_password` (utente dell'API) in `.env.example` | sono pubbliche, stanno nel repository | due segreti lunghi e casuali, solo sul server |
 | **Server del sito** | Vite in modalità sviluppo (`vite`), con aggiornamento a caldo e proxy | lento, non ottimizzato, non pensato per il pubblico | `vite build` (2 MB di file statici) servito da un normale server web |
 | **Codice condiviso** | cartelle del tuo computer montate nei contenitori; `tsx watch` riavvia a ogni salvataggio | serve a sviluppare | il codice è *dentro* l'immagine, nessuna cartella condivisa, nessun riavvio automatico |
-| **Immagine Docker** | un unico `Dockerfile` con tutte le dipendenze di sviluppo e i test | più grande del necessario | immagine di produzione (a più stadi) senza strumenti di sviluppo |
+| **Immagine Docker** | un unico `Dockerfile` con tutte le dipendenze di sviluppo e i test | più grande del necessario | **fatto**: `Dockerfile.prod`, due immagini (`api`, `web`) senza strumenti di sviluppo ([rilascio.md](rilascio.md)) |
 | **`tsx`** | è una dipendenza *di sviluppo* dell'API | in un'immagine di produzione "solo dipendenze vere" non ci sarebbe e l'API non partirebbe | spostarla tra le dipendenze (semplice) o compilare l'API con esbuild (più pulito) |
 | **Migrazioni, utente dell'API e dati di base** | si lanciano a mano (`db:migrate`, poi `db:roles`, `db:seed`) | in produzione una dimenticanza = app rotta | passo automatico del rilascio, sempre prima dell'avvio, in quest'ordine |
 | **Stagione** | `getCurrentSeason()` cerca "2026-2027"; le date della stagione nel seed (1/9/26 – 31/8/27) sono una mia ipotesi | funziona con una stagione sola | elenco stagioni e selettore |
@@ -42,7 +42,7 @@ Le stime sono mie e non misurate: **S** ≈ 1 ora, **M** ≈ 2 ore, **L** ≈ 3�
 | A1 | **Login con Google** e utenti (JWT di 24 ore, dominio del team, primo admin da `ADMIN_EMAILS`) | L | **fatto** e provato con un Google finto; resta provarlo con le credenziali vere (dominio e client OAuth: serve chi amministra il Workspace) |
 | A2 | **Ruoli per area** (`admin`, `pm` per area, `viewer`) | M | **fatto**, applicati nel server e provati |
 | A3 | **Storico delle modifiche** (`audit_log`, trigger del database) | M | **fatto**: lo vedono admin e pm |
-| A4 | **Configurazione di produzione**: immagine a più stadi, `docker-compose.prod.yml`, server web con HTTPS, migrazioni automatiche, segreti da file | M | vedi §5 |
+| A4 | **Configurazione di produzione**: immagine a più stadi, `docker-compose.prod.yml`, server web con HTTPS, migrazioni automatiche, segreti da file | M | **fatto** il 27 ottobre 2026 e provato in locale ([rilascio.md](rilascio.md)); resta da provare su un server con un dominio vero |
 | A5 | **Backup e ripristino** provato, con istruzioni scritte | M | vedi §5.6 |
 | A6 | **Integrazione continua** (GitHub Actions): tipi, test, compilazione dell'immagine a ogni modifica | S | **fatto**: `.github/workflows/ci.yml`, vedi [ci.md](ci.md) (da vedere girare al primo push) |
 
@@ -108,13 +108,13 @@ flowchart LR
 - **Caddy** è un server web che ottiene e rinnova da solo il certificato HTTPS (Let's Encrypt). Serve il sito compilato e inoltra `/api` all'API: fa ciò che oggi fa il proxy di Vite.
 - **L'API** gira nello stesso modo di oggi, ma senza cartelle condivise, senza riavvio automatico e senza porte pubblicate.
 - **Il database** non pubblica nessuna porta: lo raggiunge solo l'API, sulla rete interna di Docker. I dati stanno in un volume.
-- Un'**unica immagine** può contenere sia il sito compilato sia l'API.
+- Le immagini sono **due**, costruite dallo stesso `Dockerfile.prod`: `api` e `web` (Caddy col sito compilato). Una sola immagine che servisse anche il sito avrebbe richiesto di riscrivere le intestazioni di sicurezza dell'API e una libreria in più.
 
 ### 5.2 Cosa cambia rispetto a oggi
 
 | Oggi (sviluppo) | Produzione |
 | --- | --- |
-| `docker-compose.yml`, servizi `db`, `api`, `web` | `docker-compose.prod.yml`, servizi `db`, `api`, `caddy` |
+| `docker-compose.yml`, servizi `db`, `api`, `web` | `docker-compose.prod.yml`, servizi `db`, `setup` (migrazioni e utente dell'API), `api`, `web` (Caddy) |
 | servizio `web` con Vite | niente Vite: `vite build` nell'immagine, i file in `/srv/web` letti da Caddy |
 | `command: pnpm … dev` | `command: pnpm … start` (senza `watch`) |
 | cartelle condivise | nessuna |
@@ -123,7 +123,7 @@ flowchart LR
 | migrazioni a mano | passo del rilascio: `docker compose run --rm api pnpm db:migrate` prima di `up -d` |
 | nessun riavvio | `restart: unless-stopped` su ogni servizio |
 
-La configurazione di Caddy (bozza, da provare) è breve:
+La configurazione di Caddy (in uso: `Caddyfile`, provata in locale senza dominio; qui sotto la prima bozza, più corta):
 
 ```
 budget.dominio.it {
@@ -215,8 +215,8 @@ Il collaudo di robustezza (numeri e testi fuori misura, richieste simultanee, da
 **Cosa manca ancora** (in ordine di importanza prima di esporre l'app):
 
 - [ ] **HTTPS e proxy** (senza, i cookie non sono `Secure`): da decidere (tailscale serve o sottodominio, quale proxy).
-- [ ] **Intestazioni delle pagine del sito** (`Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options`): le serve il proxy o il server web. La CSP dovrà ammettere gli stili che AG Grid inserisce al volo; da provare sul sito compilato.
-- [ ] **Immagine di produzione** (oggi gira come `root` con gli strumenti di sviluppo) e `docker-compose.prod.yml`: dipendono dalla scelta del proxy.
+- [x] **Intestazioni delle pagine del sito** (`Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options`): le mette Caddy (`Caddyfile`). La CSP ammette gli stili che AG Grid inserisce al volo; provata sul sito compilato (22 pagine, Download in PDF ed Excel, miniature), nessuna violazione ([rilascio.md](rilascio.md)).
+- [x] **Immagine di produzione** (l'API gira come `node`, senza strumenti di sviluppo) e `docker-compose.prod.yml`: fatti, con Caddy come proxy ([rilascio.md](rilascio.md)).
 - [ ] Il proprietario del database ha ancora una password di sviluppo nel `.env.example`: in produzione due segreti veri.
 - [ ] Autenticazione a due fattori: la decide il Workspace Google (da imporre dall'amministratore), non l'app.
 
@@ -258,7 +258,7 @@ Il collaudo di robustezza (numeri e testi fuori misura, richieste simultanee, da
 
 1. ~~**A1 + A2**: login con Google e ruoli~~ — fatto.
 2. ~~**A3**: storico delle modifiche~~ — fatto.
-3. **A4 + A5**: configurazione di produzione e backup, con il ripristino provato su una macchina di prova.
+3. ~~**A4**: configurazione di produzione~~ — fatto ([rilascio.md](rilascio.md)); **A5**: backup, con il ripristino provato su una macchina di prova.
 4. **A6**: integrazione continua.
 5. **Messa online** (§5.3–5.4), prima con 2 persone.
 6. **B1–B3**: risposte del tesoriere, revisione del layout, pagina di amministrazione.

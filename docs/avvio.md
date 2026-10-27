@@ -161,7 +161,7 @@ Il file nuovo compare in `apps/api/drizzle/`: va committato insieme allo schema.
 | `api`     | `apps/api/src`, `apps/api/drizzle`, `packages/calc/src`, `tools/import-xlsx/src` |
 | `web`     | `apps/web/src`, `apps/web/index.html`, `packages/calc/src`                         |
 
-Nell'`api` il server si riavvia da solo quando salvi; nel `web` il sito si aggiorna da solo. Per tutto il resto (dipendenze, `Dockerfile`, `docker-compose.yml`, configurazioni) serve `docker compose up --build -d`.
+Nell'`api` il server si riavvia da solo quando salvi; nel `web` il sito si aggiorna da solo. Per tutto il resto (dipendenze, `Dockerfile`, `docker-compose.yml`, configurazioni) serve `docker compose up --build -d`. (Questo è lo sviluppo: le immagini del server si fanno con `Dockerfile.prod` e il workflow di GitHub, vedi [rilascio.md](rilascio.md).)
 
 ## 5. Lavorare sul codice fuori da Docker (facoltativo)
 

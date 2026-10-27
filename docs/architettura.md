@@ -18,7 +18,7 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 | Calcolo  | TypeScript puro, Vitest                                                               | `packages/calc`                                                                                                                                                                                                                                |
 | Web      | React + Vite, AG Grid Community, TanStack Query, React Router, Recharts, Font Awesome | Stili da Figma ([stile-interfaccia.md](stile-interfaccia.md)). Incolla multi-riga da Sheets non garantito in Community: verifica dopo la v0                                                                                                       |
 | Monorepo | pnpm workspaces                                                                       | Niente altri strumenti di build                                                                                                                                                                                                                  |
-| Ambienti | Docker Compose: `db`, `api`, `web`                                              | Caddy e HTTPS arrivano col deploy (dopo)                                                                                                                                                                                                         |
+| Ambienti | Docker Compose: `db`, `api`, `web`                                              | produzione: `docker-compose.prod.yml` con Caddy e HTTPS ([rilascio.md](rilascio.md))                                                                                                                                                                                                         |
 
 ## Struttura del repository
 
@@ -27,7 +27,8 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 ├── CLAUDE.md
 ├── docs/
 ├── fonti/                    # locale, ignorata da git: script, xlsx reale, piano originale
-├── docker-compose.yml, Dockerfile, .env.example
+├── docker-compose.yml, Dockerfile, .env.example   (sviluppo)
+├── docker-compose.prod.yml, Dockerfile.prod, Caddyfile, .env.prod.example   (produzione, docs/rilascio.md)
 ├── apps/
 │   ├── api/
 │   │   ├── drizzle/          # migrazioni SQL generate (si committano)

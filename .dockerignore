@@ -4,3 +4,4 @@ fonti
 .env
 **/dist
 **/coverage
+**/*.dump

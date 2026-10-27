@@ -1,0 +1,81 @@
+# Production stack: it does not build anything, it pulls the images made by
+# .github/workflows/docker-image.yml. On the server only this file and the .env are needed
+# (see docs/rilascio.md). Start with: docker compose up -d
+name: erp-prod
+
+x-api-image: &api-image ghcr.io/kevinromanello/simple-configurable-erp-api:${ERP_VERSION:-latest}
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-erp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-erp}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # no ports: only the other containers of this stack can reach the database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-erp} -d ${POSTGRES_DB:-erp}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Runs at every start, before the api: migrations, the API's own database user, the base data.
+  # All three can be repeated safely.
+  setup:
+    image: *api-image
+    restart: "no"
+    command: sh -c "pnpm db:migrate && pnpm db:roles && pnpm db:seed"
+    environment:
+      DATABASE_URL: postgres://erp_app:${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}@db:5432/${POSTGRES_DB:-erp}
+      DATABASE_OWNER_URL: postgres://${POSTGRES_USER:-erp}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-erp}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    image: *api-image
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://erp_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB:-erp}
+      # the api is reachable only through the web container, which tells it the visitor's address
+      TRUST_PROXY: "true"
+      PORT: "3000"
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL in .env}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:?set ADMIN_EMAILS in .env}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID in .env}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?set GOOGLE_CLIENT_SECRET in .env}
+      GOOGLE_ALLOWED_DOMAIN: ${GOOGLE_ALLOWED_DOMAIN:?set GOOGLE_ALLOWED_DOMAIN in .env}
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  web:
+    image: ghcr.io/kevinromanello/simple-configurable-erp-web:${ERP_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # the HTTPS certificates: keep them, or Let's Encrypt is asked again at every restart
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

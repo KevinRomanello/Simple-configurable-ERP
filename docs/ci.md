@@ -28,6 +28,8 @@
 | --- | --- |
 | The Compose file is valid | `docker compose config --quiet` sul `docker-compose.yml` |
 | The image builds | `docker build .`: il `Dockerfile` funziona con il lockfile attuale |
+| The production Compose file is valid | `docker compose -f docker-compose.prod.yml config` con `.env.prod.example` |
+| The production images build | `Dockerfile.prod`, gli stadi `api` e `web`: non si caricano, ma un errore si vede prima di fare il tag ([rilascio.md](rilascio.md)) |
 
 I due job girano in parallelo. In più **Dependabot** (`.github/dependabot.yml`) apre ogni settimana una pull request con gli aggiornamenti di npm, delle azioni di GitHub e del `Dockerfile`. I test del database usano `DATABASE_OWNER_URL` (il proprietario: crea il database di prova e l'utente limitato con cui poi gira tutta la suite); la riconciliazione col foglio (`pnpm reconcile`) **non** gira in CI, perché dipende da `fonti/` (dati reali, mai su GitHub).
 
