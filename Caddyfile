@@ -1,11 +1,30 @@
 # The web server of production: the compiled site, the API behind /api, and HTTPS.
 #
+# Behind the organisation's login proxy (the normal case) that proxy does the HTTPS and the sign-in,
+# and puts the email of the person in a header. The API believes that header, so ONLY the proxy may
+# talk to this server: PROXY_IPS (in .env) lists its addresses, and anybody else gets a 403. It also
+# says whose X-Forwarded-For (the visitor's address) can be believed.
+#
 # SITE_ADDRESS (in .env) is what people type:
+#   - ":80" (the default): plain HTTP, the proxy in front does the HTTPS;
 #   - a domain name, e.g. budget.example.org: Caddy gets and renews the HTTPS certificate by itself
-#     (ports 80 and 443 must reach this container);
-#   - ":80" (the default): plain HTTP, for when another program in front (a VPN, another proxy) does HTTPS.
+#     (ports 80 and 443 must reach this container), for signing in with Google and no proxy; then
+#     PROXY_IPS is "0.0.0.0/0 ::/0" (everybody) and the visitor's own address is not believed.
+{
+	servers {
+		trusted_proxies static {$PROXY_IPS}
+	}
+}
+
 {$SITE_ADDRESS::80} {
 	encode zstd gzip
+
+	# first of the handle blocks, so that nothing below is reached by anybody else
+	@outsiders not remote_ip {$PROXY_IPS}
+	handle @outsiders {
+		# it says which address it saw, so that PROXY_IPS can be set without guessing
+		respond "Forbidden (your address: {remote_host})" 403
+	}
 
 	# The API sets its own security headers; here only the forwarding.
 	handle /api/* {

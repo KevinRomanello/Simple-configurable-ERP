@@ -11,7 +11,7 @@
 | [tecnologie.md](tecnologie.md) | Cosa fa ogni tecnologia usata (Docker, PostgreSQL, Drizzle, Fastify, Zod, React, AG Grid…), spiegata dal problema che risolve |
 | [come-funziona.md](come-funziona.md) | Il funzionamento passo per passo: aprire una pagina, modificare una cella, la vita di un importo, dove mettere le mani |
 | [produzione.md](produzione.md) | Cosa manca, cosa è solo per lo sviluppo, come ospitarlo su un server (opzioni, procedura, backup, sicurezza) |
-| [accesso-e-storico.md](accesso-e-storico.md) | Login con Google, JWT di 24 ore, ruoli `admin`/`pm`/`viewer`, storico delle modifiche: come funziona, configurazione, come si revoca un accesso, test |
+| [accesso-e-storico.md](accesso-e-storico.md) | Login dietro il proxy dell'organizzazione (header `X-Email`, il modo in uso) o con Google, JWT di 24 ore, ruoli `admin`/`pm`/`viewer`, storico delle modifiche: come funziona, configurazione, come si revoca un accesso, test |
 | [collaudo.md](collaudo.md) | Come si controlla che non ci siano difetti: i livelli di prova, i difetti trovati e corretti, cosa non è coperto, il giro nel browser da ripetere |
 | [inventario.md](inventario.md) | **L'inventario**: dal budget allo scaffale (pending/arrivato), articoli con immagine e campi per categoria, movimenti, componenti con distinta e costo nel tempo, statistiche, prezzi (selettore), dati dimostrativi, cosa manca |
 | [sponsor-e-fondi.md](sponsor-e-fondi.md) | **Sponsor e fondi**: come si definisce uno sponsor (tipo A/B/C, aliquota, gruppo), come il sito ne deduce IVA e copertura, più fondi sulla stessa riga con avviso se non bastano, i soldi che entrano nel conto come inflow di CASH FLOW (IVA all'11% il primo giorno del trimestre dopo), le risposte del tesoriere |

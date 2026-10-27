@@ -49,6 +49,8 @@ export function Shell() {
   const areas = useQuery({ queryKey: ["areas"], queryFn: api.areas });
   const me = useMe();
   const queryClient = useQueryClient();
+  // behind the organisation's login there is nothing to sign out of here
+  const signInOptions = useQuery({ queryKey: ["sign-in-options"], queryFn: api.signInOptions });
   const { pathname } = useLocation();
 
   const signOut = async () => {
@@ -123,7 +125,7 @@ export function Shell() {
             <strong>{me.name}</strong>
             <span className="label-s muted">{me.role}</span>
           </div>
-          <IconButton icon={faRightFromBracket} label="Sign out" onClick={signOut} />
+          {signInOptions.data?.proxy === false && <IconButton icon={faRightFromBracket} label="Sign out" onClick={signOut} />}
         </div>
       </aside>
       <main className="main">

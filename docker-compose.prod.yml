@@ -43,12 +43,15 @@ services:
       # the api is reachable only through the web container, which tells it the visitor's address
       TRUST_PROXY: "true"
       PORT: "3000"
-      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL in .env}
       ADMIN_EMAILS: ${ADMIN_EMAILS:?set ADMIN_EMAILS in .env}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID in .env}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?set GOOGLE_CLIENT_SECRET in .env}
-      GOOGLE_ALLOWED_DOMAIN: ${GOOGLE_ALLOWED_DOMAIN:?set GOOGLE_ALLOWED_DOMAIN in .env}
+      # who is signed in: either the organisation's login proxy (the header with the email) ...
+      TRUSTED_EMAIL_HEADER: ${TRUSTED_EMAIL_HEADER:-}
+      # ... or Google, with a secret for the session (set these and leave the header empty)
+      JWT_SECRET: ${JWT_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_ALLOWED_DOMAIN: ${GOOGLE_ALLOWED_DOMAIN:-}
     depends_on:
       setup:
         condition: service_completed_successfully
@@ -64,9 +67,12 @@ services:
     restart: unless-stopped
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+      # the only addresses that may talk to the site and the api (see Caddyfile)
+      PROXY_IPS: ${PROXY_IPS:?set PROXY_IPS in .env}
     ports:
-      - "80:80"
-      - "443:443"
+      # WEB_BIND: the address of this server that the proxy reaches (127.0.0.1 if the proxy runs on this same server)
+      - "${WEB_BIND:-0.0.0.0}:80:80"
+      - "${WEB_BIND:-0.0.0.0}:443:443"
     volumes:
       # the HTTPS certificates: keep them, or Let's Encrypt is asked again at every restart
       - caddy-data:/data

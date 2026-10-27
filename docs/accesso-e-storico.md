@@ -1,12 +1,12 @@
 # Accesso, ruoli e storico delle modifiche
 
-**Stato: implementato e provato** (20 ottobre 2026), tranne il collegamento a Google vero, che aspetta le credenziali del Workspace (vedi §9). Nasce dalle risposte del 20 ottobre: login solo con Google (account del team), un JWT di 24 ore al posto delle sessioni nel database, tre ruoli (`admin`, `pm`, `viewer`) con il `pm` legato alle aree, storico delle modifiche in una tabella, deploy da decidere dopo.
+**Stato: implementato e provato** (20 ottobre 2026), tranne il collegamento a Google vero, che aspetta le credenziali del Workspace (vedi §9). **Dal 27 ottobre 2026 c'è anche un secondo modo di entrare, quello in uso al deploy: il proxy di accesso dell'organizzazione mette la mail nell'header `X-Email` e l'app si fida di quella (§12); quando è attivo, Google non serve.** Nasce dalle risposte del 20 ottobre: login solo con Google (account del team), un JWT di 24 ore al posto delle sessioni nel database, tre ruoli (`admin`, `pm`, `viewer`) con il `pm` legato alle aree, storico delle modifiche in una tabella, deploy da decidere dopo.
 
 ## 1. Le scelte, in breve
 
 | Tema | Scelta |
 | --- | --- |
-| Come si entra | **solo Google**, solo account del dominio del team; niente password nostre |
+| Come si entra | **dietro il proxy dell'organizzazione**: l'header `X-Email` (§12, il modo del deploy); oppure **Google**, solo account del dominio del team (§2). Niente password nostre |
 | Cosa dice "sei dentro" | un **JWT** firmato, valido **24 ore**, in un cookie `HttpOnly`; **nessuna tabella di sessioni** |
 | Ruoli | `admin` (il tesoriere), `pm` (per **area**), `viewer` |
 | Primo accesso | chi ha un account del team entra da solo come **`viewer`**; un admin lo promuove |
@@ -182,7 +182,8 @@ Le migrazioni *creano* le tabelle (e le cambiano nel tempo); il caricamento del 
 
 | File | Cosa prova |
 | --- | --- |
-| `core/auth-config.test.ts` | la configurazione: segreto corto, indirizzo, regole di produzione |
+| `core/auth-config.test.ts` | la configurazione: segreto corto, indirizzo, regole di produzione, modalità proxy |
+| `modules/auth/proxy.test.ts`, `proxy-login.routes.test.ts` | l'accesso dietro il proxy (§12) |
 | `modules/auth/google.test.ts` | la verifica vera del token con chiavi e "token endpoint" finti: valido, destinatario sbagliato, scaduto, emittente o firma sbagliati, email non verificata, dominio sbagliato o assente, rifiuto di Google, parametri e PKCE |
 | `modules/auth/auth.routes.test.ts` | 401 senza cookie, token falsi/scaduti/di tipo sbagliato, persona disattivata bloccata subito, ruolo letto dal database, CSRF (anche con `Host` riscritto da un proxy), `/me`, tutto il giro del login (primo accesso viewer, admin da `ADMIN_EMAILS`, errori), accesso di sviluppo, uscita |
 | `modules/auth/roles.test.ts` | la matrice dei ruoli su tutte le scritture (viewer, pm della propria area e di un'altra, pm senza aree, admin) |
@@ -192,3 +193,61 @@ Le migrazioni *creano* le tabelle (e le cambiano nel tempo); il caricamento del 
 | `src/db/app-role.test.ts` | l'utente dell'API: non è superutente, legge e scrive i dati, **non può** scrivere `audit_log`, cambiare la struttura, spegnere il trigger, vedere le migrazioni; `ensureAppRole` ripetibile e con nomi/password qualunque |
 | `src/security.test.ts` | SQL injection (nessun `sql.raw`, solo modelli `sql` in `execute()`/`query()`, 8 payload in tutti i campi di testo, richieste ostili su id e query string, campi extra ignorati), intestazioni di sicurezza, limite di richieste (per indirizzo, accesso più severo, salute esclusa, `X-Forwarded-For` finto) |
 | `apps/web/src/lib/permissions.test.ts`, `loginProblem.test.ts` | la regola "chi può modificare quest'area" e le parole di errore dell'accesso |
+
+## 12. Accesso dietro il proxy dell'organizzazione (`X-Email`)
+
+**Stato: fatto e provato in locale** (27 ottobre 2026), con un finto proxy; il proxy vero di IT non è stato provato.
+
+Il sito sta **dietro un proxy di accesso** gestito da IT: è lui che fa entrare le persone (HTTPS, login dell'organizzazione) e che, a ogni richiesta, mette la mail di chi è dentro nell'header **`X-Email`**, **sostituendo** quello che il browser avesse mandato (confermato da IT). L'app non ha quindi né pagina di accesso, né cookie, né JWT, né Google: **è chi è scritto nell'header**, e le ACL (ruolo e aree) restano nostre, legate alla mail, nella pagina Users.
+
+```mermaid
+flowchart LR
+  B[Browser] -->|HTTPS, login dell'organizzazione| P[Proxy di IT]
+  P -->|"HTTP, X-Email: mario@team.org"| W[web: Caddy]
+  W -->|solo dagli indirizzi di PROXY_IPS| A[API]
+  A --> D[(database)]
+```
+
+### Come si attiva
+
+Nel `.env` del server: `TRUSTED_EMAIL_HEADER=X-Email` (il nome dell'header), `PROXY_IPS` (gli indirizzi del proxy), `PUBLIC_URL` (l'indirizzo `https://` del proxy), `SITE_ADDRESS=:80`. Senza `TRUSTED_EMAIL_HEADER` l'app resta com'era (Google). Le due cose **non si mescolano**: con l'header, `GOOGLE_*`, `DEV_LOGIN_EMAIL` e `JWT_SECRET` non servono, e l'API si **rifiuta di partire** se ci sono le prime due (un secondo ingresso aggirerebbe le regole del proxy). Tabella completa delle variabili in [rilascio.md](rilascio.md).
+
+### Cosa fa l'API a ogni richiesta
+
+| Caso | Risposta |
+| --- | --- |
+| header assente, vuoto, non una mail, o più mail (`a@x.org, b@x.org`) | **401** («Not signed in»): la richiesta non è passata dal proxy |
+| mail valida di una persona che non c'è | la crea come **`viewer`**, con il nome ricavato dalla mail (`mario.rossi@…` → «Mario Rossi»); se è in `ADMIN_EMAILS`, come `admin` |
+| mail di una persona che c'è | la trova senza badare alle maiuscole; ruolo e aree sono quelli della pagina Users; **il nome non viene sovrascritto** (quello della mail è solo una stima) |
+| persona **disattivata** | **403** «This account has been deactivated», anche se il proxy la lascia passare: **disattivare dalla pagina Users è il modo di togliere l'accesso** |
+| due richieste insieme di una persona nuova | un solo account (la seconda trova quello della prima) |
+| un cookie di sessione | **ignorato**: conta solo l'header |
+| scrittura da un altro sito (`Origin` che non è `PUBLIC_URL`) | **403** anche con l'header giusto: il proxy lo mette a tutte le richieste del browser, comprese quelle fatte da un altro sito, quindi il controllo contro le richieste cross-site (§3) **resta indispensabile** |
+| `/api/auth/login`, `/callback`, `/dev-login` | **503 / reindirizzamento / 404**: non ci sono |
+
+Il sito lo sa da `GET /api/auth/config` (`proxy: true`): non mostra il pulsante **Sign out** (non c'è niente da cui uscire qui); se manca l'header mostra «Sign-in is done by your organisation's login» con il pulsante *Try again*; per un account disattivato mostra la frase del server.
+
+Il costo: una piccola transazione per richiesta invece della lettura per id di prima; nelle prove 2,0 ms (`/api/me`), 5,4 ms (il foglio di un'area) e 2,9 ms (l'inventario), passando anche da Caddy: come prima.
+
+### Perché l'header è una password, e come lo proteggiamo
+
+Chi riesce a mandare **direttamente** all'app `X-Email: <un admin>` diventa quell'admin e vede e cambia tutto (le `ADMIN_EMAILS` non sono un segreto). Quindi **nessuno tranne il proxy deve poter parlare con l'app**. Tre difese, una sopra l'altra:
+
+1. **`PROXY_IPS`** (`Caddyfile`): Caddy risponde **403** a chiunque non arrivi dagli indirizzi elencati, **prima** di servire il sito o girare qualcosa all'API; il testo del 403 dice l'indirizzo che ha visto («Forbidden (your address: …)»), così si compila senza indovinare. Caddy si fida di `X-Forwarded-For` (l'indirizzo vero del visitatore, per il limite di richieste) solo da quegli stessi indirizzi. `WEB_BIND` limita anche su quale indirizzo del server ascolta la porta.
+2. **Nessuna porta pubblica** per `api` e `db` (`docker-compose.prod.yml`): l'unico modo di arrivare all'API è passare da Caddy.
+3. **L'API rifiuta** tutto ciò che non è **una sola** mail valida, quindi un header doppio (se il proxy aggiungesse invece di sostituire) non fa entrare nessuno.
+
+Cosa **non** copre: chi controlla il proxy o una macchina i cui indirizzi sono in `PROXY_IPS`. Se il proxy gira **sullo stesso server**, Docker fa vedere le connessioni locali con l'indirizzo del suo ponte (per esempio `172.20.0.1`) e quello va messo in `PROXY_IPS`: ogni altro programma di quel server potrebbe allora parlare all'app come il proxy. Un segreto condiviso in un secondo header sarebbe una difesa in più (IT non l'ha previsto; si aggiunge in poche righe se lo vorranno).
+
+### Cosa resta aperto
+
+- **Mail mai vista = `viewer`** (vede tutti i dati). Va bene se il proxy lascia entrare **solo il team**; se lascia entrare tutta l'organizzazione, una mail mai vista dovrebbe restare fuori finché un admin non la aggiunge: serve un «Add user» nella pagina Users (non c'è). **Da chiedere a IT: chi passa dal proxy?**
+- **Uscita e sessione scaduta.** Non c'è un indirizzo di uscita (Sign out è nascosto). Se alla scadenza il proxy risponde alle chiamate dell'app con un reindirizzamento al login invece di 401, le chiamate falliscono e l'app mostra «The server cannot be reached»: ricaricando la pagina il proxy porta al login. Da vedere con il proxy vero.
+- **Google** resta nel codice, spento (non l'ho tolto).
+
+### Prove
+
+- `modules/auth/proxy.test.ts` (3): la mail dall'header (maiuscole, spazi, due indirizzi, malformata, troppo lunga) e il nome dalla mail.
+- `modules/auth/proxy-login.routes.test.ts` (14): 401 senza header o con header non valido; il cookie non vale; persona nuova `viewer` con il suo nome; stessa persona con maiuscole diverse; `ADMIN_EMAILS`; il nome esistente resta; **dieci richieste insieme di una persona nuova fanno un solo account** (con le connessioni già aperte; senza la protezione il test fallisce con dei 409); disattivata 403; il pm scrive nella sua area e non in un'altra; la persona nuova legge e non scrive; lo storico registra chi; la scrittura da un altro sito è rifiutata; Google e accesso di sviluppo spenti; il nome dell'header è quello configurato.
+- `core/auth-config.test.ts` (6 nuovi): la modalità proxy non vuole segreto né Google, il nome dell'header minuscolo, nessun secondo ingresso, nome non valido, in produzione https.
+- **Nel browser, con un finto proxy** (uno script fuori dal repository che sostituisce `X-Email`, come fa quello vero): entra da solo come admin, nessun Sign out, tutte le 22 pagine, una scrittura e una cancellazione (l'`Origin` passa il controllo con `PUBLIC_URL` dietro il proxy), la pagina Users con le persone entrate, un account disattivato (messaggio), una richiesta senza header (pagina «Try again»). Con `curl`: un indirizzo non ammesso riceve 403 con il suo indirizzo, uno ammesso passa, l'header doppio è 401.

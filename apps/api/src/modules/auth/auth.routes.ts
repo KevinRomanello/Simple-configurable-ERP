@@ -7,6 +7,7 @@ import { loadUser, loginWithIdentity } from "../users/users.service";
 import { userStorage } from "./auth.context";
 import { getCurrentUser, permissionsOf, type User } from "./auth.service";
 import { newLoginAttempt, type GoogleClient } from "./google";
+import { emailFromHeader, nameFromEmail } from "./proxy";
 import { SESSION_HOURS, signLoginState, signSessionToken, verifyLoginState, verifySessionToken } from "./tokens";
 
 export const SESSION_COOKIE = "erp_token";
@@ -25,6 +26,12 @@ const PUBLIC_PATHS = new Set([
 ]);
 
 async function userOf(request: FastifyRequest, config: AuthConfig): Promise<User | null> {
+  // Behind the login proxy, who you are is what the proxy says in its header, on every request: no
+  // cookie, no token. The role and the areas are still ours (the Users page), found by the email.
+  if (config.emailHeader) {
+    const email = emailFromHeader(request.headers[config.emailHeader]);
+    return email ? loginWithIdentity({ email, name: nameFromEmail(email) }, config.adminEmails, { updateName: false }) : null;
+  }
   const token = request.cookies[SESSION_COOKIE];
   if (!token) return null;
   const id = await verifySessionToken(token, config.jwtSecret);
@@ -102,6 +109,8 @@ export async function authRoutes(app: FastifyInstance, { config, google }: AuthO
   app.get("/auth/config", () => ({
     google: google !== null,
     devLogin: config.devLoginEmail !== undefined,
+    /** Signed in by the organisation's login proxy: there is no page to sign in on, nor a way to sign out. */
+    proxy: config.emailHeader !== undefined,
     domain: config.google?.allowedDomain ?? null,
   }));
 

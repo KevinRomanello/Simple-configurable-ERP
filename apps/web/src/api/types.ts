@@ -100,6 +100,8 @@ export interface Me {
 export interface SignInOptions {
   google: boolean;
   devLogin: boolean;
+  /** Signed in by the organisation's login proxy: no sign-in page and no Sign out here. */
+  proxy: boolean;
   domain: string | null;
 }
 

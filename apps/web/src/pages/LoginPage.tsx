@@ -5,8 +5,10 @@ import { api } from "../api/client";
 import { loginProblem } from "../lib/loginProblem";
 
 /**
- * Shown when nobody is signed in. Sign-in is with the team's Google account only; the developer
- * button exists only on a development server (see docs/hardcoded-registry.md).
+ * Shown when nobody is signed in. Sign-in is with the team's Google account, or by the
+ * organisation's login proxy (then there is nothing to press here: the page is only reached when
+ * the request did not come through the proxy); the developer button exists only on a development
+ * server (see docs/hardcoded-registry.md).
  * Not designed in Figma yet: built from the design-system tokens and components only.
  */
 export function LoginPage() {
@@ -48,7 +50,14 @@ export function LoginPage() {
           </a>
         )}
 
-        {options.data && !options.data.google && !options.data.devLogin && (
+        {options.data?.proxy && (
+          <>
+            <p className="muted">Sign-in is done by your organisation's login. Open the site from its usual address and sign in there.</p>
+            <a className="btn" href="/">Try again</a>
+          </>
+        )}
+
+        {options.data && !options.data.google && !options.data.devLogin && !options.data.proxy && (
           <p className="muted">Sign-in is not configured on this server.</p>
         )}
       </section>

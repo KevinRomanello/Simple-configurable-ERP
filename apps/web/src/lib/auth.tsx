@@ -1,6 +1,6 @@
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { createContext, useContext, type ReactNode } from "react";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import type { Me } from "../api/types";
 import { LoginPage } from "../pages/LoginPage";
 
@@ -23,6 +23,8 @@ export const forgetUser = (queryClient: QueryClient) => queryClient.setQueryData
 export function AuthGate({ children }: { children: ReactNode }) {
   const me = useQuery({ queryKey: ["me"], queryFn: api.me });
   if (me.isPending) return <p className="empty">Loading…</p>;
+  // an answer of the server (a deactivated account) is worded by the server; no answer is "cannot be reached"
+  if (me.error instanceof ApiError) return <p className="empty">{me.error.message}. Ask an admin if this is a mistake.</p>;
   if (me.isError) return <p className="empty">The server cannot be reached. Try again in a moment.</p>;
   if (me.data === null) return <LoginPage />;
   return <MeContext value={me.data}>{children}</MeContext>;

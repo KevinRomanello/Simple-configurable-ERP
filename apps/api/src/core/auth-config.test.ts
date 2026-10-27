@@ -31,6 +31,43 @@ describe("loadAuthConfig", () => {
     expect(() => loadAuthConfig({ ...dev, PUBLIC_URL: "not a url" })).toThrow();
   });
 
+  describe("behind the login proxy", () => {
+    const proxy = { ...dev, TRUSTED_EMAIL_HEADER: "X-Email" };
+
+    it("needs neither a secret nor Google, and keeps the header name in lower case", () => {
+      const config = loadAuthConfig({ NODE_ENV: "development", PUBLIC_URL: "http://localhost:5173", TRUSTED_EMAIL_HEADER: "X-Email" });
+      expect(config.emailHeader).toBe("x-email");
+      expect(config.google).toBeUndefined();
+    });
+
+    it("is not on unless the header is named", () => {
+      expect(loadAuthConfig(dev).emailHeader).toBeUndefined();
+      expect(loadAuthConfig({ ...dev, TRUSTED_EMAIL_HEADER: "" }).emailHeader).toBeUndefined();
+    });
+
+    it("refuses a second way of signing in next to it", () => {
+      expect(() => loadAuthConfig({ ...proxy, ...google })).toThrow(/login proxy signs people in/);
+      expect(() => loadAuthConfig({ ...proxy, DEV_LOGIN_EMAIL: "dev@local.test" })).toThrow(/login proxy signs people in/);
+    });
+
+    it("refuses what is not the name of a header", () => {
+      for (const name of ["X Email", "X-Email: a", "-X", "é"]) {
+        expect(() => loadAuthConfig({ ...dev, TRUSTED_EMAIL_HEADER: name })).toThrow(/name of a header/);
+      }
+    });
+
+    it("is required to have a secret when there is no proxy", () => {
+      expect(() => loadAuthConfig({ NODE_ENV: "development", PUBLIC_URL: "http://localhost:5173" })).toThrow(/JWT_SECRET/);
+    });
+
+    it("in production asks for https and nothing from Google", () => {
+      const production = { NODE_ENV: "production", PUBLIC_URL: "https://budget.example.org", TRUSTED_EMAIL_HEADER: "X-Email" };
+      expect(loadAuthConfig(production).isProduction).toBe(true);
+      expect(() => loadAuthConfig({ ...production, PUBLIC_URL: "http://budget.example.org" })).toThrow(/https/);
+      expect(() => loadAuthConfig({ ...production, DEV_LOGIN_EMAIL: "dev@local.test" })).toThrow();
+    });
+  });
+
   describe("in production", () => {
     const production = { ...dev, NODE_ENV: "production", PUBLIC_URL: "https://budget.example.org", ...google };
 

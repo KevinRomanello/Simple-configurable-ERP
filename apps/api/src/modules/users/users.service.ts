@@ -19,13 +19,16 @@ export async function loadUser(id: number): Promise<User | null> {
 }
 
 /**
- * What happens when someone has proved who they are with Google: their account is found, or
- * created as a `viewer` on the first login. Emails listed in ADMIN_EMAILS are always admins.
- * A deactivated account is refused.
+ * What happens when someone has proved who they are (with Google, or through the login proxy):
+ * their account is found, or created as a `viewer` on the first time. Emails listed in
+ * ADMIN_EMAILS are always admins. A deactivated account is refused.
+ * `updateName: false` keeps the name already on the account (the proxy only knows the email,
+ * so the name it gives is a guess that must not replace a better one).
  */
 export async function loginWithIdentity(
   identity: { email: string; name: string },
   adminEmails: string[],
+  options: { updateName?: boolean } = {},
 ): Promise<User> {
   const email = identity.email.trim().toLowerCase();
   const shouldBeAdmin = adminEmails.includes(email);
@@ -37,14 +40,18 @@ export async function loginWithIdentity(
       const [created] = await tx
         .insert(appUser)
         .values({ email, name: identity.name, role: shouldBeAdmin ? "admin" : "viewer" })
+        .onConflictDoNothing()
         .returning();
-      return withAreas(tx, created!);
+      if (created) return withAreas(tx, created);
+      // two requests of a person seen for the first time, at once: the other one made the account
+      const [theirs] = await tx.select().from(appUser).where(sql`lower(${appUser.email}) = ${email}`);
+      return withAreas(tx, theirs!);
     }
     if (!existing.active) throw forbidden("This account has been deactivated", "deactivated");
 
     // Only write when something changed: every write is recorded in the history.
     const patch: Partial<typeof appUser.$inferInsert> = {};
-    if (existing.name !== identity.name) patch.name = identity.name;
+    if (options.updateName !== false && existing.name !== identity.name) patch.name = identity.name;
     if (shouldBeAdmin && existing.role !== "admin") patch.role = "admin";
     if (Object.keys(patch).length === 0) return withAreas(tx, existing);
     const [updated] = await tx.update(appUser).set(patch).where(eq(appUser.id, existing.id)).returning();

@@ -39,7 +39,7 @@ Le stime sono mie e non misurate: **S** ≈ 1 ora, **M** ≈ 2 ore, **L** ≈ 3�
 
 | # | Cosa | Taglia | Note |
 | --- | --- | --- | --- |
-| A1 | **Login con Google** e utenti (JWT di 24 ore, dominio del team, primo admin da `ADMIN_EMAILS`) | L | **fatto** e provato con un Google finto; resta provarlo con le credenziali vere (dominio e client OAuth: serve chi amministra il Workspace) |
+| A1 | **Login con Google** e utenti (JWT di 24 ore, dominio del team, primo admin da `ADMIN_EMAILS`) | L | **fatto** e provato con un Google finto. **Dal 27 ottobre 2026 il modo in uso è un altro**: il proxy di accesso dell'organizzazione (IT) mette la mail nell'header `X-Email` e l'app si fida di quella ([accesso-e-storico.md](accesso-e-storico.md), §12); Google resta nel codice, spento, e non servono né dominio né client OAuth |
 | A2 | **Ruoli per area** (`admin`, `pm` per area, `viewer`) | M | **fatto**, applicati nel server e provati |
 | A3 | **Storico delle modifiche** (`audit_log`, trigger del database) | M | **fatto**: lo vedono admin e pm |
 | A4 | **Configurazione di produzione**: immagine a più stadi, `docker-compose.prod.yml`, server web con HTTPS, migrazioni automatiche, segreti da file | M | **fatto** il 27 ottobre 2026 e provato in locale ([rilascio.md](rilascio.md)); resta da provare su un server con un dominio vero |
@@ -148,7 +148,7 @@ La riga `try_files … /index.html` è necessaria: le "pagine" del sito sono nel
 3. **Firewall**: apri solo le porte 22 (SSH), 80 e 443.
 4. **Aggiornamenti di sicurezza automatici** (`unattended-upgrades`).
 5. **Installa Docker** (con Compose v2) e Git.
-6. Copia il progetto sul server (`git clone`) e crea `.env` con i segreti di produzione: password del database lunga e casuale, `PUBLIC_URL` (https), `JWT_SECRET`, `ADMIN_EMAILS`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_ALLOWED_DOMAIN` (tabella in [accesso-e-storico.md](accesso-e-storico.md#5-configurazione-variabili-dambiente)); **senza** `DEV_LOGIN_EMAIL`.
+6. Copia il progetto sul server (`git clone`; con le immagini pronte basta il compose e il `.env`, [rilascio.md](rilascio.md)) e crea `.env` con i segreti di produzione: password del database lunga e casuale, `PUBLIC_URL` (https), `ADMIN_EMAILS` e, **o** `TRUSTED_EMAIL_HEADER` con `PROXY_IPS` (dietro il proxy di IT), **o** `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_ALLOWED_DOMAIN` (tabella in [accesso-e-storico.md](accesso-e-storico.md#5-configurazione-variabili-dambiente)); **senza** `DEV_LOGIN_EMAIL`.
 
 ### 5.4 Primo avvio
 
@@ -178,7 +178,7 @@ Per ogni rilascio:
 
 ### 5.7 Sicurezza: la lista
 
-- [x] Login con Google ristretto al dominio del team; cookie `HttpOnly`, `Secure` (con https), `SameSite=Lax`; JWT di 24 ore (da provare con le credenziali vere).
+- [x] Login con Google ristretto al dominio del team; cookie `HttpOnly`, `Secure` (con https), `SameSite=Lax`; JWT di 24 ore (da provare con le credenziali vere). **Oppure**, dietro il proxy di IT: header `X-Email` accettato solo da `PROXY_IPS`, api e db senza porte pubbliche, controllo dell'`Origin` sulle scritture ([accesso-e-storico.md](accesso-e-storico.md), §12).
 - [x] Ruoli applicati **nel server** (`canWrite`), mai solo nascondendo bottoni nell'interfaccia; provati con test.
 - [ ] `JWT_SECRET` lungo e casuale solo sul server; se trapela, lo si cambia (tutti rifanno il login).
 - [x] Utente dell'applicazione separato dal proprietario, senza poter cambiare la struttura né scrivere lo storico; l'API in produzione rifiuta un superutente.
@@ -247,12 +247,13 @@ Il collaudo di robustezza (numeri e testi fuori misura, richieste simultanee, da
 | # | Decisione | Perché serve |
 | --- | --- | --- |
 | 1 | **Quale server** dei vostri e come ci si arriva: Docker presente? porte 80/443 occupate dal sito standard? HTTPS con `tailscale serve` o con un sottodominio vostro? | cambia la procedura di rete e di HTTPS |
-| 2 | **Dominio**: quale sottodominio, e chi gestisce il DNS | per l'HTTPS e per il login con Google |
-| 3 | Il **dominio esatto** degli account Google del team (esiste già, ne risponde qualcuno del team) e un **client OAuth** su Google Cloud: i passi sono in [accesso-e-storico.md](accesso-e-storico.md#cosa-serve-su-google-lo-fa-chi-amministra-il-workspace) | il login si restringe a quel dominio; senza, in produzione l'app non parte |
+| 2 | **Dominio**: quale sottodominio, e chi gestisce il DNS | con il proxy di IT lo fanno loro (HTTPS e dominio); serve solo l'indirizzo `https://` da mettere in `PUBLIC_URL` |
+| 3 | *(solo con Google, non serve con il proxy di IT)* Il **dominio esatto** degli account Google del team (esiste già, ne risponde qualcuno del team) e un **client OAuth** su Google Cloud: i passi sono in [accesso-e-storico.md](accesso-e-storico.md#cosa-serve-su-google-lo-fa-chi-amministra-il-workspace) | il login si restringe a quel dominio; senza, in produzione l'app non parte |
 | 4 | **Chi amministra il server** e chi fa i rilasci | aggiornamenti di sicurezza e backup hanno bisogno di un responsabile |
 | 5 | **Dove tenere i backup** (fuori dal server) | prima di andare online |
 | 6 | Le **email dei primi admin** (`ADMIN_EMAILS`); poi i capi area li assegna l'admin dalla pagina Users | per il primo accesso in produzione |
 | 7 | Le due decisioni del §3C: voci senza categoria e outflow rosso nelle analisi | sono piccole ma toccano ciò che si vede |
+| 8 | **Il proxy di IT** ([accesso-e-storico.md](accesso-e-storico.md), §12): da quali indirizzi arriva (`PROXY_IPS`), **chi lo può passare** (solo il team o tutta l'organizzazione: decide cosa fare con una mail mai vista), cosa fa con una sessione scaduta e se c'è un indirizzo di uscita | l'app si fida dell'header: l'indirizzo è la difesa; il resto cambia i messaggi e un eventuale «Add user» |
 
 ## 7. Ordine di lavoro proposto
 
