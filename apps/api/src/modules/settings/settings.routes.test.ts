@@ -3,7 +3,11 @@ import { type Person, resetData, sponsorId, testApp } from "../../../test/helper
 
 // The Settings page: the lists and the switches that used to be written in the code.
 const api = testApp();
-afterAll(() => api.close());
+// the last test leaves its changes behind: put the lists and switches back for the files that run after this one
+afterAll(async () => {
+  await resetData();
+  await api.close();
+});
 beforeEach(resetData);
 
 const pm: Person = { email: "pm-sw@team.test", role: "pm", areas: ["sw"] };

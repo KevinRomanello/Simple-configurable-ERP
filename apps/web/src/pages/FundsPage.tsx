@@ -65,6 +65,7 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
   const act = useAction();
   const funds = useQuery({ queryKey: ["funds"], queryFn: () => api.funds() });
   const rates = useQuery({ queryKey: ["vat-rates"], queryFn: api.vatRates });
+  const fixedRates = useQuery({ queryKey: ["fixed-sponsor-rates"], queryFn: api.fixedSponsorRates });
 
   const [name, setName] = useState("");
   const [type, setType] = useState<FundType>("fund");
@@ -74,15 +75,16 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
   const [day, setDay] = useState("");
   const [counts, setCounts] = useState<keyof typeof PHASES_CHOICE>("both");
 
-  const gift = type === "gift";
+  // goods have a VAT rate that is not chosen (none, or the one of the counter-invoice): the server's
+  const fixed = fixedRates.data?.[type];
   const isMoney = type === "fund"; // only a fund is a sum of money; goods have no contract
-  const ready = name.trim() !== "" && (gift || rate !== "");
+  const ready = name.trim() !== "" && (fixed !== undefined || rate !== "");
 
   const submit = async () => {
     const contracts: NewContract[] =
       isMoney && amount !== "" ? PHASES_CHOICE[counts].map((phase) => ({ phase, amount, inflowDate: day || null })) : [];
     const ok = await act(() =>
-      api.createFund({ name: name.trim(), type, vatRate: gift ? 0 : Number(rate), group: group.trim() || null, contracts }),
+      api.createFund({ name: name.trim(), type, vatRate: fixed ?? Number(rate), group: group.trim() || null, contracts }),
     );
     if (ok) onDone();
   };
@@ -90,7 +92,7 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
   return (
     <FormPanel
       title="New sponsor"
-      description="A sponsor's fund pays what is chosen with it, VAT included at its VAT %: put 0% for a sponsor that pays no VAT. Sponsors of the same group can pay one purchase together. Money that goes into the bank is not a sponsor: add it in CASH FLOW, as an inflow."
+      description="A sponsor's fund pays what is chosen with it, VAT included at its VAT %: put 0% for a sponsor that pays no VAT. Goods without VAT are always 0%, goods with a counter-invoice always 11%, and a sponsor that gives goods is also added to BOUGHT FROM. Sponsors of the same group can pay one purchase together. Money that goes into the bank is not a sponsor: add it in CASH FLOW, as an inflow."
       submitLabel="Add sponsor"
       canSubmit={ready}
       onSubmit={submit}
@@ -107,8 +109,8 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
           </select>
         </Field>
         <Field label="VAT %" htmlFor="sponsor-rate">
-          <select id="sponsor-rate" className="input small" value={gift ? "0" : rate} disabled={gift} onChange={(e) => setRate(e.target.value)}>
-            {!gift && <option value="">Choose…</option>}
+          <select id="sponsor-rate" className="input small" value={fixed !== undefined ? String(fixed) : rate} disabled={fixed !== undefined} onChange={(e) => setRate(e.target.value)}>
+            {fixed === undefined && <option value="">Choose…</option>}
             {(rates.data ?? []).map((r) => <option key={r} value={r}>{r}%</option>)}
           </select>
         </Field>
@@ -226,6 +228,7 @@ function SponsorsPanel() {
   const canEdit = useMe().permissions.canEditShared;
   const funds = useQuery({ queryKey: ["funds"], queryFn: () => api.funds() });
   const rates = useQuery({ queryKey: ["vat-rates"], queryFn: api.vatRates });
+  const fixedRates = useQuery({ queryKey: ["fixed-sponsor-rates"], queryFn: api.fixedSponsorRates });
   const sort = useSort(SPONSOR_SORT, { key: "name", direction: 1 });
   const sponsors = sort.sorted(funds.data?.filter((f) => f.kind === "external") ?? []);
 
@@ -270,7 +273,7 @@ function SponsorsPanel() {
                   ) : TYPE_SHORT[f.type]}
                 </td>
                 <td>
-                  {canEdit && f.type !== "gift" ? (
+                  {canEdit && fixedRates.data && fixedRates.data[f.type] === undefined ? (
                     <select className="input small" aria-label={`VAT rate of ${f.name}`} value={f.vatRate ?? ""} onChange={(e) => change(f, { vatRate: Number(e.target.value) })}>
                       {rateOptions}
                     </select>

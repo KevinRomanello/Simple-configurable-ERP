@@ -198,7 +198,7 @@ L'app usa date vere (selettore di data, selettore di mese). Il parser flessibile
 | Q1 IVA con sponsor totale | IVA sull'intero netto, a carico del team — **confermato** (21/10/2026: è il tipo C degli sponsor, [sponsor-e-fondi.md](sponsor-e-fondi.md)) | `getSettings().vatBaseWhenTotalSponsor` |
 | Q2 confronto con BANK | per giorno nel riepilogo CASH FLOW, per mese nel Gantt (ingressi e uscite del mese BANK) | `getSettings().bankCompare`, modificabile dalla pagina Settings |
 | Q3 scadenze IVA | tabella §4, weekend → lunedì, niente proroghe — **confermato** (21/10/2026) | `getVatRules()` |
-| Q4 CASH FROM e CASH FLOW | due tabelle indipendenti, in sospeso; fa eccezione il contratto di uno sponsor **cash**, che conta da solo come ingresso ([sponsor-e-fondi.md](sponsor-e-fondi.md#5-sponsor-in-cassa)) | schema (collegamento facoltativo, dopo) |
+| Q4 CASH FROM e CASH FLOW | due tabelle indipendenti — **confermato il 28/10/2026**: gli inflow sono i soldi che entrano nella cassa del team, gli sponsor di CASH FROM sono fondi esterni e restano fuori ([sponsor-e-fondi.md](sponsor-e-fondi.md)); *(prima: fa eccezione il contratto di uno sponsor **cash**, che non esiste più)* ([sponsor-e-fondi.md](sponsor-e-fondi.md#5-sponsor-in-cassa)) | schema (collegamento facoltativo, dopo) |
 | Q5 flag "paga IVA" | nel foglio uno per fase — chiusa il 21/10/2026 con una sola casella per sponsor; **tolta il 26/10/2026**: un fondo copre sempre l'IVA, 0% = niente IVA | nessuna colonna |
 | Q6 fondo in negativo | solo evidenziazione rossa | interfaccia |
 | Q7 arrotondamento | per riga, al centesimo — **confermato** | `roundDiv` in `calc/money.ts` |

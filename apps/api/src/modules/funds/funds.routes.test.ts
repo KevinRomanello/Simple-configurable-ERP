@@ -29,12 +29,35 @@ describe("sponsors", () => {
     expect((await api.patch(`/api/funds/${other.id}`, { name: "Sponsor B" })).status).toBe(200); // itself is fine
   });
 
-  it("a plain gift owes no VAT whatever rate is sent; a gift with counter-invoice keeps it", async () => {
+  it("a plain gift owes no VAT and a gift with counter-invoice always 11%, whatever rate is sent", async () => {
     const gift = (await api.post("/api/funds", { name: "Gift", type: "gift", vatRate: 22 })).body;
-    const barter = (await api.post("/api/funds", { name: "Barter", type: "gift_vat", vatRate: 11 })).body;
+    const barter = (await api.post("/api/funds", { name: "Barter", type: "gift_vat", vatRate: 22 })).body;
     expect([gift.vatRate, barter.vatRate]).toEqual([0, 11]);
-    expect((await api.post("/api/funds", { name: "Gift 2", type: "gift" })).status).toBe(201); // no rate needed
-    expect((await api.post("/api/funds", { name: "Barter 2", type: "gift_vat" })).status).toBe(400);
+    expect((await api.post("/api/funds", { name: "Barter 0", type: "gift_vat", vatRate: 0 })).body.vatRate).toBe(11);
+    // no rate needed for either; a sponsor that gives a fund still has to choose one
+    expect((await api.post("/api/funds", { name: "Gift 2", type: "gift" })).body.vatRate).toBe(0);
+    expect((await api.post("/api/funds", { name: "Barter 2", type: "gift_vat" })).body.vatRate).toBe(11);
+    expect((await api.post("/api/funds", { name: "Fund 2", type: "fund" })).status).toBe(400);
+  });
+
+  it("a fixed rate does not depend on the rates an admin lets people choose", async () => {
+    const rates = ((await api.get("/api/settings")).body.vatRates as { id: number; rate: number }[]);
+    for (const rate of [0, 11]) expect((await api.del(`/api/settings/vat-rates/${rates.find((r) => r.rate === rate)!.id}`)).status).toBe(204);
+    expect((await api.post("/api/funds", { name: "Gift", type: "gift" })).body.vatRate).toBe(0);
+    expect((await api.post("/api/funds", { name: "Barter", type: "gift_vat" })).body.vatRate).toBe(11);
+    expect((await api.post("/api/funds", { name: "Eleven", type: "fund", vatRate: 11 })).status).toBe(400); // a chosen rate still has to be allowed
+  });
+
+  it("the rate of a gift with counter-invoice cannot be changed, and follows the type when it changes", async () => {
+    const barter = (await api.post("/api/funds", { name: "Barter", type: "gift_vat" })).body;
+    expect((await api.patch(`/api/funds/${barter.id}`, { vatRate: 22 })).body.vatRate).toBe(11);
+    expect((await api.patch(`/api/funds/${barter.id}`, { vatRate: 0, group: "g" })).body).toMatchObject({ vatRate: 11, group: "g" });
+
+    const fund = (await api.post("/api/funds", { name: "Fund", type: "fund", vatRate: 22 })).body;
+    expect((await api.patch(`/api/funds/${fund.id}`, { type: "gift_vat" })).body).toMatchObject({ type: "gift_vat", vatRate: 11 });
+    // turned back into a fund, it keeps the 11 and is free to change again
+    expect((await api.patch(`/api/funds/${fund.id}`, { type: "fund" })).body.vatRate).toBe(11);
+    expect((await api.patch(`/api/funds/${fund.id}`, { vatRate: 22 })).body.vatRate).toBe(22);
   });
 
   it("accepts only an allowed VAT rate and a known type", async () => {
@@ -205,5 +228,52 @@ describe("cash flow inflows and BANK", () => {
     expect((await api.del("/api/bank")).status).toBe(204);
     expect((await api.get("/api/bank")).body).toBeNull();
     expect((await api.put("/api/bank", { amount: "abc" })).status).toBe(400);
+  });
+});
+
+describe("sponsors that give goods are suppliers too", () => {
+  const suppliers = async () => ((await api.get("/api/suppliers")).body as { name: string }[]).map((s) => s.name);
+
+  it("adds the sponsor to BOUGHT FROM when it gives goods, with or without VAT, and not when it gives a fund", async () => {
+    await api.post("/api/funds", { name: "Gift", type: "gift" });
+    await api.post("/api/funds", { name: "Barter", type: "gift_vat" });
+    await api.post("/api/funds", { name: "Money", type: "fund", vatRate: 22 });
+    expect(await suppliers()).toEqual(["Barter", "Gift"]);
+  });
+
+  it("uses the supplier that is already there, whatever the case, instead of making another", async () => {
+    await api.post("/api/suppliers", { name: "ACME" });
+    expect((await api.post("/api/funds", { name: "Acme", type: "gift" })).status).toBe(201);
+    expect(await suppliers()).toEqual(["ACME"]);
+  });
+
+  it("adds it when a sponsor that gave money starts giving goods", async () => {
+    const money = (await api.post("/api/funds", { name: "Sponsor", type: "fund", vatRate: 22 })).body;
+    expect(await suppliers()).toEqual([]);
+    await api.patch(`/api/funds/${money.id}`, { type: "gift" });
+    expect(await suppliers()).toEqual(["Sponsor"]);
+  });
+
+  it("renames the supplier with the sponsor, unless another supplier already has the new name", async () => {
+    const alpha = (await api.post("/api/funds", { name: "Alpha", type: "gift" })).body;
+    await api.patch(`/api/funds/${alpha.id}`, { name: "Alpha Srl" });
+    expect(await suppliers()).toEqual(["Alpha Srl"]);
+    await api.patch(`/api/funds/${alpha.id}`, { name: "ALPHA SRL" }); // only the case
+    expect(await suppliers()).toEqual(["ALPHA SRL"]);
+
+    await api.post("/api/suppliers", { name: "Beta" });
+    await api.patch(`/api/funds/${alpha.id}`, { name: "Beta" });
+    expect(await suppliers()).toEqual(["ALPHA SRL", "Beta"]); // both stay: the supplier Beta is simply the sponsor's now
+  });
+
+  it("leaves the supplier of a sponsor that is renamed as a fund, or deleted", async () => {
+    const money = (await api.post("/api/funds", { name: "Money", type: "fund", vatRate: 22 })).body;
+    await api.post("/api/suppliers", { name: "Money" });
+    await api.patch(`/api/funds/${money.id}`, { name: "Cash" });
+    expect(await suppliers()).toEqual(["Money"]); // a fund has no supplier to follow
+
+    const gift = (await api.post("/api/funds", { name: "Gift", type: "gift" })).body;
+    expect((await api.del(`/api/funds/${gift.id}`)).status).toBe(204);
+    expect(await suppliers()).toEqual(["Gift", "Money"]); // it may be on lines already bought
   });
 });

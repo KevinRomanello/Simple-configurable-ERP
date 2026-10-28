@@ -2,6 +2,10 @@
 
 **Stato: implementato e provato** (21 ottobre 2026). Nasce dalle risposte del tesoriere del 21 ottobre. Questo documento è la specifica: come si definisce uno sponsor, cosa fa il sito quando lo scegli in una riga del budget, come si pagano più fondi insieme, cosa succede con i soldi che entrano in cassa.
 
+**Cambiato il 27 ottobre 2026 (2)**: uno sponsor che dà **merce** (tipo B o C) è anche un **fornitore** (BOUGHT FROM) con lo stesso nome, e nella riga del budget fondo e fornitore si completano a vicenda (§3bis).
+
+**Cambiato il 27 ottobre 2026**: l'aliquota di uno sponsor che dà **merce con controfattura** (tipo C, «Goods + VAT») è **sempre 11%** e non si sceglie: come per la merce senza IVA (tipo B), che è sempre 0%. Nel form del nuovo sponsor il campo VAT % mostra il valore bloccato; nella tabella SPONSORS la cella è solo testo; l'API ignora qualunque altra aliquota.
+
 **Cambiato il 26 ottobre 2026**: uno sponsor è **sempre virtuale e copre sempre l'IVA** dei suoi acquisti (alla sua aliquota, 0% se non ne ha). Sono spariti «Money goes to» e «Pays VAT». I soldi che entrano nel conto del team non sono sponsor: si inseriscono **solo in CASH FLOW con New inflow**, e ogni inflow paga l'11% di IVA il primo giorno del trimestre successivo (§5).
 
 ## 1. L'idea
@@ -16,7 +20,7 @@ Pagina **CASH FROM**: il bottone giallo **New sponsor** in alto apre il form in 
 | --- | --- | --- |
 | Nome | testo, unico senza distinguere le maiuscole | come compare nelle tendine |
 | Gives (`type`) | **Gives a fund** (A) · **Gives goods, no VAT** (B) · **Gives goods, VAT on the counter-invoice** (C) | come si copre la riga e chi paga l'IVA (§3) |
-| VAT % (`vat_rate`) | 0, 11, 22 | l'aliquota di *tutti* gli acquisti pagati con quello sponsor, che il fondo copre. **Uno sponsor che non paga IVA si definisce con 0%**: non c'è una casella apposta. Per un regalo senza IVA (B) è sempre 0 |
+| VAT % (`vat_rate`) | 0, 11, 22 (le aliquote dell'elenco di Settings) | l'aliquota di *tutti* gli acquisti pagati con quello sponsor, che il fondo copre. **Uno sponsor che non paga IVA si definisce con 0%**: non c'è una casella apposta. **Si sceglie solo per un fondo (A)**: per un regalo senza IVA (B) è sempre **0**, per un regalo con controfattura (C) sempre **11**. Il valore fisso lo dice `GET /api/lookups/sponsor-rates` (`getFixedSponsorRates`), da cui lo leggono sia l'API sia il form; non dipende dall'elenco delle aliquote scelte dall'admin |
 | Group (`group_name`) | testo facoltativo | i fondi dello stesso gruppo possono pagare insieme una riga (§4) |
 | I soldi (`contracts`) | **un valore e una data per fase**, nelle colonne EXPECTED e ACTUAL della riga dello sponsor (VALUE e ARRIVES) | quanto vale il fondo e quando arriva. Si cambiano sul posto; il valore vuoto toglie i soldi di quella fase, e la data si può mettere solo dopo il valore. Nel form del nuovo sponsor si inseriscono subito (per EXPECTED, ACTUAL o tutte e due: sponsor e soldi si salvano insieme o per niente). Uno sponsor che dà merce (B, C) non ha soldi: non è una somma. Prima i contratti erano righe da aggiungere una a una; la migrazione `0008` ha unito quelle doppie (somma e data più vecchia) |
 
@@ -30,11 +34,30 @@ Esempio: una voce da 1.000,00 € netti.
 | --- | --- | --- | --- | --- | --- |
 | **A. dà un fondo** (22%) | la riga attinge dal fondo, IVA compresa | 0 | 220,00 | 1.220,00 | il **fondo**: copre anche i 220 e il team non paga niente (con 0% non c'è IVA) |
 | **B. regalo, niente IVA** | la merce è gratis, la riga è coperta per intero | 1.000,00 | 0 | 0 | nessuno |
-| **C. regalo con controfattura** (11%, pubblicità) | merce gratis, ma il team fattura la pubblicità e paga l'IVA sull'**intero valore** | 1.000,00 | 110,00 | 110,00 | il **team**, sempre |
+| **C. regalo con controfattura** (sempre 11%, pubblicità) | merce gratis, ma il team fattura la pubblicità e paga l'IVA sull'**intero valore** | 1.000,00 | 110,00 | 110,00 | il **team**, sempre |
 
 L'IVA che il team paga di tasca sua è quindi solo quella delle righe pagate con il **fondo del team**, quella dei regali con controfattura (C) e l'11% sugli inflow (§5).
 
+**Come lo dice la griglia.** Passando il mouse sulla cella **CASH FROM** di una riga pagata con uno sponsor di tipo C compare: «*Nome sponsor*: the counter-invoice (VAT 110,00 €) is paid with the team's money». La controfattura si paga con i soldi del team: nei calcoli era già così (è l'outflow della riga e l'IVA del team nel Gantt e in CASH FLOW); per ora la griglia lo dice solo con questo suggerimento (`fundTip` in `areaColumns.tsx`), senza altri indicatori.
+
 Il tipo C chiude la domanda **Q1** («sponsor totale: IVA sull'intero netto?»): sì, è voluto, e il motore già lo faceva (`vatBaseWhenTotalSponsor = "net"`).
+
+## 3bis. Uno sponsor di merce è anche un fornitore
+
+Chi regala la merce è anche chi la «vende»: per uno sponsor di tipo B o C il fondo (CASH FROM) e il fornitore (BOUGHT FROM) sono la stessa azienda. Il collegamento passa dal **nome**, senza badare alle maiuscole. Vale per i tipi di merce, non per un fondo (A: soldi).
+
+| Quando | Cosa succede |
+| --- | --- |
+| **crei** uno sponsor di merce (o uno sponsor di soldi diventa di merce) | si aggiunge ai **fornitori**, nella stessa operazione, se non c'è già un fornitore con quel nome (anche in un'altra grafia: ne usa quello) |
+| **rinomini** lo sponsor | si rinomina anche il suo fornitore, così le righe già comprate da lui restano collegate; se un altro fornitore ha già il nuovo nome, non si tocca niente |
+| **cancelli** lo sponsor | il fornitore resta: può essere su righe già comprate (un fornitore usato non si cancella) |
+| in una riga **scegli lo sponsor come fondo** (CASH FROM) di una fase | quella fase ha **anche lo sponsor come fornitore** (BOUGHT FROM), **al posto di quello che c'era** |
+| in una riga **scegli come fornitore** (BOUGHT FROM) un fornitore che è anche uno sponsor di merce | quella fase ha **anche lo sponsor come fondo**, al posto di quello che c'era |
+| togli il fondo o togli il fornitore | l'altro **non si tocca** |
+| scegli fondo e fornitore insieme (la stessa modifica) | restano **come scelti**, senza completare |
+| scegli un fondo di soldi, il fondo del team, o un fornitore che non è uno sponsor | nessun collegamento |
+
+Il collegamento è nel server (`withGoodsSponsor` in `budget.service.ts`, `ensureSupplier` e `renameSupplier` in `suppliers.service.ts`), nella stessa transazione della modifica, quindi vale per chiunque scriva (anche un capo area, che può aggiungere fornitori) e il sito mostra il risultato dopo il salvataggio, come per ogni cella. Si applica **a una fase per volta**: EXPECTED e ACTUAL hanno ciascuna il proprio fondo e il proprio fornitore. La migrazione `0013` ha dato un fornitore agli sponsor di merce che c'erano già (nei dati di sviluppo nessuno).
 
 ## 4. Più fondi sulla stessa riga
 
@@ -106,7 +129,8 @@ La migrazione `0009_one_kind_of_sponsor.sql` ha trasformato gli sponsor in cassa
 | --- | --- |
 | Q1 sponsor totale e IVA | **chiusa**: IVA sull'intero valore, a carico del team (tipo C) |
 | Q3 scadenze IVA | **confermate** |
-| Q4 CASH FROM ↔ CASH FLOW | in sospeso; gli sponsor in cassa non esistono più: i soldi che entrano sono inflow di CASH FLOW (§5) |
+| Q4 CASH FROM ↔ CASH FLOW | **chiusa il 28/10/2026: restano separate**. In CASH FLOW ci sono gli **inflow**, i soldi che entrano nella cassa del team (§5); in CASH FROM le sponsorizzazioni, fondi **esterni** che non c'entrano con la cassa del team: un contratto di sponsor non genera nessun inflow |
+| Il report IVA per progetto (VAT OUTFLOW / PROJECT) | **solo l'IVA a carico del team**, risposta del 28/10/2026: è già così, perché somma solo l'IVA che il team paga di tasca sua (fondo del team e merce con controfattura); quella coperta da un fondo di sponsor non compare |
 | Q5 casella «paga IVA» | **chiusa**: una sola per sponsor; **tolta il 26/10/2026** (lo dice l'aliquota: 0% = niente IVA) |
 | Sponsor che danno soldi in cassa (come «esaving») | **tolti dal menù sponsor** (26/10/2026): si inseriscono come inflow in CASH FLOW; l'11% si paga il primo giorno del trimestre successivo |
 | Soldi dello sponsor | **un valore e una data per sponsor e fase**, dentro lo sponsor: niente più contratti da gestire a parte (21/10/2026) |
@@ -136,5 +160,7 @@ Da confermare (le ho assunte così): l'11% si calcola sul valore dell'inflow; il
 - `packages/calc/src/cash.test.ts` (8) e `vat.test.ts`: l'11% sugli inflow e il giorno in cui si paga (ultimo giorno del trimestre, primo giorno, anno bisestile; `firstDayOfNextQuarter` confrontato con un calcolo indipendente su ogni giorno dal 2000 al 2100), CASH FLOW, Gantt, saldi.
 - `apps/api/src/modules/funds/funds.routes.test.ts` e `budget.routes.test.ts`: definizione dello sponsor e sue regole, nomi unici (anche in parallelo), i soldi dello sponsor (messi, sostituiti, tolti, anche insieme), combinazioni rifiutate con il motivo, un cambiamento rifiutato non tocca la riga.
 - Riconciliazione col foglio (`pnpm reconcile`, anche `-- --db` dopo `load --replace`): **1.995 controlli uguali**, con le aliquote ora prese dallo sponsor e anche dopo il 26/10/2026 (il foglio non ha inflow e tutti i suoi sponsor coprono l'IVA).
+- **L'11% fisso del tipo C** (`funds.routes.test.ts`, `lookups.routes.test.ts`): un tipo C creato con 22% o 0% o senza aliquota è salvato a 11; passando da «Fund 22%» a tipo C diventa 11 e tornando a «Fund» resta 11 ma si può cambiare; cambiarne l'aliquota è ignorato; un fondo deve ancora sceglierla; il valore fisso non dipende dall'elenco delle aliquote (anche togliendo 0 e 11 da Settings). Nel browser: il form mostra 0% o 11% bloccato, la cella della tabella è solo testo. La migrazione `0012` porta a 11 gli sponsor di quel tipo che avessero un'altra aliquota (nei dati di sviluppo non ce n'è nessuno).
+- **Sponsor di merce e fornitori** (`funds.routes.test.ts`, 5; `budget.routes.test.ts`, 6): creazione (con e senza IVA, non per un fondo di soldi), fornitore già presente in un'altra grafia, passaggio da soldi a merce, rinomina (anche solo delle maiuscole, e con un nome già preso), cancellazione che lascia il fornitore; nella riga: il fondo completa il fornitore (al posto di Amazon, e solo nella sua fase), una riga fatta già pagata dallo sponsor, il fornitore completa il fondo, nessun effetto per ciò che non è merce da sponsor, entrambi scelti insieme, togliere uno non tocca l'altro, un capo area. Togliendo le due regole i test falliscono (7 su 11). Nel browser: lo sponsor creato dal form compare in BOUGHT FROM, e le celle CASH FROM e BOUGHT FROM della griglia si completano in entrambe le direzioni.
 - Migrazione `0009` provata su una copia dei dati reali che aveva ancora uno sponsor in cassa: è diventato un inflow Expected, senza data, dello stesso valore.
 - Controllo di mutazione: togliere il tetto dei fondi, la divisione per `1 + aliquota` o la regola «il team paga sempre l'IVA di un regalo» fa fallire i test.

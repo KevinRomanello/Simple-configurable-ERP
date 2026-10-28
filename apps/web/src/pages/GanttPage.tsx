@@ -76,13 +76,6 @@ function BlockTable({ gantt, blockName, chips }: { gantt: Gantt; blockName: stri
     <Panel>
       {chips}
       <h2>{blockTitle(blockName)}</h2>
-      <BarsChart
-        title={`Monthly Outflow Timeline (${blockName === "ALL" ? "All Items" : blockName})`}
-        data={chartData}
-        xKey="month"
-        series={block.areas.map((a) => ({ key: a.areaName, label: a.areaName }))}
-        stacked
-      />
       <TableBox title={`Monthly outflow per area (${blockTitle(blockName)})`}>
         <table className="data-table frozen">
           <thead>
@@ -118,6 +111,13 @@ function BlockTable({ gantt, blockName, chips }: { gantt: Gantt; blockName: stri
           </tbody>
         </table>
       </TableBox>
+      <BarsChart
+        title={`Monthly Outflow Timeline (${blockName === "ALL" ? "All Items" : blockName})`}
+        data={chartData}
+        xKey="month"
+        series={block.areas.map((a) => ({ key: a.areaName, label: a.areaName }))}
+        stacked
+      />
     </Panel>
   );
 }
@@ -137,12 +137,6 @@ function TeamFundTable({ gantt }: { gantt: Gantt }) {
 
   return (
     <Panel title="Team's fund">
-      <BarsChart
-        title="Monthly Outflow (All)"
-        data={rows.map((r) => ({ month: month(r.month), outflow: r.outflowAllCents }))}
-        xKey="month"
-        series={[{ key: "outflow", label: "OUTFLOW ALL" }]}
-      />
       <TableBox title="Team's fund monthly outflow">
         <table className="data-table frozen">
           <thead>
@@ -173,6 +167,12 @@ function TeamFundTable({ gantt }: { gantt: Gantt }) {
           </tbody>
         </table>
       </TableBox>
+      <BarsChart
+        title="Monthly Outflow (All)"
+        data={rows.map((r) => ({ month: month(r.month), outflow: r.outflowAllCents }))}
+        xKey="month"
+        series={[{ key: "outflow", label: "OUTFLOW ALL" }]}
+      />
     </Panel>
   );
 }

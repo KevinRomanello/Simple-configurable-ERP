@@ -62,6 +62,13 @@ export function TotalPage() {
           options={totals.data.blocks.map((b) => ({ value: b.block, label: blockTitle(b.block) }))}
         />
         <h2>{blockTitle(block.block)}</h2>
+        <DataTable
+          title={`Totals (${blockTitle(block.block)})`}
+          columns={COLUMNS}
+          rows={block.rows}
+          rowKey={(r) => r.areaName}
+          footer={<TotalRow total={block.total} />}
+        />
         <BarsChart
           title={`Cost & Outflow Comparison (${block.block === "ALL" ? "All Items" : block.block})`}
           data={[...block.rows, { ...block.total, areaName: "TOTAL" }].map((r) => ({
@@ -78,13 +85,6 @@ export function TotalPage() {
             { key: "estOutflow", label: "Expected outflow" },
             { key: "actOutflow", label: "Actual outflow" },
           ]}
-        />
-        <DataTable
-          title={`Totals (${blockTitle(block.block)})`}
-          columns={COLUMNS}
-          rows={block.rows}
-          rowKey={(r) => r.areaName}
-          footer={<TotalRow total={block.total} />}
         />
       </Panel>
     </>

@@ -5,8 +5,9 @@ import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { fund, fundContract, lineFund } from "../../db/schema";
 import { canWrite, getCurrentUser } from "../auth/auth.service";
-import { listVatRates } from "../lookups/lookups.service";
+import { getFixedSponsorRates, listVatRates } from "../lookups/lookups.service";
 import { getCurrentSeason } from "../seasons/seasons.service";
+import { ensureSupplier, renameSupplier } from "../suppliers/suppliers.service";
 
 async function assertCanManageShared() {
   const actor = await getCurrentUser();
@@ -92,7 +93,11 @@ export interface ContractInput {
 
 /** The rules every sponsor must follow; gives back the VAT rate to store. */
 async function checkedRate(input: Pick<SponsorInput, "type" | "vatRate">): Promise<number> {
-  const rate = input.type === "gift" ? 0 : input.vatRate; // a plain gift owes no VAT at all
+  // some kinds of sponsor have their rate fixed (a plain gift owes none, a counter-invoice always the same):
+  // it does not depend on the rates an admin lets people choose
+  const fixed = (await getFixedSponsorRates())[input.type];
+  if (fixed !== undefined) return fixed;
+  const rate = input.vatRate;
   if (rate === null) throw invalid("Choose the VAT rate of the sponsor");
   if (!(await listVatRates()).includes(rate)) throw invalid(`VAT rate ${rate}% is not one of the allowed rates`);
   return rate;
@@ -126,6 +131,7 @@ export async function createFund(input: SponsorInput, contracts: ContractInput[]
       .onConflictDoNothing() // the same name at the same moment: the first one wins
       .returning();
     if (!created) throw conflict(`"${input.name}" already exists`);
+    if (input.type !== "fund") await ensureSupplier(tx, input.name); // goods come from a supplier: the sponsor
     for (const contract of contracts) {
       await tx.insert(fundContract).values({
         fundId: created.id,
@@ -163,6 +169,9 @@ export async function updateFund(fundId: number, input: Partial<SponsorInput>) {
     if (twin && twin.id !== fundId) throw conflict(`"${merged.name}" already exists`);
 
     const [updated] = await tx.update(fund).set(sponsorValues(merged, rate)).where(eq(fund.id, fundId)).returning();
+    // a sponsor that gives goods is also a supplier of the same name, and follows it when it is renamed
+    if (target.type !== "fund" && target.name !== merged.name) await renameSupplier(tx, target.name, merged.name);
+    if (merged.type !== "fund") await ensureSupplier(tx, merged.name);
     return fundOut(updated!, (await moneyOf(tx, [fundId])).get(fundId));
   });
 }

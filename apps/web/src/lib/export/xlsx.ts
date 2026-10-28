@@ -7,7 +7,7 @@ import type { Resolved } from "./types";
 const FILL: Record<NonNullable<Cell["fill"]>, string> = {
   head: "FF464646",
   band: "FFF3FF17",
-  total: "FFE6E6E6",
+  total: "FFF3FF17", // the yellow of the total rows on the screen
 };
 const THIN = { style: "thin" as const, color: { argb: "FFBEBEBE" } };
 

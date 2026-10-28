@@ -50,7 +50,7 @@ Le stime sono mie e non misurate: **S** ≈ 1 ora, **M** ≈ 2 ore, **L** ≈ 3�
 
 | # | Cosa | Taglia |
 | --- | --- | --- |
-| B1 | Risposte del tesoriere alle **sette domande** (Q1–Q7) → impostazioni al posto degli hardcode (e dove serve, tabelle). Risposte del 21/10/2026: Q1, Q3, Q5, Q7 chiuse, Q4 in sospeso; restano Q2 e Q6 ([sponsor-e-fondi.md](sponsor-e-fondi.md#8-decisioni-del-tesoriere-21-ottobre-2026-e-cosa-resta-aperto)) | M |
+| B1 | Risposte del tesoriere alle **sette domande** (Q1–Q7) → impostazioni al posto degli hardcode (e dove serve, tabelle). Risposte del 21/10/2026: Q1, Q3, Q5, Q7 chiuse; Q4 chiusa il 28/10/2026 (restano separate); restano Q2 e Q6 ([sponsor-e-fondi.md](sponsor-e-fondi.md#8-decisioni-del-tesoriere-21-ottobre-2026-e-cosa-resta-aperto)) | M |
 | B2 | **Revisione del layout con un designer**: menu, tabelle, griglia e grafici non sono disegnati su Figma; il logo | M |
 | B3 | **Pagina di amministrazione**: categorie, aliquote IVA, scadenze, soglie (utenti e ruoli ci sono già) | L |
 | B4 | **Test dell'interfaccia** (Playwright): i percorsi principali, per non rompere niente a ogni modifica | M |

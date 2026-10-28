@@ -12,7 +12,7 @@ import { useAction } from "../lib/useAction";
 
 const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
 
-/** CASH FLOW: the BANK balance, the money coming in, and what is left after the team's spending. */
+/** CASH FLOW: the money coming in and what is left after the team's spending, then the BANK balance (the order of the sheet). */
 export function CashFlowPage() {
   const canEdit = useMe().permissions.canEditShared;
   const [editingBank, setEditingBank] = useState(false);
@@ -29,11 +29,11 @@ export function CashFlowPage() {
           )
         }
       />
-      <BankBox editing={editingBank} onDone={() => setEditingBank(false)} />
       <div className="two-columns">
         <PhaseCashFlow phase="estimate" />
         <PhaseCashFlow phase="actual" />
       </div>
+      <BankBox editing={editingBank} onDone={() => setEditingBank(false)} />
     </>
   );
 }
@@ -139,12 +139,6 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
 
   return (
     <Panel title={TITLE[phase]}>
-      {summary && (
-        <Cards>
-          <MoneyCard caption="Total cash flow" cents={summary.totalCashFlowCents} />
-          <MoneyCard caption="Left value" cents={summary.leftValueCents} />
-        </Cards>
-      )}
       <DataTable
         title={`${phase === "estimate" ? "Expected" : "Actual"} cash inflows`}
         columns={columns}
@@ -152,6 +146,12 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
         rowKey={(i) => i.id}
         empty="No inflows yet"
       />
+      {summary && (
+        <Cards>
+          <MoneyCard caption="Total cash flow" cents={summary.totalCashFlowCents} />
+          <MoneyCard caption="Left value" cents={summary.leftValueCents} />
+        </Cards>
+      )}
       <MonthlyInflows phase={phase} monthly={view.data?.[phase].monthly ?? []} />
     </Panel>
   );

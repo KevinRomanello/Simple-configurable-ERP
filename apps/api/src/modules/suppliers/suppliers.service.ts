@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { conflict, forbidden, notFound } from "../../core/errors";
-import { runWrite } from "../../core/tx";
+import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { lineFigures, supplier } from "../../db/schema";
 import { canManageSuppliers, getCurrentUser } from "../auth/auth.service";
@@ -24,6 +24,27 @@ export async function createSupplier(name: string) {
     const [created] = await tx.insert(supplier).values({ name }).returning();
     return created!;
   });
+}
+
+// A sponsor that gives goods is also a supplier of the same name (docs/sponsor-e-fondi.md): these two
+// are what keeps the sponsor and its supplier together. They run inside the write that needs them.
+
+/** The supplier with this name (in any case), made if it does not exist yet. */
+export async function ensureSupplier(tx: Tx, name: string) {
+  const find = () => tx.select().from(supplier).where(sql`lower(${supplier.name}) = lower(${name})`);
+  const [existing] = await find();
+  if (existing) return existing;
+  const [created] = await tx.insert(supplier).values({ name }).onConflictDoNothing().returning();
+  return created ?? (await find())[0]!; // somebody made it at the same moment
+}
+
+/** Gives a supplier the new name of its sponsor, unless another supplier already has that name. */
+export async function renameSupplier(tx: Tx, from: string, to: string) {
+  const byName = (name: string) => tx.select().from(supplier).where(sql`lower(${supplier.name}) = lower(${name})`);
+  const [own] = await byName(from);
+  const [taken] = await byName(to);
+  if (!own || (taken && taken.id !== own.id)) return;
+  await tx.update(supplier).set({ name: to }).where(eq(supplier.id, own.id));
 }
 
 /** Deletes a supplier no budget line refers to. */

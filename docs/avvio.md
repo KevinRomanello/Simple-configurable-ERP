@@ -103,7 +103,7 @@ docker compose run --rm -v "$PWD/fonti:/app/fonti:ro" api pnpm reconcile -- --db
 3. **Add project** e **Add item**: nuovi progetti e nuove voci. Il cestino in fondo alla riga elimina.
 4. **CASH FROM**: gli sponsor (bottone **New sponsor**, soldi e data di ogni fase nella riga), saldo residuo dei fondi (rosso se negativo).
 5. **CASH FLOW**: il saldo BANK e gli ingressi; "Left value" è ciò che resta dopo le spese del team.
-6. **EXPECTED / ACTUAL GANTT**, **TOTAL**, le tre **ANALYSES**: sono viste di sola lettura, sempre ricalcolate dai dati.
+6. **EXPECTED / ACTUAL GANTT**, le tre **ANALYSES**, **TOTAL** (nell'ordine dei fogli dell'Excel): sono viste di sola lettura, sempre ricalcolate dai dati.
 7. **Inventory** (menu a sinistra): **INVENTORY** è l'elenco (con le immagini), **PENDING** gli acquisti del budget non ancora arrivati ("Receive" li mette sullo scaffale), **COMPONENTS** le cose che facciamo noi con distinta e costo nel tempo, **INVENTORY STATS** le statistiche. Nel budget, una clessidra accanto a una voce vuol dire "comprata, non ancora arrivata". Per avere qualcosa da guardare subito: `docker compose exec api pnpm db:seed-demo` aggiunge articoli **inventati** (si tolgono con `pnpm db:seed-demo -- --remove`); vedi [inventario.md](inventario.md).
 8. Se il tuo sistema è in modalità scura, il sito è scuro; in chiara è chiaro (i colori vengono da Figma).
 
@@ -138,7 +138,7 @@ docker compose exec web pnpm --filter @erp/web test
 docker compose exec api pnpm --filter @erp/import-xlsx test
 ```
 
-Risultati attesi: 170 (motore), 267 (API), 54 (sito), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
+Risultati attesi: 170 (motore), 281 (API), 54 (sito), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
 
 Dentro `psql` (il terminale del database) servono pochi comandi: `\dt` elenca le tabelle, `select * from fund;` mostra i fondi, `\q` esce.
 

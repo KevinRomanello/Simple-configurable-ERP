@@ -90,6 +90,22 @@ export function AnalysisPage({ kind }: { kind: Kind }) {
           options={data.blocks.map((b) => ({ value: b.block, label: blockTitle(b.block) }))}
         />
         <h2>{blockTitle(block.block)}</h2>
+        <DataTable
+          title={`${copy.title} (${blockTitle(block.block)})`}
+          columns={columns}
+          rows={lines}
+          rowKey={(l) => `${l.names.estimate}-${l.names.actual}`}
+          footer={
+            <tr className="total">
+              <td>TOTAL</td>
+              <td className="num">{money(block.total.estimate.grossCents)}</td>
+              <td className="num">{money(block.total.estimate.outflowCents)}</td>
+              <td>TOTAL</td>
+              <td className="num">{money(block.total.actual.grossCents)}</td>
+              <td className="num">{money(block.total.actual.outflowCents)}</td>
+            </tr>
+          }
+        />
         <div className="charts">
           <BarsChart
             title={`Actual Cost & Outflow Breakdown (${block.block === "ALL" ? "All Items" : block.block})`}
@@ -110,22 +126,6 @@ export function AnalysisPage({ kind }: { kind: Kind }) {
             ]}
           />
         </div>
-        <DataTable
-          title={`${copy.title} (${blockTitle(block.block)})`}
-          columns={columns}
-          rows={lines}
-          rowKey={(l) => `${l.names.estimate}-${l.names.actual}`}
-          footer={
-            <tr className="total">
-              <td>TOTAL</td>
-              <td className="num">{money(block.total.estimate.grossCents)}</td>
-              <td className="num">{money(block.total.estimate.outflowCents)}</td>
-              <td>TOTAL</td>
-              <td className="num">{money(block.total.actual.grossCents)}</td>
-              <td className="num">{money(block.total.actual.outflowCents)}</td>
-            </tr>
-          }
-        />
       </Panel>
     </>
   );

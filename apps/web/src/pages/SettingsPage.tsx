@@ -232,7 +232,7 @@ function CategoriesPanel({ data }: { data: SettingsView }) {
         rowKey={(c) => c.id}
         empty="No categories"
         footer={
-          <tr className="total">
+          <tr className="footer-row">
             <td>Items without a category</td>
             {FIELDS.map((field) => (
               <td key={field}>

@@ -1,5 +1,5 @@
 import type {
-  Analysis, Area, AreaSheet, Bank, Calculation, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Fund, FundSummaryRow, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, Location, Me, MonthlyInflow, NewContract, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, SettingsView, SignInOptions, SponsorBody, StatsResult, Supplier, Totals, UserRow, VatReport,
+  Analysis, Area, AreaSheet, Bank, Calculation, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, Location, Me, MonthlyInflow, NewContract, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, SettingsView, SignInOptions, SponsorBody, StatsResult, Supplier, Totals, UserRow, VatReport,
 } from "./types";
 
 /** An error answer of the API: carries the HTTP status so screens can react to a 409. */
@@ -192,6 +192,8 @@ export const api = {
   categories: () => get<string[]>("/lookups/categories"),
   priorities: () => get<string[]>("/lookups/priorities"),
   vatRates: () => get<number[]>("/lookups/vat-rates"),
+  /** The VAT rate that some kinds of sponsor cannot choose (goods: 0, goods against a counter-invoice: 11). */
+  fixedSponsorRates: () => get<Partial<Record<FundType, number>>>("/lookups/sponsor-rates"),
 
   // budget
   areas: () => get<Area[]>("/areas"),

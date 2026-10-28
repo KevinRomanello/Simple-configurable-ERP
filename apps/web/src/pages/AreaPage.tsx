@@ -81,14 +81,14 @@ export function AreaPage() {
         add={canEdit ? { label: "New project", form: (close) => <NewProject areaCode={code} onDone={close} /> } : undefined}
       />
 
-      <AreaTotal total={data.total} />
-
       {data.projects.length === 0 && <Message>{canEdit ? "No projects yet: add the first one." : "No projects yet."}</Message>}
       {data.projects.map((project) => (
         <ProjectPanel key={project.id} project={project} buildColumns={buildColumns} canEdit={canEdit} />
       ))}
 
       <VatReportTable areaCode={code} />
+
+      <AreaTotal total={data.total} />
     </>
   );
 }
@@ -103,6 +103,8 @@ const DEFAULT_COL_DEF: ColDef<Row> = {
   suppressMovable: true,
   wrapHeaderText: true,
   autoHeaderHeight: true,
+  // the lists to choose from open right under their cell
+  cellEditorPopupPosition: "under",
 };
 
 function subtotalRow(project: SheetProject): SubtotalRow {
@@ -183,6 +185,11 @@ function ProjectPanel({ project, buildColumns, canEdit }: { project: SheetProjec
         pinnedBottomRowData={subtotal}
         columnDefs={columns}
         defaultColDef={DEFAULT_COL_DEF}
+        // The lists of the cells open in the page, under their cell. Not in the grid (it is only as tall as its
+        // rows, so a list would be pushed up over the header) and not in <body>: that is only as tall as the
+        // window while the page scrolls, so the grid believes there is no room under the cell and opens the list
+        // above it as soon as the page has been scrolled. .main is as tall as the page.
+        popupParent={document.querySelector<HTMLElement>("main.main")}
         // each column takes the room its content needs, no more; fitted again whenever the rows change
         // (the grid can only measure columns it draws, so all of them are drawn)
         suppressColumnVirtualisation
@@ -252,6 +259,7 @@ function AreaTotal({ total }: { total: AreaSheet["total"] }) {
           { label: "ACTUAL", amounts: total.actual },
         ]}
         rowKey={(r) => r.label}
+        rowClass={() => "total"}
       />
     </Panel>
   );

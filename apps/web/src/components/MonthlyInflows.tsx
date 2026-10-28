@@ -15,6 +15,7 @@ export function MonthlyInflows({ phase, monthly }: { phase: Phase; monthly: Mont
   ];
   return (
     <>
+      <DataTable title={`${WORD[phase]} cash inflows per month`} columns={columns} rows={monthly} rowKey={(m) => m.month} />
       <BarsChart
         title={`${WORD[phase]} Cash Inflows Timeline`}
         data={monthly.map((m) => ({ month: month(m.month), inflow: m.totalCents }))}
@@ -22,7 +23,6 @@ export function MonthlyInflows({ phase, monthly }: { phase: Phase; monthly: Mont
         series={[{ key: "inflow", label: "Inflow" }]}
         height={240}
       />
-      <DataTable title={`${WORD[phase]} cash inflows per month`} columns={columns} rows={monthly} rowKey={(m) => m.month} />
     </>
   );
 }

@@ -1,15 +1,16 @@
 import { areaSheet, netCents, type AreaSheet, type Phase } from "@erp/calc";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { toCents, toScaled } from "../../core/money";
 import { LIMITS } from "../../core/validation";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { area, budgetLine, fund, lineFigures, lineFund, project } from "../../db/schema";
+import { area, budgetLine, fund, lineFigures, lineFund, project, supplier } from "../../db/schema";
 import { loadSnapshot } from "../../snapshot";
 import { canWrite, getCurrentUser, type User } from "../auth/auth.service";
 import { listCategories, listVatRates } from "../lookups/lookups.service";
 import { getCurrentSeason } from "../seasons/seasons.service";
+import { ensureSupplier } from "../suppliers/suppliers.service";
 import type { CreateLineInput, FiguresInput, UpdateLineInput } from "./budget.schema";
 
 /** The areas, in the order of the old sheet tabs (GET /api/areas). */
@@ -88,10 +89,36 @@ export async function deleteProject(projectId: number) {
 }
 
 /**
+ * A sponsor that gives goods is also the supplier of them (docs/sponsor-e-fondi.md): choosing it as
+ * the fund of a phase also chooses it as the supplier, and choosing that supplier also chooses the
+ * sponsor as the fund, replacing what was there. Only what is not in the patch is filled in.
+ */
+async function withGoodsSponsor(tx: Tx, patch: FiguresInput): Promise<FiguresInput> {
+  if (patch.fundIds?.length === 1 && patch.supplierId === undefined) {
+    const [sponsor] = await tx
+      .select()
+      .from(fund)
+      .where(and(eq(fund.id, patch.fundIds[0]!), eq(fund.kind, "external"), ne(fund.type, "fund")));
+    if (sponsor) return { ...patch, supplierId: (await ensureSupplier(tx, sponsor.name)).id };
+  }
+  if (patch.supplierId != null && patch.fundIds === undefined) {
+    const season = await getCurrentSeason();
+    const [sponsor] = await tx
+      .select({ id: fund.id })
+      .from(fund)
+      .innerJoin(supplier, sql`lower(${supplier.name}) = lower(${fund.name})`)
+      .where(and(eq(supplier.id, patch.supplierId), eq(fund.seasonId, season.id), eq(fund.kind, "external"), ne(fund.type, "fund")));
+    if (sponsor) return { ...patch, fundIds: [sponsor.id] };
+  }
+  return patch;
+}
+
+/**
  * Applies a partial change to the figures of one phase of a line, creating them if needed, and
  * checks the rules that depend on the combined result (VAT rate list, partial sponsor range).
  */
-async function saveFigures(tx: Tx, lineId: number, phase: Phase, patch: FiguresInput) {
+async function saveFigures(tx: Tx, lineId: number, phase: Phase, change: FiguresInput) {
+  const patch = await withGoodsSponsor(tx, change);
   const [current] = await tx
     .select()
     .from(lineFigures)

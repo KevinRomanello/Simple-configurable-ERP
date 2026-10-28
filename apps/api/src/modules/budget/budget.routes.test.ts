@@ -228,6 +228,76 @@ describe("the funds that pay a line", () => {
     expect(withVat.teamVatCents).toBe(11_000);
   });
 
+  describe("goods from a sponsor are bought from it", () => {
+    /** The line, as the sheet shows it (with its version), and what a phase says about fund and supplier. */
+    const lineOf = async (lineId: number) => (await sheet()).projects.flatMap((p: any) => p.lines).find((l: any) => l.id === lineId);
+    const change = async (lineId: number, figures: object, phase = "estimate", as = api) =>
+      as.patch(`/api/lines/${lineId}`, { version: (await lineOf(lineId)).version, figures: { [phase]: figures } });
+    const supplierNamed = async (name: string) => ((await api.get("/api/suppliers")).body as any[]).find((s) => s.name === name).id as number;
+
+    it("choosing the sponsor as the fund chooses it as the supplier, replacing the one that was there", async () => {
+      const barter = await fund("Barter", 0, { type: "gift_vat" });
+      const amazon = (await api.post("/api/suppliers", { name: "Amazon" })).body.id;
+      const team = (await api.get("/api/funds")).body[0].id;
+      const { lineId } = await paid([team], 100);
+      await change(lineId, { supplierId: amazon });
+      expect((await lineOf(lineId)).estimate).toMatchObject({ fundName: "Team's fund", supplierName: "Amazon" });
+
+      expect((await change(lineId, { fundIds: [barter] })).status).toBe(200);
+      const line = await lineOf(lineId);
+      expect(line.estimate).toMatchObject({ fundName: "Barter", supplierName: "Barter" });
+      expect(line.actual.supplierName).toBeNull(); // the other phase is its own
+    });
+
+    it("a line made already paid by the sponsor has it as the supplier too", async () => {
+      const gift = await fund("Gift", 0, { type: "gift" });
+      const { lineId } = await paid([gift], 100);
+      expect((await lineOf(lineId)).estimate.supplierName).toBe("Gift");
+    });
+
+    it("choosing that supplier chooses the sponsor as the fund, replacing the one that was there", async () => {
+      const barter = await fund("Barter", 0, { type: "gift_vat" });
+      const money = await fund("Money", 5000);
+      const { lineId } = await paid([money], 100);
+      expect((await change(lineId, { supplierId: await supplierNamed("Barter") })).status).toBe(200);
+      const line = await lineOf(lineId);
+      expect(line.estimate).toMatchObject({ fundName: "Barter", supplierName: "Barter" });
+      expect(line.estimate.figures.fundIds).toEqual([barter]);
+    });
+
+    it("does nothing for what is not goods from a sponsor", async () => {
+      const gift = await fund("Gift", 0, { type: "gift" });
+      const money = await fund("Money", 5000);
+      const amazon = (await api.post("/api/suppliers", { name: "Amazon" })).body.id;
+      const { lineId } = await paid([gift], 100); // fund Gift, supplier Gift
+      await change(lineId, { supplierId: amazon }); // a supplier that is no sponsor: the fund stays
+      expect((await lineOf(lineId)).estimate).toMatchObject({ fundName: "Gift", supplierName: "Amazon" });
+      await change(lineId, { fundIds: [money] }); // a fund that gives money: the supplier stays
+      expect((await lineOf(lineId)).estimate).toMatchObject({ fundName: "Money", supplierName: "Amazon" });
+      await change(lineId, { fundIds: [gift] });
+      await change(lineId, { supplierId: null }); // taking the supplier away leaves the fund
+      expect((await lineOf(lineId)).estimate).toMatchObject({ fundName: "Gift", supplierName: null });
+      await change(lineId, { fundIds: [] }); // and the other way round
+      expect((await lineOf(lineId)).estimate.supplierName).toBeNull();
+    });
+
+    it("keeps both when both are chosen together", async () => {
+      const barter = await fund("Barter", 0, { type: "gift_vat" });
+      const amazon = (await api.post("/api/suppliers", { name: "Amazon" })).body.id;
+      const { lineId } = await paid([]);
+      await change(lineId, { fundIds: [barter], supplierId: amazon });
+      expect((await lineOf(lineId)).estimate).toMatchObject({ fundName: "Barter", supplierName: "Amazon" });
+    });
+
+    it("works for a project manager of the area, who may add suppliers", async () => {
+      const barter = await fund("Barter", 0, { type: "gift_vat" });
+      const { lineId } = await paid([]);
+      const pm = api.as({ email: "pm-md@team.test", role: "pm", areas: ["mt-dmt"] });
+      expect((await change(lineId, { fundIds: [barter] }, "estimate", pm as any)).status).toBe(200);
+      expect((await lineOf(lineId)).estimate.supplierName).toBe("Barter");
+    });
+  });
+
   it("refuses funds that cannot work together, with a clear reason", async () => {
     const a = await fund("A", 100, { group: "g" });
     const b = await fund("B", 100, { group: "g" });

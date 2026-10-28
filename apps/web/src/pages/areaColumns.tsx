@@ -102,11 +102,16 @@ const choosesOwnRate = (lookups: GridLookups, fundIds: number[]) =>
   fundIds.length === 0 || fundIds.some((id) => lookups.fundById.get(id)?.kind === "team");
 
 /** What each fund of a line pays, and what is missing. */
-function fundTip(row: Row | undefined, phase: Phase): string | undefined {
+function fundTip(row: Row | undefined, phase: Phase, lookups: GridLookups): string | undefined {
   if (!isLine(row)) return undefined;
   const { shares, shortCents } = row[phase];
   if (shares.length === 0) return undefined;
-  const lines = shares.map((s) => `${s.fundName}: ${money(s.drawnCents)}`);
+  const lines = shares.map((s) =>
+    // goods paid with a counter-invoice: the sponsor gives the goods, the team's own money pays the VAT of the invoice
+    lookups.fundById.get(s.fundId)?.type === "gift_vat"
+      ? `${s.fundName}: the counter-invoice (VAT ${money(s.vatCents)}) is paid with the team's money`
+      : `${s.fundName}: ${money(s.drawnCents)}`,
+  );
   if (shortCents > 0) lines.push(`${money(shortCents)} missing: not enough in the fund`);
   return lines.join("\n");
 }
@@ -171,7 +176,7 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFu
       headerName: "CASH FROM",
       width: 200,
       cellClass: (p) => (isLine(p.data) && p.data[phase].shortCents > 0 ? "cell-negative" : undefined),
-      tooltipValueGetter: (p) => fundTip(p.data, phase),
+      tooltipValueGetter: (p) => fundTip(p.data, phase, lookups),
       valueGetter: (p) => {
         const shares = p.data?.[phase].shares ?? [];
         // with several funds each one shows what it pays

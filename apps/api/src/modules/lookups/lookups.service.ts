@@ -1,4 +1,4 @@
-import { PRIORITIES, type BankCompareMode, type Lookups, type Priority, type Quarter, type Settings, type VatRules } from "@erp/calc";
+import { PRIORITIES, type BankCompareMode, type FundType, type Lookups, type Priority, type Quarter, type Settings, type VatRules } from "@erp/calc";
 import { asc } from "drizzle-orm";
 import { db } from "../../db/client";
 import { category, categoryField, location, setting, unit, vatRate } from "../../db/schema";
@@ -25,6 +25,15 @@ export async function listPriorities(): Promise<readonly Priority[]> {
 export async function listVatRates(): Promise<number[]> {
   const rows = await db.select({ rate: vatRate.rate }).from(vatRate).orderBy(asc(vatRate.rate));
   return rows.map((r) => Number(r.rate));
+}
+
+/**
+ * The VAT rate a kind of sponsor cannot choose, in percent: goods given for free owe no VAT, goods
+ * given against an advertising counter-invoice always owe the same. The other kinds choose their own.
+ */
+export async function getFixedSponsorRates(): Promise<Partial<Record<FundType, number>>> {
+  // HARDCODED: the VAT of the counter-invoice (11%) will be a value of the Settings page
+  return { gift: 0, gift_vat: 11 };
 }
 
 /** When the VAT of a purchase falls due (ASD, Legge 398/1991 quarterly planning). */

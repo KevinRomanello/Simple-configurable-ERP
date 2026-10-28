@@ -14,7 +14,7 @@ const pdfText = (text: string) =>
 const FILL: Record<NonNullable<Cell["fill"]>, [number, number, number]> = {
   head: [70, 70, 70],
   band: [243, 255, 23],
-  total: [230, 230, 230],
+  total: [243, 255, 23], // the yellow of the total rows on the screen
 };
 
 const PX_TO_MM = 0.2646;

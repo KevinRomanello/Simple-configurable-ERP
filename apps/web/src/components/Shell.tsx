@@ -77,6 +77,7 @@ export function Shell() {
           </button>
         </div>
 
+        {/* the pages follow the order of the sheets of the Excel file (Budget 26-27), then the ones it does not have */}
         <nav className="nav-group">
           <span className="nav-title label-xs bold">Budget</span>
           {areas.data?.map((area) => (
@@ -97,10 +98,10 @@ export function Shell() {
           <span className="nav-title label-xs bold">Views</span>
           <Item to="/gantt/estimate" icon={faChartLine}>EXPECTED GANTT</Item>
           <Item to="/gantt/actual" icon={faChartLine}>ACTUAL GANTT</Item>
-          <Item to="/total" icon={faScaleBalanced}>TOTAL</Item>
           <Item to="/analysis/funds" icon={faSackDollar}>CASH FROM ANALYSES</Item>
           <Item to="/analysis/suppliers" icon={faTruckFast}>BOUGHT FROM ANALYSES</Item>
           <Item to="/analysis/items" icon={faMagnifyingGlass}>CATEGORY ANALYSES</Item>
+          <Item to="/total" icon={faScaleBalanced}>TOTAL</Item>
         </nav>
 
         <nav className="nav-group">

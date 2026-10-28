@@ -1,5 +1,8 @@
 import type { CustomCellEditorProps } from "ag-grid-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
+
+/** The width of the list of a grid cell, as in `.search-editor` (theme/components.css). */
+const EDITOR_WIDTH = 220;
 
 /** One thing to choose: what is stored, and what the person reads. */
 export interface Choice {
@@ -122,7 +125,7 @@ export function SearchSelect({ id, value, choices, onChange, disabled, label, cl
  * The same search, as the editor of a cell of the budget grid (the free version of the grid has
  * only a plain list). `values` come from the column; an empty one means "nothing".
  */
-export function SearchSelectEditor({ value, values, onValueChange, stopEditing }: CustomCellEditorProps & { values: string[] }) {
+export function SearchSelectEditor({ value, values, onValueChange, stopEditing, eGridCell }: CustomCellEditorProps & { values: string[] }) {
   const choices = useMemo(() => values.map((v) => ({ value: v, label: v })), [values]);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -130,6 +133,16 @@ export function SearchSelectEditor({ value, values, onValueChange, stopEditing }
   const input = useRef<HTMLInputElement>(null);
   const shown = useMemo(() => matching(choices, query), [choices, query]);
   useEffect(() => input.current?.focus(), []);
+  // The list opens right under the cell. It is as tall as the screen allows below it (the box, the margins and
+  // a little air take about 80px), and if the cell is near the right edge it moves left by what would
+  // stick out: the grid cannot do either, because it places the list before the list has been drawn.
+  const [place] = useState(() => {
+    const cell = eGridCell.getBoundingClientRect();
+    return {
+      height: Math.max(120, Math.min(240, window.innerHeight - cell.bottom - 80)),
+      shift: Math.max(0, cell.left + EDITOR_WIDTH + 8 - window.innerWidth),
+    };
+  });
 
   const pick = (choice: Choice) => {
     onValueChange(choice.value);
@@ -139,7 +152,7 @@ export function SearchSelectEditor({ value, values, onValueChange, stopEditing }
   const onKey = useKeys(shown, active, setActive, pick);
 
   return (
-    <div className="search-editor">
+    <div className="search-editor" style={{ "--search-list-max": `${place.height}px`, "--search-editor-shift": `${place.shift}px` } as CSSProperties}>
       <input
         ref={input}
         className="input small"

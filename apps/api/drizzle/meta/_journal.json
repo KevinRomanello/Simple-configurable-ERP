@@ -85,6 +85,20 @@
       "when": 1793030077582,
       "tag": "0011_indexes_on_foreign_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793127901088,
+      "tag": "0012_gift_vat_rate_is_fixed",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793128665265,
+      "tag": "0013_goods_sponsors_are_suppliers",
+      "breakpoints": true
     }
   ]
 }

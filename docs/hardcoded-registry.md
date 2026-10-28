@@ -12,6 +12,7 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 | 4 | Orizzonte del report IVA per area | `vatReportHorizon` dentro `getSettings` (lookups) ↔ `GET /api/lookups/settings` | dal 3° trimestre 2026 al 4° 2027 (si allarga da solo intorno alle date) | sparirà con la stessa modifica (il report diventerà per mese di pagamento) |
 | 5 | Stagione corrente | `getCurrentSeason` (seasons) ↔ `GET /api/seasons/current` | 2026-2027 | elenco stagioni, selettore, creazione della nuova stagione ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)) |
 | 6 | Fuso orario della squadra, per sapere che giorno è «oggi» | `today` (core) ↔ un'impostazione della pagina Settings | `Europe/Rome` | un'impostazione di Settings, se una squadra non sta in Italia ([controllo-bug-e-prestazioni.md](controllo-bug-e-prestazioni.md), P2) |
+| 7 | Aliquota IVA che certi tipi di sponsor non scelgono: merce senza IVA **0%**, merce con controfattura **11%** | `getFixedSponsorRates` (lookups) ↔ `GET /api/lookups/sponsor-rates` | `gift` 0, `gift_vat` 11 | un valore della pagina Settings (oggi l'11% degli inflow è un'impostazione a parte, `inflowVatRate`) |
 
 ### Implementati (26 ottobre 2026)
 

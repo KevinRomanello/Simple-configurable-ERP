@@ -19,6 +19,10 @@ describe("lookups", () => {
     expect((await api.get("/api/lookups/vat-rates")).body).toEqual([0, 11, 22]);
   });
 
+  it("serves the VAT rates a kind of sponsor cannot choose", async () => {
+    expect((await api.get("/api/lookups/sponsor-rates")).body).toEqual({ gift: 0, gift_vat: 11 });
+  });
+
   it("serves the VAT deadline rules", async () => {
     const { body } = await api.get("/api/lookups/vat-rules");
     expect(body.shiftWeekendToMonday).toBe(true);

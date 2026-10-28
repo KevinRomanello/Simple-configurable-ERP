@@ -59,8 +59,10 @@
   /* The Figma button: black pill with yellow text on light, the reverse on dark */
   --button-bg: #0d0d0d;
   --button-fg: #f3ff17;
-  /* Text on a yellow (primary) background is dark in both modes */
+  /* Text on a yellow (primary) background is dark in both modes; a red or a green on it is a darker one */
   --on-primary: #1a1a1a;
+  --on-primary-negative: #b20000;
+  --on-primary-positive: #0b6b2e;
 
   /* Spacing (spaces/spacing/*) and radius (spaces/radius/*) */
   --space-3xs: 2px;
