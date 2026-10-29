@@ -40,6 +40,7 @@ const isLine = (row: Row | undefined): row is CalcLine => row !== undefined && !
 const keysForSearch = (p: { editing: boolean; event: KeyboardEvent | null }) =>
   p.editing && ["Enter", "ArrowUp", "ArrowDown"].includes(p.event?.key ?? "");
 
+const SUBTOTAL_VAT_TIP = "The VAT the team pays out of its own money: what a fund covers is not counted here";
 const INCOMPLETE_TIP = "CASH FROM or VAT % is missing: the VAT is not counted yet";
 const PHASE_LABEL: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
 
@@ -129,6 +130,8 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFu
     headerName,
     width,
     cellClass: "calc",
+    // the VAT of a subtotal is only what the team pays (the rows of the lines show the VAT of each line)
+    ...(id === "vat" ? { tooltipValueGetter: (p: { data?: Row }) => (p.data && !isLine(p.data) ? SUBTOTAL_VAT_TIP : undefined) } : {}),
     // like the old sheet: zero is blank, except for the VAT column
     valueGetter: (p) => {
       const amounts = amountsOf(p.data);

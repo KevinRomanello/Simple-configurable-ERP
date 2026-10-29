@@ -109,9 +109,10 @@ const DEFAULT_COL_DEF: ColDef<Row> = {
 };
 
 function subtotalRow(project: SheetProject): SubtotalRow {
+  // the VAT of a subtotal is the one the team pays: what a fund covers is not counted
   const phase = (which: Phase) => ({
-    amounts: { ...project.subtotal[which], complete: true },
-    teamVatCents: project.lines.reduce((sum, l) => sum + l[which].teamVatCents, 0),
+    amounts: { ...project.subtotal[which], vatCents: project.subtotal[which].teamVatCents, complete: true },
+    teamVatCents: project.subtotal[which].teamVatCents,
     figures: null,
   });
   return { isSubtotal: true, item: "Subtotal", estimate: phase("estimate"), actual: phase("actual") };
@@ -235,7 +236,7 @@ type Amounts = AreaSheet["total"]["estimate"];
 const TOTAL_COLUMNS: Column<{ label: string; amounts: Amounts }>[] = [
   { key: "label", header: "TOTAL", cellClass: () => "bold", cell: (r) => r.label },
   { key: "net", header: "NET COST", num: true, cell: (r) => money(r.amounts.netCents) },
-  { key: "vat", header: "VAT", num: true, cell: (r) => money(r.amounts.vatCents) },
+  { key: "vat", header: "VAT (TEAM)", num: true, cell: (r) => money(r.amounts.teamVatCents) },
   { key: "gross", header: "GRAND TOTAL", num: true, cell: (r) => money(r.amounts.grossCents) },
   { key: "outflow", header: "OUTFLOW", num: true, cellClass: () => "bold", cell: (r) => money(r.amounts.outflowCents) },
 ];
@@ -244,6 +245,7 @@ const TOTAL_COLUMNS: Column<{ label: string; amounts: Amounts }>[] = [
 function AreaTotal({ total }: { total: AreaSheet["total"] }) {
   return (
     <Panel>
+      <p className="muted">The VAT here is only what the team pays out of its own money (its fund, the counter-invoice of goods from a sponsor): the VAT that a fund covers is not counted.</p>
       <DataTable
         title="Area total"
         columns={TOTAL_COLUMNS}

@@ -38,6 +38,8 @@ Esempio: una voce da 1.000,00 € netti.
 
 L'IVA che il team paga di tasca sua è quindi solo quella delle righe pagate con il **fondo del team**, quella dei regali con controfattura (C) e l'11% sugli inflow (§5).
 
+**Nei totali.** La colonna VAT dei **subtotali** dei progetti (la riga gialla in fondo a ogni griglia) e dell'**Area total** conta **solo l'IVA a carico del team**: quella delle righe pagate con il fondo del team e la controfattura della merce di uno sponsor (tipo C). L'IVA che copre un fondo di uno sponsor (tipo A) non c'è: non è un costo del team. Una riga senza ancora un fondo non conta (nessuno la paga ancora). Nell'Area total la colonna si chiama «VAT (TEAM)» e una riga di spiegazione lo dice; sul subtotale lo dice il suggerimento. Sulle **righe** la colonna VAT mostra come prima l'IVA di ogni riga, chiunque la paghi, e **GRAND TOTAL e OUTFLOW** restano il costo con tutta l'IVA (il fondo la consuma): quindi in un totale NET COST + VAT non fa più GRAND TOTAL quando un fondo copre dell'IVA. Nel motore: `teamVatCents` in `PhaseTotals` (`packages/calc/src/budget.ts`), con il suo test.
+
 **Come lo dice la griglia.** Passando il mouse sulla cella **CASH FROM** di una riga pagata con uno sponsor di tipo C compare: «*Nome sponsor*: the counter-invoice (VAT 110,00 €) is paid with the team's money». La controfattura si paga con i soldi del team: nei calcoli era già così (è l'outflow della riga e l'IVA del team nel Gantt e in CASH FLOW); per ora la griglia lo dice solo con questo suggerimento (`fundTip` in `areaColumns.tsx`), senza altri indicatori.
 
 Il tipo C chiude la domanda **Q1** («sponsor totale: IVA sull'intero netto?»): sì, è voluto, e il motore già lo faceva (`vatBaseWhenTotalSponsor = "net"`).

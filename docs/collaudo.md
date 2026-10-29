@@ -6,7 +6,7 @@ Questo documento dice **come si controlla che l'app non abbia difetti** (i livel
 
 | Livello | Dove | Cosa prova | Quanti |
 | --- | --- | --- | --- |
-| Motore di calcolo | `packages/calc/src/*.test.ts` | ogni regola del foglio; **esattezza**: fino a 60.000 righe casuali e 100.000 arrotondamenti confrontati con un calcolo esatto in `BigInt`; **calendario**: ogni giorno dal 2000 al 2100 (giorno della settimana, trimestre, scadenza IVA, lettura di ogni notazione di data) contro l'oggetto `Date` | 170 |
+| Motore di calcolo | `packages/calc/src/*.test.ts` | ogni regola del foglio; **esattezza**: fino a 60.000 righe casuali e 100.000 arrotondamenti confrontati con un calcolo esatto in `BigInt`; **calendario**: ogni giorno dal 2000 al 2100 (giorno della settimana, trimestre, scadenza IVA, lettura di ogni notazione di data) contro l'oggetto `Date` | 171 |
 | API con database vero | `apps/api/src/**/*.test.ts` | percorsi, regole, **ruoli**, accesso, storico, limiti dell'input, **richieste in parallelo**, attacchi (iniezione SQL, token falsi, CSRF), intestazioni, limite di richieste, permessi del database, **accesso dietro il proxy** (header `X-Email`), aliquote fisse e fornitore degli sponsor di merce. Tutta la suite gira con l'utente limitato dell'API | 281 |
 | Sito | `apps/web/src/**/*.test.ts` | formattazione, permessi, parole degli errori di accesso, messaggi di errore, **download** (valori veri da testo, unioni di celle, nomi dei fogli e dei file), **nuova riga del budget** (cosa si manda per EXPECTED, ACTUAL o tutte e due), **ordinamento** (vuoti in fondo, numeri nel testo, tre stati del clic, comparazione della griglia) | 65 |
 | Importer | `tools/import-xlsx/src/*.test.ts` | dal foglio allo snapshot | 3 |

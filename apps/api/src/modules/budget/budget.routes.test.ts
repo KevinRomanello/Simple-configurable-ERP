@@ -217,6 +217,8 @@ describe("the funds that pay a line", () => {
     const team = (await api.get("/api/funds")).body[0].id;
     expect((await paid([sponsor], 1000)).estimate.amounts.vatCents).toBe(11_000); // the 22% typed is ignored
     expect((await paid([team], 1000, "Q")).estimate.amounts.vatCents).toBe(22_000);
+    // in the totals the VAT is counted twice, as it is on the lines, but the team's own is only the one of its fund
+    expect((await sheet()).total.estimate).toMatchObject({ vatCents: 33_000, teamVatCents: 22_000 });
   });
 
   it("a gift covers the whole line; a gift with counter-invoice leaves the VAT to the team", async () => {
@@ -226,6 +228,7 @@ describe("the funds that pay a line", () => {
     const withVat = (await paid([barter], 1000, "Q")).estimate;
     expect(withVat.amounts).toMatchObject({ sponsorCents: 100_000, vatCents: 11_000, outflowCents: 11_000 });
     expect(withVat.teamVatCents).toBe(11_000);
+    expect((await sheet()).total.estimate).toMatchObject({ vatCents: 11_000, teamVatCents: 11_000 }); // the gift has no VAT; the counter-invoice is the team's
   });
 
   describe("goods from a sponsor are bought from it", () => {

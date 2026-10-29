@@ -2,9 +2,22 @@ import { sumAmounts, type Amounts } from "./line";
 import { computeLines, type CalcLine } from "./lines";
 import type { Snapshot } from "./snapshot";
 
+/**
+ * The sums of a phase: the five amounts and, apart, the VAT that the team pays out of its own money
+ * (the lines paid with the team's fund and the counter-invoice of goods from a sponsor). The VAT
+ * of the other lines is covered by a fund: it is in `vatCents`, but it is not the team's cost.
+ */
+export interface PhaseSum extends Amounts {
+  teamVatCents: number;
+}
+
 export interface PhaseTotals {
-  estimate: Amounts;
-  actual: Amounts;
+  estimate: PhaseSum;
+  actual: PhaseSum;
+}
+
+function sumPhase(list: PhaseSum[]): PhaseSum {
+  return { ...sumAmounts(list), teamVatCents: list.reduce((sum, a) => sum + a.teamVatCents, 0) };
 }
 
 export interface SheetProject {
@@ -24,10 +37,9 @@ export interface AreaSheet {
 }
 
 export function totalsOf(lines: CalcLine[]): PhaseTotals {
-  return {
-    estimate: sumAmounts(lines.map((l) => l.estimate.amounts)),
-    actual: sumAmounts(lines.map((l) => l.actual.amounts)),
-  };
+  const sums = (phase: "estimate" | "actual") =>
+    sumPhase(lines.map((l) => ({ ...l[phase].amounts, teamVatCents: l[phase].teamVatCents })));
+  return { estimate: sums("estimate"), actual: sums("actual") };
 }
 
 /** One area as the old area sheets showed it: projects, their lines, subtotals and the total. */
@@ -51,8 +63,8 @@ export function areaSheet(snapshot: Snapshot, areaCode: string): AreaSheet {
     });
 
   const total: PhaseTotals = {
-    estimate: sumAmounts(projects.map((p) => p.subtotal.estimate)),
-    actual: sumAmounts(projects.map((p) => p.subtotal.actual)),
+    estimate: sumPhase(projects.map((p) => p.subtotal.estimate)),
+    actual: sumPhase(projects.map((p) => p.subtotal.actual)),
   };
 
   return { area: { id: area.id, code: area.code, name: area.name }, projects, total };

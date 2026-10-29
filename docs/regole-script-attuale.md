@@ -213,6 +213,7 @@ L'app usa date vere (selettore di data, selettore di mese). Il parser flessibile
 | 4 righe vuote per ogni nuovo progetto | si aggiungono le righe che servono |
 | Valore sponsor "totale" copiato una volta (§3) | sempre derivato |
 | Eliminazione di fondi e fornitori in uso | bloccata |
+| La colonna VAT dei subtotali dei progetti e del totale dell'area è la somma dell'IVA di **tutte** le righe | **solo l'IVA a carico del team** (richiesta del 29/10/2026): quella delle righe pagate con il fondo del team e la controfattura della merce di uno sponsor; l'IVA che copre un fondo non si conta. Il totale di tutta l'IVA resta nei dati (`vatCents`; la riconciliazione col foglio lo confronta ancora), e la nuova somma è `teamVatCents`. GRAND TOTAL e OUTFLOW non cambiano |
 | Esecuzione lenta/timeout dei trigger | non esiste |
 
 ## 17. Casi di prova per i test
