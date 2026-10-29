@@ -1,6 +1,7 @@
 import type { ItemDraft } from "../api/types";
 import { FIELD_HINTS, FIELD_LABELS, visibleFields, type InventoryLookups } from "../lib/inventory";
 import { SearchSelect } from "./SearchSelect";
+import { HazardChecks } from "./HazardPills";
 import { Field } from "./ui";
 
 /**
@@ -41,6 +42,7 @@ export function ItemEditor({
           {lookups.units.map((u) => <option key={u} value={u}>{u}</option>)}
         </select>
       </Field>
+      <HazardChecks value={draft} onChange={(key, checked) => onChange({ [key]: checked })} />
       {shown.map((field) => (
         <div className="field wide" key={field}>
           <label htmlFor={`${idPrefix}-${field}`}>{FIELD_LABELS[field]}</label>

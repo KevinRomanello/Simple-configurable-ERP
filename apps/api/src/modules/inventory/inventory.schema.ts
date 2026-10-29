@@ -20,6 +20,10 @@ const itemFields = {
   disposal: optionalText(),
   storageNotes: optionalText(),
   maintenanceNotes: optionalText(),
+  /** What the item is: ticked on the form, and what the lists are filtered by. */
+  flammable: z.boolean(),
+  toxic: z.boolean(),
+  carcinogenic: z.boolean(),
 };
 
 export const createItemInput = z.object({
@@ -32,6 +36,9 @@ export const createItemInput = z.object({
   disposal: itemFields.disposal.default(null),
   storageNotes: itemFields.storageNotes.default(null),
   maintenanceNotes: itemFields.maintenanceNotes.default(null),
+  flammable: itemFields.flammable.default(false),
+  toxic: itemFields.toxic.default(false),
+  carcinogenic: itemFields.carcinogenic.default(false),
   /** "made" items have a bill of materials; the origin cannot be changed afterwards. */
   origin: z.enum(["bought", "made"]).default("bought"),
 });
@@ -61,7 +68,15 @@ export const itemsQuery = priceQuery.extend({
   category: lookupCode.optional(),
   origin: z.enum(["bought", "made"]).optional(),
   location: lookupCode.optional(),
+  /** Each one that is given narrows the list to the items that are so ("true"; two of them: both). */
+  flammable: z.stringbool().optional(),
+  toxic: z.stringbool().optional(),
+  carcinogenic: z.stringbool().optional(),
 });
+
+/** A data sheet is a PDF; the browser sends the file itself. */
+export const DATASHEET_LIMITS = { bytes: 10_000_000 } as const;
+export const datasheetQuery = z.object({ name: shortText(200) });
 
 /**
  * Goods that arrived. Either they complete a purchase of the budget (`lineId`: the prices come
@@ -108,6 +123,23 @@ export const movementInput = z
   .refine((v) => (v.kind === "adjustment") === (v.counted !== undefined), "A count needs `counted`, and only a count")
   .refine((v) => (v.kind === "adjustment") === (v.quantity === undefined), "Give `quantity` for everything but a count")
   .refine((v) => (v.kind === "transfer") === (v.toLocation !== undefined), "A transfer needs a destination, and only a transfer");
+
+/**
+ * A build: `quantity` pieces of the made item `componentId`, taking the parts from one place and putting
+ * the pieces in another. Their cost is frozen with the prices of the day, read the way `method` says.
+ */
+export const buildInput = z.object({
+  componentId: id,
+  /** The project the pieces are made for: the parts taken from the shelf are used for it. */
+  projectId: id,
+  quantity,
+  builtOn: isoDate,
+  fromLocation: lookupCode,
+  toLocation: lookupCode,
+  toSpot: spot,
+  method: z.enum(PRICE_METHODS).default("average"),
+  note: longText.optional(),
+});
 
 export const partInput = z.object({ partId: id, quantity, note: optionalText(500).default(null) });
 export const updatePartInput = z.object({ quantity: quantity.optional(), note: optionalText(500).optional() });

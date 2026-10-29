@@ -5,6 +5,8 @@ import { Link, useParams } from "react-router";
 import { api } from "../api/client";
 import type { BomLine, ItemRow } from "../api/types";
 import { IconButton } from "../components/Button";
+import { BuildForm } from "../components/BuildForm";
+import { HazardPills } from "../components/HazardPills";
 import { ItemThumb } from "../components/ItemThumb";
 import { LineChart } from "../components/LineChart";
 import { PriceSelector } from "../components/PriceSelector";
@@ -12,6 +14,7 @@ import { SearchSelect } from "../components/SearchSelect";
 import { AddSection, Card, Cards, DataTable, DetailHeader, Field, FormPanel, Loading, Message, Panel, type Column } from "../components/ui";
 import { useMe } from "../lib/auth";
 import { money, moneyE4, monthOfDate, quantity } from "../lib/format";
+import { useInventoryLookups } from "../lib/inventory";
 import { usePrice } from "../lib/price";
 import { useAction } from "../lib/useAction";
 
@@ -54,13 +57,15 @@ export function ComponentPage() {
   const [price, setPrice] = usePrice();
   const detail = useQuery({ queryKey: ["inventory-component", componentId, price], queryFn: () => api.component(componentId, price) });
   const items = useQuery({ queryKey: ["inventory-items", price, {}], queryFn: () => api.inventoryItems(price) });
+  const lookups = useInventoryLookups();
 
   if (detail.isError) return <Message>This is not something the team makes, or it does not exist.</Message>;
   if (!detail.data) return <Loading />;
   const { item, bom, series, notes } = detail.data;
   const taken = new Set(bom.lines.map((l) => l.partId));
   const candidates = (items.data ?? []).filter((i) => i.id !== componentId && !taken.has(i.id));
-  const hasPicture = (items.data ?? []).find((i) => i.id === componentId)?.hasImage ?? false;
+  const row = (items.data ?? []).find((i) => i.id === componentId);
+  const hasPicture = row?.hasImage ?? false;
 
   const columns: Column<BomLine>[] = [
     {
@@ -112,19 +117,39 @@ export function ComponentPage() {
       <DetailHeader
         picture={<ItemThumb id={item.id} hasImage={hasPicture} size="full" name={item.name} />}
         title={item.name}
-        subtitle={<>{item.purpose ?? "Made by the team"} · <Link to={`/inventory/items/${item.id}`} className="item-link">open the item</Link></>}
+        subtitle={<>{item.purpose ?? "Made by the team"} · <Link to={`/inventory/items/${item.id}`} className="item-link">open the item</Link><HazardPills item={item} /></>}
       />
 
       <PriceSelector value={price} onChange={setPrice} date />
       <Cards>
-        <Card caption="Cost of one" hint={!bom.complete && <span className="hint error">Some parts have never been bought: the cost is missing them</span>}>
+        {row && <Card caption="On the shelf">{quantity(row.onHandMilli)} {item.unit}</Card>}
+        <Card caption="Cost to make one now" hint={!bom.complete && <span className="hint error">Some parts have never been bought: the cost is missing them</span>}>
           {bom.unitE4 === null ? "—" : moneyE4(bom.unitE4)}
         </Card>
         <Card caption="Parts">{bom.lines.length}</Card>
         <Card caption="Sum of the lines">{bom.totalCents === null ? "—" : money(bom.totalCents)}</Card>
       </Cards>
 
-      <LineChart title="Cost of one, at the end of each month" data={series.map((p) => ({ label: monthOfDate(p.on), e4: p.unitE4 }))} />
+      <LineChart
+        title="Cost of one, at the end of each month"
+        // the box over each month lists the parts with their price then, and what changed since the month before
+        data={series.map((p, i) => ({
+          label: monthOfDate(p.on),
+          e4: p.unitE4,
+          parts: p.parts.map((part) => ({
+            name: part.name,
+            quantityMilli: part.quantityMilli,
+            e4: part.unitE4,
+            before: series[i - 1]?.parts.find((x) => x.partId === part.partId)?.unitE4 ?? null,
+          })),
+        }))}
+      />
+
+      {canEdit && lookups && bom.lines.length > 0 && (
+        <Panel>
+          <AddSection label="We made some" form={(close) => <BuildForm componentId={componentId} unit={item.unit} lookups={lookups} onDone={close} />} />
+        </Panel>
+      )}
 
       <Panel title="Made of">
         <DataTable

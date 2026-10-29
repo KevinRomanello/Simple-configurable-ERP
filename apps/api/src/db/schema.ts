@@ -1,6 +1,7 @@
 import { FUND_TYPES, MOVEMENT_KINDS, PHASES, SPONSOR_TYPES } from "@erp/calc";
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   check,
@@ -393,6 +394,10 @@ export const inventoryItem = pgTable(
     disposal: text(),
     storageNotes: text(),
     maintenanceNotes: text(),
+    /** What the item is: always asked (unlike the optional texts above), because the team filters on it. */
+    flammable: boolean().notNull().default(false),
+    toxic: boolean().notNull().default(false),
+    carcinogenic: boolean().notNull().default(false),
     /** Changes whenever the picture does: it is what the history shows and what the browser cache keys on. */
     imageUpdatedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -415,10 +420,37 @@ export const itemImage = pgTable("item_image", {
   thumb: bytea().notNull(),
 });
 
+/** The data sheets (PDF) of an item: what they are, in the history. The file itself is in `item_datasheet_file`. */
+export const itemDatasheet = pgTable(
+  "item_datasheet",
+  {
+    id: id(),
+    itemId: integer()
+      .notNull()
+      .references(() => inventoryItem.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    sizeBytes: integer().notNull(),
+    uploadedBy: integer().references(() => appUser.id, { onDelete: "set null" }),
+    uploadedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("item_datasheet_item").on(t.itemId)],
+);
+
+/**
+ * The bytes of a data sheet, apart from its description: listing the sheets of an item never reads them,
+ * and they are read only when somebody opens one. Not in the history (it is binary).
+ */
+export const itemDatasheetFile = pgTable("item_datasheet_file", {
+  datasheetId: integer()
+    .primaryKey()
+    .references(() => itemDatasheet.id, { onDelete: "cascade" }),
+  data: bytea().notNull(),
+});
+
 /**
  * Everything that changes what is on the shelf. A receipt brings goods in (from a budget line, or
- * with no budget at all) and freezes their price; the other kinds take them out, move them or
- * correct the count.
+ * with no budget at all) and freezes their price; a build brings in what the team made, with the
+ * cost of its parts frozen; the other kinds take them out, move them or correct the count.
  */
 export const stockMovement = pgTable(
   "stock_movement",
@@ -437,13 +469,15 @@ export const stockMovement = pgTable(
     /** Transfers only. */
     toLocation: text(),
     toSpot: text(),
-    /** Receipts only, per unit: before VAT, with VAT, and what the team pays. */
+    /** Receipts and builds only, per unit: before VAT, with VAT, and what the team pays. */
     unitNet: numeric({ precision: 14, scale: 4 }),
     unitGross: numeric({ precision: 14, scale: 4 }),
     unitTeam: numeric({ precision: 14, scale: 4 }),
     projectId: integer().references(() => project.id, { onDelete: "set null" }),
     /** The purchase this receipt completes. */
     budgetLineId: integer().references(() => budgetLine.id, { onDelete: "set null" }),
+    /** A use only: the build (a `build` movement) that took these parts. Undoing the build removes them too. */
+    builtBy: integer().references((): AnyPgColumn => stockMovement.id, { onDelete: "cascade" }),
     note: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
@@ -452,12 +486,15 @@ export const stockMovement = pgTable(
       "stock_movement_quantity",
       sql`(${t.kind} = 'adjustment' and ${t.quantity} <> 0) or (${t.kind} <> 'adjustment' and ${t.quantity} > 0)`,
     ),
+    // compared as text: a new value of the enum cannot be used in the migration that adds it
     check(
       "stock_movement_prices",
-      sql`(${t.kind} = 'receipt' and ${t.unitNet} is not null and ${t.unitGross} is not null and ${t.unitTeam} is not null)
-        or (${t.kind} <> 'receipt' and ${t.unitNet} is null and ${t.unitGross} is null and ${t.unitTeam} is null)`,
+      sql`(${t.kind}::text in ('receipt', 'build') and ${t.unitNet} is not null and ${t.unitGross} is not null and ${t.unitTeam} is not null)
+        or (${t.kind}::text not in ('receipt', 'build') and ${t.unitNet} is null and ${t.unitGross} is null and ${t.unitTeam} is null)`,
     ),
     check("stock_movement_transfer", sql`(${t.kind} = 'transfer') = (${t.toLocation} is not null)`),
+    check("stock_movement_built_by", sql`${t.builtBy} is null or ${t.kind} = 'use'`),
+    index("stock_movement_built_by").on(t.builtBy),
     index("stock_movement_item").on(t.itemId),
     index("stock_movement_line").on(t.budgetLineId),
     index("stock_movement_project").on(t.projectId),

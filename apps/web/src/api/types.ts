@@ -157,6 +157,9 @@ export interface ItemDraft {
   disposal: string;
   storageNotes: string;
   maintenanceNotes: string;
+  flammable: boolean;
+  toxic: boolean;
+  carcinogenic: boolean;
 }
 
 export interface InventoryItem {
@@ -171,6 +174,9 @@ export interface InventoryItem {
   disposal: string | null;
   storageNotes: string | null;
   maintenanceNotes: string | null;
+  flammable: boolean;
+  toxic: boolean;
+  carcinogenic: boolean;
   imageUpdatedAt: string | null;
 }
 
@@ -188,6 +194,9 @@ export interface ItemRow {
   complete: boolean;
   valueCents: number | null;
   places: string[];
+  flammable: boolean;
+  toxic: boolean;
+  carcinogenic: boolean;
 }
 
 export interface StockPlace {
@@ -200,7 +209,7 @@ export interface StockPlace {
 
 export interface MovementRow {
   id: number;
-  kind: "receipt" | "use" | "transfer" | "adjustment" | "disposal";
+  kind: "receipt" | "use" | "transfer" | "adjustment" | "disposal" | "build";
   on: string;
   quantity: string;
   location: string;
@@ -212,11 +221,23 @@ export interface MovementRow {
   unitTeam: string | null;
   projectName: string | null;
   budgetLineId: number | null;
+  /** The build that took these parts: they are undone together with it. */
+  builtBy: number | null;
   note: string | null;
+}
+
+/** A data sheet as the page lists it: the file itself is fetched only when somebody opens it. */
+export interface DatasheetRow {
+  id: number;
+  name: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  uploadedBy: string | null;
 }
 
 export interface ItemDetail {
   item: InventoryItem;
+  datasheets: DatasheetRow[];
   hasImage: boolean;
   stock: StockPlace[];
   onHandMilli: number;

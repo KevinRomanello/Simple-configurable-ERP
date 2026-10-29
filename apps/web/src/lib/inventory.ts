@@ -19,8 +19,16 @@ export function visibleFields(category: string | null | undefined, fields: Categ
   return (category ? fields.byCategory[category] : undefined) ?? fields.fallback;
 }
 
+/** What an item can be: ticked on its form (whatever its category) and used to filter the list. */
+export const HAZARDS = [
+  { key: "flammable", label: "Flammable" },
+  { key: "toxic", label: "Toxic" },
+  { key: "carcinogenic", label: "Carcinogenic" },
+] as const;
+
 export const emptyDraft = (): ItemDraft => ({
   name: "", code: "", category: "", unit: "pcs", purpose: "", safetyCodes: "", disposal: "", storageNotes: "", maintenanceNotes: "",
+  flammable: false, toxic: false, carcinogenic: false,
 });
 
 export const draftOf = (item: InventoryItem): ItemDraft => ({
@@ -33,6 +41,9 @@ export const draftOf = (item: InventoryItem): ItemDraft => ({
   disposal: item.disposal ?? "",
   storageNotes: item.storageNotes ?? "",
   maintenanceNotes: item.maintenanceNotes ?? "",
+  flammable: item.flammable,
+  toxic: item.toxic,
+  carcinogenic: item.carcinogenic,
 });
 
 /**
@@ -46,6 +57,9 @@ export function draftBody(draft: ItemDraft, fields: CategoryFields): ItemBody {
     code: draft.code.trim() === "" ? null : draft.code.trim(),
     category: draft.category === "" ? null : draft.category,
     unit: draft.unit,
+    flammable: draft.flammable,
+    toxic: draft.toxic,
+    carcinogenic: draft.carcinogenic,
   };
   for (const field of visibleFields(draft.category, fields)) {
     body[field] = draft[field].trim() === "" ? null : draft[field].trim();

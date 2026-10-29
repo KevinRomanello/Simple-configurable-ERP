@@ -11,7 +11,9 @@ import { linePricesE4, type UnitPricesE4 } from "./arrival";
 // euro (E4), money in cents. Sums of quantity x price go through BigInt: they can go beyond
 // what a JavaScript number holds exactly.
 
-export const MOVEMENT_KINDS = ["receipt", "use", "transfer", "adjustment", "disposal"] as const;
+// "build" is a made item coming off the line: it adds pieces to the shelf and freezes their cost, while
+// the parts it took leave the shelf as ordinary "use" movements.
+export const MOVEMENT_KINDS = ["receipt", "use", "transfer", "adjustment", "disposal", "build"] as const;
 export type MovementKind = (typeof MOVEMENT_KINDS)[number];
 
 /** Which price of a receipt is meant: before VAT, with VAT, or what the team actually pays. */
@@ -113,6 +115,7 @@ export function stockRows(movements: MovementInput[]): StockRow[] {
   for (const m of movements) {
     switch (m.kind) {
       case "receipt":
+      case "build":
       case "adjustment":
         add(m.itemId, m.location, m.spot, m.quantityMilli);
         break;
@@ -154,10 +157,13 @@ function priceOf(m: MovementInput, basis: PriceBasis): number {
   return price ?? 0;
 }
 
-/** The receipts of an item with the chosen price, oldest first. */
+/**
+ * The arrivals of an item with the chosen price, oldest first: what was bought and what the team
+ * built, both with the price frozen on the day (the name says "receipts" for what comes from outside).
+ */
 export function receiptsOf(movements: MovementInput[], itemId: number, basis: PriceBasis): Receipt[] {
   return movements
-    .filter((m) => m.itemId === itemId && m.kind === "receipt")
+    .filter((m) => m.itemId === itemId && (m.kind === "receipt" || m.kind === "build"))
     .map((m) => ({ id: m.id, on: m.on, quantityMilli: m.quantityMilli, unitE4: priceOf(m, basis) }))
     .sort((a, b) => a.on.localeCompare(b.on) || a.id - b.id);
 }
@@ -245,6 +251,49 @@ export function unitCost(itemId: number, ctx: CostContext, method: PriceMethod, 
   return known ? { unitE4: Number(roundDivBig(sum, 1000n)), complete } : { unitE4: null, complete: false };
 }
 
+/**
+ * What one unit on the shelf is worth on day `on`: what it was paid, or built for, by the arrivals
+ * up to that day (the latest, or the average weighted by quantity). A made item that has never been
+ * built or received is worth what it would cost to make now, so that it is not shown as worthless.
+ * A piece already built keeps its cost when the price of a part goes up: only the next ones use it.
+ */
+export function shelfPrice(itemId: number, ctx: CostContext, method: PriceMethod, on: string): UnitCost {
+  const price = unitPriceE4(ctx.receipts.get(itemId) ?? [], method, on);
+  return price !== null ? { unitE4: price, complete: true } : unitCost(itemId, ctx, method, on);
+}
+
+/** How many of each part a build of `quantityMilli` units takes: quantity in one x pieces, to the thousandth. */
+export function buildNeeds(parts: PartInput[], quantityMilli: number): { partId: number; quantityMilli: number }[] {
+  return parts
+    .map((part) => ({ partId: part.partId, quantityMilli: Number(roundDivBig(BigInt(part.quantityMilli) * BigInt(quantityMilli), 1000n)) }))
+    .filter((need) => need.quantityMilli > 0);
+}
+
+/**
+ * What one unit of a made item costs when it is built on day `on`, in the three prices a build
+ * freezes: the parts as they are worth on the shelf that day (`shelfPrice`). `unpriced` lists the
+ * parts that have no price at all, so that the build can be refused rather than frozen too low.
+ */
+export function builtPricesE4(
+  componentId: number,
+  contexts: Record<PriceBasis, CostContext>,
+  method: PriceMethod,
+  on: string,
+): { prices: UnitPricesE4; unpriced: number[] } {
+  const unpriced = new Set<number>();
+  const priceOf = (basis: PriceBasis) => {
+    let sum = 0n;
+    for (const part of contexts[basis].parts.get(componentId) ?? []) {
+      const price = shelfPrice(part.partId, contexts[basis], method, on);
+      if (price.unitE4 === null) unpriced.add(part.partId);
+      else sum += BigInt(part.quantityMilli) * BigInt(price.unitE4);
+    }
+    return Number(roundDivBig(sum, 1000n));
+  };
+  const prices = { net: priceOf("net"), gross: priceOf("gross"), team: priceOf("team") };
+  return { prices, unpriced: [...unpriced] };
+}
+
 export interface BomLine {
   partId: number;
   name: string;
@@ -292,15 +341,35 @@ export function bom(componentId: number, ctx: CostContext, method: PriceMethod, 
   };
 }
 
+/** What one part of a made item cost on a day: the quantity that goes into one piece and its unit price. */
+export interface PartPrice {
+  partId: number;
+  name: string;
+  quantityMilli: number;
+  unitE4: number | null;
+}
+
 export interface CostPoint {
   on: string;
   unitE4: number | null;
   complete: boolean;
+  /** The prices of the parts that day, so that a rise of the cost can be traced to the part that got dearer. */
+  parts: PartPrice[];
 }
 
-/** What a component would have cost on each of the given days: the cost over time. */
+/** What a component would have cost on each of the given days: the cost over time, with the price of each part. */
 export function costSeries(componentId: number, ctx: CostContext, method: PriceMethod, days: string[]): CostPoint[] {
-  return days.map((on) => ({ on, ...unitCost(componentId, ctx, method, on) }));
+  const parts = ctx.parts.get(componentId) ?? [];
+  return days.map((on) => ({
+    on,
+    ...unitCost(componentId, ctx, method, on),
+    parts: parts.map((part) => ({
+      partId: part.partId,
+      name: ctx.items.get(part.partId)?.name ?? `#${part.partId}`,
+      quantityMilli: part.quantityMilli,
+      unitE4: unitCost(part.partId, ctx, method, on, new Set([componentId])).unitE4,
+    })),
+  }));
 }
 
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -396,7 +465,7 @@ export interface StatsRow {
   boughtCents: number;
   /** bought in the budget and not arrived yet, at the budget's price */
   pendingCents: number;
-  /** taken from the shelf for a project, at the average price paid until then */
+  /** taken from the shelf for a project, at the average price paid until then (pieces made by the team are not counted: their parts already were) */
   usedCents: number;
   /** what is on the shelf now, at the average price paid */
   stockCents: number;
@@ -452,7 +521,9 @@ export function stats(
       r.boughtCents += valueCents(m.quantityMilli, priceOf(m, basis));
       r.involved.add(item.id);
     }
-    if (m.kind === "use" && dimension !== "location") {
+    // A piece made by the team is not counted when it is used: the parts it is made of were already counted
+    // as used when they were taken for the build (for the project the build was for).
+    if (m.kind === "use" && dimension !== "location" && item.origin !== "made") {
       const target = projectBased ? projectKey(m.projectId) : categoryKey(item.category);
       const r = row(target);
       r.usedCents += valueCents(m.quantityMilli, unitPriceE4(receipts.get(item.id) ?? [], "average", m.on) ?? 0);

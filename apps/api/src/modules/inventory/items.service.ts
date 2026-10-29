@@ -1,5 +1,5 @@
 import {
-  bom, byItem, costContext, onHandMilli, priceHistory, receivedMilli, stockRows, unitCost,
+  bom, byItem, costContext, onHandMilli, priceHistory, receivedMilli, shelfPrice, stockRows,
   type Bom, type PricePoint, type StockRow,
 } from "@erp/calc";
 import { and, desc, eq, sql } from "drizzle-orm";
@@ -7,7 +7,7 @@ import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { today } from "../../core/today";
 import { db } from "../../db/client";
-import { componentPart, inventoryItem, itemImage, project, stockMovement } from "../../db/schema";
+import { appUser, componentPart, inventoryItem, itemDatasheet, itemImage, project, stockMovement } from "../../db/schema";
 import { canManageInventory, getCurrentUser } from "../auth/auth.service";
 import { listCategories, listLocations, listUnits } from "../lookups/lookups.service";
 import { IMAGE_LIMITS, type CreateItemInput, type PriceQuery, type UpdateItemInput } from "./inventory.schema";
@@ -102,10 +102,15 @@ export interface ItemRow {
   /** What is on the shelf, at that price. */
   valueCents: number | null;
   places: string[];
+  flammable: boolean;
+  toxic: boolean;
+  carcinogenic: boolean;
 }
 
 /** The items with their stock and price. Filters are applied here: there are few items. */
-export async function listItems(query: PriceQuery & { search?: string; category?: string; origin?: string; location?: string }): Promise<ItemRow[]> {
+export async function listItems(
+  query: PriceQuery & { search?: string; category?: string; origin?: string; location?: string; flammable?: boolean; toxic?: boolean; carcinogenic?: boolean },
+): Promise<ItemRow[]> {
   const data = await loadInventory();
   const on = query.on ?? today();
   const ctx = costContext(data, query.basis);
@@ -118,10 +123,13 @@ export async function listItems(query: PriceQuery & { search?: string; category?
   return rows
     .filter((r) => (query.category ? r.category === query.category : true))
     .filter((r) => (query.origin ? r.origin === query.origin : true))
+    .filter((r) => (query.flammable ? r.flammable : true))
+    .filter((r) => (query.toxic ? r.toxic : true))
+    .filter((r) => (query.carcinogenic ? r.carcinogenic : true))
     .filter((r) => (needle ? [r.name, r.code, r.purpose, r.category].some((v) => v?.toLowerCase().includes(needle)) : true))
     .filter((r) => (query.location ? (stock.get(r.id) ?? []).some((s) => s.location === query.location) : true))
     .map((r): ItemRow => {
-      const cost = unitCost(r.id, ctx, query.method, on);
+      const cost = shelfPrice(r.id, ctx, query.method, on);
       const shelf = stock.get(r.id) ?? [];
       const onHand = onHandMilli(shelf, r.id);
       return {
@@ -138,6 +146,9 @@ export async function listItems(query: PriceQuery & { search?: string; category?
         complete: cost.complete,
         valueCents: cost.unitE4 === null ? null : Math.round((onHand * cost.unitE4) / 100_000),
         places: [...new Set(shelf.map((s) => labels.get(s.location) ?? s.location))],
+        flammable: r.flammable,
+        toxic: r.toxic,
+        carcinogenic: r.carcinogenic,
       };
     })
     .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
@@ -157,11 +168,23 @@ export interface MovementRow {
   unitTeam: string | null;
   projectName: string | null;
   budgetLineId: number | null;
+  /** The build that took these parts, when it did. */
+  builtBy: number | null;
   note: string | null;
+}
+
+/** A data sheet as the page lists it: what it is, never its bytes (they are fetched when it is opened). */
+export interface DatasheetRow {
+  id: number;
+  name: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  uploadedBy: string | null;
 }
 
 export interface ItemDetail {
   item: typeof inventoryItem.$inferSelect;
+  datasheets: DatasheetRow[];
   hasImage: boolean;
   stock: (StockRow & { label: string })[];
   onHandMilli: number;
@@ -184,7 +207,13 @@ export async function getItem(itemId: number, query: PriceQuery): Promise<ItemDe
   const ctx = costContext(data, query.basis);
   const labels = new Map((await listLocations()).map((l) => [l.code, l.label]));
   const stock = stockRows(data.movements.filter((m) => m.itemId === itemId));
-  const cost = unitCost(itemId, ctx, query.method, on);
+  const cost = shelfPrice(itemId, ctx, query.method, on);
+  const sheets = await db
+    .select({ id: itemDatasheet.id, name: itemDatasheet.name, sizeBytes: itemDatasheet.sizeBytes, uploadedAt: itemDatasheet.uploadedAt, uploadedBy: appUser.name })
+    .from(itemDatasheet)
+    .leftJoin(appUser, eq(appUser.id, itemDatasheet.uploadedBy))
+    .where(eq(itemDatasheet.itemId, itemId))
+    .orderBy(itemDatasheet.id);
   const [image] = await db.select({ id: itemImage.itemId }).from(itemImage).where(eq(itemImage.itemId, itemId));
   const rows = await db
     .select({ movement: stockMovement, projectName: project.name })
@@ -198,6 +227,7 @@ export async function getItem(itemId: number, query: PriceQuery): Promise<ItemDe
 
   return {
     item,
+    datasheets: sheets.map((s) => ({ ...s, uploadedAt: s.uploadedAt.toISOString() })),
     hasImage: image !== undefined,
     stock: stock.map((s) => ({ ...s, label: labels.get(s.location) ?? s.location })),
     onHandMilli: onHandMilli(stock, itemId),
@@ -219,6 +249,7 @@ export async function getItem(itemId: number, query: PriceQuery): Promise<ItemDe
       unitTeam: m.unitTeam,
       projectName,
       budgetLineId: m.budgetLineId,
+      builtBy: m.builtBy,
       note: m.note,
     })),
     bom: made ? bom(itemId, ctx, query.method, on) : null,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { date, dateTime, money, moneyE4, quantity, moneyFromDecimal, moneyShort, month, monthOfDate, ratio } from "./format";
+import { date, dateTime, fileSize, money, moneyE4, quantity, moneyFromDecimal, moneyShort, month, monthOfDate, ratio } from "./format";
 
 const plain = (text: string) => text.replace(/ /g, " ");
 
@@ -66,5 +66,13 @@ describe("format", () => {
     expect(quantity(-3_000)).toBe("-3");
     expect(quantity(0)).toBe("0");
     expect(quantity(null)).toBe("");
+  });
+});
+
+describe("fileSize", () => {
+  it("reads bytes, kilobytes and megabytes", () => {
+    expect(fileSize(999)).toBe("999 B");
+    expect(fileSize(48_200)).toBe("48 KB");
+    expect(fileSize(2_450_000)).toBe("2.5 MB");
   });
 });

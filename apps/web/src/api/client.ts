@@ -88,8 +88,27 @@ export interface ItemBody {
   disposal?: string | null;
   storageNotes?: string | null;
   maintenanceNotes?: string | null;
+  flammable?: boolean;
+  toxic?: boolean;
+  carcinogenic?: boolean;
   origin?: "bought" | "made";
 }
+
+/** What the form of a build sends: the parts come from one place, the pieces go to another. */
+export interface BuildBody {
+  componentId: number;
+  projectId: number;
+  quantity: string;
+  builtOn: string;
+  fromLocation: string;
+  toLocation: string;
+  toSpot: string;
+  method: "average" | "last";
+  note?: string;
+}
+
+/** Where a data sheet is read: a plain link, so the file is fetched only when somebody clicks it. */
+export const datasheetUrl = (id: number) => `/api/inventory/datasheets/${id}`;
 
 export interface ReceiveBody {
   lineId?: number;
@@ -180,6 +199,20 @@ export const api = {
   pending: () => get<PendingRow[]>("/inventory/pending"),
   receive: (body: ReceiveBody) => post<{ item: InventoryItem }>("/inventory/receive", body),
   addMovement: (body: MovementBody) => post("/inventory/movements", body),
+  build: (body: BuildBody) => post("/inventory/builds", body),
+  undoMovement: (id: number) => del(`/inventory/movements/${id}`),
+  /** The PDF is sent as it is (not as JSON), with its name in the address. */
+  addDatasheet: async (itemId: number, file: File, name: string) => {
+    const response = await fetch(`/api/inventory/items/${itemId}/datasheets?name=${encodeURIComponent(name)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/pdf" },
+      body: file,
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) throw new ApiError(response.status, errorMessage(payload, response.statusText));
+    return payload as { id: number };
+  },
+  removeDatasheet: (id: number) => del(`/inventory/datasheets/${id}`),
   components: (price: PriceChoice) => get<ComponentRow[]>(`/inventory/components?${priceQuery(price)}`),
   component: (id: number, price: PriceChoice) => get<ComponentDetail>(`/inventory/components/${id}?${priceQuery(price)}`),
   addPart: (componentId: number, body: { partId: number; quantity: string; note?: string }) =>

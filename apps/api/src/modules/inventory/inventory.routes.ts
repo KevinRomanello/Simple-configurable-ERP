@@ -2,12 +2,13 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { id } from "../../core/validation";
 import { addPart, getComponent, listComponents, removePart, updatePart } from "./components.service";
+import { addDatasheet, getDatasheet, removeDatasheet } from "./datasheets.service";
 import {
-  createItemInput, imageInput, itemsQuery, movementInput, partInput, priceQuery, receiveInput, statsQuery,
-  updateItemInput, updatePartInput,
+  buildInput, createItemInput, DATASHEET_LIMITS, datasheetQuery, imageInput, itemsQuery, movementInput, partInput, priceQuery,
+  receiveInput, statsQuery, updateItemInput, updatePartInput,
 } from "./inventory.schema";
 import { createItem, deleteItem, getImage, getItem, listItems, removeImage, setImage, updateItem } from "./items.service";
-import { addMovement, listPending, receive } from "./movements.service";
+import { addMovement, build, listPending, receive, undoMovement } from "./movements.service";
 import { getStats, listProjects } from "./stats.service";
 
 const itemParam = z.object({ id });
@@ -44,12 +45,43 @@ export async function inventoryRoutes(app: FastifyInstance) {
     return reply.type(picture.mime).send(picture.data);
   });
 
+  // data sheets: the PDF itself is the body of the request; the list of an item says only what they are, and
+  // the bytes are read when one is opened
+  const datasheetBytes = DATASHEET_LIMITS.bytes + 4_096;
+  app.addContentTypeParser("application/pdf", { parseAs: "buffer", bodyLimit: datasheetBytes }, (_request, body, done) => done(null, body));
+  app.post("/inventory/items/:id/datasheets", { bodyLimit: datasheetBytes }, async (request, reply) => {
+    const { name } = datasheetQuery.parse(request.query);
+    return reply.code(201).send(await addDatasheet(itemParam.parse(request.params).id, name, request.body));
+  });
+  app.get("/inventory/datasheets/:id", async (request, reply) => {
+    const sheet = await getDatasheet(itemParam.parse(request.params).id);
+    const filename = encodeURIComponent(/\.pdf$/i.test(sheet.name) ? sheet.name : `${sheet.name}.pdf`);
+    // the API says "nothing may be loaded from me" about everything it sends, which a PDF viewer does not
+    // accept; what is sent is only a PDF (checked on the way in, and nosniff keeps it so)
+    return reply
+      .header("Content-Security-Policy", "frame-ancestors 'none'")
+      .header("Content-Disposition", `inline; filename*=UTF-8''${filename}`)
+      .header("Cache-Control", "private, max-age=3600")
+      .type("application/pdf")
+      .send(sheet.data);
+  });
+  app.delete("/inventory/datasheets/:id", async (request, reply) => {
+    await removeDatasheet(itemParam.parse(request.params).id);
+    return reply.code(204).send();
+  });
+
   // goods arriving and moving
   app.get("/inventory/pending", () => listPending());
   app.post("/inventory/receive", async (request, reply) => reply.code(201).send(await receive(receiveInput.parse(request.body))));
   app.post("/inventory/movements", async (request, reply) => reply.code(201).send(await addMovement(movementInput.parse(request.body))));
 
+  app.delete("/inventory/movements/:id", async (request, reply) => {
+    await undoMovement(itemParam.parse(request.params).id);
+    return reply.code(204).send();
+  });
+
   // things we make
+  app.post("/inventory/builds", async (request, reply) => reply.code(201).send(await build(buildInput.parse(request.body))));
   app.get("/inventory/components", (request) => listComponents(priceQuery.parse(request.query)));
   app.get("/inventory/components/:id", (request) => getComponent(itemParam.parse(request.params).id, priceQuery.parse(request.query)));
   app.post("/inventory/components/:id/parts", async (request, reply) =>

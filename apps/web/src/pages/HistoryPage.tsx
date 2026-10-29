@@ -25,6 +25,10 @@ const TABLES: Record<string, string> = {
   unit: "Unit",
   location: "Place",
   setting: "Settings",
+  inventory_item: "Item",
+  stock_movement: "Movement",
+  component_part: "Part",
+  item_datasheet: "Data sheet",
 };
 const ACTION = { insert: "added", update: "changed", delete: "deleted" } as const;
 

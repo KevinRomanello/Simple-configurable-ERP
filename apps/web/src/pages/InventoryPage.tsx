@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { api } from "../api/client";
 import type { ItemRow } from "../api/types";
+import { HazardChecks, HazardPills } from "../components/HazardPills";
 import { ItemThumb } from "../components/ItemThumb";
 import { PriceSelector } from "../components/PriceSelector";
 import { ReceiveForm } from "../components/ReceiveForm";
@@ -10,7 +11,7 @@ import { SearchSelect } from "../components/SearchSelect";
 import { Card, Cards, DataTable, Field, MoneyCard, PageHeader, Panel, type Column } from "../components/ui";
 import { useMe } from "../lib/auth";
 import { money, moneyE4, quantity } from "../lib/format";
-import { useInventoryLookups } from "../lib/inventory";
+import { HAZARDS, useInventoryLookups } from "../lib/inventory";
 import { usePrice } from "../lib/price";
 
 const COLUMNS: Column<ItemRow>[] = [
@@ -28,6 +29,12 @@ const COLUMNS: Column<ItemRow>[] = [
     ),
   },
   { key: "category", header: "CATEGORY", sort: (r) => r.category, cell: (r) => r.category ?? <span className="muted">—</span> },
+  {
+    key: "hazards",
+    header: "HAZARDS",
+    sort: (r) => HAZARDS.filter((h) => r[h.key]).length || null,
+    cell: (r) => (HAZARDS.some((h) => r[h.key]) ? <HazardPills item={r} /> : <span className="muted">—</span>),
+  },
   { key: "onHand", header: "ON THE SHELF", num: true, sort: (r) => r.onHandMilli, cell: (r) => `${quantity(r.onHandMilli)} ${r.unit}` },
   {
     key: "bought",
@@ -68,8 +75,13 @@ export function InventoryPage() {
   const [category, setCategory] = useState("");
   const [origin, setOrigin] = useState("");
   const [location, setLocation] = useState("");
+  const [hazards, setHazards] = useState({ flammable: false, toxic: false, carcinogenic: false });
 
-  const filters = { search: search.trim() || undefined, category: category || undefined, origin: origin || undefined, location: location || undefined };
+  const filters = {
+    search: search.trim() || undefined, category: category || undefined, origin: origin || undefined, location: location || undefined,
+    // each one ticked narrows the list to the items that are so
+    ...Object.fromEntries(HAZARDS.filter((h) => hazards[h.key]).map((h) => [h.key, "true"])),
+  };
   const items = useQuery({ queryKey: ["inventory-items", price, filters], queryFn: () => api.inventoryItems(price, filters) });
   const everything = useQuery({ queryKey: ["inventory-items", price, {}], queryFn: () => api.inventoryItems(price) });
 
@@ -102,25 +114,32 @@ export function InventoryPage() {
       </Cards>
 
       <Panel>
-        <div className="inline-form">
-          <Field label="Search" htmlFor="inventory-search">
-            <input id="inventory-search" className="input small" placeholder="Name, code, what it is for…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </Field>
-          <Field label="Category" htmlFor="inventory-category">
-            <SearchSelect id="inventory-category" value={category} onChange={setCategory} choices={[{ value: "", label: "All" }, ...(lookups?.categories ?? []).map((c) => ({ value: c, label: c }))]} />
-          </Field>
-          <Field label="Kind" htmlFor="inventory-origin">
-            <select id="inventory-origin" className="input small" value={origin} onChange={(e) => setOrigin(e.target.value)}>
-              <option value="">Bought and made</option>
-              <option value="bought">Bought</option>
-              <option value="made">Made by the team</option>
-            </select>
-          </Field>
-          <Field label="Where" htmlFor="inventory-location">
-            <SearchSelect id="inventory-location" value={location} onChange={setLocation} choices={[{ value: "", label: "Anywhere" }, ...(lookups?.locations ?? []).map((l) => ({ value: l.code, label: l.label }))]} />
-          </Field>
+        <section className="filter-group" aria-label="What to find">
+          <div className="filter-title">Find</div>
+          <div className="inline-form">
+            <Field label="Search" htmlFor="inventory-search" className="grow">
+              <input id="inventory-search" className="input small" placeholder="Name, code, what it is for…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </Field>
+            <Field label="Category" htmlFor="inventory-category">
+              <SearchSelect id="inventory-category" value={category} onChange={setCategory} choices={[{ value: "", label: "All" }, ...(lookups?.categories ?? []).map((c) => ({ value: c, label: c }))]} />
+            </Field>
+            <Field label="Kind" htmlFor="inventory-origin">
+              <select id="inventory-origin" className="input small" value={origin} onChange={(e) => setOrigin(e.target.value)}>
+                <option value="">Bought and made</option>
+                <option value="bought">Bought</option>
+                <option value="made">Made by the team</option>
+              </select>
+            </Field>
+            <Field label="Where" htmlFor="inventory-location">
+              <SearchSelect id="inventory-location" value={location} onChange={setLocation} choices={[{ value: "", label: "Anywhere" }, ...(lookups?.locations ?? []).map((l) => ({ value: l.code, label: l.label }))]} />
+            </Field>
+            <HazardChecks value={hazards} onChange={(key, checked) => setHazards({ ...hazards, [key]: checked })} />
+          </div>
+        </section>
+        <section className="filter-group" aria-label="Which price">
+          <div className="filter-title">Prices</div>
           <PriceSelector value={price} onChange={setPrice} date />
-        </div>
+        </section>
 
         <DataTable title="Inventory" columns={COLUMNS} rows={items.data} rowKey={(r) => r.id} empty="Nothing here yet" />
       </Panel>

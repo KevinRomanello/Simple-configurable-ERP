@@ -86,7 +86,7 @@ Le stime sono mie e non misurate: **S** ≈ 1 ora, **M** ≈ 2 ore, **L** ≈ 3�
 | **C. PaaS** (Render, Railway, Fly.io) | niente server da amministrare | costa di più, i dati sono su una piattaforma esterna, Compose non si usa tale e quale | se nessuno vuole amministrare un server |
 | **D. Un computer in sede** (mini PC) **+ VPN** (Tailscale, WireGuard) | nessun costo, nessuna esposizione su Internet | disponibilità legata alla sede, backup comunque necessari | ottima per il **periodo pilota** |
 
-**Il backup deve coprire il database intero**: le immagini dell'inventario stanno nel database (tabella `item_image`), non in una cartella a parte, quindi un solo `pg_dump` salva dati e immagini.
+**Il backup deve coprire il database intero**: le immagini e le schede dati PDF dell'inventario (fino a 10 MB l'una) stanno nel database (tabelle `item_image` e `item_datasheet_file`), non in una cartella a parte, quindi un solo `pg_dump` salva dati, immagini e PDF; con molte schede il backup cresce di conseguenza.
 
 **Regola di sicurezza**: il login e i ruoli ci sono, ma finché mancano HTTPS, backup e configurazione di produzione (A4, A5) l'app **non va esposta su Internet**. Per un pilota va bene l'opzione D, oppure un server raggiungibile solo via VPN (Tailscale).
 

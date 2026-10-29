@@ -35,6 +35,13 @@ export function quantity(milli: number | null | undefined): string {
 }
 
 /** Whole euros, for chart axes ("1.220 €"). */
+/** A file size as people read it: "340 KB", "1.2 MB". */
+export function fileSize(bytes: number): string {
+  if (bytes < 1_000) return `${bytes} B`;
+  if (bytes < 1_000_000) return `${Math.round(bytes / 1_000)} KB`;
+  return `${(bytes / 1_000_000).toFixed(1)} MB`;
+}
+
 export function moneyShort(euros: number): string {
   const rounded = Math.round(euros);
   return `${rounded < 0 ? "-" : ""}${group(String(Math.abs(rounded)))}${NBSP}€`;

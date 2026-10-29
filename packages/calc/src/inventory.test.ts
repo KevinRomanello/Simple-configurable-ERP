@@ -3,7 +3,7 @@ import { arrivalOf, arrivalStatus, linePricesE4 } from "./arrival";
 import { daysBetween } from "./dates";
 import { figures, line, snapshot } from "./fixtures";
 import {
-  bom, byItem, costContext, costSeries, monthEnds, onHandMilli, pendingLines, priceHistory, receivedMilli, receiptsOf,
+  bom, builtPricesE4, buildNeeds, byItem, costContext, shelfPrice, costSeries, monthEnds, onHandMilli, pendingLines, priceHistory, receivedMilli, receiptsOf,
   stats, stockRows, unitCost, unitPriceE4, valueCents,
   type InventoryData, type ItemInput, type MovementInput, type PartInput,
 } from "./inventory";
@@ -165,6 +165,17 @@ describe("what a made thing costs", () => {
     const series = costSeries(11, ctx, "last", ["2026-05-31", "2026-06-30", "2026-08-31", "2026-09-30"]);
     expect(series.map((p) => p.unitE4)).toEqual([null, 160_000, 160_000, 230_000]);
     expect(series.map((p) => p.complete)).toEqual([false, true, true, true]);
+  });
+
+  it("gives the price of each part on every day, to see which one made the cost rise", () => {
+    const series = costSeries(11, ctx, "last", ["2026-06-30", "2026-09-30"]);
+    const prices = (point: (typeof series)[number]) => point.parts.map((p) => [p.name, p.quantityMilli, p.unitE4]);
+    // June: bracket 5.60, screws 0.10, plates 5.00
+    expect(prices(series[0]!)).toEqual([["Bracket", 1_000, 56_000], ["Screw", 4_000, 1_000], ["Plate", 2_000, 50_000]]);
+    // September: the bracket is dearer because its plate and screws are
+    expect(prices(series[1]!)).toEqual([["Bracket", 1_000, 82_000], ["Screw", 4_000, 2_000], ["Plate", 2_000, 70_000]]);
+    // before anything was bought a part has no price
+    expect(costSeries(11, ctx, "last", ["2026-05-31"])[0]!.parts.map((p) => p.unitE4)).toEqual([null, null, null]);
   });
 
   it("the average price smooths the two purchases", () => {
@@ -361,5 +372,111 @@ describe("stats", () => {
     const data2: InventoryData = { items, movements: m, parts: [] };
     const bought = (basis: "net" | "gross" | "team") => stats("category", data2, [], context, basis, "2026-10-20").find((r) => r.key === "Components")?.boughtCents;
     expect([bought("net"), bought("gross"), bought("team")]).toEqual([100, 122, 0]);
+  });
+});
+
+describe("build: a made item coming off the line", () => {
+  // Pedal = 2 plates + 4 screws. Plates cost 10.00 then 12.00, screws 1.00.
+  const items = [item(1, "Pedal", { origin: "made" }), item(2, "Plate"), item(3, "Screw")];
+  const parts = [part(1, 2, 2), part(1, 3, 4)];
+  const buy = (movements: MovementInput[]): InventoryData => ({ items, parts, movements });
+  const built = (qty: number, onDay: string, net: number, extra: Partial<MovementInput> = {}) =>
+    move({
+      itemId: 1, kind: "build", quantityMilli: qty * 1000, on: onDay, unitNetE4: net, unitGrossE4: net, unitTeamE4: net, ...extra,
+    });
+
+  it("puts the built pieces on the shelf, at the place given", () => {
+    const rows = stockRows([built(3, "2026-10-05", 240_000, { location: "s2-r1", spot: "Box 1" })]);
+    expect(rows).toEqual([{ itemId: 1, location: "s2-r1", spot: "Box 1", quantityMilli: 3000 }]);
+  });
+
+  it("counts a build as an arrival for the price, but not as something bought", () => {
+    const movements = [receipt(2, 10, 10, "2026-09-01"), built(2, "2026-10-05", 240_000)];
+    expect(receiptsOf(movements, 1, "net")).toEqual([{ id: movements[1]!.id, on: "2026-10-05", quantityMilli: 2000, unitE4: 240_000 }]);
+    expect(receivedMilli(movements, 1)).toBe(0);
+    expect(receivedMilli(movements, 2)).toBe(10_000);
+  });
+
+  it("keeps the cost of the pieces already built when a part gets dearer: only the next ones use the new price", () => {
+    const movements = [
+      receipt(2, 10, 10, "2026-09-01"), receipt(3, 100, 1, "2026-09-01"),
+      built(5, "2026-09-10", 240_000), // 2 x 10.00 + 4 x 1.00 = 24.00 each
+      receipt(2, 10, 12, "2026-10-01"), // the plates go up
+      built(5, "2026-10-10", 280_000), // 2 x 12.00 + 4 x 1.00 = 28.00 each
+    ];
+    const ctx = costContext(buy(movements), "net");
+    // what to make one costs now: the new plates
+    expect(unitCost(1, ctx, "last", "2026-10-31").unitE4).toBe(280_000);
+    // what is on the shelf is worth what it was built for
+    expect(shelfPrice(1, ctx, "last", "2026-10-31")).toEqual({ unitE4: 280_000, complete: true });
+    expect(shelfPrice(1, ctx, "average", "2026-10-31").unitE4).toBe(260_000); // (5 x 24 + 5 x 28) / 10
+    // before the second build the pieces were worth 24.00, whatever the plates cost then
+    expect(shelfPrice(1, ctx, "average", "2026-09-30").unitE4).toBe(240_000);
+  });
+
+  it("values a made item that was never built at what it would cost to make, and a bought one as it always did", () => {
+    const ctx = costContext(buy([receipt(2, 10, 10, "2026-09-01"), receipt(3, 100, 1, "2026-09-01")]), "net");
+    expect(shelfPrice(1, ctx, "last", "2026-10-01").unitE4).toBe(240_000);
+    expect(shelfPrice(2, ctx, "last", "2026-10-01").unitE4).toBe(100_000);
+    expect(shelfPrice(2, ctx, "last", "2026-08-01").unitE4).toBeNull(); // not bought yet
+  });
+});
+
+describe("what a build takes and what it costs", () => {
+  const parts = [part(1, 2, 2), part(1, 3, 4), part(1, 4, 0.5)];
+
+  it("takes each part once per piece, to the thousandth, and leaves out what rounds to nothing", () => {
+    expect(buildNeeds(parts, 3_000)).toEqual([
+      { partId: 2, quantityMilli: 6_000 },
+      { partId: 3, quantityMilli: 12_000 },
+      { partId: 4, quantityMilli: 1_500 },
+    ]);
+    expect(buildNeeds([{ componentId: 1, partId: 9, quantityMilli: 1 }], 400)).toEqual([]); // 0.001 x 0.4 rounds to zero
+  });
+
+  it("freezes the three prices from what the parts are worth that day, and says which part has no price", () => {
+    const items = [item(1, "Pedal", { origin: "made" }), item(2, "Plate"), item(3, "Screw"), item(4, "Spring")];
+    const movements = [
+      receipt(2, 10, 10, "2026-09-01"), // net 10.00, with VAT and for the team 12.20
+      receipt(3, 100, 1, "2026-09-01"),
+    ];
+    const data: InventoryData = { items, parts, movements };
+    const contexts = { net: costContext(data, "net"), gross: costContext(data, "gross"), team: costContext(data, "team") };
+    const { prices, unpriced } = builtPricesE4(1, contexts, "last", "2026-10-01");
+    expect(unpriced).toEqual([4]); // the spring was never bought
+    expect(prices.net).toBe(240_000); // 2 x 10.00 + 4 x 1.00
+    expect(prices.gross).toBe(292_800); // the same with 22% VAT
+    expect(prices.team).toBe(292_800);
+  });
+});
+
+describe("statistics with builds", () => {
+  it("does not count a build as bought, and values the pieces on the shelf at what they were built for", () => {
+    const items = [item(1, "Pedal", { origin: "made" }), item(2, "Plate")];
+    const movements = [
+      receipt(2, 10, 10, "2026-09-01"),
+      move({ itemId: 1, kind: "build", quantityMilli: 4_000, on: "2026-09-10", unitNetE4: 200_000, unitGrossE4: 200_000, unitTeamE4: 200_000 }),
+    ];
+    const rows = stats("location", { items, parts: [], movements }, [], { projects: [], areas: [] }, "net", "2026-10-01");
+    const row = rows.find((r) => r.key === "s1-r1")!;
+    expect(row.stockCents).toBe(10 * 10_00 + 4 * 20_00); // 10 plates at 10.00 and 4 pedals at 20.00
+    expect(stats("category", { items, parts: [], movements }, [], { projects: [], areas: [] }, "net", "2026-10-01").reduce((sum, r) => sum + r.boughtCents, 0)).toBe(10_000);
+  });
+});
+
+describe("statistics: pieces made by the team are not used twice", () => {
+  it("counts the parts taken for a build as used by the project, and not the piece when it is used", () => {
+    const items = [item(1, "Pedal", { origin: "made" }), item(2, "Plate")];
+    const movements = [
+      receipt(2, 10, 10, "2026-09-01"),
+      move({ itemId: 2, kind: "use", quantityMilli: 2_000, on: "2026-09-10", projectId: 7 }), // the parts of the build
+      move({ itemId: 1, kind: "build", quantityMilli: 1_000, on: "2026-09-10", projectId: 7, unitNetE4: 200_000, unitGrossE4: 200_000, unitTeamE4: 200_000 }),
+      move({ itemId: 1, kind: "use", quantityMilli: 1_000, on: "2026-09-20", projectId: 7 }), // the finished piece goes into the car
+    ];
+    const context = { projects: [{ id: 7, name: "Pedals", areaId: 1 }], areas: [{ id: 1, name: "MT + DMT" }] };
+    const [row] = stats("project", { items, parts: [], movements }, [], context, "net", "2026-10-01");
+    expect(row?.usedCents).toBe(2 * 10_00); // 2 plates at 10.00: the pedal is not added on top
+    expect(stats("area", { items, parts: [], movements }, [], context, "net", "2026-10-01")[0]?.usedCents).toBe(2_000);
+    expect(stats("category", { items, parts: [], movements }, [], context, "net", "2026-10-01").reduce((sum, r) => sum + r.usedCents, 0)).toBe(2_000);
   });
 });

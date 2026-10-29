@@ -61,6 +61,14 @@ describe("what the things we make cost", () => {
     expect((await cost(pedal.id, "on=2026-05-15")).series).toEqual([]);
   });
 
+  it("gives the price of every part at each point of the series, to see what made the cost rise", async () => {
+    const { pedal } = await workshop();
+    const { series } = await cost(pedal.id, "on=2026-09-30");
+    const parts = (point: { parts: { name: string; quantityMilli: number; unitE4: number }[] }) => point.parts.map((p) => [p.name, p.quantityMilli / 1000, p.unitE4]);
+    expect(parts(series[0])).toEqual([["Bracket", 1, 56_000], ["Screw", 4, 1_000], ["Plate", 2, 50_000]]); // June
+    expect(parts(series[3])).toEqual([["Bracket", 1, 82_000], ["Screw", 4, 2_000], ["Plate", 2, 70_000]]); // September: all three got dearer
+  });
+
   it("lets the price be net, with VAT or what the team pays, by the last purchase or the average", async () => {
     const { pedal } = await workshop();
     expect((await cost(pedal.id, "basis=gross&on=2026-06-30")).bom.unitE4).toBe(195_200); // 16.00 + 22%

@@ -1,4 +1,4 @@
-import { faImage, faPen, faPlus, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faImage, faPen, faPlus, faRotateLeft, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
@@ -6,6 +6,8 @@ import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../api/client";
 import type { BomLine, ItemDraft, ItemField, MovementRow, StockPlace } from "../api/types";
 import { Button, IconButton } from "../components/Button";
+import { Datasheets } from "../components/Datasheets";
+import { HazardPills } from "../components/HazardPills";
 import { ItemEditor } from "../components/ItemEditor";
 import { ItemThumb } from "../components/ItemThumb";
 import { LineChart } from "../components/LineChart";
@@ -35,19 +37,20 @@ const PLACES_SORT: SortAccessors<StockPlace> = {
   exactly: (p) => p.spot || null,
   quantity: (p) => p.quantityMilli,
 };
-const KIND: Record<MovementRow["kind"], string> = { receipt: "Arrived", use: "Used", transfer: "Moved", adjustment: "Counted", disposal: "Disposed" };
+const KIND: Record<MovementRow["kind"], string> = { receipt: "Arrived", use: "Used", transfer: "Moved", adjustment: "Counted", disposal: "Disposed", build: "Made" };
 const FIELD_ORDER: ItemField[] = ["purpose", "safetyCodes", "disposal", "storageNotes", "maintenanceNotes"];
 
 /** The quantity of a movement as it reads on the shelf: arrivals add, uses and disposals take away. */
 function movementQuantity(m: MovementRow): string {
   const milli = Math.round(Number(m.quantity) * 1000);
   if (m.kind === "use" || m.kind === "disposal") return `−${quantity(milli)}`;
-  if (m.kind === "receipt") return `+${quantity(milli)}`;
+  if (m.kind === "receipt" || m.kind === "build") return `+${quantity(milli)}`;
   if (m.kind === "transfer") return `${quantity(milli)} → ${m.toLocation}${m.toSpot ? ` (${m.toSpot})` : ""}`;
   return milli > 0 ? `+${quantity(milli)}` : quantity(milli); // a count is the difference found
 }
 
-const MOVEMENT_COLUMNS: Column<MovementRow>[] = [
+/** The parts taken for a build have no button of their own: they go back with the build. */
+const movementColumns = (canEdit: boolean, undo: (m: MovementRow) => void): Column<MovementRow>[] => [
   { key: "date", header: "DATE", sort: (m) => m.on, cell: (m) => date(m.on) },
   {
     key: "kind",
@@ -66,6 +69,12 @@ const MOVEMENT_COLUMNS: Column<MovementRow>[] = [
     cell: (m) => (m.unitNet === null ? "" : moneyE4(Math.round(Number(m.unitNet) * 10_000))),
   },
   { key: "note", header: "NOTE", cell: (m) => m.note },
+  {
+    key: "undo",
+    header: "",
+    num: true,
+    cell: (m) => canEdit && m.builtBy === null && <IconButton icon={faRotateLeft} label={`Undo (${KIND[m.kind]}, ${date(m.on)})`} onClick={() => undo(m)} />,
+  },
 ];
 
 /** One item: its picture and information, where it is, what it cost over time and what happened to it. */
@@ -87,7 +96,7 @@ export function ItemPage() {
 
   if (detail.isError) return <Message>Item not found.</Message>;
   if (!detail.data || !lookups) return <Loading />;
-  const { item, stock, history, movements, bom } = detail.data;
+  const { item, datasheets, stock, history, movements, bom } = detail.data;
   const placeKey = (p: StockPlace) => `${p.location}\u0000${p.spot}`;
 
   const save = async () => {
@@ -106,6 +115,11 @@ export function ItemPage() {
     }
   };
 
+  const undo = (m: MovementRow) => {
+    const what = m.kind === "build" ? "this build? The pieces leave the shelf and the parts go back to it" : `this ${KIND[m.kind].toLowerCase()}? The shelf goes back as it was before`;
+    if (window.confirm(`Undo ${what}. The history keeps both the entry and its undoing.`)) void act(() => api.undoMovement(m.id));
+  };
+
   const written = FIELD_ORDER.filter((f) => item[f]);
 
   return (
@@ -117,6 +131,7 @@ export function ItemPage() {
           <>
             {item.category ?? "No category"} · counted in {item.unit}{item.code ? ` · code ${item.code}` : ""}
             {item.origin === "made" && <> · <span className="pill teal">made by the team</span></>}
+            <HazardPills item={item} />
           </>
         }
       >
@@ -167,8 +182,12 @@ export function ItemPage() {
         </Card>
       </Cards>
 
-      {item.origin === "bought" && history.length > 0 && (
-        <LineChart title="Price paid per purchase" data={history.map((p) => ({ label: date(p.on), e4: p.unitE4 }))} height={200} />
+      {history.length > 0 && (
+        <LineChart
+          title={item.origin === "made" ? "Cost of each build" : "Price paid per purchase"}
+          data={history.map((p) => ({ label: date(p.on), e4: p.unitE4 }))}
+          height={200}
+        />
       )}
 
       {bom && (
@@ -219,8 +238,10 @@ export function ItemPage() {
         </TableBox>
       </Panel>
 
+      <Datasheets itemId={itemId} sheets={datasheets} canEdit={canEdit} />
+
       <Panel title="What happened">
-        <DataTable title="What happened" columns={MOVEMENT_COLUMNS} rows={movements} rowKey={(m) => m.id} empty="Nothing yet" />
+        <DataTable title="What happened" columns={movementColumns(canEdit, undo)} rows={movements} rowKey={(m) => m.id} empty="Nothing yet" />
       </Panel>
     </>
   );

@@ -421,3 +421,39 @@ async function cookieOf() {
   const { cookieFor, createUser, ADMIN } = await import("../../../test/helpers");
   return cookieFor((await createUser(ADMIN)).id);
 }
+
+describe("what an item is: flammable, toxic, carcinogenic", () => {
+  const make = (name: string, flags: object = {}) => api.post("/api/inventory/items", { name, ...flags });
+  const names = async (query = "") => ((await api.get(`/api/inventory/items?${query}`)).body as { name: string }[]).map((i) => i.name);
+
+  it("are three ticks that default to no, and are kept as given", async () => {
+    expect((await make("Bolt")).body).toMatchObject({ flammable: false, toxic: false, carcinogenic: false });
+    const created = await make("Solvent", { flammable: true, toxic: true });
+    expect(created.body).toMatchObject({ flammable: true, toxic: true, carcinogenic: false });
+    expect((await api.post("/api/inventory/items", { name: "Odd", flammable: "yes" })).status).toBe(400);
+  });
+
+  it("can be changed later, one at a time", async () => {
+    const { body } = await make("Resin");
+    expect((await api.patch(`/api/inventory/items/${body.id}`, { carcinogenic: true })).body).toMatchObject({ carcinogenic: true, flammable: false });
+    expect((await api.patch(`/api/inventory/items/${body.id}`, { flammable: true, carcinogenic: false })).body).toMatchObject({ carcinogenic: false, flammable: true });
+  });
+
+  it("are in the list and narrow it: each one that is asked for must be true, two of them both", async () => {
+    await make("Bolt");
+    await make("Solvent", { flammable: true, toxic: true });
+    await make("Fuel", { flammable: true });
+    await make("Asbestos", { toxic: true, carcinogenic: true });
+    const all = (await api.get("/api/inventory/items")).body as { name: string; flammable: boolean; toxic: boolean; carcinogenic: boolean }[];
+    expect(all.find((i) => i.name === "Solvent")).toMatchObject({ flammable: true, toxic: true, carcinogenic: false });
+    expect(await names("flammable=true")).toEqual(["Fuel", "Solvent"]);
+    expect(await names("toxic=true")).toEqual(["Asbestos", "Solvent"]);
+    expect(await names("carcinogenic=true")).toEqual(["Asbestos"]);
+    expect(await names("flammable=true&toxic=true")).toEqual(["Solvent"]);
+    expect(await names("flammable=true&toxic=true&carcinogenic=true")).toEqual([]);
+    expect(await names("flammable=false")).toHaveLength(4); // "false" is not a filter
+    expect(await names("flammable=true&search=fuel")).toEqual(["Fuel"]); // with the other filters
+    expect((await api.get("/api/inventory/items?flammable=maybe")).status).toBe(400);
+  });
+});
+
