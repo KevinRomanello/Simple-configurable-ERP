@@ -1,6 +1,7 @@
 import type {
   Analysis, Area, AreaSheet, Bank, Calculation, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, Location, Me, MonthlyInflow, NewContract, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, SettingsView, SignInOptions, SponsorBody, StatsResult, Supplier, Totals, UserRow, VatReport,
 } from "./types";
+import type { NewLineBody } from "../lib/newLine";
 
 /** An error answer of the API: carries the HTTP status so screens can react to a 409. */
 export class ApiError extends Error {
@@ -202,7 +203,7 @@ export const api = {
   createProject: (body: { areaCode: string; name: string; ownerName?: string | null }) => post("/projects", body),
   updateProject: (id: number, body: { name?: string; ownerName?: string | null }) => patch(`/projects/${id}`, body),
   deleteProject: (id: number) => del(`/projects/${id}`),
-  createLine: (projectId: number, item: string) => post(`/projects/${projectId}/lines`, { item }),
+  createLine: (projectId: number, body: NewLineBody) => post(`/projects/${projectId}/lines`, body),
   updateLine: (id: number, body: LinePatch) => patch(`/lines/${id}`, body),
   deleteLine: (id: number) => del(`/lines/${id}`),
 

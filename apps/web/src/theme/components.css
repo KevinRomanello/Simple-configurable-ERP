@@ -764,6 +764,17 @@ textarea.input {
 .pill.arrival-received { background: var(--success-soft); color: var(--success-strong); }
 .pill.arrival-over { background: var(--error-soft); color: var(--error-strong); }
 
+/* --- the yellow button that adds something inside a box, and its form right under it -------------- */
+.add-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-s);
+}
+.add-section > .panel {
+  align-self: stretch;
+}
+
 /* --- a list to choose from, with a search ---------------------------------------------------- */
 .search-select {
   position: relative;

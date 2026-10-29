@@ -1,19 +1,50 @@
-import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { api } from "../api/client";
-import type { BomLine } from "../api/types";
-import { Button, IconButton } from "../components/Button";
+import type { BomLine, ItemRow } from "../api/types";
+import { IconButton } from "../components/Button";
 import { ItemThumb } from "../components/ItemThumb";
 import { LineChart } from "../components/LineChart";
 import { PriceSelector } from "../components/PriceSelector";
 import { SearchSelect } from "../components/SearchSelect";
-import { Card, Cards, DataTable, DetailHeader, Field, Loading, Message, Panel, type Column } from "../components/ui";
+import { AddSection, Card, Cards, DataTable, DetailHeader, Field, FormPanel, Loading, Message, Panel, type Column } from "../components/ui";
 import { useMe } from "../lib/auth";
 import { money, moneyE4, monthOfDate, quantity } from "../lib/format";
 import { usePrice } from "../lib/price";
 import { useAction } from "../lib/useAction";
+
+/** The form to add a part to what the team makes, opened from the yellow «Add part». */
+function AddPart({ componentId, candidates, onDone }: { componentId: number; candidates: ItemRow[]; onDone: () => void }) {
+  const act = useAction();
+  const [partId, setPartId] = useState("");
+  const [amount, setAmount] = useState("1");
+  const [note, setNote] = useState("");
+
+  const submit = async () => {
+    if (await act(() => api.addPart(componentId, { partId: Number(partId), quantity: amount, ...(note.trim() ? { note: note.trim() } : {}) }))) onDone();
+  };
+
+  return (
+    <FormPanel title="Add a part" submitLabel="Add part" canSubmit={partId !== "" && amount !== ""} onSubmit={submit} onCancel={onDone}>
+      <Field label="Part" htmlFor="part-item">
+        <SearchSelect
+          id="part-item"
+          value={partId}
+          onChange={setPartId}
+          choices={[{ value: "", label: "Choose…" }, ...candidates.map((i) => ({ value: String(i.id), label: `${i.name}${i.origin === "made" ? " (made)" : ""}` }))]}
+        />
+      </Field>
+      <Field label="Quantity in one" htmlFor="part-quantity">
+        <input id="part-quantity" className="input small" type="number" min="0" step="0.001" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      </Field>
+      <Field label="Note" htmlFor="part-note">
+        <input id="part-note" className="input small" maxLength={500} placeholder="Optional" value={note} onChange={(e) => setNote(e.target.value)} />
+      </Field>
+    </FormPanel>
+  );
+}
 
 /** One thing the team makes: its parts with their prices, the cost of one and how the cost changed. */
 export function ComponentPage() {
@@ -23,9 +54,6 @@ export function ComponentPage() {
   const [price, setPrice] = usePrice();
   const detail = useQuery({ queryKey: ["inventory-component", componentId, price], queryFn: () => api.component(componentId, price) });
   const items = useQuery({ queryKey: ["inventory-items", price, {}], queryFn: () => api.inventoryItems(price) });
-  const [partId, setPartId] = useState("");
-  const [amount, setAmount] = useState("1");
-  const [note, setNote] = useState("");
 
   if (detail.isError) return <Message>This is not something the team makes, or it does not exist.</Message>;
   if (!detail.data) return <Loading />;
@@ -33,16 +61,6 @@ export function ComponentPage() {
   const taken = new Set(bom.lines.map((l) => l.partId));
   const candidates = (items.data ?? []).filter((i) => i.id !== componentId && !taken.has(i.id));
   const hasPicture = (items.data ?? []).find((i) => i.id === componentId)?.hasImage ?? false;
-
-  const add = async (event: FormEvent) => {
-    event.preventDefault();
-    const ok = await act(() => api.addPart(componentId, { partId: Number(partId), quantity: amount, ...(note.trim() ? { note: note.trim() } : {}) }));
-    if (ok) {
-      setPartId("");
-      setAmount("1");
-      setNote("");
-    }
-  };
 
   const columns: Column<BomLine>[] = [
     {
@@ -117,25 +135,7 @@ export function ComponentPage() {
           empty="No parts yet"
           footer={bom.totalCents !== null && <tr className="total"><td colSpan={3}>Total</td><td className="num">{money(bom.totalCents)}</td><td colSpan={2} /></tr>}
         />
-        {canEdit && (
-          <form className="inline-form" onSubmit={add}>
-            <Field label="Add a part" htmlFor="part-item">
-              <SearchSelect
-                id="part-item"
-                value={partId}
-                onChange={setPartId}
-                choices={[{ value: "", label: "Choose…" }, ...candidates.map((i) => ({ value: String(i.id), label: `${i.name}${i.origin === "made" ? " (made)" : ""}` }))]}
-              />
-            </Field>
-            <Field label="Quantity in one" htmlFor="part-quantity">
-              <input id="part-quantity" className="input small" type="number" min="0" step="0.001" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            </Field>
-            <Field label="Note" htmlFor="part-note">
-              <input id="part-note" className="input small" maxLength={500} placeholder="Optional" value={note} onChange={(e) => setNote(e.target.value)} />
-            </Field>
-            <Button small icon={faPlus} type="submit" disabled={partId === "" || amount === ""}>Add part</Button>
-          </form>
-        )}
+        {canEdit && <AddSection label="Add part" form={(close) => <AddPart componentId={componentId} candidates={candidates} onDone={close} />} />}
       </Panel>
     </>
   );

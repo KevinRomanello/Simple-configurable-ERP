@@ -100,7 +100,7 @@ docker compose run --rm -v "$PWD/fonti:/app/fonti:ro" api pnpm reconcile -- --db
 0. **In basso a sinistra** vedi chi sei e il tuo ruolo; il pulsante accanto è l'uscita. Nel gruppo **Admin** del menu ci sono **Users** (ruoli e aree dei capi area, solo admin) e **History** (chi ha cambiato cosa, per admin e capi area).
 1. **MT + DMT** (menu a sinistra): vedi i progetti con le loro voci. Clicca una cella per modificarla (le celle grigie a destra sono calcolate, non si toccano). Cambia la quantità di una voce e guarda cambiare subito netto, IVA e totali.
 2. **Triangolo arancione** accanto a una voce: manca il tipo di sponsor o l'aliquota IVA, quindi l'IVA non è ancora contata.
-3. **Add project** e **Add item**: nuovi progetti e nuove voci. Il cestino in fondo alla riga elimina.
+3. **New project** (in alto) e **Add item** (in fondo a ogni progetto): nuovi progetti e nuove voci; sono pulsanti gialli che aprono un modulo con tutte le caselle (per le voci si sceglie se compilare EXPECTED, ACTUAL o tutte e due). Il cestino in fondo alla riga elimina.
 4. **CASH FROM**: gli sponsor (bottone **New sponsor**, soldi e data di ogni fase nella riga), saldo residuo dei fondi (rosso se negativo).
 5. **CASH FLOW**: il saldo BANK e gli ingressi; "Left value" è ciò che resta dopo le spese del team.
 6. **EXPECTED / ACTUAL GANTT**, le tre **ANALYSES**, **TOTAL** (nell'ordine dei fogli dell'Excel): sono viste di sola lettura, sempre ricalcolate dai dati.
@@ -138,7 +138,7 @@ docker compose exec web pnpm --filter @erp/web test
 docker compose exec api pnpm --filter @erp/import-xlsx test
 ```
 
-Risultati attesi: 170 (motore), 281 (API), 54 (sito), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
+Risultati attesi: 170 (motore), 281 (API), 65 (sito), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
 
 Dentro `psql` (il terminale del database) servono pochi comandi: `\dt` elenca le tabelle, `select * from fund;` mostra i fondi, `\q` esce.
 

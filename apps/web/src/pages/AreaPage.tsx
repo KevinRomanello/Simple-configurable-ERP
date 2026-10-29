@@ -1,12 +1,12 @@
-import { faCheck, faPen, faPlus, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faPen, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { api } from "../api/client";
 import type { AreaSheet, CalcLine, Phase } from "../api/types";
-import { Button, IconButton } from "../components/Button";
+import { IconButton } from "../components/Button";
 import { useMe } from "../lib/auth";
 import { money } from "../lib/format";
 import { canEditArea } from "../lib/permissions";
@@ -17,7 +17,8 @@ import { VatReportTable } from "./VatReportTable";
 import { useExportBlock } from "../components/ExportBlocks";
 import { tableFromGrid } from "../lib/export/table";
 import { GridSortHeader } from "../components/GridSortHeader";
-import { DataTable, Field, FormPanel, Loading, Message, PageHeader, Panel, type Column } from "../components/ui";
+import { AddSection, DataTable, Field, FormPanel, Loading, Message, PageHeader, Panel, type Column } from "../components/ui";
+import { NewLine } from "./NewLine";
 import { gridCompare } from "../lib/sort";
 
 type SheetProject = AreaSheet["projects"][number];
@@ -83,7 +84,7 @@ export function AreaPage() {
 
       {data.projects.length === 0 && <Message>{canEdit ? "No projects yet: add the first one." : "No projects yet."}</Message>}
       {data.projects.map((project) => (
-        <ProjectPanel key={project.id} project={project} buildColumns={buildColumns} canEdit={canEdit} />
+        <ProjectPanel key={project.id} project={project} buildColumns={buildColumns} canEdit={canEdit} lookups={lookups} />
       ))}
 
       <VatReportTable areaCode={code} />
@@ -116,7 +117,12 @@ function subtotalRow(project: SheetProject): SubtotalRow {
   return { isSubtotal: true, item: "Subtotal", estimate: phase("estimate"), actual: phase("actual") };
 }
 
-function ProjectPanel({ project, buildColumns, canEdit }: { project: SheetProject; buildColumns: (moreFunds: MoreFunds) => ReturnType<typeof areaColumns>; canEdit: boolean }) {
+function ProjectPanel({ project, buildColumns, canEdit, lookups }: {
+  project: SheetProject;
+  buildColumns: (moreFunds: MoreFunds) => ReturnType<typeof areaColumns>;
+  canEdit: boolean;
+  lookups: GridLookups;
+}) {
   const act = useAction();
   const gridRef = useRef<AgGridReact<Row>>(null);
   const panel = useRef<HTMLElement>(null);
@@ -134,16 +140,10 @@ function ProjectPanel({ project, buildColumns, canEdit }: { project: SheetProjec
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(project.name);
   const [owner, setOwner] = useState(project.ownerName ?? "");
-  const [newItem, setNewItem] = useState("");
 
   const save = async () => {
     const ok = await act(() => api.updateProject(project.id, { name: name.trim(), ownerName: owner.trim() || null }));
     if (ok) setEditing(false);
-  };
-  const addLine = async (event: FormEvent) => {
-    event.preventDefault();
-    if (newItem.trim() === "") return;
-    if (await act(() => api.createLine(project.id, newItem.trim()))) setNewItem("");
   };
   const remove = () => {
     const count = project.lines.length;
@@ -203,14 +203,7 @@ function ProjectPanel({ project, buildColumns, canEdit }: { project: SheetProjec
         singleClickEdit
       />
 
-      {canEdit && (
-        <form className="inline-form" onSubmit={addLine}>
-          <Field>
-            <input className="input small" value={newItem} placeholder="New item" onChange={(e) => setNewItem(e.target.value)} aria-label={`New item in ${project.name}`} />
-          </Field>
-          <Button small icon={faPlus} type="submit" disabled={newItem.trim() === ""}>Add item</Button>
-        </form>
-      )}
+      {canEdit && <AddSection label="Add item" form={(close) => <NewLine project={project} lookups={lookups} onDone={close} />} />}
     </Panel>
   );
 }

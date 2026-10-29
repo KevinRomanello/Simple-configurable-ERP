@@ -1,11 +1,11 @@
-import { faArrowDown, faArrowUp, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDown, faArrowUp, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api } from "../api/client";
 import type { BankCompare, Calculation, ItemField, SettingsView } from "../api/types";
 import { Button, IconButton } from "../components/Button";
 import { CommitInput } from "../components/CommitInput";
-import { DataTable, Field, Loading, Message, PageHeader, Panel, type Column } from "../components/ui";
+import { AddSection, DataTable, Field, FormPanel, Loading, Message, PageHeader, Panel, type Column } from "../components/ui";
 import { useMe } from "../lib/auth";
 import { FIELD_LABELS } from "../lib/inventory";
 import { useAction } from "../lib/useAction";
@@ -72,20 +72,22 @@ function DeleteButton({ label, usedBy, onDelete }: { label: string; usedBy: numb
 
 const usedBy = <T extends { usedBy: number }>(): Column<T> => ({ key: "usedBy", header: "USED BY", num: true, sort: (r) => r.usedBy, cell: (r) => r.usedBy || "" });
 
-/** One box and an Add button under a list. */
-function QuickAdd({ id, label, placeholder, type = "text", onAdd }: { id: string; label: string; placeholder?: string; type?: "text" | "number"; onAdd: (text: string) => Promise<boolean> }) {
+/** The yellow button under a list and, opened by it, the form with the one box of what is added. */
+function QuickAdd({ id, noun, label, type = "text", onAdd }: { id: string; noun: string; label: string; type?: "text" | "number"; onAdd: (text: string) => Promise<boolean> }) {
+  return <AddSection label={`New ${noun}`} form={(close) => <QuickAddForm id={id} noun={noun} label={label} type={type} onAdd={onAdd} onDone={close} />} />;
+}
+
+function QuickAddForm({ id, noun, label, type, onAdd, onDone }: { id: string; noun: string; label: string; type: "text" | "number"; onAdd: (text: string) => Promise<boolean>; onDone: () => void }) {
   const [text, setText] = useState("");
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (text.trim() !== "" && (await onAdd(text.trim()))) setText("");
+  const submit = async () => {
+    if (await onAdd(text.trim())) onDone();
   };
   return (
-    <form className="inline-form" onSubmit={submit}>
+    <FormPanel title={`New ${noun}`} submitLabel={`Add ${noun}`} canSubmit={text.trim() !== ""} onSubmit={submit} onCancel={onDone}>
       <Field label={label} htmlFor={id}>
-        <input id={id} className="input small" type={type} step={type === "number" ? "0.01" : undefined} placeholder={placeholder} value={text} onChange={(e) => setText(e.target.value)} />
+        <input id={id} className="input small" type={type} step={type === "number" ? "0.01" : undefined} autoFocus value={text} onChange={(e) => setText(e.target.value)} />
       </Field>
-      <Button small icon={faPlus} type="submit" disabled={text.trim() === ""}>Add</Button>
-    </form>
+    </FormPanel>
   );
 }
 
@@ -248,7 +250,7 @@ function CategoriesPanel({ data }: { data: SettingsView }) {
           </tr>
         }
       />
-      <QuickAdd id="new-category" label="New category" onAdd={(name) => act(() => api.createCategory(name))} />
+      <QuickAdd id="new-category" noun="category" label="Name" onAdd={(name) => act(() => api.createCategory(name))} />
     </Panel>
   );
 }
@@ -264,7 +266,7 @@ function VatRatesPanel({ rates }: { rates: SettingsView["vatRates"] }) {
     <Panel title="VAT rates">
       <p className="muted">The rates a line, a sponsor or an arrival can use. Used by: sponsors and budget lines.</p>
       <DataTable title="VAT rates" columns={columns} rows={rates} rowKey={(r) => r.id} empty="No rates" />
-      <QuickAdd id="new-vat-rate" label="New rate (%)" type="number" onAdd={(rate) => act(() => api.createVatRate(Number(rate)))} />
+      <QuickAdd id="new-vat-rate" noun="VAT rate" label="Rate (%)" type="number" onAdd={(rate) => act(() => api.createVatRate(Number(rate)))} />
     </Panel>
   );
 }
@@ -280,22 +282,36 @@ function UnitsPanel({ units }: { units: SettingsView["units"] }) {
     <Panel title="Units">
       <p className="muted">How an item is counted. Renaming a unit renames it on every item counted in it.</p>
       <DataTable title="Units" columns={columns} rows={units} rowKey={(u) => u.id} empty="No units" />
-      <QuickAdd id="new-unit" label="New unit" onAdd={(name) => act(() => api.createUnit(name))} />
+      <QuickAdd id="new-unit" noun="unit" label="Name" onAdd={(name) => act(() => api.createUnit(name))} />
     </Panel>
   );
 }
 
 type LocationRow = SettingsView["locations"][number];
 
+/** The form of a new place: a site and a room. */
+function NewPlace({ onDone }: { onDone: () => void }) {
+  const act = useAction();
+  const [site, setSite] = useState("");
+  const [room, setRoom] = useState("");
+  const submit = async () => {
+    if (await act(() => api.createLocation({ site: site.trim(), room: room.trim() }))) onDone();
+  };
+  return (
+    <FormPanel title="New place" submitLabel="Add place" canSubmit={site.trim() !== "" && room.trim() !== ""} onSubmit={submit} onCancel={onDone}>
+      <Field label="Site" htmlFor="new-site">
+        <input id="new-site" className="input small" autoFocus value={site} onChange={(e) => setSite(e.target.value)} />
+      </Field>
+      <Field label="Room" htmlFor="new-room">
+        <input id="new-room" className="input small" value={room} onChange={(e) => setRoom(e.target.value)} />
+      </Field>
+    </FormPanel>
+  );
+}
+
 function LocationsPanel({ locations }: { locations: SettingsView["locations"] }) {
   const act = useAction();
   const ids = locations.map((l) => l.id);
-  const [site, setSite] = useState("");
-  const [room, setRoom] = useState("");
-  const add = async (event: FormEvent) => {
-    event.preventDefault();
-    if (await act(() => api.createLocation({ site: site.trim(), room: room.trim() }))) setRoom("");
-  };
 
   const columns: Column<LocationRow>[] = [
     { key: "site", header: "SITE", cell: (l) => <CommitInput value={l.site} label={`Site of ${l.code}`} onCommit={(text) => text !== "" && act(() => api.updateLocation(l.id, { site: text }))} /> },
@@ -313,15 +329,7 @@ function LocationsPanel({ locations }: { locations: SettingsView["locations"] })
         movements of the inventory store: it never changes, so renaming a place keeps its history right. Used by: movements of the inventory.
       </p>
       <DataTable title="Places" columns={columns} rows={locations} rowKey={(l) => l.id} empty="No places" />
-      <form className="inline-form" onSubmit={add}>
-        <Field label="New place: site" htmlFor="new-site">
-          <input id="new-site" className="input small" value={site} onChange={(e) => setSite(e.target.value)} />
-        </Field>
-        <Field label="Room" htmlFor="new-room">
-          <input id="new-room" className="input small" value={room} onChange={(e) => setRoom(e.target.value)} />
-        </Field>
-        <Button small icon={faPlus} type="submit" disabled={site.trim() === "" || room.trim() === ""}>Add</Button>
-      </form>
+      <AddSection label="New place" form={(close) => <NewPlace onDone={close} />} />
     </Panel>
   );
 }
