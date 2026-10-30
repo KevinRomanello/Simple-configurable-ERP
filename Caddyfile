@@ -26,9 +26,11 @@
 		respond "Forbidden (your address: {remote_host})" 403
 	}
 
-	# The API sets its own security headers; here only the forwarding.
+	# The API sets its own security headers; here only the forwarding. API_ADDRESS (in .env) is where the
+	# API is on the Docker network: "api:3000" when the stack is started by docker-compose.prod.yml, or the
+	# container's own name ("erp-api:3000") when it was started another way.
 	handle /api/* {
-		reverse_proxy api:3000
+		reverse_proxy {$API_ADDRESS:api:3000}
 	}
 
 	# Everything else is the site. The pages are drawn by the browser, so any address that is not a

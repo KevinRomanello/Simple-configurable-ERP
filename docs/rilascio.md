@@ -105,7 +105,7 @@ docker compose exec -T db sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB
 docker compose up -d
 ```
 
-5. **Controlla**: `docker compose ps` (tutto `running`, `setup` `exited (0)`), `curl https://IL-TUO-DOMINIO/api/health` deve rispondere `{"ok":true,"db":true}`, poi apri il sito dall'indirizzo del proxy: entri da solo, con la tua mail, e se è in `ADMIN_EMAILS` sei admin. Se il sito risponde `Forbidden (your address: …)`, quell'indirizzo è quello che Caddy vede: mettilo in `PROXY_IPS` (se è del proxy) e riavvia `web`. Se qualcosa non parte: `docker compose logs api` o `docker compose logs setup`.
+5. **Controlla**: `docker compose ps` (tutto `running`, `setup` `exited (0)`), `curl https://IL-TUO-DOMINIO/api/health` deve rispondere `{"ok":true,"db":true}`, poi apri il sito dall'indirizzo del proxy: entri da solo, con la tua mail, e se è in `ADMIN_EMAILS` sei admin. Se la pagina dà **502** e il log di `web` (`docker compose logs web`) dice `dial tcp: lookup api`, il contenitore `web` non trova l'API con quel nome: guarda `API_ADDRESS` (§4) e che i due contenitori stiano sulla stessa rete (`docker inspect -f '{{.Name}}: {{range $net, $c := .NetworkSettings.Networks}}{{$net}} {{end}}' erp-api erp-web`). Se il sito risponde `Forbidden (your address: …)`, quell'indirizzo è quello che Caddy vede: mettilo in `PROXY_IPS` (se è del proxy) e riavvia `web`. Se qualcosa non parte: `docker compose logs api` o `docker compose logs setup`.
 
 ## 4. Il file `.env` del server
 
@@ -115,6 +115,7 @@ docker compose up -d
 | `TRUSTED_EMAIL_HEADER` | il nome dell'header in cui il proxy mette la mail (`X-Email`). Se è impostato, **è l'unico modo di entrare**: niente Google, niente `JWT_SECRET` |
 | `PROXY_IPS` | gli indirizzi (o le reti, `10.0.0.0/24`) da cui arriva il proxy, separati da spazi: **chiunque altro riceve 403**. Obbligatorio. Chiedilo a IT; per controllare, un indirizzo non ammesso riceve «Forbidden (your address: …)». Se il proxy è **sullo stesso server**, di solito è l'indirizzo del ponte di Docker (`172.x.0.1`). Senza proxy (Google, HTTPS diretto): `0.0.0.0/0 ::/0` |
 | `SITE_ADDRESS` | `:80`: HTTP semplice, l'HTTPS lo fa il proxy (è il caso). Oppure un **dominio** (`budget.esempio.it`): Caddy ottiene e rinnova da solo il certificato HTTPS (senza proxy) |
+| `API_ADDRESS` | dove sta il contenitore dell'API, visto dal contenitore `web`: `nome:porta`. Predefinito `api:3000` (il nome del servizio, valido se lo stack parte da `docker-compose.prod.yml`). Se l'API ha un altro nome (`docker ps`), per esempio `erp-api`, scrivi `erp-api:3000`. Sintomo di un nome sbagliato: il sito carica ma ogni richiesta `/api` dà 502 e il log di `web` dice `lookup api on 127.0.0.11:53` |
 | `WEB_BIND` | l'indirizzo del server su cui il sito ascolta le porte 80 e 443: quello che il proxy raggiunge, oppure `127.0.0.1` se il proxy è sullo stesso server. Predefinito: tutti |
 | `PUBLIC_URL` | l'indirizzo che la gente digita, cioè quello del proxy, **con `https://`**. L'app lo usa per riconoscere le richieste del proprio sito (e con Google per il ritorno dopo l'accesso). In produzione l'API non parte con `http://`, anche se `SITE_ADDRESS` è `:80` |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | il proprietario delle tabelle (solo per le migrazioni, mai per l'API) |
