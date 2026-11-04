@@ -1,14 +1,20 @@
 import { roundDiv } from "@erp/calc";
-import { asc, eq, like, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, like, max, sql } from "drizzle-orm";
 import { fromScaled } from "../core/money";
 import { placeholderPng, type Shape } from "./demo-image";
 import { ownerDb, ownerPool } from "./owner";
-import { area, componentPart, inventoryItem, itemImage, project, stockMovement } from "./schema";
+import {
+  area, componentPart, inventoryItem, itemDatasheet, itemDatasheetFile, itemImage, itemParamValue, itemType, itemTypeParam, project, stockMovement,
+} from "./schema";
 
 // Made-up inventory, only to have something to look at and try. Nothing here is real: names,
 // prices and places are invented. Every item has a code starting with DEMO-, which is how
 // `--remove` finds them. It is written without the history (the session turns the audit triggers
 // off) so that the History page is not filled with things nobody did.
+//
+// The items have an area and, many of them, a type with its parameters (docs/inventario.md, §19).
+// The types are made if they are missing (a type with the same name is reused) and stay after
+// `--remove`: they are useful as a start, and a type the team made by hand is never deleted.
 //
 //   pnpm db:seed-demo             add it (does nothing if it is already there)
 //   pnpm db:seed-demo -- --remove take it away again
@@ -17,12 +23,63 @@ const remove = process.argv.includes("--remove");
 
 type Receipt = { on: string; qty: number; net: number; at: string; spot?: string; for?: string; free?: boolean };
 type Use = { on: string; qty: number; at: string; spot?: string; for?: string; note?: string };
+
+type Kind = (typeof itemTypeParam.$inferSelect)["kind"];
+interface DemoType {
+  name: string;
+  /** The code of its area; none: every area. */
+  area?: string;
+  hazards: boolean;
+  params: { name: string; kind: Kind; unit?: string; prefixes?: boolean; choices?: string[] }[];
+}
+
+const TYPES: DemoType[] = [
+  {
+    name: "Fastener", area: "mt-dmt", hazards: false,
+    params: [
+      { name: "Kind", kind: "list", choices: ["Screw", "Nut", "Washer"] },
+      { name: "Thread", kind: "list", choices: ["M3", "M4", "M5", "M6"] },
+      { name: "Length", kind: "number", unit: "m", prefixes: true },
+    ],
+  },
+  { name: "Cable", area: "hw", hazards: false, params: [{ name: "Section", kind: "number", unit: "mm²" }, { name: "Colour", kind: "text" }] },
+  { name: "Connector", area: "hw", hazards: false, params: [{ name: "Pins", kind: "number" }, { name: "Sealed", kind: "yesno" }] },
+  {
+    name: "Battery", area: "hw", hazards: true,
+    params: [{ name: "Voltage", kind: "number", unit: "V", prefixes: true }, { name: "Capacity", kind: "number", unit: "Ah", prefixes: true }, { name: "Cells", kind: "number" }],
+  },
+  {
+    name: "Resistor", area: "hw", hazards: false,
+    params: [
+      { name: "Resistance", kind: "number", unit: "Ω", prefixes: true },
+      { name: "Power", kind: "number", unit: "W", prefixes: true },
+      { name: "Tolerance", kind: "list", choices: ["1 %", "5 %"] },
+      { name: "Package", kind: "list", choices: ["0402", "0603", "0805"] },
+    ],
+  },
+  {
+    name: "Capacitor", area: "hw", hazards: false,
+    params: [
+      { name: "Capacitance", kind: "number", unit: "F", prefixes: true },
+      { name: "Voltage", kind: "number", unit: "V", prefixes: true },
+      { name: "Dielectric", kind: "list", choices: ["C0G", "X5R", "X7R"] },
+      { name: "Package", kind: "list", choices: ["0402", "0603", "0805"] },
+    ],
+  },
+];
+
 interface Demo {
   code: string;
   name: string;
   category: string;
   unit: string;
   purpose: string;
+  /** The code of its area; none: every area. */
+  area?: string;
+  /** The name of its type, and what is written in its parameters (numbers exact, in the unit of the parameter). */
+  type?: string;
+  params?: Record<string, string | boolean>;
+  flammable?: boolean;
   color: [number, number, number];
   shape: Shape;
   picture?: boolean;
@@ -36,7 +93,7 @@ interface Demo {
 
 const BOUGHT: Demo[] = [
   {
-    code: "DEMO-001", name: "M3 x 10 socket screw A2", category: "Components", unit: "pcs", color: [70, 90, 120], shape: "circle",
+    code: "DEMO-001", area: "mt-dmt", type: "Fastener", params: { Kind: "Screw", Thread: "M3", Length: "0.01" }, name: "M3 x 10 socket screw A2", category: "Components", unit: "pcs", color: [70, 90, 120], shape: "circle",
     purpose: "Fastens the 3D-printed and aluminium brackets.", storageNotes: "Plastic drawer, box labelled M3.",
     receipts: [
       { on: "2026-06-10", qty: 200, net: 0.062, at: "s1-r1", spot: "Drawer 4, box M3", for: "sw" },
@@ -46,7 +103,7 @@ const BOUGHT: Demo[] = [
     uses: [{ on: "2026-09-20", qty: 120, at: "s1-r1", spot: "Drawer 4, box M3", for: "sw" }, { on: "2026-10-15", qty: 60, at: "s1-r1", spot: "Drawer 4, box M3", for: "hw" }],
   },
   {
-    code: "DEMO-002", name: "M5 nylon lock nut", category: "Components", unit: "pcs", color: [110, 110, 130], shape: "ring",
+    code: "DEMO-002", area: "mt-dmt", type: "Fastener", params: { Kind: "Nut", Thread: "M5" }, name: "M5 nylon lock nut", category: "Components", unit: "pcs", color: [110, 110, 130], shape: "ring",
     purpose: "Self-locking nut for the pedal box and the steering rack.", storageNotes: "Plastic drawer, box labelled M5.",
     receipts: [
       { on: "2026-06-10", qty: 100, net: 0.09, at: "s1-r1", spot: "Drawer 4, box M5" },
@@ -54,7 +111,7 @@ const BOUGHT: Demo[] = [
     ],
   },
   {
-    code: "DEMO-003", name: "Aluminium 6082 plate 200 x 100 x 5", category: "Manufacturing", unit: "pcs", color: [150, 160, 170], shape: "square",
+    code: "DEMO-003", area: "mt-dmt", name: "Aluminium 6082 plate 200 x 100 x 5", category: "Manufacturing", unit: "pcs", color: [150, 160, 170], shape: "square",
     purpose: "Raw material for brackets and mounts.", storageNotes: "Flat on the rack, interleaved with paper.",
     receipts: [
       { on: "2026-06-20", qty: 20, net: 6.5, at: "s1-r2", spot: "Rack B", for: "mt-dmt" },
@@ -63,7 +120,7 @@ const BOUGHT: Demo[] = [
     uses: [{ on: "2026-10-02", qty: 6, at: "s1-r2", spot: "Rack B", for: "mt-dmt", note: "Pedal brackets, first batch" }],
   },
   {
-    code: "DEMO-004", name: "Epoxy resin L285", category: "Manufacturing", unit: "kg", color: [200, 160, 60], shape: "circle",
+    code: "DEMO-004", area: "mt-dmt", name: "Epoxy resin L285", category: "Manufacturing", unit: "kg", color: [200, 160, 60], shape: "circle",
     purpose: "Matrix for carbon fibre layups.",
     safetyCodes: "H315, H317, H319, H412 | P280, P302+P352, P305+P351+P338",
     disposal: "Cured resin is non-hazardous. Liquid residue goes to the hazardous waste collection; never down the drain.",
@@ -75,7 +132,7 @@ const BOUGHT: Demo[] = [
     uses: [{ on: "2026-08-15", qty: 1.5, at: "s2-r1", spot: "Chemicals cabinet, shelf 2", for: "mt-dmt", note: "Monocoque test panel" }],
   },
   {
-    code: "DEMO-005", name: "Epoxy hardener H285", category: "Manufacturing", unit: "kg", color: [190, 120, 60], shape: "ring",
+    code: "DEMO-005", area: "mt-dmt", name: "Epoxy hardener H285", category: "Manufacturing", unit: "kg", color: [190, 120, 60], shape: "ring",
     purpose: "Hardener for the L285 resin (mix ratio 100:40 by weight).",
     safetyCodes: "H302, H312, H314, H317, H412 | P260, P280, P303+P361+P353, P305+P351+P338",
     disposal: "Corrosive: never mix with other waste. Hazardous waste collection, in its original bottle.",
@@ -87,7 +144,7 @@ const BOUGHT: Demo[] = [
     uses: [{ on: "2026-08-15", qty: 0.6, at: "s2-r1", spot: "Chemicals cabinet, shelf 2", for: "mt-dmt" }],
   },
   {
-    code: "DEMO-006", name: "Isopropyl alcohol 99 %", category: "Consumable", unit: "l", color: [90, 160, 190], shape: "bars",
+    code: "DEMO-006", flammable: true, name: "Isopropyl alcohol 99 %", category: "Consumable", unit: "l", color: [90, 160, 190], shape: "bars",
     purpose: "Degreasing before bonding and painting.",
     safetyCodes: "H225, H319, H336 | P210, P233, P305+P351+P338",
     disposal: "Collect in the labelled solvent can and hand it to the university chemical waste service.",
@@ -96,7 +153,7 @@ const BOUGHT: Demo[] = [
     uses: [{ on: "2026-09-25", qty: 1.2, at: "s2-r1", spot: "Flammables cabinet", for: "cm" }],
   },
   {
-    code: "DEMO-007", name: "LiPo battery 4S 5000 mAh", category: "Consumable", unit: "pcs", color: [200, 70, 70], shape: "square",
+    code: "DEMO-007", area: "hw", type: "Battery", params: { Voltage: "14.8", Capacity: "5", Cells: "4" }, name: "LiPo battery 4S 5000 mAh", category: "Consumable", unit: "pcs", color: [200, 70, 70], shape: "square",
     purpose: "Powers the test bench and the data logger.",
     safetyCodes: "UN3480 (class 9) | do not short-circuit, do not charge unattended",
     disposal: "Never in household waste. Discharge to the storage level and take it to the battery collection point.",
@@ -104,7 +161,7 @@ const BOUGHT: Demo[] = [
     receipts: [{ on: "2026-09-12", qty: 4, net: 46.9, at: "s1-r3", spot: "Fireproof cabinet", for: "hw" }],
   },
   {
-    code: "DEMO-008", name: "Copper cable 2.5 mm2 red", category: "Components", unit: "m", color: [180, 60, 50], shape: "bars",
+    code: "DEMO-008", area: "hw", type: "Cable", params: { Section: "2.5", Colour: "Red" }, name: "Copper cable 2.5 mm2 red", category: "Components", unit: "m", color: [180, 60, 50], shape: "bars",
     purpose: "Power wiring of the low-voltage system.", storageNotes: "On its reel, hung on the wall.",
     receipts: [
       { on: "2026-06-15", qty: 50, net: 0.9, at: "s1-r3", spot: "Wall reels", for: "hw" },
@@ -113,14 +170,14 @@ const BOUGHT: Demo[] = [
     uses: [{ on: "2026-10-05", qty: 18.5, at: "s1-r3", spot: "Wall reels", for: "hw" }],
   },
   {
-    code: "DEMO-009", name: "Torque wrench 5-60 Nm", category: "Asset", unit: "pcs", color: [60, 70, 90], shape: "diamond",
+    code: "DEMO-009", area: "mt-dmt", name: "Torque wrench 5-60 Nm", category: "Asset", unit: "pcs", color: [60, 70, 90], shape: "diamond",
     purpose: "Tightening of the suspension and brake fasteners.",
     maintenanceNotes: "Recalibrate every 12 months (due July 2027). Always store at the lowest setting.",
     storageNotes: "In its case, on the tool wall.",
     receipts: [{ on: "2026-07-10", qty: 1, net: 89.9, at: "s1-r3", spot: "Tool wall" }],
   },
   {
-    code: "DEMO-010", name: "Digital multimeter", category: "Asset", unit: "pcs", color: [230, 190, 40], shape: "square",
+    code: "DEMO-010", area: "hw", name: "Digital multimeter", category: "Asset", unit: "pcs", color: [230, 190, 40], shape: "square",
     purpose: "Electrical checks on the car and on the bench.",
     maintenanceNotes: "Replace the 9 V battery when the display dims; check the probes for cracks.",
     storageNotes: "Electronics drawer.",
@@ -146,16 +203,32 @@ const BOUGHT: Demo[] = [
     receipts: [{ on: "2026-06-01", qty: 10, net: 4.5, at: "s1-r2", spot: "By the door", free: true }],
   },
   {
-    code: "DEMO-014", name: "2-pin sealed connector", category: "Components", unit: "pcs", color: [70, 120, 90], shape: "circle",
+    code: "DEMO-014", area: "hw", type: "Connector", params: { Pins: "2", Sealed: true }, name: "2-pin sealed connector", category: "Components", unit: "pcs", color: [70, 120, 90], shape: "circle",
     purpose: "Waterproof connection of sensors to the harness.",
     receipts: [{ on: "2026-09-22", qty: 40, net: 0.85, at: "s1-r3", spot: "Electronics drawer", for: "hw" }],
   },
+  // a few parts of the electronics, to try the filters on what is written about them
+  smd("DEMO-030", "Resistor 1k 0603 1%", "Resistor", { Resistance: "1000", Power: "0.1", Tolerance: "1 %", Package: "0603" }, 200, 0.0045),
+  smd("DEMO-031", "Resistor 4k7 0603 1%", "Resistor", { Resistance: "4700", Power: "0.1", Tolerance: "1 %", Package: "0603" }, 200, 0.0045),
+  smd("DEMO-032", "Resistor 10k 0805 5%", "Resistor", { Resistance: "10000", Power: "0.125", Tolerance: "5 %", Package: "0805" }, 100, 0.0031),
+  smd("DEMO-033", "Capacitor 100n 50V X7R 0603", "Capacitor", { Capacitance: "0.0000001", Voltage: "50", Dielectric: "X7R", Package: "0603" }, 300, 0.006),
+  smd("DEMO-034", "Capacitor 10u 25V X5R 0805", "Capacitor", { Capacitance: "0.00001", Voltage: "25", Dielectric: "X5R", Package: "0805" }, 50, 0.038),
 ];
+
+/** A small surface-mount part of HW, bought once for a project of the area. */
+function smd(code: string, name: string, type: string, params: Record<string, string>, qty: number, net: number): Demo {
+  return {
+    code, name, category: "Components", unit: "pcs", area: "hw", type, params, color: [60, 60, 70], shape: "square", picture: false,
+    purpose: "Boards of the low-voltage system.", storageNotes: "SMD box, one bag per value.",
+    receipts: [{ on: "2026-09-22", qty, net, at: "s1-r3", spot: "Electronics drawer, SMD box", for: "hw" }],
+  };
+}
 
 interface DemoMade {
   code: string;
   name: string;
   purpose: string;
+  area: string;
   color: [number, number, number];
   shape: Shape;
   /** [code of the part, quantity] */
@@ -166,15 +239,15 @@ interface DemoMade {
 
 const MADE: DemoMade[] = [
   {
-    code: "DEMO-020", name: "Pedal bracket", purpose: "Mounts the brake pedal to the chassis.", color: [120, 130, 150], shape: "square",
+    code: "DEMO-020", area: "mt-dmt", name: "Pedal bracket", purpose: "Mounts the brake pedal to the chassis.", color: [120, 130, 150], shape: "square",
     parts: [["DEMO-003", 1], ["DEMO-001", 6]], counted: { qty: 4, at: "s1-r2", spot: "Shelf 1, made parts" },
   },
   {
-    code: "DEMO-021", name: "Brake pedal assembly", purpose: "The complete pedal: bracket, pivot hardware and plates.", color: [170, 90, 90], shape: "diamond",
+    code: "DEMO-021", area: "mt-dmt", name: "Brake pedal assembly", purpose: "The complete pedal: bracket, pivot hardware and plates.", color: [170, 90, 90], shape: "diamond",
     parts: [["DEMO-020", 1], ["DEMO-001", 4], ["DEMO-003", 2], ["DEMO-002", 2]],
   },
   {
-    code: "DEMO-022", name: "Dash wiring harness", purpose: "Connects the dash display, the buttons and the data logger.", color: [90, 150, 110], shape: "bars",
+    code: "DEMO-022", area: "hw", name: "Dash wiring harness", purpose: "Connects the dash display, the buttons and the data logger.", color: [90, 150, 110], shape: "bars",
     parts: [["DEMO-008", 3.5], ["DEMO-012", 12], ["DEMO-014", 6]],
   },
 ];
@@ -186,13 +259,19 @@ async function main() {
 
     const existing = await tx.select({ id: inventoryItem.id }).from(inventoryItem).where(like(inventoryItem.code, "DEMO-%"));
     if (existing.length > 0) {
+      // with the triggers off the database does not cascade either: everything hanging from the items goes first
       const ids = existing.map((e) => e.id);
-      await tx.delete(stockMovement).where(sql`${stockMovement.itemId} in (${sql.join(ids.map((i) => sql`${i}`), sql`, `)})`);
-      await tx.delete(componentPart).where(sql`${componentPart.componentId} in (${sql.join(ids.map((i) => sql`${i}`), sql`, `)})`);
+      const sheets = (await tx.select({ id: itemDatasheet.id }).from(itemDatasheet).where(inArray(itemDatasheet.itemId, ids))).map((r) => r.id);
+      if (sheets.length > 0) await tx.delete(itemDatasheetFile).where(inArray(itemDatasheetFile.datasheetId, sheets));
+      await tx.delete(itemDatasheet).where(inArray(itemDatasheet.itemId, ids));
+      await tx.delete(itemImage).where(inArray(itemImage.itemId, ids));
+      await tx.delete(itemParamValue).where(inArray(itemParamValue.itemId, ids));
+      await tx.delete(stockMovement).where(inArray(stockMovement.itemId, ids));
+      await tx.delete(componentPart).where(inArray(componentPart.componentId, ids));
       await tx.delete(inventoryItem).where(like(inventoryItem.code, "DEMO-%"));
     }
     if (remove) {
-      console.log(`Removed ${existing.length} demonstration items.`);
+      console.log(`Removed ${existing.length} demonstration items (their types stay).`);
       return;
     }
 
@@ -202,19 +281,33 @@ async function main() {
       if (!firstProject.has(row.code)) firstProject.set(row.code, row.id);
     }
     const projectOf = (areaCode?: string) => (areaCode ? (firstProject.get(areaCode) ?? null) : null);
+    const areaIds = new Map((await tx.select().from(area)).map((a) => [a.code, a.id]));
+    const types = await ensureTypes(tx, areaIds);
     const e4 = (euros: number) => Math.round(euros * 10_000);
     const milli = (qty: number) => Math.round(qty * 1000);
 
     const ids = new Map<string, number>();
     const makeItem = async (d: { code: string; name: string; purpose: string; category?: string; unit?: string; origin?: "bought" | "made" } & Partial<Demo>) => {
+      const type = d.type === undefined ? undefined : types.get(d.type)!;
       const [row] = await tx
         .insert(inventoryItem)
         .values({
           code: d.code, name: d.name, purpose: d.purpose, category: d.category ?? (d.origin === "made" ? "Components" : null), unit: d.unit ?? "pcs",
           origin: d.origin ?? "bought", safetyCodes: d.safetyCodes ?? null, disposal: d.disposal ?? null,
-          storageNotes: d.storageNotes ?? null, maintenanceNotes: d.maintenanceNotes ?? null,
+          storageNotes: d.storageNotes ?? null, maintenanceNotes: d.maintenanceNotes ?? null, flammable: d.flammable ?? false,
+          areaId: d.area === undefined ? null : areaIds.get(d.area)!, typeId: type?.id ?? null,
         })
         .returning({ id: inventoryItem.id });
+      for (const [name, value] of Object.entries(d.params ?? {})) {
+        const param = type!.params.get(name)!;
+        if (param.kind === "list" && !param.choices.includes(value as string)) throw new Error(`"${value}" is not a choice of ${d.type} → ${name}`);
+        await tx.insert(itemParamValue).values({
+          itemId: row!.id, paramId: param.id,
+          number: param.kind === "number" ? (value as string) : null,
+          text: param.kind === "list" || param.kind === "text" ? (value as string) : null,
+          flag: param.kind === "yesno" ? (value as boolean) : null,
+        });
+      }
       ids.set(d.code, row!.id);
       return row!.id;
     };
@@ -260,9 +353,39 @@ async function main() {
         await tx.insert(componentPart).values({ componentId: ids.get(m.code)!, partId: ids.get(partCode)!, quantity: fromScaled(milli(qty), 3) });
       }
     }
-    console.log(`Added ${BOUGHT.length} bought items and ${MADE.length} made ones (prefix DEMO-). Take them away with: pnpm db:seed-demo -- --remove`);
+    console.log(`Added ${BOUGHT.length} bought items and ${MADE.length} made ones (prefix DEMO-), of ${TYPES.length} types. Take them away with: pnpm db:seed-demo -- --remove`);
   });
   await ownerPool.end();
+}
+
+type Tx = Parameters<Parameters<typeof ownerDb.transaction>[0]>[0];
+
+/**
+ * The demonstration types and their parameters, made where they are missing. A type or a parameter
+ * with the same name is reused as it is; one of another kind stops everything, rather than writing
+ * a value it cannot hold.
+ */
+async function ensureTypes(tx: Tx, areaIds: Map<string, number>) {
+  const types = new Map<string, { id: number; params: Map<string, { id: number; kind: Kind; choices: string[] }> }>();
+  for (const t of TYPES) {
+    let [type] = await tx.select().from(itemType).where(sql`lower(${itemType.name}) = lower(${t.name})`);
+    type ??= (await tx.insert(itemType).values({ name: t.name, areaId: t.area === undefined ? null : areaIds.get(t.area)!, hazards: t.hazards }).returning())[0]!;
+    const params = new Map<string, { id: number; kind: Kind; choices: string[] }>();
+    for (const p of t.params) {
+      let [param] = await tx.select().from(itemTypeParam).where(and(eq(itemTypeParam.typeId, type.id), sql`lower(${itemTypeParam.name}) = lower(${p.name})`));
+      if (!param) {
+        const [last] = await tx.select({ position: max(itemTypeParam.position) }).from(itemTypeParam).where(eq(itemTypeParam.typeId, type.id));
+        [param] = await tx
+          .insert(itemTypeParam)
+          .values({ typeId: type.id, name: p.name, kind: p.kind, unit: p.unit ?? null, prefixes: p.prefixes ?? false, choices: p.choices ?? [], position: (last?.position ?? 0) + 1 })
+          .returning();
+      }
+      if (param!.kind !== p.kind) throw new Error(`The type "${type.name}" already has "${param!.name}" as ${param!.kind}, not ${p.kind}: rename one of them`);
+      params.set(p.name, { id: param!.id, kind: param!.kind, choices: param!.choices });
+    }
+    types.set(t.name, { id: type.id, params });
+  }
+  return types;
 }
 
 await main();

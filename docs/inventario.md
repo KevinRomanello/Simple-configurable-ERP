@@ -159,7 +159,19 @@ Schermate (menu **Inventory**): **INVENTORY** (elenco con miniature, filtri per 
 
 ## 13. Dati dimostrativi
 
-`pnpm db:seed-demo` aggiunge 14 articoli comprati e 3 fatti da noi (viti, resina e indurente con codici di sicurezza e smaltimento, alcool, batteria LiPo, utensili, cavo, una pedaliera fatta di una staffa fatta di piastre e viti…), con immagini generate, prezzi in date diverse, usi per progetto, uno spostamento, un conteggio e uno smaltimento. **Sono inventati**: nomi, prezzi e luoghi. Si riconoscono dal codice `DEMO-…`; `pnpm db:seed-demo -- --remove` li toglie; rilanciarlo non duplica. Non scrive nello storico (disattiva i trigger per la sua sessione) perché nessuno ha fatto davvero quelle modifiche. In Docker: `docker compose exec api pnpm db:seed-demo`.
+`pnpm db:seed-demo` aggiunge 19 articoli comprati e 3 fatti da noi (viti, resina e indurente con codici di sicurezza e smaltimento, alcool, batteria LiPo, utensili, cavo, tre resistenze e due condensatori SMD, una pedaliera fatta di una staffa fatta di piastre e viti…), con immagini generate, prezzi in date diverse, usi per progetto, uno spostamento, un conteggio e uno smaltimento. **Sono inventati**: nomi, prezzi e luoghi. Si riconoscono dal codice `DEMO-…`; `pnpm db:seed-demo -- --remove` li toglie; rilanciarlo non duplica. Non scrive nello storico (disattiva i trigger per la sua sessione) perché nessuno ha fatto davvero quelle modifiche. In Docker: `docker compose exec api pnpm db:seed-demo`.
+
+**Aree e tipi** (§19, dal 4 novembre 2026). Ogni articolo dimostrativo ha la sua area:
+
+| Area | Articoli |
+| --- | --- |
+| MT + DMT | vite M3, dado M5, piastra in alluminio, resina, indurente, chiave dinamometrica, staffa, pedaliera |
+| HW | batteria LiPo, cavo in rame, multimetro, connettore a 2 pin, cablaggio del cruscotto, resistenze e condensatori |
+| di tutte | alcool (segnato infiammabile), colla, fascette, occhiali |
+
+e sei tipi con i loro parametri: **Fastener** (MT + DMT: Kind, Thread, Length in m con prefissi, così la vite è lunga "10 mm"), **Cable** (Section in mm², Colour), **Connector** (Pins, Sealed sì/no), **Battery** (Voltage, Capacity in Ah, Cells; chiede i pericoli), **Resistor** (Resistance, Power, Tolerance, Package) e **Capacitor** (Capacitance, Voltage, Dielectric, Package), questi quattro di HW e senza la domanda sui pericoli. I tipi si creano solo se mancano (un tipo o un parametro con lo stesso nome viene riusato; uno con lo stesso nome ma di un altro genere ferma tutto con un messaggio) e **restano** dopo `--remove`: servono come base, e così un tipo fatto a mano non viene mai cancellato.
+
+**Con i trigger spenti il database non fa nemmeno le cascate** (`session_replication_role = replica` ferma anche le chiavi esterne): per questo il seed cancella da sé, prima degli articoli DEMO, le loro immagini, schede dati, valori dei parametri, movimenti e distinte. Fino al 4 novembre le immagini non venivano cancellate e ogni nuovo caricamento lasciava le miniature di quello prima senza articolo (30 righe nel database locale, tolte quel giorno).
 
 ## 14. Test
 
