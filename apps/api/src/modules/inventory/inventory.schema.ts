@@ -1,6 +1,7 @@
 import { PRICE_BASES, PRICE_METHODS } from "@erp/calc";
 import { z } from "zod";
 import { decimal, id, isoDate, LIMITS, longText, lookupCode, optionalText, shortText } from "../../core/validation";
+import { PARAM_KINDS } from "../../db/schema";
 
 // Input shapes of the inventory endpoints. Quantities are decimals with up to three decimals,
 // prices with up to four; the services turn them into thousandths and ten-thousandths.
@@ -9,12 +10,25 @@ const quantity = decimal(3, LIMITS.quantity);
 const price = decimal(4, LIMITS.unitCost);
 const spot = shortText(100).or(z.literal("")).default("");
 
+/**
+ * A number written in a parameter, in the unit of the parameter: 10 kΩ is "10000", 100 nF is
+ * "0.0000001" (the site turns "10k" and "100n" into these). It can be below zero (a temperature).
+ */
+export const paramNumber = z.string().max(40).regex(/^-?\d{1,15}(\.\d{1,18})?$/, "Expected a number in the unit of the parameter");
+
+/** What is written in a parameter of the item's type; null clears it. The service checks it against the kind. */
+const paramValue = z.object({ paramId: id, value: z.union([z.boolean(), z.string().trim().max(200)]).nullable() });
+
 /** What an item is: everything except the stock, which comes from movements. */
 const itemFields = {
   code: shortText(50).nullable(),
   name: shortText(),
   purpose: optionalText(),
   category: lookupCode.nullable(),
+  areaId: id.nullable(),
+  typeId: id.nullable(),
+  /** Only the parameters given change: one that is left out keeps what it had. */
+  params: z.array(paramValue).max(100),
   unit: shortText(20),
   safetyCodes: optionalText(),
   disposal: optionalText(),
@@ -31,6 +45,9 @@ export const createItemInput = z.object({
   code: itemFields.code.default(null),
   purpose: itemFields.purpose.default(null),
   category: itemFields.category.default(null),
+  areaId: itemFields.areaId.default(null),
+  typeId: itemFields.typeId.default(null),
+  params: itemFields.params.default([]),
   unit: itemFields.unit.default("pcs"),
   safetyCodes: itemFields.safetyCodes.default(null),
   disposal: itemFields.disposal.default(null),
@@ -68,11 +85,59 @@ export const itemsQuery = priceQuery.extend({
   category: lookupCode.optional(),
   origin: z.enum(["bought", "made"]).optional(),
   location: lookupCode.optional(),
+  /** The code of an area (`hw`): its items. */
+  area: lookupCode.optional(),
+  type: id.optional(),
   /** Each one that is given narrows the list to the items that are so ("true"; two of them: both). */
   flammable: z.stringbool().optional(),
   toxic: z.stringbool().optional(),
   carcinogenic: z.stringbool().optional(),
 });
+
+/**
+ * What is written in a parameter, as a filter of the list: `p12=0603` (a list: that choice; a text:
+ * containing it; yes or no: `yes`/`no`), `p12min=1000` and `p12max=10000` (a number, both ends included).
+ */
+export interface ParamFilter {
+  paramId: number;
+  op: "is" | "min" | "max";
+  value: string;
+}
+
+export function paramFilters(query: Record<string, unknown>): ParamFilter[] {
+  return Object.entries(query).flatMap(([key, raw]): ParamFilter[] => {
+    const match = /^p(\d{1,10})(min|max)?$/.exec(key);
+    if (!match || typeof raw !== "string" || raw.trim() === "") return [];
+    const op = (match[2] ?? "is") as ParamFilter["op"];
+    const value = op === "is" ? shortText().parse(raw) : paramNumber.parse(raw.trim());
+    return [{ paramId: id.parse(match[1]), op, value }];
+  });
+}
+
+// --- item types (Settings page) ----------------------------------------------------------------
+
+const typeFields = { name: shortText(100), areaId: id.nullable(), hazards: z.boolean() };
+export const createTypeInput = z.object({ ...typeFields, areaId: typeFields.areaId.default(null), hazards: typeFields.hazards.default(true) });
+export const updateTypeInput = z.object(typeFields).partial();
+
+const choice = shortText(100);
+const paramFields = {
+  name: shortText(100),
+  kind: z.enum(PARAM_KINDS),
+  unit: optionalText(20),
+  prefixes: z.boolean(),
+};
+export const createParamInput = z.object({
+  ...paramFields,
+  unit: paramFields.unit.default(null),
+  prefixes: paramFields.prefixes.default(false),
+  choices: z.array(choice).max(200).default([]),
+});
+export type CreateParamInput = z.infer<typeof createParamInput>;
+/** The choices of a list, in their new order: `was` says which old one an entry is (renamed: the items that had it follow). */
+export const updateParamInput = z.object({ ...paramFields, choices: z.array(z.object({ was: choice.optional(), name: choice })).max(200) }).partial();
+export type UpdateParamInput = z.infer<typeof updateParamInput>;
+export const orderInput = z.object({ ids: z.array(id).max(500) });
 
 /** A data sheet is a PDF; the browser sends the file itself. */
 export const DATASHEET_LIMITS = { bytes: 10_000_000 } as const;

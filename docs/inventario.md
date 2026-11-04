@@ -1,6 +1,6 @@
 # Inventario
 
-**Stato: fasi I1–I5 fatte** (I1–I4 il 21 ottobre 2026, I5 il 29): arrivi dal budget e fuori budget, articoli con immagine e campi per categoria, movimenti, componenti con distinta dei materiali e costo nel tempo, statistiche; poi **schede dati in PDF, infiammabile/tossico/cancerogeno, produzione e annullamento dei movimenti** (§15–§18). **Fuori, per dopo**: pezzi singoli con matricola e QR, costo FIFO a lotti, caricamento di un inventario esistente, scorta minima (§12).
+**Stato: fasi I1–I6 fatte** (I1–I4 il 21 ottobre 2026, I5 il 29, I6 il 4 novembre): arrivi dal budget e fuori budget, articoli con immagine e campi per categoria, movimenti, componenti con distinta dei materiali e costo nel tempo, statistiche; poi **schede dati in PDF, infiammabile/tossico/cancerogeno, produzione e annullamento dei movimenti** (§15–§18); poi **area dell'articolo e tipi con i loro parametri** (Resistor con resistenza, potenza, package…: §19). **Fuori, per dopo**: pezzi singoli con matricola e QR, costo FIFO a lotti, caricamento di un inventario esistente, scorta minima, duplicare un articolo (§12).
 
 Le schermate non sono disegnate su Figma: usano solo token e componenti del design system ([stile-interfaccia.md](stile-interfaccia.md)).
 
@@ -38,7 +38,10 @@ Nella griglia del budget, la colonna **ARRIVAL DATE** del consuntivo continua a 
 
 | Tabella | Contenuto | Note |
 | --- | --- | --- |
-| `inventory_item` | articolo: nome (unico, senza maiuscole), codice (unico se c'è), categoria, unità, origine (`bought`/`made`), a cosa serve, codici di sicurezza, smaltimento, stoccaggio, manutenzione, tre segni `flammable` / `toxic` / `carcinogenic` | l'origine non si cambia dopo; mai due articoli con lo stesso nome (l'errore dice quale) |
+| `inventory_item` | articolo: nome (unico, senza maiuscole), codice (unico se c'è), categoria, **area** (`area_id`, vuota = di tutte), **tipo** (`type_id`), unità, origine (`bought`/`made`), a cosa serve, codici di sicurezza, smaltimento, stoccaggio, manutenzione, tre segni `flammable` / `toxic` / `carcinogenic` | l'origine non si cambia dopo; mai due articoli con lo stesso nome (l'errore dice quale) |
+| `item_type` | un tipo: nome (unico, senza maiuscole), area (vuota = di tutte), `hazards` (se chiede infiammabile, tossico, cancerogeno) | §19 |
+| `item_type_param` | un parametro del tipo: nome (unico nel tipo), genere (`number`, `list`, `text`, `yesno`), unità e prefissi (solo i numeri), scelte (solo le liste), ordine | i vincoli sono nel database: unità e prefissi solo sui numeri, scelte solo sulle liste |
+| `item_param_value` | ciò che è scritto in un parametro per un articolo: **una sola** delle colonne `number` (numerico esatto, nell'unità del parametro), `text`, `flag` | un valore per articolo e parametro; va via con l'articolo o con il parametro |
 | `item_datasheet` | una scheda dati: articolo, nome, dimensione, chi l'ha caricata e quando | solo i dati **sulla** scheda: è questa tabella che si legge per fare l'elenco (§15) |
 | `item_datasheet_file` | i byte del PDF, uno per scheda | letta **solo** quando qualcuno apre la scheda; **non** nello storico (come le immagini) |
 | `item_image` | immagine grande e miniatura, tipo | binaria: **non** nello storico |
@@ -56,6 +59,8 @@ I movimenti: **receipt** (arrivo, +), **use** (uso, −, con progetto facoltativ
 | Richiesto | Dove sta |
 | --- | --- |
 | prodotto con immagine | nome + `item_image` (§7) |
+| area (MT + DMT, SW, HW…) | `area_id`: le aree del budget; vuota = di tutte (§19) |
+| che cosa è e i suoi dati (resistenza, tensione, package…) | il **tipo** e i suoi parametri (§19) |
 | a cosa serve | `purpose` |
 | quantità | somma dei movimenti, per luogo |
 | quantità comprate | somma degli arrivi (`boughtMilli`) |
@@ -63,7 +68,7 @@ I movimenti: **receipt** (arrivo, +), **use** (uso, −, con progetto facoltativ
 | dove si trova | luogo (sede / stanza, dall'elenco) + "dove esattamente" in testo libero ("scaffale 2, scatola rossa") |
 | come smaltirlo | `disposal` |
 | codici di sicurezza | `safetyCodes`: frasi H/P e numero UN dei materiali pericolosi, come sulla scheda di sicurezza |
-| infiammabile, tossico, cancerogeno | tre caselle sull'articolo, **sempre** visibili (non dipendono dalla categoria) e filtrabili (§15) |
+| infiammabile, tossico, cancerogeno | tre caselle sull'articolo, visibili qualunque sia la categoria (tranne per i tipi che non le chiedono, §19) e filtrabili (§15) |
 | schede dati | elenco di PDF per articolo, caricati solo se si clicca (§15) |
 | stoccaggio / mantenimento | `storageNotes`, `maintenanceNotes` |
 
@@ -127,7 +132,8 @@ Per progetto e area (dal progetto della voce di budget, o scelto a mano) non c'�
 
 | Endpoint (prefisso `/api`) | Cosa fa |
 | --- | --- |
-| `GET/POST /inventory/items`, `GET/PATCH/DELETE /inventory/items/:id` | elenco con giacenza e prezzo (filtri: `search`, `category`, `origin`, `location`, `flammable`, `toxic`, `carcinogenic`), dettaglio, creazione, modifica, eliminazione (solo se senza movimenti e non in una distinta) |
+| `GET/POST /inventory/items`, `GET/PATCH/DELETE /inventory/items/:id` | elenco con giacenza e prezzo (filtri: `search`, `category`, `origin`, `location`, `area` (codice), `type`, `flammable`, `toxic`, `carcinogenic` e quelli dei parametri, §19), dettaglio, creazione, modifica (anche area, tipo e `params`), eliminazione (solo se senza movimenti e non in una distinta) |
+| `GET/POST /inventory/types`, `PATCH/DELETE /inventory/types/:id`, `POST /inventory/types/:id/params`, `PUT /inventory/types/:id/params/order`, `PATCH/DELETE /inventory/params/:id` | i tipi e i loro parametri (§19): leggerli tutti, cambiarli admin e pm |
 | `PUT/DELETE/GET /inventory/items/:id/image` | immagine (JSON base64; `?size=thumb|full`) |
 | `POST /inventory/items/:id/datasheets?name=…`, `GET/DELETE /inventory/datasheets/:id` | scheda dati: si invia il PDF **così com'è** (`Content-Type: application/pdf`, massimo 10 MB, deve iniziare con `%PDF-`); si legge un file alla volta |
 | `POST /inventory/builds` | produzione: toglie le parti dallo scaffale (per il progetto scelto, obbligatorio) e aggiunge i pezzi fatti (§16) |
@@ -138,13 +144,15 @@ Per progetto e area (dal progetto della voce di budget, o scelto a mano) non c'�
 | `GET /inventory/stats`, `GET /inventory/projects` | statistiche; i progetti della stagione (per i moduli) |
 | `GET /lookups/locations`, `/units`, `/category-fields` | gli elenchi, che l'admin tiene dalla pagina Settings |
 
-Schermate (menu **Inventory**): **INVENTORY** (elenco con miniature, filtri, selettore prezzo, "Add goods"), pagina dell'articolo (immagine, informazioni, giacenze per luogo con "Use, move, count…", prezzi nel tempo, movimenti con il pulsante **Undo**, "More arrived"), **PENDING**, **COMPONENTS** (+ pagina del componente con distinta, costo e grafico), **INVENTORY STATS**. Nel budget, la colonna di stato a sinistra mostra clessidra o spunta e in ACTUAL c'è la colonna **ARRIVED** con "pending 0/8", "partial 3/8", "arrived 8/8".
+Schermate (menu **Inventory**): **INVENTORY** (elenco con miniature, filtri per area, tipo e parametri, selettore prezzo, "Add goods"), pagina dell'articolo (immagine, informazioni, giacenze per luogo con "Use, move, count…", prezzi nel tempo, movimenti con il pulsante **Undo**, "More arrived"), **PENDING**, **COMPONENTS** (+ pagina del componente con distinta, costo e grafico), **INVENTORY STATS**. Nel budget, la colonna di stato a sinistra mostra clessidra o spunta e in ACTUAL c'è la colonna **ARRIVED** con "pending 0/8", "partial 3/8", "arrived 8/8".
 
 ## 12. Cosa non c'è ancora
 
 - **Pezzi singoli** con matricola e QR (Lidar, IMU…): per ora solo quantità.
 - **Costo FIFO a lotti**: la produzione c'è (§16) ma prezza le parti col prezzo medio o l'ultimo (a scelta), non lotto per lotto "i più vecchi per primi".
 - **Caricamento dell'inventario esistente**: non c'è un file da cui partire; gli articoli si aggiungono dal sito.
+- **Duplicare un articolo** (per inserire in fretta trenta resistenze diverse) e il **nome proposto dai parametri** ("R 4,7 kΩ 0603"): utili con i tipi (§19), da fare dopo.
+- **Parametri obbligatori**: per ora nessun parametro lo è, come gli altri campi.
 - **Modificare un movimento**: un movimento non si cambia, si **annulla** (§18) e si registra giusto (un prezzo sbagliato, una quantità, un luogo).
 - **Scorta minima** e avviso di riordino: da fare.
 - Un disegno Figma per queste schermate; sedi e stanze vere.
@@ -164,6 +172,8 @@ Schermate (menu **Inventory**): **INVENTORY** (elenco con miniature, filtri, sel
 | `apps/api/src/modules/inventory/builds.routes.test.ts` | produzione: parti tolte, pezzi aggiunti col costo congelato, prezzi nuovi solo per le produzioni dopo, scorte insufficienti (nulla registrato), parte mai comprata, sottoassiemi, progetto obbligatorio e legame con le parti, nessun doppio conteggio, richieste simultanee, permessi |
 | `apps/api/src/modules/inventory/undo.routes.test.ts` | annullare uso, arrivo (anche dal budget: la voce torna in PENDING), spostamento, conteggio, smaltimento; rifiuto se ciò che portava è già stato usato; produzione (parti indietro, pezzi via, una parte da sola no); storico; permessi; due richieste insieme (provato togliendo il blocco: il test fallisce) |
 | `apps/api/src/modules/inventory/inventory.routes.test.ts` | (oltre a quanto sopra) filtri infiammabile/tossico/cancerogeno, anche insieme |
+| `apps/api/src/modules/inventory/types.routes.test.ts` | tipi e parametri (ordine, nomi doppi, forma giusta per il genere, permessi); valori di un articolo (numero esatto e scritto in un modo solo, scelta fuori lista, parola al posto di un numero, parametro di un altro tipo, articolo senza tipo, area o tipo inesistenti: niente viene salvato); solo ciò che si manda cambia, `null` cancella, nessuna riga di storico se nulla cambia; i valori di un tipo lasciato restano nascosti e tornano; filtri per area, tipo, numero da/a (estremi inclusi, anche 100n), scelta, testo (con `_` come carattere), sì/no, più filtri insieme, filtri senza senso rifiutati; genere che non cambia se c'è qualcosa scritto, scelte rinominate (anche due scambiate) e non tolte se usate, parametro cancellato con i valori (nello storico), tipo cancellabile solo senza articoli, ordine |
+| `apps/web/src/lib/params.test.ts` | lettura dei numeri (`10k`, `4k7`, `4,7 k`, `2M2`, `100nF`, `4.7µ`, `1.5p`, `12mm`, `-40`), rifiuti (parole, prefisso dove non va, troppo grande), visualizzazione (`4,7 kΩ`, `100 nF`, `1.500 mm²`), e ciò che il modulo mostra si rilegge uguale |
 | `apps/web/src/lib/*.test.ts` | formattazione di prezzi, quantità e dimensioni dei file, riduzione delle immagini, campi per categoria, le tre caselle nel corpo inviato |
 
 ## 15. Schede dati (PDF) e pericolosità
@@ -174,7 +184,7 @@ Schermate (menu **Inventory**): **INVENTORY** (elenco con miniature, filtri, sel
 - **Limiti e controlli.** Massimo 10 MB (`DATASHEET_LIMITS` in `inventory.schema.ts`; il browser lo controlla prima di inviare, il server lo ripete), file non vuoto, e **i primi byte devono essere `%PDF-`** (un file che si dichiara PDF e non lo è viene rifiutato). Il PDF viaggia come corpo grezzo `application/pdf`, con il nome nell'indirizzo: nessuna libreria in più, nessun base64 (+33%). Si serve con `Content-Disposition: inline`, `Content-Security-Policy: frame-ancestors 'none'` e `Cache-Control: private, max-age=3600`.
 - Nello storico compare la riga della scheda (nome, dimensione, chi) e **mai i byte**.
 
-**Infiammabile / tossico / cancerogeno.** Tre caselle nel modulo dell'articolo, sempre visibili e **non** legate alla categoria (un adesivo, un solvente e una vernice possono esserlo senza essere della stessa categoria). Si vedono come etichette rosse nella pagina dell'articolo e del componente, e come colonna **HAZARDS** nell'elenco. Nell'elenco tre caselle filtrano: **più caselle spuntate = tutte insieme** (infiammabile **e** tossico), non l'una o l'altra. I filtri sono anche nell'API (`?flammable=true&toxic=true`).
+**Infiammabile / tossico / cancerogeno.** Tre caselle nel modulo dell'articolo, **non** legate alla categoria (si possono nascondere per un tipo intero, per esempio le resistenze: §19) (un adesivo, un solvente e una vernice possono esserlo senza essere della stessa categoria). Si vedono come etichette rosse nella pagina dell'articolo e del componente, e come colonna **HAZARDS** nell'elenco. Nell'elenco tre caselle filtrano: **più caselle spuntate = tutte insieme** (infiammabile **e** tossico), non l'una o l'altra. I filtri sono anche nell'API (`?flammable=true&toxic=true`).
 
 ## 16. Produzione: «We made some»
 
@@ -242,3 +252,45 @@ Un movimento non si modifica: si **annulla** e, se serve, si registra giusto. Ne
 **Concorrenza.** L'annullamento prende lo stesso blocco sull'articolo di ogni altra modifica della sua giacenza: un annullamento e un uso contemporanei non possono passare entrambi (uno dei due riceve 409 con il motivo); due annullamenti insieme dello stesso movimento: uno riesce (204), l'altro riceve 404.
 
 **Produzioni vecchie.** La colonna `built_by` esiste dalla migrazione `0015`; le produzioni registrate prima non hanno il legame (nessuna nei dati reali: la funzione è nuova) e le loro righe d'uso si annullerebbero una per una.
+
+## 19. Aree, tipi e parametri
+
+Richiesta del 4 novembre 2026: poter dividere gli articoli per **area** (HW, SW, MT…) e, per esempio in HW, cercare i componenti per **che cosa sono** (resistenze, condensatori…) e per i loro **valori** (resistenza, capacità, corrente, tensione). Il design è stato mostrato e approvato in chat lo stesso giorno; non c'è un disegno Figma (vedi [stile-interfaccia.md](stile-interfaccia.md)).
+
+**Area.** Ogni articolo ha **una sola** area, scelta tra le aree del budget (MT + DMT, SW, HW, CM, MGT, RT), oppure nessuna: vuol dire "di tutte" (nastro, viti comuni). Un arrivo dal budget propone l'area del progetto della voce. L'area dell'articolo **non** cambia le statistiche: lì l'area viene ancora dal progetto della voce o dell'uso (§10).
+
+**Tipo e parametri.** Un tipo ("Resistor") appartiene a un'area (o a tutte) e ha i suoi **parametri**, in un ordine. Ogni parametro è di un genere:
+
+| Genere | Esempio | Come si scrive | Come si filtra |
+| --- | --- | --- | --- |
+| **Number** | Resistance (Ω), Voltage (V), Section (mm²) | un numero; se il parametro ha i **prefissi** (casella "k, M, m, µ…") si scrive come sugli schemi: `10k`, `4.7k`, `4,7k`, `4k7`, `2M2`, `100n`, `4.7u` o `4.7µ`, anche con l'unità dopo (`100nF`). Sotto la casella si legge come è stato capito ("= 4,7 kΩ"); un numero che non si legge è segnato in rosso e il modulo non si può salvare | **da – a**, estremi inclusi; si può scrivere solo uno dei due |
+| **List** | Package: 0402, 0603, 0805 | una delle scelte (con la ricerca se sono più di 8) | una scelta |
+| **Text** | Series | testo libero (fino a 200 caratteri) | contiene (senza maiuscole) |
+| **Yes / no** | RoHS | una casella | sì / no ("no" comprende gli articoli dove non è scritto niente) |
+
+**I numeri sono esatti.** Si salvano in `numeric` nell'unità del parametro: 10 kΩ è `10000`, 100 nF è `0.0000001`, mai in virgola mobile. Il sito sposta la virgola come testo (`apps/web/src/lib/params.ts`, con i suoi test) e manda il numero già convertito; l'API accetta solo numeri scritti per intero (`10k` le viene rifiutato) e li scrive in un modo solo (`4700.00` diventa `4700`), così un valore salvato di nuovo è uguale e lo storico non si riempie di finte modifiche. I filtri si fanno nel database, dove "almeno 100n" tiene 100 nF.
+
+**Infiammabile, tossico, cancerogeno.** Ogni tipo ha la casella **"asks flammable, toxic, carcinogenic"**: tolta, il modulo dei suoi articoli non mostra le tre caselle (per una resistenza non servono) e non le manda, quindi ciò che c'era resta com'era; anche il filtro dell'elenco sparisce quando si sceglie quel tipo. Gli articoli **senza tipo** le mostrano sempre. Per altri segni di questo genere (RoHS, ESD) si aggiunge un parametro **Yes / no**.
+
+**Dove si fanno.** Nella pagina **Settings**, riquadro **Item types** ([impostazioni.md](impostazioni.md)): li cambiano **admin e pm** (di qualunque area, come il resto dell'inventario), mentre tutti li vedono nell'inventario. Un pm vede in Settings solo questo riquadro.
+
+| Si fa | Cosa succede |
+| --- | --- |
+| rinominare un tipo, un parametro, una scelta | sempre; rinominando una scelta gli articoli che l'avevano la seguono (anche due scelte scambiate tra loro) |
+| cambiare il genere di un parametro | solo finché **nessun** articolo ha qualcosa scritto lì (`409`); un numero che diventa testo perde unità e prefissi |
+| cambiare l'unità | possibile, ma **non converte** ciò che è scritto: 10 resta 10 |
+| togliere una scelta | solo se nessun articolo l'ha (`409` con quanti l'hanno); prima si cambia loro la scelta o la si rinomina |
+| cancellare un parametro | chiede conferma dicendo per quanti articoli è scritto; ciò che c'era va via con lui (nello storico resta) |
+| cancellare un tipo | solo se nessun articolo è di quel tipo |
+
+**Cambiare il tipo di un articolo** non cancella ciò che era scritto per il tipo di prima: resta nascosto (non si vede, non si filtra) e ricompare se l'articolo torna a quel tipo, come i campi nascosti dalla categoria (§5). Il modulo manda **solo** i parametri del tipo scelto: un parametro vuoto si cancella, uno non mandato resta com'era.
+
+**Nell'interfaccia.**
+
+- **Modulo dell'articolo** (Add goods, Receive da PENDING, Edit): Area e Type accanto a Category e Unit; il Type elenca i tipi dell'area scelta e quelli di tutte, e scegliendo un tipo di un'area con l'area ancora vuota questa si compila da sola. Sotto, i parametri del tipo con il suo nome come titolo.
+- **INVENTORY**: nel gruppo "Find" una fila di pulsanti **Area** (All, MT + DMT, SW, HW…) e la tendina **Type**; scelto un tipo compare un gruppo di filtri col suo nome, uno per parametro (i numeri "da – a"), e la tabella mette **le colonne dei parametri** al posto di area, tipo e categoria (ordinabili: i numeri per valore, 4,7 kΩ prima di 10 kΩ). Senza un tipo ci sono le colonne AREA e TYPE. Il Download segue le colonne che si vedono.
+- **Pagina dell'articolo**: area e tipo nella riga sotto il nome, e un riquadro per ogni parametro scritto ("Resistance 4,7 kΩ").
+
+**API.** `GET /api/inventory/types` dà i tipi con i parametri, quanti articoli sono di ogni tipo e per quanti è scritto ogni parametro. Un articolo si crea o si cambia con `areaId`, `typeId` e `params: [{ paramId, value }]` (`value`: il numero come testo esatto, la scelta, il testo, `true`/`false`; `null` cancella). Elenco e dettaglio danno `values` (per parametro, solo quelli del tipo attuale). I filtri dell'elenco: `area=hw`, `type=7`, `p12=0603` (scelta, testo che contiene, `yes`/`no`), `p12min=1000`, `p12max=10000`; un filtro che non ha senso (da/a su una lista, un numero scritto male, un parametro che non esiste) è un `400`.
+
+**Codice.** Database: `item_type`, `item_type_param`, `item_param_value` e le colonne `area_id`, `type_id` (migrazione `0016_item_types.sql`, con i trigger dello storico). API: `apps/api/src/modules/inventory/types.service.ts` (tipi, parametri, scrittura e lettura dei valori, filtri). Sito: `lib/params.ts` (numeri), `lib/inventory.ts` (cosa manda il modulo), `components/ItemEditor.tsx`, `pages/InventoryPage.tsx`, `pages/ItemTypesPanel.tsx` (Settings).

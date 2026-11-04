@@ -75,6 +75,8 @@ function labelOf(table: string, row: Json): string {
       return "settings";
     case "component_part":
       return `part ${String(row.part_id ?? "")} of item ${String(row.component_id ?? "")}`;
+    case "item_param_value":
+      return `parameter ${String(row.param_id ?? "")} of item ${String(row.item_id ?? "")}`;
     default:
       return pick("name");
   }

@@ -7,11 +7,12 @@ import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { today } from "../../core/today";
 import { db } from "../../db/client";
-import { appUser, componentPart, inventoryItem, itemDatasheet, itemImage, project, stockMovement } from "../../db/schema";
+import { appUser, area, componentPart, inventoryItem, itemDatasheet, itemImage, project, stockMovement } from "../../db/schema";
 import { canManageInventory, getCurrentUser } from "../auth/auth.service";
 import { listCategories, listLocations, listUnits } from "../lookups/lookups.service";
-import { IMAGE_LIMITS, type CreateItemInput, type PriceQuery, type UpdateItemInput } from "./inventory.schema";
+import { IMAGE_LIMITS, type CreateItemInput, type ParamFilter, type PriceQuery, type UpdateItemInput } from "./inventory.schema";
 import { loadInventory } from "./inventory.data";
+import { checkAreaAndType, itemsMatching, valuesByItem, writeValues, type ParamValues } from "./types.service";
 
 export async function assertCanManageInventory() {
   const actor = await getCurrentUser();
@@ -19,7 +20,8 @@ export async function assertCanManageInventory() {
   return actor;
 }
 
-async function checkItemFields(input: { category?: string | null; unit?: string }) {
+async function checkItemFields(input: { category?: string | null; unit?: string; areaId?: number | null; typeId?: number | null }) {
+  await checkAreaAndType(db, input);
   if (input.category != null && !(await listCategories()).includes(input.category)) {
     throw invalid(`Unknown category "${input.category}"`);
   }
@@ -44,9 +46,11 @@ export async function findDuplicate(tx: Pick<Tx, "select">, name: string | undef
 
 /** Creates an item (used by the receiving flow too, inside its own transaction). */
 export async function insertItem(tx: Tx, input: CreateItemInput) {
-  await checkItemFields(input);
-  await findDuplicate(tx, input.name, input.code);
-  const [created] = await tx.insert(inventoryItem).values(input).returning();
+  const { params, ...columns } = input;
+  await checkItemFields(columns);
+  await findDuplicate(tx, columns.name, columns.code);
+  const [created] = await tx.insert(inventoryItem).values(columns).returning();
+  await writeValues(tx, created!.id, created!.typeId, params);
   return created!;
 }
 
@@ -57,14 +61,20 @@ export async function createItem(input: CreateItemInput) {
 
 export async function updateItem(itemId: number, input: UpdateItemInput) {
   const actor = await assertCanManageInventory();
-  await checkItemFields(input);
+  const { params = [], ...columns } = input;
+  await checkItemFields(columns);
   return runWrite(actor, async (tx) => {
-    const [target] = await tx.select().from(inventoryItem).where(eq(inventoryItem.id, itemId));
+    const [target] = await tx.select().from(inventoryItem).where(eq(inventoryItem.id, itemId)).for("update");
     if (!target) throw notFound("Item");
-    if (Object.keys(input).length === 0) return target; // nothing to change (a field the API does not take is ignored)
-    await findDuplicate(tx, input.name, input.code, itemId);
-    const [updated] = await tx.update(inventoryItem).set(input).where(eq(inventoryItem.id, itemId)).returning();
-    return updated!;
+    let updated = target;
+    if (Object.keys(columns).length > 0) {
+      await findDuplicate(tx, columns.name, columns.code, itemId);
+      const [row] = await tx.update(inventoryItem).set(columns).where(eq(inventoryItem.id, itemId)).returning();
+      updated = row!;
+    }
+    // checked against the type the item has now: a type and its parameters can change together
+    await writeValues(tx, itemId, updated.typeId, params);
+    return updated;
   });
 }
 
@@ -89,6 +99,10 @@ export interface ItemRow {
   code: string | null;
   name: string;
   category: string | null;
+  areaId: number | null;
+  typeId: number | null;
+  /** What is written in the parameters of its type. */
+  values: ParamValues;
   unit: string;
   origin: "bought" | "made";
   hasImage: boolean;
@@ -107,9 +121,15 @@ export interface ItemRow {
   carcinogenic: boolean;
 }
 
-/** The items with their stock and price. Filters are applied here: there are few items. */
+/**
+ * The items with their stock and price. Filters are applied here, there are few items; those on
+ * parameters are read in the database, where the numbers are exact.
+ */
 export async function listItems(
-  query: PriceQuery & { search?: string; category?: string; origin?: string; location?: string; flammable?: boolean; toxic?: boolean; carcinogenic?: boolean },
+  query: PriceQuery & {
+    search?: string; category?: string; origin?: string; location?: string; area?: string; type?: number;
+    flammable?: boolean; toxic?: boolean; carcinogenic?: boolean; params?: ParamFilter[];
+  },
 ): Promise<ItemRow[]> {
   const data = await loadInventory();
   const on = query.on ?? today();
@@ -119,8 +139,15 @@ export async function listItems(
   const withImage = new Set((await db.select({ id: itemImage.itemId }).from(itemImage)).map((r) => r.id));
   const [rows, labels] = [await db.select().from(inventoryItem), new Map((await listLocations()).map((l) => [l.code, l.label]))];
   const needle = query.search?.toLowerCase();
+  const values = await valuesByItem();
+  const matching = await itemsMatching(query.params ?? []);
+  // an unknown area code finds nothing, like an unknown category
+  const areaId = query.area ? ((await db.select({ id: area.id }).from(area).where(eq(area.code, query.area)))[0]?.id ?? 0) : null;
 
   return rows
+    .filter((r) => (areaId !== null ? r.areaId === areaId : true))
+    .filter((r) => (query.type ? r.typeId === query.type : true))
+    .filter((r) => (matching ? matching.has(r.id) : true))
     .filter((r) => (query.category ? r.category === query.category : true))
     .filter((r) => (query.origin ? r.origin === query.origin : true))
     .filter((r) => (query.flammable ? r.flammable : true))
@@ -137,6 +164,9 @@ export async function listItems(
         code: r.code,
         name: r.name,
         category: r.category,
+        areaId: r.areaId,
+        typeId: r.typeId,
+        values: values.get(r.id) ?? {},
         unit: r.unit,
         origin: r.origin,
         hasImage: withImage.has(r.id),
@@ -184,6 +214,8 @@ export interface DatasheetRow {
 
 export interface ItemDetail {
   item: typeof inventoryItem.$inferSelect;
+  /** What is written in the parameters of its type. */
+  values: ParamValues;
   datasheets: DatasheetRow[];
   hasImage: boolean;
   stock: (StockRow & { label: string })[];
@@ -227,6 +259,7 @@ export async function getItem(itemId: number, query: PriceQuery): Promise<ItemDe
 
   return {
     item,
+    values: (await valuesByItem(db, itemId)).get(itemId) ?? {},
     datasheets: sheets.map((s) => ({ ...s, uploadedAt: s.uploadedAt.toISOString() })),
     hasImage: image !== undefined,
     stock: stock.map((s) => ({ ...s, label: labels.get(s.location) ?? s.location })),

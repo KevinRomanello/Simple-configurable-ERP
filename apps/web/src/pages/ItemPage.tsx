@@ -18,7 +18,8 @@ import { ReceiveForm } from "../components/ReceiveForm";
 import { useMe } from "../lib/auth";
 import { date, money, moneyE4, quantity } from "../lib/format";
 import { prepareImage } from "../lib/image";
-import { draftBody, draftOf, FIELD_LABELS, useInventoryLookups } from "../lib/inventory";
+import { draftBody, draftOf, FIELD_LABELS, paramErrors, useInventoryLookups } from "../lib/inventory";
+import { showValue } from "../lib/params";
 import { usePrice } from "../lib/price";
 import { useAction } from "../lib/useAction";
 import { TableBox } from "../components/ExportBlocks";
@@ -96,11 +97,11 @@ export function ItemPage() {
 
   if (detail.isError) return <Message>Item not found.</Message>;
   if (!detail.data || !lookups) return <Loading />;
-  const { item, datasheets, stock, history, movements, bom } = detail.data;
+  const { item, values, datasheets, stock, history, movements, bom } = detail.data;
   const placeKey = (p: StockPlace) => `${p.location}\u0000${p.spot}`;
 
   const save = async () => {
-    if (draft && (await act(() => api.updateItem(itemId, draftBody(draft, lookups.fields))))) setDraft(null);
+    if (draft && (await act(() => api.updateItem(itemId, draftBody(draft, lookups))))) setDraft(null);
   };
   const remove = async () => {
     if (window.confirm(`Delete "${item.name}"?`) && (await act(() => api.deleteItem(itemId)))) navigate("/inventory");
@@ -121,6 +122,9 @@ export function ItemPage() {
   };
 
   const written = FIELD_ORDER.filter((f) => item[f]);
+  const type = lookups.types.find((t) => t.id === item.typeId);
+  const area = lookups.areas.find((a) => a.id === item.areaId);
+  const params = (type?.params ?? []).filter((p) => values[p.id] !== undefined);
 
   return (
     <>
@@ -129,7 +133,7 @@ export function ItemPage() {
         title={item.name}
         subtitle={
           <>
-            {item.category ?? "No category"} · counted in {item.unit}{item.code ? ` · code ${item.code}` : ""}
+            {area?.name ?? "Every area"} · {type ? `${type.name} · ` : ""}{item.category ?? "No category"} · counted in {item.unit}{item.code ? ` · code ${item.code}` : ""}
             {item.origin === "made" && <> · <span className="pill teal">made by the team</span></>}
             <HazardPills item={item} />
           </>
@@ -137,7 +141,7 @@ export function ItemPage() {
       >
         {canEdit && (
           <div className="inline-form">
-            <Button small variant="ghost" icon={faPen} onClick={() => setDraft(draft ? null : draftOf(item))}>{draft ? "Close" : "Edit"}</Button>
+            <Button small variant="ghost" icon={faPen} onClick={() => setDraft(draft ? null : draftOf(item, values, lookups.types))}>{draft ? "Close" : "Edit"}</Button>
             <Button small variant="ghost" icon={faImage} onClick={() => picker.current?.click()}>{detail.data.hasImage ? "Change picture" : "Add picture"}</Button>
             {detail.data.hasImage && <Button small variant="ghost" onClick={() => act(() => api.removeImage(itemId))}>Remove picture</Button>}
             <IconButton icon={faTrash} label="Delete item" danger onClick={remove} />
@@ -150,14 +154,20 @@ export function ItemPage() {
         <Panel>
           <ItemEditor draft={draft} onChange={(change) => setDraft({ ...draft, ...change })} lookups={lookups} idPrefix="edit" />
           <div className="inline-form">
-            <Button small onClick={save} disabled={draft.name.trim() === ""}>Save</Button>
+            <Button small onClick={save} disabled={draft.name.trim() === "" || Object.keys(paramErrors(draft, lookups.types)).length > 0}>Save</Button>
             <Button small variant="ghost" onClick={() => setDraft(null)}>Cancel</Button>
           </div>
         </Panel>
       )}
 
-      {!draft && written.length > 0 && (
+      {!draft && (written.length > 0 || params.length > 0) && (
         <dl className="facts">
+          {params.map((param) => (
+            <div key={`p${param.id}`} className="fact">
+              <dt className="label-s">{param.name}</dt>
+              <dd>{showValue(param, values[param.id])}</dd>
+            </div>
+          ))}
           {written.map((field) => (
             <div key={field} className={field === "safetyCodes" ? "fact danger" : "fact"}>
               <dt className="label-s">{field === "safetyCodes" && <FontAwesomeIcon icon={faTriangleExclamation} />} {FIELD_LABELS[field]}</dt>

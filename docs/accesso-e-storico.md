@@ -11,7 +11,7 @@
 | Ruoli | `admin` (il tesoriere), `pm` (per **area**), `viewer` |
 | Primo accesso | chi ha un account del team entra da solo come **`viewer`**; un admin lo promuove |
 | Fondi, contratti, ingressi, BANK | **solo `admin`** |
-| Impostazioni (categorie, aliquote, unità, posti, interruttori del calcolo: pagina Settings) | **solo `admin`** |
+| Impostazioni (categorie, aliquote, unità, posti, interruttori del calcolo: pagina Settings) | **solo `admin`**; il riquadro **Item types** (tipi dell'inventario e loro parametri) anche `pm`, come il resto dell'inventario |
 | Fornitori | `admin` e `pm` possono aggiungerli (e toglierli, se non usati) |
 | Storico | **tabella** `audit_log` scritta da **trigger** del database; lo vedono `admin` e `pm` |
 | Deploy | da decidere dopo ([produzione.md](produzione.md)) |
@@ -112,7 +112,7 @@ Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modific
 | Fornitori (aggiungere, eliminare) | sì | **sì** | no |
 | **Inventario** (articoli, arrivi, movimenti, immagini, distinte dei componenti) | sì | **sì**, qualunque area | no (lo vede) |
 | Utenti, ruoli, aree assegnate | sì | no | no |
-| Impostazioni (pagina Settings, [impostazioni.md](impostazioni.md)) | sì | no | no |
+| Impostazioni (pagina Settings, [impostazioni.md](impostazioni.md)) | sì | solo Item types | no |
 | Storico delle modifiche | sì | **sì** (tutto) | no |
 
 `canWrite(utente, area)` (in `auth.service.ts`): `admin` → sì; `pm` → sì solo se l'area è tra le sue; `viewer` → no. Per i dati condivisi si chiede `canWrite(utente, null)`: **solo `admin`**. I fornitori usano `canManageSuppliers` (chiunque non sia `viewer`) e lo storico `canViewHistory` (idem); la pagina Settings `canManageSettings` (solo `admin`).
@@ -146,7 +146,7 @@ Il log normale del server (una riga JSON per richiesta) resta per il debug, ma n
 
 `audit_log`: istante, chi (`actor_id`, **senza chiave esterna**: lo storico deve sopravvivere a tutto), tabella, id della riga, azione (`insert`/`update`/`delete`), **valori prima e dopo** (`jsonb`).
 
-Lo scrive una funzione PostgreSQL unica, `audit_row()`, agganciata con un **trigger** a `project`, `budget_line`, `line_figures`, `line_fund`, `fund`, `fund_contract`, `team_inflow`, `bank_snapshot`, `supplier`, `app_user`, `user_area` (migrazione `0002_audit_triggers.sql`, scritta a mano) e, dall'inventario, a `inventory_item`, `stock_movement`, `component_part` (migrazione `0005`) e `item_datasheet` (migrazione `0014`); **non** a `item_image` né a `item_datasheet_file`, che sono binarie (di un'immagine cambia `image_updated_at` dell'articolo, di una scheda dati c'è la riga di `item_datasheet`). Chi sta scrivendo glielo dice `runWrite`: all'inizio della transazione esegue `select set_config('app.actor_id', '<id>', true)`, valido solo per quella transazione.
+Lo scrive una funzione PostgreSQL unica, `audit_row()`, agganciata con un **trigger** a `project`, `budget_line`, `line_figures`, `line_fund`, `fund`, `fund_contract`, `team_inflow`, `bank_snapshot`, `supplier`, `app_user`, `user_area` (migrazione `0002_audit_triggers.sql`, scritta a mano) e, dall'inventario, a `inventory_item`, `stock_movement`, `component_part` (migrazione `0005`) e `item_datasheet` (migrazione `0014`), `item_type`, `item_type_param`, `item_param_value` (migrazione `0016`); **non** a `item_image` né a `item_datasheet_file`, che sono binarie (di un'immagine cambia `image_updated_at` dell'articolo, di una scheda dati c'è la riga di `item_datasheet`). Chi sta scrivendo glielo dice `runWrite`: all'inizio della transazione esegue `select set_config('app.actor_id', '<id>', true)`, valido solo per quella transazione.
 
 - **Non si può dimenticare**: ogni scrittura è tracciata, anche quelle fatte a mano con SQL;
 - registra anche le **cancellazioni a cascata** (cancellare un progetto registra ogni voce e ogni riga di cifre che spariscono);

@@ -29,6 +29,9 @@ const TABLES: Record<string, string> = {
   stock_movement: "Movement",
   component_part: "Part",
   item_datasheet: "Data sheet",
+  item_type: "Item type",
+  item_type_param: "Parameter",
+  item_param_value: "Parameter value",
 };
 const ACTION = { insert: "added", update: "changed", delete: "deleted" } as const;
 

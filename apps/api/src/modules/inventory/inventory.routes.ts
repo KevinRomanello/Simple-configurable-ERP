@@ -4,19 +4,22 @@ import { id } from "../../core/validation";
 import { addPart, getComponent, listComponents, removePart, updatePart } from "./components.service";
 import { addDatasheet, getDatasheet, removeDatasheet } from "./datasheets.service";
 import {
-  buildInput, createItemInput, DATASHEET_LIMITS, datasheetQuery, imageInput, itemsQuery, movementInput, partInput, priceQuery,
-  receiveInput, statsQuery, updateItemInput, updatePartInput,
+  buildInput, createItemInput, createParamInput, createTypeInput, DATASHEET_LIMITS, datasheetQuery, imageInput, itemsQuery, movementInput,
+  orderInput, paramFilters, partInput, priceQuery, receiveInput, statsQuery, updateItemInput, updateParamInput, updatePartInput, updateTypeInput,
 } from "./inventory.schema";
 import { createItem, deleteItem, getImage, getItem, listItems, removeImage, setImage, updateItem } from "./items.service";
 import { addMovement, build, listPending, receive, undoMovement } from "./movements.service";
 import { getStats, listProjects } from "./stats.service";
+import { addParam, createType, deleteParam, deleteType, listTypes, orderParams, updateParam, updateType } from "./types.service";
 
 const itemParam = z.object({ id });
 const partParams = z.object({ id, partId: id });
 
 export async function inventoryRoutes(app: FastifyInstance) {
   // items
-  app.get("/inventory/items", (request) => listItems(itemsQuery.parse(request.query)));
+  app.get("/inventory/items", (request) =>
+    listItems({ ...itemsQuery.parse(request.query), params: paramFilters(request.query as Record<string, unknown>) }),
+  );
   app.get("/inventory/items/:id", (request) => getItem(itemParam.parse(request.params).id, priceQuery.parse(request.query)));
   app.post("/inventory/items", async (request, reply) => reply.code(201).send(await createItem(createItemInput.parse(request.body))));
   app.patch("/inventory/items/:id", (request) => updateItem(itemParam.parse(request.params).id, updateItemInput.parse(request.body)));
@@ -94,6 +97,27 @@ export async function inventoryRoutes(app: FastifyInstance) {
   app.delete("/inventory/components/:id/parts/:partId", async (request, reply) => {
     const { id: componentId, partId } = partParams.parse(request.params);
     await removePart(componentId, partId);
+    return reply.code(204).send();
+  });
+
+  // the types of item and their parameters (kept on the Settings page)
+  app.get("/inventory/types", () => listTypes());
+  app.post("/inventory/types", async (request, reply) => reply.code(201).send(await createType(createTypeInput.parse(request.body))));
+  app.patch("/inventory/types/:id", (request) => updateType(itemParam.parse(request.params).id, updateTypeInput.parse(request.body)));
+  app.delete("/inventory/types/:id", async (request, reply) => {
+    await deleteType(itemParam.parse(request.params).id);
+    return reply.code(204).send();
+  });
+  app.post("/inventory/types/:id/params", async (request, reply) =>
+    reply.code(201).send(await addParam(itemParam.parse(request.params).id, createParamInput.parse(request.body))),
+  );
+  app.put("/inventory/types/:id/params/order", async (request, reply) => {
+    await orderParams(itemParam.parse(request.params).id, orderInput.parse(request.body).ids);
+    return reply.code(204).send();
+  });
+  app.patch("/inventory/params/:id", (request) => updateParam(itemParam.parse(request.params).id, updateParamInput.parse(request.body)));
+  app.delete("/inventory/params/:id", async (request, reply) => {
+    await deleteParam(itemParam.parse(request.params).id);
     return reply.code(204).send();
   });
 

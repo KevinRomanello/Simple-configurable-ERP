@@ -1,6 +1,6 @@
 # Impostazioni (pagina Settings)
 
-**Stato: fatto** (26 ottobre 2026). Gli elenchi da cui le altre pagine scelgono e gli interruttori del calcolo erano scritti nel codice (gli «hardcode» della regola 4, [hardcoded-registry.md](hardcoded-registry.md)). Ora stanno nel database e li cambia l'**admin** dalla pagina **Admin → Settings**. Un cambiamento vale subito per tutte le pagine e finisce nella cronologia (History), come il resto.
+**Stato: fatto** (26 ottobre 2026; tipi dell'inventario il 4 novembre). Gli elenchi da cui le altre pagine scelgono e gli interruttori del calcolo erano scritti nel codice (gli «hardcode» della regola 4, [hardcoded-registry.md](hardcoded-registry.md)). Ora stanno nel database e li cambia l'**admin** dalla pagina **Admin → Settings**; i **tipi dell'inventario** li cambiano anche i **pm**. Un cambiamento vale subito per tutte le pagine e finisce nella cronologia (History), come il resto.
 
 ## 1. Cosa si imposta
 
@@ -11,12 +11,13 @@
 | **VAT rates** | le aliquote che una riga, uno sponsor o un arrivo possono usare | al massimo due decimali, tra 0 e 100. **Non** decidono l'aliquota degli sponsor di merce: lo 0% della merce senza IVA e l'**11%** della merce con controfattura sono fissi ([sponsor-e-fondi.md](sponsor-e-fondi.md)) e valgono anche se quei valori non sono nell'elenco |
 | **Units** | come si conta un articolo (pcs, m, kg…) | rinominare un'unità la rinomina su tutti gli articoli contati con quella |
 | **Places** | dove si tengono le cose: sede e stanza, in un ordine | ogni posto ha un **codice** che i movimenti del magazzino salvano: si fa dai nomi quando lo si crea e **non cambia più**, così rinominare un posto non rovina la sua storia |
+| **Item types** (dopo Categories) | i tipi dell'inventario (Resistor, Screw…): nome, area, se chiedono infiammabile/tossico/cancerogeno; con **Parameters** si apre sotto la tabella il riquadro dei loro parametri (nome, genere, unità, prefissi k/M/µ, scelte di una lista, ordine); **New type** e **Add parameter** come gli altri inserimenti | tutte le regole in [inventario.md](inventario.md#19-aree-tipi-e-parametri): rinomina sempre, genere che non cambia se c'è qualcosa scritto, scelte usate che non si tolgono, tipo cancellabile solo senza articoli |
 
 Regole comuni:
 
 - **Si cancella solo ciò che non è usato.** La colonna **USED BY** dice quante volte (righe e articoli per una categoria, sponsor e righe per un'aliquota, articoli per un'unità, movimenti per un posto); il cestino è spento finché è usato, e il server rifiuta comunque (`409`, con cosa lo usa).
 - **Nomi unici** senza badare alle maiuscole (`409` se esiste già).
-- **Solo l'admin** legge e scrive questa pagina: lo controlla il server (`403` per gli altri), il menù la mostra solo all'admin (`canManageSettings`).
+- **Solo l'admin** legge e scrive questa pagina, **tranne il riquadro Item types**, che è anche dei **pm**: lo controlla il server (`403` per gli altri; i tipi usano `canManageInventory`, come il resto dell'inventario). Il menù mostra Settings all'admin e al pm; il pm vede solo Item types. Il viewer non vede la pagina (vede i tipi nell'inventario).
 - Le priorità (High, Medium, Low) **non** sono qui: sono fisse per scelta (i colori del foglio).
 
 ### La scelta «IVA quando uno sponsor copre tutta la riga»
@@ -69,5 +70,6 @@ Restano hardcode, nel [registro](hardcoded-registry.md):
 ## 4. Prove
 
 - `apps/api/src/modules/settings/settings.routes.test.ts` (16): solo l'admin (pm e viewer `403`, il permesso in `/api/me`); i valori di partenza; categorie (in fondo con i campi giusti, nomi unici, rinomina con righe e articoli, cancellazione rifiutata con il motivo, ordine seguito da TOTAL, ordine sbagliato rifiutato, campi e articoli senza categoria, campo sconosciuto rifiutato); aliquote (una volta sola, due decimali, fuori scala, subito usabili da uno sponsor, in uso non cancellabili); unità (rinomina con gli articoli, in uso non cancellabili); posti (codice dai nomi che non cambia, doppione rifiutato, con movimenti non cancellabili, ordine); interruttori (l'IVA degli inflow cambia CASH FLOW, la scelta Q1 cambia le righe dello sponsor tipo C, valori fuori scala rifiutati, ciò che non si manda resta); storico (chi ha cambiato cosa).
+- `apps/api/src/modules/inventory/types.routes.test.ts` (14): i tipi dell'inventario e i loro parametri, anche i permessi (pm sì, viewer no); elenco in [inventario.md](inventario.md), §14.
 - Riconciliazione col foglio: **1.995 controlli uguali**, con i valori del foglio.
 - Nel browser: la pagina con i cinque riquadri, aggiunta e cancellazione di un'unità, cestino spento su un'unità usata, Save attivo solo dopo una modifica e Undo.

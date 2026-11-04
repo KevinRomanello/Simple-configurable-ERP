@@ -245,12 +245,33 @@
   flex: 2 1 240px;
   max-width: 420px;
 }
+/* a field as wide as what is in it (the row of areas in the inventory): it does not wrap */
+.inline-form .field.fit {
+  flex: none;
+  max-width: none;
+}
 
 /* the filters of a list: groups of boxes (what to find, which price), one under the other, divided by a line */
 .filter-group {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
+}
+/* the choices of a list parameter (Settings, item types): one box each, side by side */
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-xs);
+  white-space: normal;
+}
+/* a number between two values, in the filters of the inventory */
+.range {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+.range .input {
+  width: 88px;
 }
 .filter-group + .filter-group {
   margin-top: var(--space-s);

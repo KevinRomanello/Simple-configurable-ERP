@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { api, type ReceiveBody } from "../api/client";
 import type { ItemDraft, ItemRow, PendingRow } from "../api/types";
 import { moneyE4, quantity as showQuantity } from "../lib/format";
-import { draftBody, emptyDraft, type InventoryLookups } from "../lib/inventory";
+import { draftBody, emptyDraft, paramErrors, type InventoryLookups } from "../lib/inventory";
 import { todayIso } from "../lib/today";
 import { useAction } from "../lib/useAction";
 import { Button } from "./Button";
@@ -33,7 +33,11 @@ export function ReceiveForm({
   const knownItem = line ? (line.receivedItemId ?? line.suggestedItemId) : (presetItemId ?? null);
   const [mode, setMode] = useState<"existing" | "new">(knownItem !== null || (!line && items.length > 0) ? "existing" : "new");
   const [itemId, setItemId] = useState(knownItem === null ? "" : String(knownItem));
-  const [draft, setDraft] = useState<ItemDraft>({ ...emptyDraft(), name: line?.item ?? "", category: line?.category ?? "" });
+  // a purchase of the budget belongs to an area: the new item starts in it
+  const lineArea = lookups.areas.find((a) => a.code === line?.areaCode);
+  const [draft, setDraft] = useState<ItemDraft>({
+    ...emptyDraft(), name: line?.item ?? "", category: line?.category ?? "", areaId: lineArea ? String(lineArea.id) : "",
+  });
   const [amount, setAmount] = useState(line ? String(line.remainingMilli / 1000) : "");
   const [receivedOn, setReceivedOn] = useState(todayIso());
   const [location, setLocation] = useState(lookups.locations[0]?.code ?? "");
@@ -44,13 +48,14 @@ export function ReceiveForm({
   const [projectId, setProjectId] = useState("");
 
   const ready =
-    amount !== "" && location !== "" && (mode === "existing" ? itemId !== "" : draft.name.trim() !== "") && (line !== undefined || unitNet !== "");
+    amount !== "" && location !== "" && (line !== undefined || unitNet !== "") &&
+    (mode === "existing" ? itemId !== "" : draft.name.trim() !== "" && Object.keys(paramErrors(draft, lookups.types)).length === 0);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const body: ReceiveBody = { quantity: amount, receivedOn, location, spot: spot.trim() };
     if (mode === "existing") body.itemId = Number(itemId);
-    else body.newItem = draftBody(draft, lookups.fields);
+    else body.newItem = draftBody(draft, lookups);
     if (line) body.lineId = line.lineId;
     else {
       body.unitNet = unitNet;

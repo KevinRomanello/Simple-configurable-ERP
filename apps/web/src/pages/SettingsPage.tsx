@@ -1,27 +1,37 @@
-import { faArrowDown, faArrowUp, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api } from "../api/client";
 import type { BankCompare, Calculation, ItemField, SettingsView } from "../api/types";
-import { Button, IconButton } from "../components/Button";
+import { Button } from "../components/Button";
 import { CommitInput } from "../components/CommitInput";
+import { DeleteButton, OrderButtons } from "../components/ListButtons";
 import { AddSection, DataTable, Field, FormPanel, Loading, Message, PageHeader, Panel, type Column } from "../components/ui";
 import { useMe } from "../lib/auth";
 import { FIELD_LABELS } from "../lib/inventory";
 import { useAction } from "../lib/useAction";
+import { ItemTypesPanel } from "./ItemTypesPanel";
 
 const FIELDS: ItemField[] = ["purpose", "safetyCodes", "disposal", "storageNotes", "maintenanceNotes"];
 
 /**
- * Settings (admins only): the lists the other pages choose from and the switches of the calculation.
- * They used to be written in the code. A change applies at once to every page and goes into the history.
+ * Settings: the lists the other pages choose from and the switches of the calculation (admins), and
+ * the types of the inventory (admins and project managers, who see only those). They used to be
+ * written in the code. A change applies at once to every page and goes into the history.
  * Not designed in Figma: built from the models of the interface. docs/impostazioni.md
  */
 export function SettingsPage() {
-  const allowed = useMe().permissions.canManageSettings;
-  const view = useQuery({ queryKey: ["settings"], queryFn: api.settings, enabled: allowed });
+  const { canManageSettings, canManageInventory } = useMe().permissions;
+  const view = useQuery({ queryKey: ["settings"], queryFn: api.settings, enabled: canManageSettings });
 
-  if (!allowed) return <Message>Only an admin can change the settings.</Message>;
+  if (!canManageSettings && !canManageInventory) return <Message>Only an admin or a project manager can change the settings.</Message>;
+  if (!canManageSettings) {
+    return (
+      <>
+        <PageHeader title="Settings" description="The types of the inventory and what is written about each item of them. The other settings are kept by an admin." />
+        <ItemTypesPanel />
+      </>
+    );
+  }
   if (!view.data) return <Loading />;
   const data = view.data;
 
@@ -33,6 +43,7 @@ export function SettingsPage() {
       />
       <CalculationPanel calculation={data.calculation} />
       <CategoriesPanel data={data} />
+      <ItemTypesPanel />
       <div className="two-columns">
         <VatRatesPanel rates={data.vatRates} />
         <UnitsPanel units={data.units} />
@@ -43,32 +54,6 @@ export function SettingsPage() {
 }
 
 // --- pieces shared by the lists ----------------------------------------------------------------
-
-/** The new order of a list when the entry at `index` moves one place up (-1) or down (+1). */
-function moved(ids: number[], index: number, step: -1 | 1): number[] {
-  const next = [...ids];
-  [next[index], next[index + step]] = [next[index + step]!, next[index]!];
-  return next;
-}
-
-/** The ↑↓ buttons of an ordered list. */
-function OrderButtons({ ids, index, onOrder, label }: { ids: number[]; index: number; onOrder: (ids: number[]) => void; label: string }) {
-  return (
-    <span className="icon-row">
-      <IconButton icon={faArrowUp} label={`Move ${label} up`} disabled={index === 0} onClick={() => onOrder(moved(ids, index, -1))} />
-      <IconButton icon={faArrowDown} label={`Move ${label} down`} disabled={index === ids.length - 1} onClick={() => onOrder(moved(ids, index, 1))} />
-    </span>
-  );
-}
-
-/** The bin of an entry: off while something uses the entry. */
-function DeleteButton({ label, usedBy, onDelete }: { label: string; usedBy: number; onDelete: () => void }) {
-  return (
-    <span title={usedBy > 0 ? `Used ${usedBy} times: it cannot be deleted` : undefined}>
-      <IconButton icon={faTrash} label={`Delete ${label}`} danger disabled={usedBy > 0} onClick={onDelete} />
-    </span>
-  );
-}
 
 const usedBy = <T extends { usedBy: number }>(): Column<T> => ({ key: "usedBy", header: "USED BY", num: true, sort: (r) => r.usedBy, cell: (r) => r.usedBy || "" });
 

@@ -112,11 +112,12 @@ export function Shell() {
           <Item to="/inventory/stats" icon={faChartPie}>INVENTORY STATS</Item>
         </nav>
 
-        {(me.permissions.canManageUsers || me.permissions.canViewHistory || me.permissions.canManageSettings) && (
+        {(me.permissions.canManageUsers || me.permissions.canViewHistory || me.permissions.canManageSettings || me.permissions.canManageInventory) && (
           <nav className="nav-group">
             <span className="nav-title label-xs bold">Admin</span>
             {me.permissions.canManageUsers && <Item to="/users" icon={faUsers}>Users</Item>}
-            {me.permissions.canManageSettings && <Item to="/settings" icon={faSliders}>Settings</Item>}
+            {/* a project manager keeps the types of the inventory there, and only them */}
+            {(me.permissions.canManageSettings || me.permissions.canManageInventory) && <Item to="/settings" icon={faSliders}>Settings</Item>}
             {me.permissions.canViewHistory && <Item to="/history" icon={faClockRotateLeft}>History</Item>}
           </nav>
         )}

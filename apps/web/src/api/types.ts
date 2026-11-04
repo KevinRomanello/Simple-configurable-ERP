@@ -146,11 +146,50 @@ export interface CategoryFields {
   byCategory: Record<string, ItemField[]>;
 }
 
+/** What is written in a parameter of an item type: a number (with its unit), one of a list, a text, a yes or no. */
+export type ParamKind = "number" | "list" | "text" | "yesno";
+
+export interface TypeParam {
+  id: number;
+  typeId: number;
+  name: string;
+  kind: ParamKind;
+  /** A number: its unit (Ω, V, mm²). */
+  unit: string | null;
+  /** A number: written with k, M, m, µ… */
+  prefixes: boolean;
+  /** A list: what can be chosen. */
+  choices: string[];
+  position: number;
+  /** How many items have something written in it. */
+  filledIn: number;
+}
+
+/** A kind of thing the team keeps (Resistor, Screw…), with what is written about each one. */
+export interface ItemType {
+  id: number;
+  name: string;
+  /** null: every area. */
+  areaId: number | null;
+  /** Whether its items are asked flammable, toxic, carcinogenic. */
+  hazards: boolean;
+  items: number;
+  params: TypeParam[];
+}
+
+/** What is written about an item, by parameter: a number as an exact decimal in its unit ("4700"), a text, yes or no. */
+export type ParamValues = Record<number, string | boolean>;
+
 /** What is typed about an item (everything but the stock). */
 export interface ItemDraft {
   name: string;
   code: string;
   category: string;
+  /** "" for none, else the id. */
+  areaId: string;
+  typeId: string;
+  /** The parameters of the type as typed ("4.7k"); yes or no as a box. */
+  values: Record<number, string | boolean>;
   unit: string;
   purpose: string;
   safetyCodes: string;
@@ -168,6 +207,8 @@ export interface InventoryItem {
   name: string;
   purpose: string | null;
   category: string | null;
+  areaId: number | null;
+  typeId: number | null;
   unit: string;
   origin: ItemOrigin;
   safetyCodes: string | null;
@@ -185,6 +226,9 @@ export interface ItemRow {
   code: string | null;
   name: string;
   category: string | null;
+  areaId: number | null;
+  typeId: number | null;
+  values: ParamValues;
   unit: string;
   origin: ItemOrigin;
   hasImage: boolean;
@@ -237,6 +281,7 @@ export interface DatasheetRow {
 
 export interface ItemDetail {
   item: InventoryItem;
+  values: ParamValues;
   datasheets: DatasheetRow[];
   hasImage: boolean;
   stock: StockPlace[];

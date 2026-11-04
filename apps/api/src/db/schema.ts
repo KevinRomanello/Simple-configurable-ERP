@@ -30,6 +30,9 @@ export const fundTypeEnum = pgEnum("fund_type", FUND_TYPES);
 export const userRoleEnum = pgEnum("user_role", ["admin", "pm", "viewer"]);
 export const movementKindEnum = pgEnum("movement_kind", MOVEMENT_KINDS);
 export const itemOriginEnum = pgEnum("item_origin", ["bought", "made"]);
+/** What is written in a parameter of an item type: a number (with its unit), one of a list, a text, a yes or no. */
+export const PARAM_KINDS = ["number", "list", "text", "yesno"] as const;
+export const paramKindEnum = pgEnum("param_kind", PARAM_KINDS);
 
 /** Binary data (the pictures of the inventory). */
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
@@ -387,6 +390,10 @@ export const inventoryItem = pgTable(
     purpose: text(),
     // Validated by the service against listCategories(); plain text for the same reason as budget_line.
     category: text(),
+    /** The area the item belongs to; null: every area. */
+    areaId: integer().references(() => area.id),
+    /** What kind of thing it is (Resistor, Screw…): what is written about it is in `item_param_value`. */
+    typeId: integer().references((): AnyPgColumn => itemType.id),
     unit: text().notNull().default("pcs"),
     origin: itemOriginEnum().notNull().default("bought"),
     /** Hazard and precaution codes (H/P statements, UN number) of a dangerous material. */
@@ -407,6 +414,76 @@ export const inventoryItem = pgTable(
     uniqueIndex("inventory_item_code_uq")
       .on(sql`lower(${t.code})`)
       .where(sql`${t.code} is not null`),
+    index("inventory_item_area").on(t.areaId),
+    index("inventory_item_type").on(t.typeId),
+  ],
+);
+
+/**
+ * A kind of thing the team keeps (Resistor, Capacitor, Screw), made on the Settings page, with the
+ * parameters written about each item of it (`item_type_param`). docs/inventario.md, §19.
+ */
+export const itemType = pgTable(
+  "item_type",
+  {
+    id: id(),
+    name: text().notNull(),
+    /** The area it belongs to; null: every area. */
+    areaId: integer().references(() => area.id),
+    /** Whether the form of its items asks flammable, toxic and carcinogenic. */
+    hazards: boolean().notNull().default(true),
+  },
+  (t) => [uniqueIndex("item_type_name_uq").on(sql`lower(${t.name})`), index("item_type_area").on(t.areaId)],
+);
+
+/** What is written about each item of a type: "Resistance" in Ω, "Package" from a list… */
+export const itemTypeParam = pgTable(
+  "item_type_param",
+  {
+    id: id(),
+    typeId: integer()
+      .notNull()
+      .references(() => itemType.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    kind: paramKindEnum().notNull(),
+    /** A number: the unit it is written in (Ω, V, mm²); null: none. */
+    unit: text(),
+    /** A number: whether it is written with k, M, m, µ… (10k is 10000). */
+    prefixes: boolean().notNull().default(false),
+    /** A list: what can be chosen, in order. */
+    choices: text().array().notNull().default(sql`'{}'::text[]`),
+    position: integer().notNull(),
+  },
+  (t) => [
+    uniqueIndex("item_type_param_name_uq").on(t.typeId, sql`lower(${t.name})`),
+    check("item_type_param_number", sql`${t.kind} = 'number' or (${t.unit} is null and not ${t.prefixes})`),
+    check("item_type_param_list", sql`${t.kind} = 'list' or cardinality(${t.choices}) = 0`),
+  ],
+);
+
+/**
+ * The value of a parameter for an item: exactly one of the three columns, by the kind of the
+ * parameter. A number is in the unit of the parameter (10 kΩ is stored as 10000), exact.
+ */
+export const itemParamValue = pgTable(
+  "item_param_value",
+  {
+    id: id(),
+    itemId: integer()
+      .notNull()
+      .references(() => inventoryItem.id, { onDelete: "cascade" }),
+    paramId: integer()
+      .notNull()
+      .references(() => itemTypeParam.id, { onDelete: "cascade" }),
+    number: numeric(),
+    /** A list (one of its choices) or a text. */
+    text: text(),
+    flag: boolean(),
+  },
+  (t) => [
+    unique("item_param_value_uq").on(t.itemId, t.paramId),
+    index("item_param_value_param").on(t.paramId),
+    check("item_param_value_one", sql`num_nonnulls(${t.number}, ${t.text}, ${t.flag}) = 1`),
   ],
 );
 

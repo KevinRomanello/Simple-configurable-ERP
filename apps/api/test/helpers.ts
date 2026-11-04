@@ -163,7 +163,7 @@ async function restoreSettings() {
 export async function resetData() {
   await restoreSettings(); // first: its history rows go with the truncate below
   await ownerPool.query(
-    "truncate table line_figures, budget_line, project, fund_contract, team_inflow, bank_snapshot, supplier, audit_log, stock_movement, component_part, item_image, inventory_item restart identity cascade",
+    "truncate table line_figures, budget_line, project, fund_contract, team_inflow, bank_snapshot, supplier, audit_log, stock_movement, component_part, item_image, inventory_item, item_type restart identity cascade",
   );
   await db.delete(fund).where(eq(fund.kind, "external"));
 }

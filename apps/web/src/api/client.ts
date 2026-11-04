@@ -1,5 +1,5 @@
 import type {
-  Analysis, Area, AreaSheet, Bank, Calculation, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, Location, Me, MonthlyInflow, NewContract, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, SettingsView, SignInOptions, SponsorBody, StatsResult, Supplier, Totals, UserRow, VatReport,
+  Analysis, Area, AreaSheet, Bank, Calculation, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, SettingsView, SignInOptions, SponsorBody, StatsResult, Supplier, Totals, TypeParam, UserRow, VatReport,
 } from "./types";
 import type { NewLineBody } from "../lib/newLine";
 
@@ -82,6 +82,10 @@ export interface ItemBody {
   name?: string;
   code?: string | null;
   category?: string | null;
+  areaId?: number | null;
+  typeId?: number | null;
+  /** The parameters of the type: a number as an exact decimal, null clears one. Those left out keep what they had. */
+  params?: { paramId: number; value: string | boolean | null }[];
   unit?: string;
   purpose?: string | null;
   safetyCodes?: string | null;
@@ -93,6 +97,21 @@ export interface ItemBody {
   carcinogenic?: boolean;
   origin?: "bought" | "made";
 }
+
+/** What makes a type, and a parameter of it (the choices of a list, when changed, say which old one each is). */
+export interface TypeBody {
+  name?: string;
+  areaId?: number | null;
+  hazards?: boolean;
+}
+export interface ParamBody {
+  name: string;
+  kind: ParamKind;
+  unit?: string | null;
+  prefixes?: boolean;
+  choices?: string[];
+}
+export type ParamPatch = Partial<Omit<ParamBody, "choices">> & { choices?: { was?: string; name: string }[] };
 
 /** What the form of a build sends: the parts come from one place, the pieces go to another. */
 export interface BuildBody {
@@ -221,6 +240,14 @@ export const api = {
     patch(`/inventory/components/${componentId}/parts/${partId}`, body),
   removePart: (componentId: number, partId: number) => del(`/inventory/components/${componentId}/parts/${partId}`),
   inventoryStats: (by: StatsResult["by"], basis: PriceBasis) => get<StatsResult>(`/inventory/stats?by=${by}&basis=${basis}`),
+  itemTypes: () => get<ItemType[]>("/inventory/types"),
+  createType: (body: TypeBody & { name: string }) => post<ItemType>("/inventory/types", body),
+  updateType: (id: number, body: TypeBody) => patch<ItemType>(`/inventory/types/${id}`, body),
+  deleteType: (id: number) => del(`/inventory/types/${id}`),
+  addParam: (typeId: number, body: ParamBody) => post<TypeParam>(`/inventory/types/${typeId}/params`, body),
+  updateParam: (id: number, body: ParamPatch) => patch<TypeParam>(`/inventory/params/${id}`, body),
+  deleteParam: (id: number) => del(`/inventory/params/${id}`),
+  orderParams: (typeId: number, ids: number[]) => put<void>(`/inventory/types/${typeId}/params/order`, { ids }),
 
   // lookups
   categories: () => get<string[]>("/lookups/categories"),
