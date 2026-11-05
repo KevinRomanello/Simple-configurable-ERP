@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { api } from "../api/client";
+import { api, type MovementBody } from "../api/client";
 import type { BomLine, ItemDraft, ItemField, MovementRow, StockPlace } from "../api/types";
 import { Button, IconButton } from "../components/Button";
 import { Datasheets } from "../components/Datasheets";
@@ -21,6 +21,7 @@ import { prepareImage } from "../lib/image";
 import { draftBody, draftOf, FIELD_LABELS, paramErrors, useInventoryLookups } from "../lib/inventory";
 import { showValue } from "../lib/params";
 import { usePrice } from "../lib/price";
+import { SCREEN, useMaxWidth } from "../lib/screen";
 import { useAction } from "../lib/useAction";
 import { TableBox } from "../components/ExportBlocks";
 import { SortTh } from "../components/SortTh";
@@ -90,7 +91,10 @@ export function ItemPage() {
   const detail = useQuery({ queryKey: ["inventory-item", itemId, price], queryFn: () => api.inventoryItem(itemId, price) });
   const items = useQuery({ queryKey: ["inventory-items", price, {}], queryFn: () => api.inventoryItems(price) });
   const [draft, setDraft] = useState<ItemDraft | null>(null);
-  const [placeOpen, setPlaceOpen] = useState<string | null>(null);
+  /** The place whose form is open, and what the form starts on. */
+  const [placeOpen, setPlaceOpen] = useState<{ key: string; kind: MovementBody["kind"] } | null>(null);
+  // on a phone, where the shelf is, each thing to do has its own big button
+  const phone = useMaxWidth(SCREEN.phone);
   const [receiving, setReceiving] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
   const byPlace = useSort(PLACES_SORT);
@@ -220,8 +224,8 @@ export function ItemPage() {
         {receiving && items.data && (
           <ReceiveForm items={items.data} presetItemId={itemId} lookups={lookups} onDone={() => setReceiving(false)} onCancel={() => setReceiving(false)} />
         )}
-        <TableBox title="Where it is">
-          <table className="data-table">
+        <TableBox title="Where it is" cards>
+          <table className="data-table cards">
             <thead>
               <tr>
                 <SortTh sort={byPlace} by="place">PLACE</SortTh>
@@ -231,17 +235,30 @@ export function ItemPage() {
               </tr>
             </thead>
             <tbody>
-              {byPlace.sorted(stock).map((place) => (
-                <FragmentRow key={placeKey(place)} colSpan={4} open={placeOpen === placeKey(place)}
-                  panel={<MovementForm item={item} place={place} lookups={lookups} onDone={() => setPlaceOpen(null)} onCancel={() => setPlaceOpen(null)} />}>
-                  <td>{place.label}</td>
-                  <td>{place.spot || <span className="muted">—</span>}</td>
-                  <td className={`num${place.quantityMilli < 0 ? " cell-negative" : ""}`}>{quantity(place.quantityMilli)} {item.unit}</td>
-                  <td className="num">
-                    {canEdit && <Button small variant="ghost" onClick={() => setPlaceOpen(placeOpen === placeKey(place) ? null : placeKey(place))}>{placeOpen === placeKey(place) ? "Close" : "Use, move, count…"}</Button>}
-                  </td>
-                </FragmentRow>
-              ))}
+              {byPlace.sorted(stock).map((place) => {
+                const key = placeKey(place);
+                const open = placeOpen?.key === key;
+                const toggle = (kind: MovementBody["kind"]) => setPlaceOpen(open && placeOpen?.kind === kind ? null : { key, kind });
+                return (
+                  <FragmentRow key={key} colSpan={4} open={open}
+                    panel={<MovementForm key={placeOpen?.kind} item={item} place={place} lookups={lookups} kind={placeOpen?.kind} onDone={() => setPlaceOpen(null)} onCancel={() => setPlaceOpen(null)} />}>
+                    <td className="cell-title">{place.label}</td>
+                    <td>{place.spot || <span className="muted">—</span>}</td>
+                    <td className={`num${place.quantityMilli < 0 ? " cell-negative" : ""}`}>{quantity(place.quantityMilli)} {item.unit}</td>
+                    <td className="num">
+                      {canEdit && (phone ? (
+                        <span className="place-actions">
+                          <Button small variant="ghost" onClick={() => toggle("use")}>Use</Button>
+                          <Button small variant="ghost" onClick={() => toggle("transfer")}>Move</Button>
+                          <Button small variant="ghost" onClick={() => toggle("adjustment")}>Count</Button>
+                        </span>
+                      ) : (
+                        <Button small variant="ghost" onClick={() => toggle("use")}>{open ? "Close" : "Use, move, count…"}</Button>
+                      ))}
+                    </td>
+                  </FragmentRow>
+                );
+              })}
               {stock.length === 0 && <EmptyRow colSpan={4}>None on the shelf</EmptyRow>}
             </tbody>
           </table>

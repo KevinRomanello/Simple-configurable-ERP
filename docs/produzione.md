@@ -68,7 +68,7 @@ Le stime sono mie e non misurate: **S** ≈ 1 ora, **M** ≈ 2 ore, **L** ≈ 3�
 | **Voci senza categoria** in CATEGORY ANALYSES | non compaiono mai (come nel foglio): 17 voci su 52 nei tuoi dati | S, ma serve una decisione tua |
 | **Outflow rosso** nelle analisi | ogni outflow positivo è rosso (come nel foglio), poco utile | S, decisione tua |
 | **Nuova stagione**: crearla, portare avanti fondi e fornitori | solo la 2026-2027 | L |
-| Uso da **telefono** | la griglia non è pensata per quello | L |
+| Uso da **telefono** | fatto il 5 novembre 2026: menu, tabelle a schede, budget a schede con il modulo ([stile-interfaccia.md](stile-interfaccia.md), §12); manca la prova su telefoni veri | — |
 | Stati di caricamento, errori e vuoti più curati; navigazione da tastiera; accessibilità | di base | M |
 
 ### D. Il resto del progetto (non è nella v0)

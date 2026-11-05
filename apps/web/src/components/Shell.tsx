@@ -1,14 +1,15 @@
 import {
-  faAnglesLeft, faBars, faBoxesStacked, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece, faRepeat, faRightFromBracket, faSackDollar,
-  faScaleBalanced, faSliders, faTable, faTruckFast, faUsers,
+  faAnglesLeft, faBars, faBoxesStacked, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece,
+  faRepeat, faRightFromBracket, faSackDollar, faScaleBalanced, faSliders, faTable, faTruckFast, faUsers, faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { IconDefinition } from "@fortawesome/free-solid-svg-icons";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { api } from "../api/client";
 import { forgetUser, useMe } from "../lib/auth";
+import { SCREEN, useMaxWidth } from "../lib/screen";
 import { IconButton } from "./Button";
 import { ExportProvider } from "./ExportBlocks";
 
@@ -19,6 +20,16 @@ function Item({ to, icon, end, children }: { to: string; icon: IconDefinition; e
       <FontAwesomeIcon icon={icon} fixedWidth />
       {children}
     </NavLink>
+  );
+}
+
+/** A group of the menu, under its title: the same on a computer, a tablet and a phone. */
+function NavGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <nav className="nav-group">
+      <span className="nav-title label-xs bold">{title}</span>
+      {children}
+    </nav>
   );
 }
 
@@ -43,9 +54,35 @@ function useSidebarHidden() {
   return [hidden, () => setHidden((value) => !value)] as const;
 }
 
+/**
+ * The menu of a phone or a tablet: the same as on a computer, shown over the page from the bar at the top, and closed by
+ * itself when the page changes, with Esc or by touching outside it. While it is open the page under
+ * it does not scroll, and the entry of the page you are on is in sight.
+ */
+function useCompactMenu(compact: boolean) {
+  const { pathname } = useLocation();
+  const [shown, setShown] = useState(false);
+  useEffect(() => setShown(false), [pathname, compact]);
+  useEffect(() => {
+    if (!shown) return;
+    const close = (event: KeyboardEvent) => event.key === "Escape" && setShown(false);
+    document.addEventListener("keydown", close);
+    document.body.classList.add("no-scroll");
+    // the page you are on is in sight, even far down the menu
+    document.querySelector("#sidebar .nav-link.active")?.scrollIntoView({ block: "nearest" });
+    return () => {
+      document.removeEventListener("keydown", close);
+      document.body.classList.remove("no-scroll");
+    };
+  }, [shown]);
+  return [shown, setShown] as const;
+}
+
 /** Page frame: the navigation mirrors the tabs of the old sheet. */
 export function Shell() {
+  const compact = useMaxWidth(SCREEN.tablet);
   const [hidden, toggleSidebar] = useSidebarHidden();
+  const [menuShown, setMenuShown] = useCompactMenu(compact);
   const areas = useQuery({ queryKey: ["areas"], queryFn: api.areas });
   const me = useMe();
   const queryClient = useQueryClient();
@@ -58,68 +95,82 @@ export function Shell() {
     forgetUser(queryClient); // shows the sign-in page...
     queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" }); // ...and drops the data of this person
   };
+  const brand = (
+    <div className="brand-text">
+      <strong>E-Agle TRT</strong>
+      <span className="label-s muted">Budget 2026-2027</span>
+    </div>
+  );
+  const frame = compact ? `shell compact${menuShown ? " menu-shown" : ""}` : `shell${hidden ? " collapsed" : ""}`;
 
   return (
-    <div className={`shell${hidden ? " collapsed" : ""}`}>
-      {hidden && (
+    <div className={frame}>
+      {compact && (
+        <header className="topbar">
+          {brand}
+          <button type="button" className="icon-btn burger" aria-label="Show the menu" aria-expanded={menuShown} aria-controls="sidebar" onClick={() => setMenuShown(true)}>
+            <FontAwesomeIcon icon={faBars} />
+          </button>
+        </header>
+      )}
+      {!compact && hidden && (
         <button type="button" className="icon-btn menu-open" title="Show the menu" aria-label="Show the menu" aria-expanded={false} onClick={toggleSidebar}>
           <FontAwesomeIcon icon={faBars} />
         </button>
       )}
+      {compact && menuShown && <div className="menu-backdrop" onClick={() => setMenuShown(false)} />}
       <aside className="sidebar" id="sidebar">
         <div className="brand">
-          <div className="brand-text">
-            <strong>E-Agle TRT</strong>
-            <span className="label-s muted">Budget 2026-2027</span>
-          </div>
-          <button type="button" className="icon-btn" title="Hide the menu" aria-label="Hide the menu" aria-expanded aria-controls="sidebar" onClick={toggleSidebar}>
-            <FontAwesomeIcon icon={faAnglesLeft} />
-          </button>
+          {brand}
+          {compact ? (
+            <button type="button" className="icon-btn burger" aria-label="Close the menu" onClick={() => setMenuShown(false)}>
+              <FontAwesomeIcon icon={faXmark} />
+            </button>
+          ) : (
+            <button type="button" className="icon-btn" title="Hide the menu" aria-label="Hide the menu" aria-expanded aria-controls="sidebar" onClick={toggleSidebar}>
+              <FontAwesomeIcon icon={faAnglesLeft} />
+            </button>
+          )}
         </div>
 
         {/* the pages follow the order of the sheets of the Excel file (Budget 26-27), then the ones it does not have */}
-        <nav className="nav-group">
-          <span className="nav-title label-xs bold">Budget</span>
+        <NavGroup title="Budget">
           {areas.data?.map((area) => (
             <Item key={area.code} to={`/budget/${area.code}`} icon={faTable}>
               {area.name}
             </Item>
           ))}
-        </nav>
+        </NavGroup>
 
-        <nav className="nav-group">
-          <span className="nav-title label-xs bold">Cash</span>
+        <NavGroup title="Cash">
           <Item to="/cash-from" icon={faDatabase}>CASH FROM</Item>
           <Item to="/bought-from" icon={faTruckFast}>BOUGHT FROM</Item>
           <Item to="/cash-flow" icon={faRepeat}>CASH FLOW</Item>
-        </nav>
+        </NavGroup>
 
-        <nav className="nav-group">
-          <span className="nav-title label-xs bold">Views</span>
+        <NavGroup title="Views">
           <Item to="/gantt/estimate" icon={faChartLine}>EXPECTED GANTT</Item>
           <Item to="/gantt/actual" icon={faChartLine}>ACTUAL GANTT</Item>
           <Item to="/analysis/funds" icon={faSackDollar}>CASH FROM ANALYSES</Item>
           <Item to="/analysis/suppliers" icon={faTruckFast}>BOUGHT FROM ANALYSES</Item>
           <Item to="/analysis/items" icon={faMagnifyingGlass}>CATEGORY ANALYSES</Item>
           <Item to="/total" icon={faScaleBalanced}>TOTAL</Item>
-        </nav>
+        </NavGroup>
 
-        <nav className="nav-group">
-          <span className="nav-title label-xs bold">Inventory</span>
+        <NavGroup title="Inventory">
           <Item to="/inventory" icon={faBoxesStacked} end>INVENTORY</Item>
           <Item to="/inventory/pending" icon={faHourglassHalf}>PENDING</Item>
           <Item to="/inventory/components" icon={faPuzzlePiece}>COMPONENTS</Item>
           <Item to="/inventory/stats" icon={faChartPie}>INVENTORY STATS</Item>
-        </nav>
+        </NavGroup>
 
         {(me.permissions.canManageUsers || me.permissions.canViewHistory || me.permissions.canManageSettings || me.permissions.canManageInventory) && (
-          <nav className="nav-group">
-            <span className="nav-title label-xs bold">Admin</span>
+          <NavGroup title="Admin">
             {me.permissions.canManageUsers && <Item to="/users" icon={faUsers}>Users</Item>}
             {/* a project manager keeps the types of the inventory there, and only them */}
             {(me.permissions.canManageSettings || me.permissions.canManageInventory) && <Item to="/settings" icon={faSliders}>Settings</Item>}
             {me.permissions.canViewHistory && <Item to="/history" icon={faClockRotateLeft}>History</Item>}
-          </nav>
+          </NavGroup>
         )}
 
         <div className="sidebar-footer">

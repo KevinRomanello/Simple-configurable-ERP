@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Legend } from "../lib/export/chart";
 import { tableFromDom, type Table } from "../lib/export/table";
+import { SCREEN, useMaxWidth } from "../lib/screen";
 import type { Collected } from "../lib/export/types";
 
 // A page says which of its tables and charts can go into a downloaded file by wrapping them in a
@@ -58,9 +59,34 @@ export function useExportBlock(block: Omit<ExportBlock, "id">) {
   );
 }
 
-/** A table of the page (the box with the scroll bar around it), downloadable under `title`. */
-export function TableBox({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
+/**
+ * On a phone a table marked `cards` shows each row as a card, every value with the name of its column
+ * in front (CSS, `data-label`): the names are written on the cells here, from the headers, so that the
+ * tables made by hand get them too. A cell across several columns gets none.
+ */
+function labelCells(table: HTMLTableElement) {
+  const headers = [...(table.tHead?.rows[0]?.cells ?? [])].map((th) => th.textContent?.trim() ?? "");
+  for (const body of table.tBodies) {
+    for (const row of body.rows) {
+      let column = 0;
+      for (const cell of row.cells) {
+        cell.setAttribute("data-label", cell.colSpan > 1 ? "" : (headers[column] ?? ""));
+        column += cell.colSpan;
+      }
+    }
+  }
+}
+
+/** A table of the page (the box with the scroll bar around it), downloadable under `title`; `cards`: one card per row on a phone. */
+export function TableBox({ title, children, className = "", cards = false }: { title: string; children: ReactNode; className?: string; cards?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
+  // only where the cards are shown (a long list on a computer does not need it), after every drawing:
+  // rows and columns may have changed
+  const asCards = useMaxWidth(SCREEN.cards) && cards;
+  useLayoutEffect(() => {
+    const table = box.current?.querySelector("table");
+    if (asCards && table) labelCells(table);
+  });
   useExportBlock({
     title,
     kind: "table",
@@ -71,7 +97,7 @@ export function TableBox({ title, children, className = "" }: { title: string; c
     },
   });
   return (
-    <div ref={box} className={`table-wrap ${className}`.trim()}>
+    <div ref={box} className={`table-wrap${cards ? " as-cards" : ""} ${className}`.trim()}>
       {children}
     </div>
   );

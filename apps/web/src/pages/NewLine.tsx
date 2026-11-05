@@ -18,13 +18,17 @@ const FILL_IN: { value: FillIn; label: string }[] = [
 
 const names = (values: string[]) => [{ value: "", label: "" }, ...values.map((v) => ({ value: v, label: v }))];
 
-/** The boxes of one phase of a line: what the grid has under EXPECTED or ACTUAL. */
-function PhaseFields({ idPrefix, phase, draft, lookups, onChange }: {
+/**
+ * The boxes of one phase of a line: what the grid has under EXPECTED or ACTUAL. `fixedFunds`: the
+ * line is paid by several funds, which the form shows and does not change (the grid does).
+ */
+export function PhaseFields({ idPrefix, phase, draft, lookups, onChange, fixedFunds }: {
   idPrefix: string;
   phase: Phase;
   draft: PhaseDraft;
   lookups: GridLookups;
   onChange: (change: Partial<PhaseDraft>) => void;
+  fixedFunds?: string;
 }) {
   const id = (name: string) => `${idPrefix}-${phase}-${name}`;
   return (
@@ -38,12 +42,19 @@ function PhaseFields({ idPrefix, phase, draft, lookups, onChange }: {
           <input id={id("cost")} className="input small" type="number" min="0" step="0.0001" value={draft.unitCost} onChange={(e) => onChange({ unitCost: e.target.value })} />
         </Field>
         <Field label="Cash from" htmlFor={id("fund")}>
-          <SearchSelect id={id("fund")} value={draft.fund} onChange={(fund) => onChange({ fund })} choices={names(lookups.funds[phase].map((f) => f.name))} />
+          {fixedFunds !== undefined ? (
+            <>
+              <input id={id("fund")} className="input small" value={fixedFunds} readOnly />
+              <span className="hint">Several funds pay it: change them in the grid, on a computer or a tablet</span>
+            </>
+          ) : (
+            <SearchSelect id={id("fund")} value={draft.fund} onChange={(fund) => onChange({ fund })} choices={names(lookups.funds[phase].map((f) => f.name))} />
+          )}
         </Field>
         <Field label="Bought from" htmlFor={id("supplier")}>
           <SearchSelect id={id("supplier")} value={draft.supplier} onChange={(supplier) => onChange({ supplier })} choices={names(lookups.supplierNames)} />
         </Field>
-        {choosesOwnRate(draft.fund, lookups) && (
+        {fixedFunds === undefined && choosesOwnRate(draft.fund, lookups) && (
           <Field label="VAT %" htmlFor={id("vat")}>
             <select id={id("vat")} className="input small" value={draft.vatRate} onChange={(e) => onChange({ vatRate: e.target.value })}>
               <option value="">Choose…</option>

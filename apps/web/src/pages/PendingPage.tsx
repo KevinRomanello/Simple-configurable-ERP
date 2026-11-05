@@ -48,8 +48,8 @@ export function PendingPage() {
 
       <Panel>
         {/* rows that open a form under them: built from the common pieces rather than DataTable */}
-        <TableBox title="Pending">
-          <table className="data-table">
+        <TableBox title="Pending" cards>
+          <table className="data-table cards">
             <thead>
               <tr>
                 <SortTh sort={sort} by="item">ITEM</SortTh>
@@ -69,7 +69,7 @@ export function PendingPage() {
               {rows.map((row) => (
                 <Fragment key={row.lineId}>
                   <tr>
-                    <td>{row.item}{row.category && <div className="muted">{row.category}</div>}</td>
+                    <td className="cell-title">{row.item}{row.category && <div className="muted">{row.category}</div>}</td>
                     <td>{row.projectName}<div className="muted">{row.areaName}</div></td>
                     <td>{row.supplierName ?? <span className="muted">—</span>}</td>
                     <td className="num">{quantity(row.boughtMilli)}</td>

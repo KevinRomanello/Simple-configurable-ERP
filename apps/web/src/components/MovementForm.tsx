@@ -20,17 +20,19 @@ const KINDS = [
 
 /** What can be done with the goods that are at one place: use them, move them, count them, throw them away. */
 export function MovementForm({
-  item, place, lookups, onDone, onCancel,
+  item, place, lookups, onDone, onCancel, kind: firstKind = "use",
 }: {
   item: InventoryItem;
   place: StockPlace;
   lookups: InventoryLookups;
   onDone: () => void;
   onCancel: () => void;
+  /** What it starts on (on a phone each one has its own button). */
+  kind?: MovementBody["kind"];
 }) {
   const act = useAction();
   const projects = useQuery({ queryKey: ["inventory-projects"], queryFn: api.inventoryProjects });
-  const [kind, setKind] = useState<MovementBody["kind"]>("use");
+  const [kind, setKind] = useState<MovementBody["kind"]>(firstKind);
   const [amount, setAmount] = useState("");
   const [counted, setCounted] = useState(String(place.quantityMilli / 1000));
   const [occurredOn, setOccurredOn] = useState(todayIso());

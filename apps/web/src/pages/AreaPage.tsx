@@ -7,9 +7,11 @@ import { useParams } from "react-router";
 import { api } from "../api/client";
 import type { AreaSheet, CalcLine, Phase } from "../api/types";
 import { IconButton } from "../components/Button";
+import { Chips } from "../components/Chips";
 import { useMe } from "../lib/auth";
 import { money } from "../lib/format";
 import { canEditArea } from "../lib/permissions";
+import { SCREEN, useMaxWidth } from "../lib/screen";
 import { useAction } from "../lib/useAction";
 import { gridTheme } from "../theme/grid";
 import { areaColumns, needsMoreFunds, type Commit, type GridLookups, type MoreFunds, type Row, type SubtotalRow } from "./areaColumns";
@@ -18,6 +20,7 @@ import { useExportBlock } from "../components/ExportBlocks";
 import { tableFromGrid } from "../lib/export/table";
 import { GridSortHeader } from "../components/GridSortHeader";
 import { AddSection, DataTable, Field, FormPanel, Loading, Message, PageHeader, Panel, type Column } from "../components/ui";
+import { LineCards } from "./LineCards";
 import { NewLine } from "./NewLine";
 import { gridCompare } from "../lib/sort";
 
@@ -36,6 +39,9 @@ export function AreaPage() {
   const fundsActual = useQuery({ queryKey: ["funds", "actual"], queryFn: () => api.funds("actual") });
   const allFunds = useQuery({ queryKey: ["funds"], queryFn: () => api.funds() });
   const suppliers = useQuery({ queryKey: ["suppliers"], queryFn: api.suppliers });
+  // on a phone the grid does not fit: each project is a list of cards, of one phase at a time
+  const phone = useMaxWidth(SCREEN.phone);
+  const [phase, setPhase] = useState<Phase>("estimate");
 
   const lookups = useMemo<GridLookups | null>(() => {
     if (!categories.data || !priorities.data || !vatRates.data || !fundsEstimate.data || !fundsActual.data || !allFunds.data || !suppliers.data) {
@@ -76,15 +82,19 @@ export function AreaPage() {
         title={data.area.name}
         description={
           canEdit
-            ? "Budget lines by project. Click a cell to edit it; amounts are calculated."
+            ? phone
+              ? "Budget lines by project. Touch a line to change it; amounts are calculated."
+              : "Budget lines by project. Click a cell to edit it; amounts are calculated."
             : "Budget lines by project. You can look but not change this area."
         }
         add={canEdit ? { label: "New project", form: (close) => <NewProject areaCode={code} onDone={close} /> } : undefined}
       />
 
+      {phone && <Chips label="Phase" value={phase} onChange={setPhase} options={[{ value: "estimate", label: "EXPECTED" }, { value: "actual", label: "ACTUAL" }]} />}
       {data.projects.length === 0 && <Message>{canEdit ? "No projects yet: add the first one." : "No projects yet."}</Message>}
       {data.projects.map((project) => (
-        <ProjectPanel key={project.id} project={project} buildColumns={buildColumns} canEdit={canEdit} lookups={lookups} />
+        <ProjectPanel key={project.id} project={project} buildColumns={buildColumns} canEdit={canEdit} lookups={lookups}
+          cards={phone ? { phase, onRemove: removeLine } : null} />
       ))}
 
       <VatReportTable areaCode={code} />
@@ -118,11 +128,13 @@ function subtotalRow(project: SheetProject): SubtotalRow {
   return { isSubtotal: true, item: "Subtotal", estimate: phase("estimate"), actual: phase("actual") };
 }
 
-function ProjectPanel({ project, buildColumns, canEdit, lookups }: {
+function ProjectPanel({ project, buildColumns, canEdit, lookups, cards }: {
   project: SheetProject;
   buildColumns: (moreFunds: MoreFunds) => ReturnType<typeof areaColumns>;
   canEdit: boolean;
   lookups: GridLookups;
+  /** On a phone: the lines as cards, of this phase, instead of the grid. */
+  cards: { phase: Phase; onRemove: (line: CalcLine) => void } | null;
 }) {
   const act = useAction();
   const gridRef = useRef<AgGridReact<Row>>(null);
@@ -178,31 +190,35 @@ function ProjectPanel({ project, buildColumns, canEdit, lookups }: {
       }
     >
 
-      <AgGridReact<Row>
-        ref={gridRef}
-        theme={gridTheme}
-        domLayout="autoHeight"
-        rowData={project.lines}
-        pinnedBottomRowData={subtotal}
-        columnDefs={columns}
-        defaultColDef={DEFAULT_COL_DEF}
-        // The lists of the cells open in the page, under their cell. Not in the grid (it is only as tall as its
-        // rows, so a list would be pushed up over the header) and not in <body>: that is only as tall as the
-        // window while the page scrolls, so the grid believes there is no room under the cell and opens the list
-        // above it as soon as the page has been scrolled. .main is as tall as the page.
-        popupParent={document.querySelector<HTMLElement>("main.main")}
-        // each column takes the room its content needs, no more; fitted again whenever the rows change
-        // (the grid can only measure columns it draws, so all of them are drawn)
-        suppressColumnVirtualisation
-        autoSizeStrategy={{ type: "fitCellContents", skipHeader: true }}
-        onRowDataUpdated={(event) => event.api.autoSizeAllColumns(true)}
-        getRowId={(p) => ("isSubtotal" in p.data ? "subtotal" : String(p.data.id))}
-        suppressCellFocus={false}
-        suppressNoRowsOverlay
-        tooltipShowDelay={150}
-        stopEditingWhenCellsLoseFocus
-        singleClickEdit
-      />
+      {cards ? (
+        <LineCards project={project} phase={cards.phase} lookups={lookups} canEdit={canEdit} onRemove={cards.onRemove} />
+      ) : (
+        <AgGridReact<Row>
+          ref={gridRef}
+          theme={gridTheme}
+          domLayout="autoHeight"
+          rowData={project.lines}
+          pinnedBottomRowData={subtotal}
+          columnDefs={columns}
+          defaultColDef={DEFAULT_COL_DEF}
+          // The lists of the cells open in the page, under their cell. Not in the grid (it is only as tall as its
+          // rows, so a list would be pushed up over the header) and not in <body>: that is only as tall as the
+          // window while the page scrolls, so the grid believes there is no room under the cell and opens the list
+          // above it as soon as the page has been scrolled. .main is as tall as the page.
+          popupParent={document.querySelector<HTMLElement>("main.main")}
+          // each column takes the room its content needs, no more; fitted again whenever the rows change
+          // (the grid can only measure columns it draws, so all of them are drawn)
+          suppressColumnVirtualisation
+          autoSizeStrategy={{ type: "fitCellContents", skipHeader: true }}
+          onRowDataUpdated={(event) => event.api.autoSizeAllColumns(true)}
+          getRowId={(p) => ("isSubtotal" in p.data ? "subtotal" : String(p.data.id))}
+          suppressCellFocus={false}
+          suppressNoRowsOverlay
+          tooltipShowDelay={150}
+          stopEditingWhenCellsLoseFocus
+          singleClickEdit
+        />
+      )}
 
       {canEdit && <AddSection label="Add item" form={(close) => <NewLine project={project} lookups={lookups} onDone={close} />} />}
     </Panel>
