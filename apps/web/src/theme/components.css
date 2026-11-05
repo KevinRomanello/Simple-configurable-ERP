@@ -1221,7 +1221,8 @@ body.no-scroll {
 }
 
 /* phones held upright: a table becomes one card per row, each value with its column's name in front
-   (TableBox writes the names, see ExportBlocks.tsx). Only the tables marked `cards`; the others scroll
+   (TableBox writes the names, see ExportBlocks.tsx). Only the tables marked `phone-cards` (not `cards`:
+   that is the row of figures at the top of a page); the others scroll
    sideways in their box. Sorting by clicking a header is not there: the headers are not shown. */
 @media (max-width: 599px) {
   .table-wrap.as-cards,
@@ -1230,14 +1231,14 @@ body.no-scroll {
     border: 0;
     background: none;
   }
-  .data-table.cards,
-  .data-table.cards tbody {
+  .data-table.phone-cards,
+  .data-table.phone-cards tbody {
     display: block;
   }
-  .data-table.cards thead {
+  .data-table.phone-cards thead {
     display: none;
   }
-  .data-table.cards tr {
+  .data-table.phone-cards tr {
     display: flex;
     flex-direction: column;
     gap: var(--space-3xs);
@@ -1247,11 +1248,11 @@ body.no-scroll {
     border-radius: var(--radius-3xs);
     background: var(--bg-null);
   }
-  .data-table.cards tr:last-child {
+  .data-table.phone-cards tr:last-child {
     margin-bottom: 0;
   }
   /* the name of the column on the left, the value on the right; a value of several lines stays one under the other */
-  .data-table.cards td {
+  .data-table.phone-cards td {
     display: flow-root;
     padding: var(--space-3xs) 0;
     border: 0;
@@ -1260,7 +1261,7 @@ body.no-scroll {
     white-space: normal;
     overflow-wrap: anywhere;
   }
-  .data-table.cards td::before {
+  .data-table.phone-cards td::before {
     content: attr(data-label);
     float: left;
     max-width: 50%;
@@ -1271,16 +1272,16 @@ body.no-scroll {
     text-transform: uppercase;
     text-align: left;
   }
-  .data-table.cards td:empty,
-  .data-table.cards td:has(> .none:only-child),
-  .data-table.cards .cell-hidden {
+  .data-table.phone-cards td:empty,
+  .data-table.phone-cards td:has(> .none:only-child),
+  .data-table.phone-cards .cell-hidden {
     display: none;
   }
-  .data-table.cards td[data-label=""]::before,
-  .data-table.cards .cell-title::before {
+  .data-table.phone-cards td[data-label=""]::before,
+  .data-table.phone-cards .cell-title::before {
     content: none;
   }
-  .data-table.cards .cell-title {
+  .data-table.phone-cards .cell-title {
     order: -1;
     display: flex;
     align-items: center;
@@ -1288,38 +1289,38 @@ body.no-scroll {
     text-align: left;
     font-size: 15px;
   }
-  .data-table.cards .cell-title .phone-only {
+  .data-table.phone-cards .cell-title .phone-only {
     display: inline-flex;
   }
-  .data-table.cards td.sum {
+  .data-table.phone-cards td.sum {
     border: 0;
     background: none;
     font-weight: 700;
   }
   /* the rows that sum up stay yellow, like in the tables */
-  .data-table.cards tr.total {
+  .data-table.phone-cards tr.total {
     background: var(--primary-default);
     border-color: var(--primary-default);
   }
-  .data-table.cards tr.total td::before {
+  .data-table.phone-cards tr.total td::before {
     color: var(--on-primary);
   }
   /* a row that opens a form under it (PENDING, "Where it is"): the form takes the whole card */
-  .data-table.cards tr.row-panel td,
-  .data-table.cards td.empty {
+  .data-table.phone-cards tr.row-panel td,
+  .data-table.phone-cards td.empty {
     display: block;
     text-align: left;
   }
-  .data-table.cards tr.row-panel td::before,
-  .data-table.cards td.empty::before {
+  .data-table.phone-cards tr.row-panel td::before,
+  .data-table.phone-cards td.empty::before {
     content: none;
   }
   /* the boxes of that form are as wide as the card, not as narrow as the cells of a table */
-  .data-table.cards tr.row-panel td .input,
-  .data-table.cards tr.row-panel td .search-select {
+  .data-table.phone-cards tr.row-panel td .input,
+  .data-table.phone-cards tr.row-panel td .search-select {
     width: 100%;
   }
-  .data-table.cards td .btn {
+  .data-table.phone-cards td .btn {
     min-height: 40px;
   }
   /* Use, Move, Count under a place of an item: three big buttons side by side */

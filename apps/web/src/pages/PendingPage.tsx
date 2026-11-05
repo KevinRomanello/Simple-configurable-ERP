@@ -49,7 +49,7 @@ export function PendingPage() {
       <Panel>
         {/* rows that open a form under them: built from the common pieces rather than DataTable */}
         <TableBox title="Pending" cards>
-          <table className="data-table cards">
+          <table className="data-table phone-cards">
             <thead>
               <tr>
                 <SortTh sort={sort} by="item">ITEM</SortTh>

@@ -225,7 +225,7 @@ export function ItemPage() {
           <ReceiveForm items={items.data} presetItemId={itemId} lookups={lookups} onDone={() => setReceiving(false)} onCancel={() => setReceiving(false)} />
         )}
         <TableBox title="Where it is" cards>
-          <table className="data-table cards">
+          <table className="data-table phone-cards">
             <thead>
               <tr>
                 <SortTh sort={byPlace} by="place">PLACE</SortTh>

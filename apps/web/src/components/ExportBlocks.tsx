@@ -60,7 +60,7 @@ export function useExportBlock(block: Omit<ExportBlock, "id">) {
 }
 
 /**
- * On a phone a table marked `cards` shows each row as a card, every value with the name of its column
+ * On a phone a table marked `phone-cards` shows each row as a card, every value with the name of its column
  * in front (CSS, `data-label`): the names are written on the cells here, from the headers, so that the
  * tables made by hand get them too. A cell across several columns gets none.
  */

@@ -60,7 +60,7 @@ export function DataTable<T>({ title, columns, rows, rowKey, rowClass, empty, fo
     classes(c.num && "num", c.className, c.key === titleKey && "cell-title", c.mobile === "hidden" && "cell-hidden");
   return (
     <TableBox title={title} cards={phone === "cards"}>
-      <table className={classes("data-table", phone === "cards" && "cards", className)}>
+      <table className={classes("data-table", phone === "cards" && "phone-cards", className)}>
         <thead>
           <tr>
             {columns.map((c) =>
