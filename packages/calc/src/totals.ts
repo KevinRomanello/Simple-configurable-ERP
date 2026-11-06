@@ -1,7 +1,7 @@
 import { blocksOf, inBlock } from "./blocks";
 import { computeLines, type CalcLine } from "./lines";
 import { sumAmounts } from "./line";
-import type { Snapshot } from "./snapshot";
+import type { AreaInput, Snapshot } from "./snapshot";
 
 export interface TotalsFigures {
   estimateGrossCents: number;
@@ -21,6 +21,8 @@ export interface TotalsFigures {
 export interface TotalsRow extends TotalsFigures {
   areaCode: string;
   areaName: string;
+  /** The same figures per project of the area: projects of different seasons with the same name are one. */
+  projects: (TotalsFigures & { name: string })[];
 }
 
 export interface TotalsBlock {
@@ -61,21 +63,32 @@ function figuresOf(lines: CalcLine[], threshold: number): TotalsFigures {
   };
 }
 
+/** The projects of some lines, in the order of the lines, the ones with the same name (any case) together. */
+function byProject(lines: CalcLine[], threshold: number): TotalsRow["projects"] {
+  const groups = new Map<string, CalcLine[]>();
+  for (const line of lines) {
+    const key = line.projectName.toLowerCase();
+    groups.set(key, [...(groups.get(key) ?? []), line]);
+  }
+  return [...groups.values()].map((group) => ({ name: group[0]!.projectName, ...figuresOf(group, threshold) }));
+}
+
 /** The TOTAL sheet: for every block, one row per area plus the grand total. */
 export function totals(snapshot: Snapshot): Totals {
-  const threshold = snapshot.lookups.settings.varianceThreshold;
-  const lines = computeLines(snapshot);
+  return totalsOfLines(computeLines(snapshot), snapshot.areas, blocksOf(snapshot), snapshot.lookups.settings.varianceThreshold);
+}
 
-  const blocks = blocksOf(snapshot).map((block) => {
+/**
+ * TOTAL for any set of lines: one season, the phases of a calendar year, the lines of a car (they
+ * can come from several seasons). For every block, one row per area with its projects, and the total.
+ */
+export function totalsOfLines(lines: CalcLine[], areas: AreaInput[], blockNames: string[], threshold: number): Totals {
+  const blocks = blockNames.map((block) => {
     const inThisBlock = lines.filter((l) => inBlock(l, block));
-    const rows = snapshot.areas.map((area) => ({
-      areaCode: area.code,
-      areaName: area.name,
-      ...figuresOf(
-        inThisBlock.filter((l) => l.areaId === area.id),
-        threshold,
-      ),
-    }));
+    const rows = areas.map((area) => {
+      const ofArea = inThisBlock.filter((l) => l.areaId === area.id);
+      return { areaCode: area.code, areaName: area.name, ...figuresOf(ofArea, threshold), projects: byProject(ofArea, threshold) };
+    });
     const total = figuresOf(inThisBlock, threshold);
     return {
       block,

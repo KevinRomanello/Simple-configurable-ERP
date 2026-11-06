@@ -158,22 +158,60 @@ describe("the car of a line", () => {
   });
 });
 
-describe("the calendar years", () => {
-  it("adds up the purchases of every season by the year of their date, the ones without a date last", async () => {
+describe("the TOTAL pages", () => {
+  const all = (body: any) => body.blocks[0].total;
+  const mtDmt = (body: any) => body.blocks[0].rows.find((r: { areaCode: string }) => r.areaCode === "mt-dmt");
+
+  it("SEASON TOTAL: the season asked for, whatever the menu, with its projects and what came in", async () => {
+    const old = await newSeason(2025, "EG-25");
+    const oldProject = await projectIn(inSeason(old), "Brakes");
+    await api.post(`/api/projects/${oldProject.id}/lines`, { item: "A", figures: { actual: bought("2026-03-01") } }, inSeason(old));
+    await api.put("/api/bank", { amount: "5600", asOfDate: "2026-10-15" });
+    await api.post("/api/inflows", { phase: "actual", sourceName: "Gala", amount: "2500", inflowDate: "2026-12-12" });
+
+    const today = (await api.get("/api/views/totals", inSeason(old))).body; // no season asked: the one of the menu
+    expect(mtDmt(today).projects.map((p: any) => p.name)).toEqual(["Brakes"]);
+    const current = (await api.get(`/api/views/totals?season=${(await seed()).id}`, inSeason(old))).body;
+    expect(current.moneyIn.rows.map((r: any) => [r.label, r.estimateCents, r.actualCents])).toEqual([["BANK", 560_000, 560_000], ["Gala", 0, 250_000]]);
+    expect(all(current).actualOutflowCents).toBe(0);
+    const asked = (await api.get(`/api/views/totals?season=${old.id}`)).body;
+    expect(mtDmt(asked).projects.map((p: any) => [p.name, p.actualOutflowCents])).toEqual([["Brakes", 12_200]]);
+    expect(asked.moneyIn.rows).toEqual([]);
+    expect((await api.get("/api/views/totals?season=99999")).status).toBe(404);
+  });
+
+  it("YEAR TOTAL: each phase of every season in the year of its date, the projects of the same name together, the money dated in it", async () => {
     const old = await newSeason(2025, "EG-25");
     const oldProject = await projectIn(inSeason(old));
     await api.post(`/api/projects/${oldProject.id}/lines`, { item: "A", figures: { actual: bought("2026-03-01") } }, inSeason(old));
     const { id } = await projectIn({});
     await api.post(`/api/projects/${id}/lines`, { item: "B", figures: { actual: bought("2026-10-01"), estimate: bought("2027-01-10", "50") } });
     await api.post(`/api/projects/${id}/lines`, { item: "C", figures: { actual: bought(null) } });
+    await api.post("/api/inflows", { phase: "actual", sourceName: "Gala", amount: "2500", inflowDate: "2026-12-12" });
+    await api.post("/api/inflows", { phase: "actual", sourceName: "Later", amount: "100", inflowDate: "2027-01-12" });
 
-    const { rows, total } = (await api.get("/api/views/calendar-years")).body;
-    expect(rows.map((r: any) => [r.year, r.actual.grossCents, r.estimate.grossCents])).toEqual([
-      ["2026", 24_400, 0], // 122.00 from each season
-      ["2027", 0, 6_100],
-      [null, 12_200, 0],
-    ]);
-    expect(total.actual).toMatchObject({ grossCents: 36_600, outflowCents: 36_600 });
+    const y2026 = (await api.get("/api/views/totals/year?year=2026")).body;
+    expect([all(y2026).estimateOutflowCents, all(y2026).actualOutflowCents]).toEqual([0, 24_400]); // 122.00 from each season
+    expect(mtDmt(y2026).projects.map((p: any) => [p.name, p.actualOutflowCents])).toEqual([["Steering", 24_400]]);
+    expect(y2026.moneyIn.rows.map((r: any) => [r.label, r.actualCents])).toEqual([["Gala", 250_000]]);
+    expect(y2026.undated).toEqual({ estimate: 0, actual: 12_200 });
+    expect(all((await api.get("/api/views/totals/year?year=2027")).body).estimateOutflowCents).toBe(6_100);
+    expect((await api.get("/api/views/totals/year?year=abc")).status).toBe(400);
+  });
+
+  it("CAR TOTAL: the lines bought for a car in any season, and no money", async () => {
+    const old = await newSeason(2025, "EG-25");
+    const oldProject = await projectIn(inSeason(old));
+    await api.post(`/api/projects/${oldProject.id}/lines`, { item: "A", figures: { actual: bought("2026-03-01") } }, inSeason(old));
+    const { id } = await projectIn({});
+    await api.post(`/api/projects/${id}/lines`, { item: "Spare", carSeasonId: old.id, figures: { actual: bought("2026-10-01", "50") } });
+    await api.post(`/api/projects/${id}/lines`, { item: "New", figures: { actual: bought("2026-10-02", "200") } });
+
+    const car = async (name: string) => (await api.get(`/api/views/totals/car?car=${encodeURIComponent(name)}`)).body;
+    expect(all(await car("eg-25")).actualOutflowCents).toBe(12_200 + 6_100); // its season, and the spare bought for it later
+    expect(all(await car("Car 2026-2027")).actualOutflowCents).toBe(24_400);
+    expect(all(await car("Nobody")).actualOutflowCents).toBe(0);
+    expect((await car("EG-25")).moneyIn).toBeNull();
   });
 });
 

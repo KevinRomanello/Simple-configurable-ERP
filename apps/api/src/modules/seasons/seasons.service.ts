@@ -32,8 +32,12 @@ export async function allSeasons(reader: Reader = db): Promise<Season[]> {
  */
 export async function getCurrentSeason(): Promise<Season> {
   const chosen = seasonStorage.getStore();
-  if (chosen == null) return seasonOfToday(await allSeasons());
-  const [found] = await db.select().from(season).where(eq(season.id, chosen));
+  return chosen == null ? seasonOfToday(await allSeasons()) : getSeasonById(chosen);
+}
+
+/** A season by its id (the TOTAL pages choose one on their own, whatever the menu says). */
+export async function getSeasonById(seasonId: number): Promise<Season> {
+  const [found] = await db.select().from(season).where(eq(season.id, seasonId));
   if (!found) throw notFound("Season");
   return found;
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { figures, line, snapshot } from "./fixtures";
-import { totals } from "./totals";
+import { computeLines } from "./lines";
+import { totals, totalsOfLines } from "./totals";
 
 const s = snapshot({
   projects: [
@@ -75,5 +76,29 @@ describe("totals", () => {
       }),
     );
     expect(cheaper.blocks[0]!.total.outflowStatus).toBe("within");
+  });
+});
+
+describe("totalsOfLines: the lines of several seasons, with their projects", () => {
+  // two seasons, each with its own "Brakes" project in MT + DMT (the second written in another case)
+  const season = (projectId: number, name: string, qty: number) =>
+    computeLines(
+      snapshot({
+        projects: [{ id: projectId, areaId: 1, name, ownerName: null, position: 1 }],
+        lines: [line(projectId, projectId, figures(qty, 100, { vatRate: 0 }), null)],
+      }),
+    );
+  const lines = [...season(1, "Brakes", 1), ...season(2, "BRAKES", 2), ...season(3, "Chassis", 4)];
+  const result = totalsOfLines(lines, s.areas, ["ALL"], 0.15);
+  const mtDmt = result.blocks[0]!.rows[0]!;
+
+  it("puts the projects with the same name together, in the order of the lines, inside their area", () => {
+    expect(mtDmt.projects.map((p) => [p.name, p.estimateOutflowCents])).toEqual([["Brakes", 30_000], ["Chassis", 40_000]]);
+    expect(mtDmt.estimateOutflowCents).toBe(70_000);
+    expect(result.blocks[0]!.total.estimateOutflowCents).toBe(70_000);
+  });
+
+  it("is the same as totals() for one season", () => {
+    expect(totalsOfLines(computeLines(s), s.areas, ["ALL", ...s.lookups.categories], 0.15)).toEqual(totals(s));
   });
 });

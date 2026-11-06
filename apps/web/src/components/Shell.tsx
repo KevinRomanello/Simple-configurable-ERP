@@ -1,5 +1,5 @@
 import {
-  faAnglesLeft, faBars, faBoxesStacked, faCalendarDays, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece,
+  faAnglesLeft, faBars, faBoxesStacked, faCalendarDays, faCarSide, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece,
   faRepeat, faRightFromBracket, faSackDollar, faScaleBalanced, faSliders, faTable, faTruckFast, faUsers, faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -160,8 +160,13 @@ export function Shell() {
           <Item to="/analysis/funds" icon={faSackDollar}>CASH FROM ANALYSES</Item>
           <Item to="/analysis/suppliers" icon={faTruckFast}>BOUGHT FROM ANALYSES</Item>
           <Item to="/analysis/items" icon={faMagnifyingGlass}>CATEGORY ANALYSES</Item>
-          <Item to="/total" icon={faScaleBalanced}>TOTAL</Item>
-          <Item to="/calendar-years" icon={faCalendarDays}>CALENDAR YEARS</Item>
+        </NavGroup>
+
+        {/* they choose their season, year or car on their own, whatever is chosen above */}
+        <NavGroup title="Total">
+          <Item to="/total/season" icon={faScaleBalanced}>SEASON TOTAL</Item>
+          <Item to="/total/year" icon={faCalendarDays}>YEAR TOTAL</Item>
+          <Item to="/total/car" icon={faCarSide}>CAR TOTAL</Item>
         </NavGroup>
 
         <NavGroup title="Inventory">
@@ -189,7 +194,8 @@ export function Shell() {
         </div>
       </aside>
       <main className="main">
-        <SeasonStrip />
+        {/* the TOTAL pages do not follow the season of the menu: no strip there */}
+        {!pathname.startsWith("/total/") && <SeasonStrip />}
         <ExportProvider>
           {/* one page per address and per season: the areas, items and components share a page, and without
               the key a form left open on one would still be open (and write) on the next, or in another season */}

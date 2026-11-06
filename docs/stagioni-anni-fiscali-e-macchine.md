@@ -1,6 +1,6 @@
 # Stagioni, anni solari e macchine
 
-**Stato: implementato e provato** (6 novembre 2026). Sostituisce il piano del 22 ottobre, che dava stagione e anno fiscale come etichette calcolate sulle voci. Dopo il confronto con l'utente del 5–6 novembre la stagione è diventata **la vista intera del sito**, scelta nel menù.
+**Stato: implementato e provato** (6 novembre 2026), comprese le tre pagine TOTAL (§3bis). Sostituisce il piano del 22 ottobre, che dava stagione e anno fiscale come etichette calcolate sulle voci. Dopo il confronto con l'utente del 5–6 novembre la stagione è diventata **la vista intera del sito**, scelta nel menù.
 
 ## 1. Cosa si vede
 
@@ -16,7 +16,7 @@
 - **Settings › Seasons and cars** (solo admin). È la tabella delle stagioni:
   - date, macchina (si rinomina sul posto), casella **READ-ONLY**, numero di righe del budget;
   - il pulsante **New season**: si sceglie l'anno di settembre in cui parte e il nome della macchina.
-- **Views › CALENDAR YEARS.** È l'unica pagina che non segue il selettore. Riunisce tutte le stagioni e divide gli acquisti per **anno solare** (1 gennaio – 31 dicembre), secondo la data d'acquisto. Per EXPECTED e ACTUAL mostra GRAND TOTAL, OUTFLOW e VAT (TEAM); la riga «No date yet» raccoglie le voci senza data; in fondo c'è il TOTAL.
+- **Il gruppo Total nel menù**: SEASON TOTAL, YEAR TOTAL e CAR TOTAL (§3bis). Sono le uniche pagine che **non seguono il selettore**: ognuna sceglie da sé la stagione, l'anno solare o la macchina, partendo da quella di oggi, e lì la striscia gialla non compare.
 - **INVENTORY STATS.**
   - Contano ciò che è **arrivato o è stato usato nei giorni della stagione scelta**, mentre lo scaffale è sempre quello di oggi.
   - C'è il taglio nuovo **By car**: compra e «on its way» per la macchina a cui ogni acquisto è destinato. I prelievi non dicono su che macchina vanno, quindi lì non contano.
@@ -34,7 +34,31 @@
 | **Arrivi** | dal budget: la macchina della riga (scelta, oppure quella della stagione della riga). Fuori budget: quella scelta nel modulo, altrimenti quella della stagione della data. Due stagioni con lo stesso nome di macchina sono una macchina sola (By car le somma) |
 | **Sola lettura** | una stagione con READ-ONLY rifiuta con 409 ogni modifica al suo budget: progetti, righe, sponsor e loro soldi, inflow, BANK. Leggere va sempre bene, e l'inventario non è toccato (gli arrivi delle sue righe si registrano lo stesso). Il sito nasconde i comandi di modifica e la striscia gialla lo dice. Per correggere, l'admin la riapre |
 | **Nuova stagione** | parte dalla più recente, per comodità: **gli stessi progetti** (vuoti) e **gli stessi sponsor** (senza i loro soldi), più un Team's fund suo. Righe, inflow e BANK partono vuoti. Si può creare anche una stagione passata (per caricare un vecchio foglio) |
-| **Anno solare** | ogni fase va nell'anno della **sua** data d'acquisto (EXPECTED e ACTUAL possono cadere in anni diversi). Una fase senza niente scritto non conta; una con dati ma senza data va in «No date yet». VAT (TEAM) è l'IVA che il team paga di tasca sua, contata anch'essa sulla data d'acquisto (non sulla scadenza) |
+| **Anno solare** (YEAR TOTAL) | ogni fase va nell'anno della **sua** data d'acquisto: EXPECTED e ACTUAL possono cadere in anni diversi, e una riga prevista a dicembre e comprata a gennaio sta in tutti e due gli anni, una fase per anno. Una fase con dati ma senza data non è in nessun anno: la pagina dice quanto vale. Le entrate sono i soldi degli sponsor e gli inflow con data in quell'anno, di tutte le stagioni; il BANK no |
+
+## 3bis. Le tre pagine TOTAL
+
+Nel menù, gruppo **Total** (le aveva chieste l'utente il 6/11/2026 come tre pagine, non come schede di una pagina sola). Hanno la stessa forma:
+
+- in alto la **scelta**: la stagione, l'anno solare o la macchina (di base quella di oggi: la stagione in corso, l'anno in corso, la macchina della stagione in corso), e **Compare with**;
+- **Rows**: *Areas* (le righe del vecchio TOTAL) o *Projects* (ogni progetto con la sua area); **Block**: ALL o una categoria, come prima;
+- la tabella di TOTAL (grand total e outflow, EXPECTED e ACTUAL, scostamento) e il grafico;
+- **Money in** (non per la macchina): una tabella con entrate, outflow (blocco ALL) e la loro differenza, per EXPECTED e ACTUAL, e le entrate una per una (BANK con la sua data, ogni sponsor, ogni inflow). L'IVA dell'11% sugli inflow non c'è: sta in CASH FLOW;
+- con **Compare with**: si sceglie la fase (EXPECTED o ACTUAL) e la tabella diventa outflow di A, di B, differenza e % per area o progetto, con il grafico delle due; le entrate diventano A, B, differenza e % per fonte.
+
+| Pagina | Cosa conta | Entrate |
+| --- | --- | --- |
+| **SEASON TOTAL** | le righe del budget di quella stagione | il BANK (uguale nelle due fasi), i soldi di ogni sponsor, gli inflow |
+| **YEAR TOTAL** | le fasi di tutte le stagioni con data d'acquisto in quell'anno (vedi la regola dell'anno solare) | soldi degli sponsor e inflow con data in quell'anno; niente BANK, che è un saldo e non un'entrata |
+| **CAR TOTAL** | le righe di tutte le stagioni per quella macchina: quella della loro stagione o quella scelta sulla riga; due stagioni con lo stesso nome di macchina sono una | nessuna: i soldi entrano in una stagione, non per una macchina |
+
+Regole decise con l'utente il 6/11/2026:
+
+- nell'anno e nella macchina i **progetti con lo stesso nome nella stessa area** sono uno (una stagione nuova copia i progetti, quindi i nomi tornano);
+- uno sponsor o una fonte con lo stesso nome (senza badare alle maiuscole) è una riga sola;
+- si confrontano solo cose dello stesso tipo: stagione con stagione, anno con anno, macchina con macchina. Una riga che ha solo uno dei due conta zero nell'altro.
+
+La pagina **CALENDAR YEARS**, fatta prima nello stesso giorno, è diventata YEAR TOTAL.
 
 ## 3. Come funziona dentro
 
@@ -44,7 +68,7 @@
   - Senza header vale la stagione di oggi. Un header che non è un numero dà 400; una stagione che non esiste dà 404 (il browser che ne ricorda una sparita torna da solo a quella di oggi).
 - **La sola lettura** la controlla `assertSeasonOpen` in ogni scrittura di budget (`budget.service.ts`, `funds.service.ts`, `cashflow.service.ts`), sulla stagione della riga toccata, non su quella dell'header.
 - **Le statistiche dell'inventario.** Il motore (`stats` in `packages/calc/src/inventory.ts`) riceve il periodo della stagione e, per By car, la macchina di ogni arrivo. Quest'ultima la calcola l'API con una sola query: macchina scelta sull'arrivo, altrimenti quella della riga, altrimenti la stagione della riga, altrimenti la stagione della data (`receiptCars` in `stats.service.ts`).
-- **L'anno solare.** `GET /api/views/calendar-years` calcola le righe di ogni stagione con il proprio snapshot (ognuna con i suoi fondi) e le passa a `calendarYears` (`packages/calc/src/calendarYears.ts`).
+- **Le pagine TOTAL.** `GET /api/views/totals?season=`, `/totals/year?year=` e `/totals/car?car=` calcolano le righe di ogni stagione con il proprio snapshot (ognuna con i suoi fondi), le filtrano (`linesOfYear` in `packages/calc/src/years.ts`; per la macchina, nell'API) e le passano a `totalsOfLines` (`totals.ts`), lo stesso calcolo del TOTAL di sempre, che ora dà anche i progetti di ogni area. Le entrate le calcola `moneyIn` (`moneyIn.ts`).
 - **Il report IVA per area** parte dai trimestri della stagione mostrata (dal 3° trimestre del primo anno al 4° del secondo; prima era fisso sul 2026-27).
 
 ## 4. API
@@ -55,7 +79,9 @@
 | `GET` | `/api/seasons/current` | la stagione su cui lavora la richiesta (quella dell'header, o quella di oggi) |
 | `POST` | `/api/seasons` | admin: `{ startYear, car }`. Crea la stagione che parte a settembre di `startYear`, a partire dalla più recente. 409 se esiste già |
 | `PATCH` | `/api/seasons/:id` | admin: `{ car?, readOnly? }` |
-| `GET` | `/api/views/calendar-years` | gli acquisti di tutte le stagioni per anno solare |
+| `GET` | `/api/views/totals?season=` | SEASON TOTAL: il TOTAL di una stagione (senza `season`, quella del menù), con i progetti di ogni area e `moneyIn` |
+| `GET` | `/api/views/totals/year?year=2026` | YEAR TOTAL: le fasi di ogni stagione con data in quell'anno, `moneyIn` di quell'anno e `undated` (le fasi senza data) |
+| `GET` | `/api/views/totals/car?car=EG-26` | CAR TOTAL: le righe di ogni stagione per quella macchina (il nome, senza badare alle maiuscole); `moneyIn` è `null` |
 | `PATCH` | `/api/lines/:id`, `POST /api/projects/:id/lines` | accettano `carSeasonId` (l'id della stagione di cui è la macchina; `null` = quella della propria stagione). Una macchina che non esiste dà 409 |
 | `POST` | `/api/inventory/receive` | accetta `carSeasonId` solo per gli arrivi fuori budget (con `lineId` dà 400) |
 | `GET` | `/api/inventory/stats?by=car` | il taglio per macchina; ogni risposta dice anche `season` (nome e date) |
@@ -80,7 +106,7 @@ Da questo lavoro `--replace` **non cancella più i fornitori**: sono di tutte le
 - Una stagione non si cancella dal sito.
 - Rinominare uno sponsor di merce rinomina il fornitore, che è di tutte le stagioni ([sponsor-e-fondi.md](sponsor-e-fondi.md), §3bis): la copia di quello sponsor nell'altra stagione resta col nome vecchio e non è più collegata. Basta rinominare anche lei.
 - I **prelievi** dallo scaffale non dicono su che macchina vanno (scelta del 5/11/2026: non ora).
-- La pagina CALENDAR YEARS mostra la striscia gialla se si sta guardando un'altra stagione, anche se non ne dipende (lo dice la descrizione della pagina).
+- Nelle pagine TOTAL di anno e macchina, e nel confronto, i progetti di stagioni diverse sono la stessa riga solo se hanno **lo stesso nome nella stessa area**: un progetto rinominato da una stagione all'altra compare due volte.
 - Le date di inizio e fine (1/9 – 31/8) sono una regola scritta nel codice: [hardcoded-registry.md](hardcoded-registry.md).
 
 ## 8. Prove
@@ -94,13 +120,15 @@ Da questo lavoro `--replace` **non cancella più i fornitori**: sono di tutte le
   - macchina della riga: scelta, la propria che si salva vuota, inesistente 409;
   - anno solare su due stagioni, con le voci senza data;
   - statistiche per macchina e per stagione; macchina rifiutata su un arrivo dal budget.
-- `packages/calc/src/calendarYears.test.ts` (2) e `inventory.test.ts` (3 nuovi): fasi in anni diversi, voci senza data, periodo della stagione con lo scaffale intero, By car, due stagioni con la stessa macchina.
+- `packages/calc/src/years.test.ts` (3), `moneyIn.test.ts` (2), `totals.test.ts` (2 nuovi) e `inventory.test.ts` (3 nuovi): fasi in anni diversi, voci senza data, entrate di una stagione e di un anno (sponsor uguale in due stagioni, niente BANK, niente senza data), progetti con lo stesso nome uniti, `totalsOfLines` uguale a `totals` per una stagione, periodo della stagione con lo scaffale intero, By car, due stagioni con la stessa macchina.
+- `apps/web/src/lib/totals.test.ts` (6): le scelte delle tre pagine (stagioni, macchine una per nome, anni da prima a ultima stagione), righe per area e per progetto, confronto con le righe che ha uno solo dei due, entrate confrontate.
 - `apps/web/src/lib/lineEdit.test.ts` e `newLine.test.ts`: la macchina nel modulo di modifica e in quello nuovo.
 - **Mutazioni:** togliendo il filtro del periodo falliscono 3 test del motore; spegnendo il controllo di sola lettura fallisce quello dell'API.
 - **Browser**, 6/11/2026, su computer (1440 px) e telefono (375 px), tema scuro:
   - stagione 2025-2026 creata da Settings, con i progetti copiati;
   - selettore e striscia, riga con la macchina dell'altra stagione (etichetta arancione);
-  - report IVA con le scadenze della stagione e pagina CALENDAR YEARS;
+  - report IVA con le scadenze della stagione;
+  - le tre pagine TOTAL (sui dati locali: stagioni 2026-2027 e 2025-2026 con le loro macchine): righe per progetto, entrate con il BANK e gli sponsor, confronto 2026 contro 2025 e fra le due macchine, la nota delle voci senza data (663,53 € della stagione = 505,97 € del 2026 + 157,56 € senza data);
   - sola lettura, che nasconde i comandi;
   - INVENTORY STATS by car;
   - sul telefono: selettore nel pannello, scheda con «for Car …», niente pagina più larga dello schermo.

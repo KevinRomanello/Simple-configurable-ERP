@@ -1,11 +1,18 @@
 // Response shapes. The ones computed by the engine come straight from @erp/calc (type only:
 // no engine code is shipped to the browser); the rest are the plain rows of the write API.
 export type {
-  Analysis, Arrival, ArrivalStatus, AreaSheet, Bom, BomLine, CalcLine, CalendarYears, CashFlowSummary, CostPoint, FundSummaryRow,
-  Gantt, ItemOrigin, ItemsView, MonthlyInflow, PendingLine, Phase, PhaseCalc, PriceBasis, PriceMethod, PricePoint,
-  Priority, SponsorType, StatsRow, Totals, VatReport,
+  Analysis, Arrival, ArrivalStatus, AreaSheet, Bom, BomLine, CalcLine, CashFlowSummary, CostPoint, FundSummaryRow,
+  Gantt, ItemOrigin, ItemsView, MoneyIn, MonthlyInflow, PendingLine, Phase, PhaseCalc, PriceBasis, PriceMethod, PricePoint,
+  Priority, SponsorType, StatsRow, Totals, TotalsBlock, TotalsFigures, VatReport,
 } from "@erp/calc";
-import type { ItemOrigin, PendingLine, Phase, PriceBasis, PriceMethod, PricePoint, Bom, CostPoint, StatsRow } from "@erp/calc";
+import type { ItemOrigin, MoneyIn, PendingLine, Phase, PriceBasis, PriceMethod, PricePoint, Bom, CostPoint, StatsRow, Totals } from "@erp/calc";
+
+/** GET /api/views/totals(/year, /car): TOTAL of a season, a calendar year or a car, and what came in (none for a car). */
+export type TotalsView = Totals & {
+  moneyIn: MoneyIn | null;
+  /** A year only: the GRAND TOTAL of the phases without a purchase date, which are in no year. */
+  undated?: Record<Phase, number>;
+};
 
 /** GET /api/seasons: one budget, the car the team builds in it, and whether it can still be changed. */
 export interface Season {

@@ -1,5 +1,5 @@
 import type {
-  Analysis, Area, AreaSheet, Bank, Calculation, CalendarYears, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, SponsorBody, StatsResult, Supplier, Totals, TypeParam, UserRow, VatReport,
+  Analysis, Area, AreaSheet, Bank, Calculation, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, SponsorBody, StatsResult, Supplier, TotalsView, TypeParam, UserRow, VatReport,
 } from "./types";
 import type { NewLineBody } from "../lib/newLine";
 import { chosenSeasonId } from "../lib/seasonChoice";
@@ -311,8 +311,10 @@ export const api = {
       actual: { summary: CashFlowSummary; monthly: MonthlyInflow[] };
     }>("/views/cashflow"),
   gantt: (phase: Phase) => get<Gantt>(`/views/gantt?phase=${phase}`),
-  totals: () => get<Totals>("/views/totals"),
-  calendarYears: () => get<CalendarYears>("/views/calendar-years"),
+  // the three TOTAL pages choose their season, year or car on their own, whatever the menu says
+  totals: (season: number) => get<TotalsView>(`/views/totals?season=${season}`),
+  yearTotals: (year: number) => get<TotalsView>(`/views/totals/year?year=${year}`),
+  carTotals: (car: string) => get<TotalsView>(`/views/totals/car?car=${encodeURIComponent(car)}`),
   fundAnalysis: () => get<Analysis>("/views/analysis/funds"),
   supplierAnalysis: () => get<Analysis>("/views/analysis/suppliers"),
   items: (query: string) => get<ItemsView>(`/views/items?${query}`),
