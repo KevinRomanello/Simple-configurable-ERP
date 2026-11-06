@@ -1,7 +1,8 @@
 import type {
-  Analysis, Area, AreaSheet, Bank, Calculation, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, SettingsView, SignInOptions, SponsorBody, StatsResult, Supplier, Totals, TypeParam, UserRow, VatReport,
+  Analysis, Area, AreaSheet, Bank, Calculation, CalendarYears, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, SponsorBody, StatsResult, Supplier, Totals, TypeParam, UserRow, VatReport,
 } from "./types";
 import type { NewLineBody } from "../lib/newLine";
+import { chosenSeasonId } from "../lib/seasonChoice";
 
 /** An error answer of the API: carries the HTTP status so screens can react to a 409. */
 export class ApiError extends Error {
@@ -30,9 +31,14 @@ export function errorMessage(payload: unknown, fallback: string): string {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  // every request is about the season chosen in the menu; without one, the server takes today's
+  const season = chosenSeasonId();
   const response = await fetch(`/api${path}`, {
     method,
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers: {
+      ...(season === null ? {} : { "X-Season": String(season) }),
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (response.status === 204) return undefined as T;
@@ -66,6 +72,8 @@ export interface LinePatch {
   category?: string | null;
   priority?: string | null;
   note?: string | null;
+  /** The car of another season the line is bought for; null = the car of its own season. */
+  carSeasonId?: number | null;
   figures?: Partial<Record<Phase, FiguresPatch>>;
 }
 
@@ -141,6 +149,8 @@ export interface ReceiveBody {
   vatRate?: number;
   free?: boolean;
   projectId?: number;
+  /** Goods from outside the budget for the car of another season. */
+  carSeasonId?: number;
   note?: string;
 }
 
@@ -256,6 +266,11 @@ export const api = {
   /** The VAT rate that some kinds of sponsor cannot choose (goods: 0, goods against a counter-invoice: 11). */
   fixedSponsorRates: () => get<Partial<Record<FundType, number>>>("/lookups/sponsor-rates"),
 
+  // seasons
+  seasons: () => get<Season[]>("/seasons"),
+  createSeason: (body: { startYear: number; car: string }) => post<Season>("/seasons", body),
+  updateSeason: (id: number, body: { car?: string; readOnly?: boolean }) => patch(`/seasons/${id}`, body),
+
   // budget
   areas: () => get<Area[]>("/areas"),
   sheet: (code: string) => get<AreaSheet>(`/areas/${code}/sheet`),
@@ -297,6 +312,7 @@ export const api = {
     }>("/views/cashflow"),
   gantt: (phase: Phase) => get<Gantt>(`/views/gantt?phase=${phase}`),
   totals: () => get<Totals>("/views/totals"),
+  calendarYears: () => get<CalendarYears>("/views/calendar-years"),
   fundAnalysis: () => get<Analysis>("/views/analysis/funds"),
   supplierAnalysis: () => get<Analysis>("/views/analysis/suppliers"),
   items: (query: string) => get<ItemsView>(`/views/items?${query}`),

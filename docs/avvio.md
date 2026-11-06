@@ -75,19 +75,27 @@ La prima schermata è **Sign in**. In sviluppo non serve Google: premi **Sign in
 
 ## 2. Caricare il foglio reale (facoltativo)
 
-Carica nel database tutto ciò che c'è in `fonti/Budget 26-27.xlsx`: progetti, voci, fondi, fornitori, BANK. Il file viene montato nel contenitore in sola lettura.
+Carica nel database tutto ciò che c'è in `fonti/Budget 26-27.xlsx`: progetti, voci, fondi, fornitori, BANK. Il file viene montato nel contenitore in sola lettura. Finisce nella **stagione di oggi**: il comando scrive su quale (`Loading into the season 2026-2027`).
 
 ```bash
 docker compose run --rm -v "$PWD/fonti:/app/fonti:ro" api pnpm --filter @erp/import-xlsx load
 ```
 
-Se il database ha già dei progetti il comando si rifiuta (`The season already has N projects`) per non cancellare niente. Per **sostituire** i dati con quelli del foglio:
+Se la stagione ha già dei progetti il comando si rifiuta (`The season 2026-2027 already has N projects`) per non cancellare niente. Per **sostituire** i dati di quella stagione con quelli del foglio (i fornitori che ci sono si riusano, non si cancellano: sono di tutte le stagioni):
 
 ```bash
 docker compose run --rm -v "$PWD/fonti:/app/fonti:ro" api pnpm --filter @erp/import-xlsx load -- --replace
 ```
 
 Su Windows PowerShell scrivi `${PWD}` al posto di `$PWD`.
+
+**Il foglio di un'altra stagione.** Prima crea la stagione in **Settings › Seasons and cars** (New season: l'anno di settembre in cui parte e la macchina), poi dai al comando il suo nome e il file. Una stagione appena creata ha già i progetti copiati dalla più recente, quindi serve `--replace`:
+
+```bash
+docker compose run --rm -v "$PWD/fonti:/app/fonti:ro" api pnpm --filter @erp/import-xlsx load -- --replace --season=2025-2026 "/app/fonti/Budget 25-26.xlsx"
+```
+
+Il nome del file dopo `/app/fonti/` deve essere identico a quello nella cartella `fonti/`. La verifica qui sotto confronta solo il foglio 2026-27 con la stagione di oggi.
 
 **Verifica che i numeri siano giusti.** Questo comando rilegge i dati dal database, li fa calcolare dal motore e li confronta, uno per uno, con i valori che il foglio Google aveva salvato (1.995 confronti). Deve finire con `All checks match.`
 
@@ -138,7 +146,7 @@ docker compose exec web pnpm --filter @erp/web test
 docker compose exec api pnpm --filter @erp/import-xlsx test
 ```
 
-Risultati attesi: 180 (motore), 332 (API), 83 (sito), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
+Risultati attesi: 185 (motore), 344 (API), 85 (sito), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
 
 Dentro `psql` (il terminale del database) servono pochi comandi: `\dt` elenca le tabelle, `select * from fund;` mostra i fondi, `\q` esce.
 
@@ -207,7 +215,8 @@ Se avvii l'API o il sito anche fuori da Docker mentre i contenitori sono accesi,
 | `Too many requests: wait a minute and try again` (429)                                                   | troppe richieste dallo stesso indirizzo (10 al minuto per l'accesso)                                                     | aspetta un minuto                                                                                                                                                                                                                                                                        |
 | `relation "..." does not exist`                                                                          | le migrazioni non sono state applicate                                                                                   | `docker compose exec api pnpm db:migrate`                                                                                                                                                                                                                                              |
 | `Current season not found: run pnpm db:seed`                                                             | mancano i dati di base                                                                                                   | `docker compose exec api pnpm db:seed`                                                                                                                                                                                                                                                 |
-| `The season already has N projects`                                                                      | il caricamento non cancella senza permesso                                                                               | aggiungi `-- --replace` (cancella e ricarica)                                                                                                                                                                                                                                          |
+| `The season … already has N projects`                                                                    | il caricamento non cancella senza permesso                                                                               | aggiungi `-- --replace` (cancella e ricarica quella stagione)                                                                                                                                                                                                                          |
+| `Season "2025-2026" not found`                                                                           | la stagione di `--season=` non esiste                                                                                    | creala prima in Settings › Seasons and cars                                                                                                                                                                                                                                            |
 | `ENOENT ... Budget 26-27.xlsx`                                                                           | il file non c'è o non è stato montato                                                                                  | controlla che sia in `fonti/` e di aver messo `-v "$PWD/fonti:/app/fonti:ro"`                                                                                                                                                                                                        |
 | `Cannot find matching keyid` lanciando `corepack`                                                      | bug del corepack di alcune versioni di Node                                                                              | `npm install -g pnpm@12.14.0` e non usare corepack                                                                                                                                                                                                                                     |
 | Il sito non trova un pacchetto appena aggiunto, o l'API dice `Cannot find package '@fastify/cookie'`     | l'immagine è vecchia                                                                                                    | `docker compose up --build -d`                                                                                                                                                                                                                                                         |

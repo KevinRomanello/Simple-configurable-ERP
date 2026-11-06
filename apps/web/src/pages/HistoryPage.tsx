@@ -9,6 +9,7 @@ import { DataTable, Field, Message, PageHeader, Panel, type Column } from "../co
 
 /** Names for the tables of the database, as people know them. */
 const TABLES: Record<string, string> = {
+  season: "Season",
   project: "Project",
   budget_line: "Line",
   line_figures: "Figures",

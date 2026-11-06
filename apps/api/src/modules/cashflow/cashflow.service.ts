@@ -5,7 +5,7 @@ import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
 import { bankSnapshot, teamInflow } from "../../db/schema";
 import { canWrite, getCurrentUser } from "../auth/auth.service";
-import { getCurrentSeason } from "../seasons/seasons.service";
+import { assertSeasonOpen, getCurrentSeason } from "../seasons/seasons.service";
 
 async function assertCanManageShared() {
   const actor = await getCurrentUser();
@@ -27,6 +27,7 @@ export async function createInflow(input: { phase: Phase; sourceName: string; am
   const actor = await assertCanManageShared();
   const season = await getCurrentSeason();
   return runWrite(actor, async (tx) => {
+    await assertSeasonOpen(tx, season.id);
     const [created] = await tx
       .insert(teamInflow)
       .values({ seasonId: season.id, ...input, inflowDate: input.inflowDate ?? null })
@@ -38,6 +39,8 @@ export async function createInflow(input: { phase: Phase; sourceName: string; am
 export async function deleteInflow(inflowId: number) {
   const actor = await assertCanManageShared();
   await runWrite(actor, async (tx) => {
+    const [target] = await tx.select({ seasonId: teamInflow.seasonId }).from(teamInflow).where(eq(teamInflow.id, inflowId));
+    if (target) await assertSeasonOpen(tx, target.seasonId);
     const deleted = await tx.delete(teamInflow).where(eq(teamInflow.id, inflowId)).returning({ id: teamInflow.id });
     if (deleted.length === 0) throw notFound("Inflow");
   });
@@ -55,6 +58,7 @@ export async function setBank(input: { amount: string; asOfDate?: string | null 
   const actor = await assertCanManageShared();
   const season = await getCurrentSeason();
   return runWrite(actor, async (tx) => {
+    await assertSeasonOpen(tx, season.id);
     const values = { amount: input.amount, asOfDate: input.asOfDate ?? null };
     const [saved] = await tx
       .insert(bankSnapshot)
@@ -68,5 +72,8 @@ export async function setBank(input: { amount: string; asOfDate?: string | null 
 export async function clearBank() {
   const actor = await assertCanManageShared();
   const season = await getCurrentSeason();
-  await runWrite(actor, (tx) => tx.delete(bankSnapshot).where(eq(bankSnapshot.seasonId, season.id)));
+  await runWrite(actor, async (tx) => {
+    await assertSeasonOpen(tx, season.id);
+    await tx.delete(bankSnapshot).where(eq(bankSnapshot.seasonId, season.id));
+  });
 }

@@ -10,6 +10,7 @@ import { useMe } from "../lib/auth";
 import { FIELD_LABELS } from "../lib/inventory";
 import { useAction } from "../lib/useAction";
 import { ItemTypesPanel } from "./ItemTypesPanel";
+import { SeasonsPanel } from "./SeasonsPanel";
 
 const FIELDS: ItemField[] = ["purpose", "safetyCodes", "disposal", "storageNotes", "maintenanceNotes"];
 
@@ -41,6 +42,7 @@ export function SettingsPage() {
         title="Settings"
         description="The lists the other pages choose from and the switches of the calculation. A change applies at once to every page and goes into the History. Something in use cannot be deleted."
       />
+      <SeasonsPanel />
       <CalculationPanel calculation={data.calculation} />
       <CategoriesPanel data={data} />
       <ItemTypesPanel />

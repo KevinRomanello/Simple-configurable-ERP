@@ -45,6 +45,8 @@ export interface LineInput {
   priority: string | null;
   note: string | null;
   version: number;
+  /** Bought for the car of another season (its id); null = the car of the line's own season. */
+  carSeasonId: number | null;
   /** A phase without data is null, which counts as all zeros. */
   figures: Record<Phase, Figures | null>;
 }

@@ -162,11 +162,14 @@ export const receiveInput = z
     /** Nobody paid for it (a gift): its value is recorded, its cost for the team is zero. */
     free: z.boolean().default(false),
     projectId: id.optional(),
+    /** Goods from outside the budget bought for the car of another season; without it, the car of the season of the date. */
+    carSeasonId: id.optional(),
     note: longText.optional(),
   })
   .refine((v) => (v.itemId === undefined) !== (v.newItem === undefined), "Give either an existing item or a new one")
   .refine((v) => (v.lineId === undefined) !== (v.unitNet === undefined), "Give either a budget line or a price")
-  .refine((v) => v.lineId === undefined || (v.vatRate === undefined && !v.free), "The price of a budget line comes from the budget");
+  .refine((v) => v.lineId === undefined || (v.vatRate === undefined && !v.free), "The price of a budget line comes from the budget")
+  .refine((v) => v.lineId === undefined || v.carSeasonId === undefined, "An arrival of the budget is for the car of its line");
 
 /** The other things that happen to goods on the shelf. */
 export const movementInput = z
@@ -210,6 +213,6 @@ export const partInput = z.object({ partId: id, quantity, note: optionalText(500
 export const updatePartInput = z.object({ quantity: quantity.optional(), note: optionalText(500).optional() });
 
 export const statsQuery = z.object({
-  by: z.enum(["project", "area", "category", "location"]).default("project"),
+  by: z.enum(["project", "area", "category", "location", "car"]).default("project"),
   basis: z.enum(PRICE_BASES).default("net"),
 });

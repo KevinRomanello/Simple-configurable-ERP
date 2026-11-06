@@ -109,6 +109,8 @@ Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modific
 | Vedere tutto: aree, viste, grafici, analisi | sì | sì | sì |
 | Voci e progetti (aggiungere, modificare, eliminare) | tutte le aree | **solo le aree assegnate** | no |
 | Fondi, contratti, ingressi, BANK | sì | **no** | no |
+| Scegliere la stagione da guardare (menù) | sì | sì | sì |
+| Stagioni: crearle, la loro macchina, la sola lettura (Settings) | sì | no | no |
 | Fornitori (aggiungere, eliminare) | sì | **sì** | no |
 | **Inventario** (articoli, arrivi, movimenti, immagini, distinte dei componenti) | sì | **sì**, qualunque area | no (lo vede) |
 | Utenti, ruoli, aree assegnate | sì | no | no |
@@ -116,6 +118,8 @@ Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modific
 | Storico delle modifiche | sì | **sì** (tutto) | no |
 
 `canWrite(utente, area)` (in `auth.service.ts`): `admin` → sì; `pm` → sì solo se l'area è tra le sue; `viewer` → no. Per i dati condivisi si chiede `canWrite(utente, null)`: **solo `admin`**. I fornitori usano `canManageSuppliers` (chiunque non sia `viewer`) e lo storico `canViewHistory` (idem); la pagina Settings `canManageSettings` (solo `admin`).
+
+In una stagione **in sola lettura** nessuno, admin compreso, cambia il budget (voci, progetti, fondi, contratti, ingressi, BANK): il server risponde `409` e il sito nasconde i comandi. L'admin la riapre da Settings ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)).
 
 Un `pm` senza aree assegnate non modifica nessuna area, ma può gestire i fornitori e leggere lo storico. Se un `pm` deve poter modificare tutto, gli si assegnano tutte le aree.
 

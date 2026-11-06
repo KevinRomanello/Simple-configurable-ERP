@@ -27,6 +27,8 @@ const lineFields = {
   category: lookupCode.nullable(),
   priority: z.enum(PRIORITIES).nullable(),
   note: longText.nullable(),
+  /** The car of another season the line is bought for; null = the car of its own season. */
+  carSeasonId: id.nullable(),
   figures: figuresByPhase,
 };
 
@@ -43,6 +45,7 @@ export const createLineInput = z.object({ item: lineFields.item }).extend({
   category: lineFields.category.optional(),
   priority: lineFields.priority.optional(),
   note: lineFields.note.optional(),
+  carSeasonId: lineFields.carSeasonId.optional(),
   figures: lineFields.figures.optional(),
 });
 export const updateLineInput = z

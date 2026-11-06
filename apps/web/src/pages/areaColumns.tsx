@@ -2,10 +2,11 @@ import { faCheck, faCoins, faHourglassHalf, faTrash, faTriangleExclamation } fro
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { ColDef, ColGroupDef, ICellRendererParams, ValueSetterParams } from "ag-grid-community";
 import type { FiguresPatch, LinePatch } from "../api/client";
-import type { CalcLine, Fund, Phase, PhaseCalc } from "../api/types";
+import type { CalcLine, Fund, Phase, PhaseCalc, Season } from "../api/types";
 import { ArrivalPill, arrivalTitle } from "../components/ArrivalPill";
 import { SearchSelectEditor } from "../components/SearchSelect";
 import { date, money, quantity } from "../lib/format";
+import { carLabel } from "../lib/season";
 import { gridCompare } from "../lib/sort";
 
 /** The pinned "yellow row" of a project: same shape as a line, but only results. */
@@ -29,7 +30,14 @@ export interface GridLookups {
   fundByName: Map<string, Fund>;
   supplierNames: string[];
   supplierIdByName: Map<string, number>;
+  /** Every season with its car, and the season of the page: its car is the one of a line where none is chosen. */
+  cars: Season[];
+  seasonId: number;
 }
+
+/** The season whose car a line is for: the one chosen on it, or the season of the page. */
+export const carSeasonOf = (lookups: Pick<GridLookups, "cars" | "seasonId">, line: Pick<CalcLine, "carSeasonId">) =>
+  lookups.cars.find((s) => s.id === (line.carSeasonId ?? lookups.seasonId));
 
 /** Sends a change of one line to the server (the grid never edits its own data). */
 export type Commit = (line: CalcLine, patch: Omit<LinePatch, "version">) => void;
@@ -434,6 +442,29 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
       cellEditor: "agSelectCellEditor",
       cellEditorParams: { values: ["", ...lookups.priorities] },
       ...editableCell(commit, (v) => ({ priority: blank(v) ? null : String(v) })),
+    },
+    {
+      colId: "car",
+      headerName: "CAR",
+      width: 130,
+      // the car of the season is grey, a car chosen on the line stands out
+      tooltipValueGetter: (p) =>
+        isLine(p.data) ? (p.data.carSeasonId === null ? "The car of this season" : "Bought for the car of another season") : undefined,
+      valueGetter: (p) => {
+        const season = isLine(p.data) ? carSeasonOf(lookups, p.data) : undefined;
+        return season ? carLabel(season) : "";
+      },
+      cellRenderer: (p: ICellRendererParams<Row>) => {
+        const season = isLine(p.data) ? carSeasonOf(lookups, p.data) : undefined;
+        if (!season || !isLine(p.data)) return null;
+        return p.data.carSeasonId === null ? <span className="muted">{season.car}</span> : <span className="pill car">{season.car}</span>;
+      },
+      cellEditor: "agSelectCellEditor",
+      cellEditorParams: { values: lookups.cars.map(carLabel) },
+      ...editableCell(commit, (v) => {
+        const chosen = lookups.cars.find((s) => carLabel(s) === v);
+        return chosen ? { carSeasonId: chosen.id === lookups.seasonId ? null : chosen.id } : {};
+      }),
     },
     {
       headerName: "EXPECTED",

@@ -480,3 +480,47 @@ describe("statistics: pieces made by the team are not used twice", () => {
     expect(stats("category", { items, parts: [], movements }, [], context, "net", "2026-10-01").reduce((sum, r) => sum + r.usedCents, 0)).toBe(2_000);
   });
 });
+
+describe("statistics of one season, and by car", () => {
+  const items = [item(1, "Sensor", { category: "Components" })];
+  const movements = [
+    receipt(1, 1, 10, "2026-05-01", { id: 1 }), // the season before
+    receipt(1, 1, 20, "2026-10-01", { id: 2 }), // this season, its car
+    receipt(1, 1, 40, "2026-11-01", { id: 3 }), // this season, an older car
+    move({ itemId: 1, kind: "use", quantityMilli: 1_000, on: "2026-06-01", projectId: 7 }), // used in the season before
+  ];
+  const data: InventoryData = { items, movements, parts: [] };
+  const lines = computeLines(
+    snapshot({
+      projects: [{ id: 7, areaId: 1, name: "Brakes", ownerName: null, position: 1 }],
+      lines: [line(1, 7, null, figures(1, 5, { purchaseDate: "2026-10-01", vatRate: 0 }), { carSeasonId: 1 })],
+    }),
+  );
+  const period = { from: "2026-09-01", to: "2027-08-31" };
+  const cars = {
+    seasons: [{ id: 1, car: "EG-26" }, { id: 2, car: "EG-27" }],
+    seasonId: 2,
+    receipts: new Map([[1, 1], [2, 2], [3, 1]]),
+  };
+  const context = { projects: [{ id: 7, name: "Brakes", areaId: 1 }], areas: [{ id: 1, name: "MT + DMT" }], period, cars };
+
+  it("counts only what was bought and used in the days of the season, and keeps the whole shelf", () => {
+    const [row] = stats("category", data, [], context, "net", "2026-11-05");
+    expect(row).toMatchObject({ boughtCents: 6_000, usedCents: 0 }); // 20 + 40; the use of June is the season before
+    expect(row?.stockCents).toBeGreaterThan(0); // 2 of 3 still on the shelf, whatever season they came in
+  });
+
+  it("by car: what was bought and what is on its way, for the car each purchase is for", () => {
+    const rows = stats("car", data, lines, context, "net", "2026-11-05");
+    expect(rows.map((r) => [r.label, r.boughtCents, r.pendingCents, r.usedCents])).toEqual([
+      ["EG-26", 4_000, 500, 0], // the older car: a receipt and a line bought for it, not arrived
+      ["EG-27", 2_000, 0, 0],
+    ]);
+  });
+
+  it("puts two seasons with the same car together, and a receipt without a car apart", () => {
+    const same = { ...cars, seasons: [{ id: 1, car: "EG-26" }, { id: 2, car: "eg-26" }], receipts: new Map([[2, 2], [3, null]]) };
+    const rows = stats("car", data, [], { ...context, cars: same }, "net", "2026-11-05");
+    expect(rows.map((r) => [r.label, r.boughtCents])).toEqual([["eg-26", 2_000], ["(no car)", 4_000]]);
+  });
+});

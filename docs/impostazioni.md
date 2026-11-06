@@ -6,6 +6,7 @@
 
 | Riquadro | Cosa | Regole |
 | --- | --- | --- |
+| **Seasons and cars** (il primo) | le stagioni (1/9 – 31/8): date, la **macchina** di ognuna (si rinomina sul posto), **READ-ONLY**, quante righe ha il budget; **New season** con l'anno di settembre in cui parte e la macchina | una nuova stagione parte dalla più recente (stessi progetti vuoti, stessi sponsor senza soldi, un Team's fund suo); una stagione in sola lettura si guarda ma il suo budget non si cambia; le stagioni non si cancellano. Tutto in [stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md) |
 | **Calculation** | soglia degli scostamenti evidenziati in TOTAL (15%); IVA sugli inflow (11%); su cosa si calcola l'IVA quando uno sponsor copre tutta la riga (Q1); confronto con la data del BANK nel riepilogo di CASH FLOW e nel Gantt (Q2) | ogni voce ha accanto la sua **spiegazione** con un esempio; si salva con **Save** (Undo torna ai valori salvati) |
 | **Categories** | le categorie del budget e dell'inventario, il loro **ordine** (è quello dei blocchi di TOTAL e del Gantt: frecce ↑↓) e, per ognuna, quali campi facoltativi mostra un articolo (a cosa serve, codici di sicurezza, smaltimento, stoccaggio, manutenzione); in fondo, i campi degli articoli **senza categoria** | rinominare una categoria la rinomina su **tutte** le righe e gli articoli che la usano; una nuova categoria va in fondo e parte con i campi degli articoli senza categoria |
 | **VAT rates** | le aliquote che una riga, uno sponsor o un arrivo possono usare | al massimo due decimali, tra 0 e 100. **Non** decidono l'aliquota degli sponsor di merce: lo 0% della merce senza IVA e l'**11%** della merce con controfattura sono fissi ([sponsor-e-fondi.md](sponsor-e-fondi.md)) e valgono anche se quei valori non sono nell'elenco |
@@ -65,7 +66,7 @@ Le letture per le altre pagine restano quelle di prima (`GET /api/lookups/...`),
 Restano hardcode, nel [registro](hardcoded-registry.md):
 
 - **le scadenze IVA trimestrali e l'orizzonte del report IVA**: spariranno quando l'IVA delle righe si pagherà alla data di pagamento (in attesa della risposta su VAT OUTFLOW / PROJECT, [sponsor-e-fondi.md](sponsor-e-fondi.md));
-- **la stagione corrente**: fa parte del lavoro su stagioni, anni fiscali e macchine ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)).
+- **i giorni di una stagione** (1 settembre – 31 agosto). Le stagioni stesse, con la loro macchina e la sola lettura, si gestiscono dal pannello **Seasons and cars** ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)).
 
 ## 4. Prove
 

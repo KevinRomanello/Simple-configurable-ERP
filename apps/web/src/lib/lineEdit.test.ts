@@ -21,7 +21,7 @@ const phase = (figures: Partial<NonNullable<PhaseCalc["figures"]>> | null, names
   }) as PhaseCalc;
 
 const line = (estimate: PhaseCalc, actual: PhaseCalc = phase(null)): CalcLine =>
-  ({ id: 5, version: 3, item: "Microcontroller", category: "Components", priority: null, estimate, actual }) as CalcLine;
+  ({ id: 5, version: 3, item: "Microcontroller", category: "Components", priority: null, carSeasonId: null, estimate, actual }) as CalcLine;
 
 const bought = phase(
   { quantityMilli: 4000, unitCostE4: 124_000, vatRate: 22, fundIds: [1], supplierId: 7, purchaseDate: "2026-10-01" },
@@ -41,7 +41,7 @@ describe("decimalText", () => {
 describe("editDraft", () => {
   it("starts from the line as it is; a phase with nothing typed is empty", () => {
     expect(editDraft(line(bought))).toEqual({
-      item: "Microcontroller", category: "Components", priority: "",
+      item: "Microcontroller", category: "Components", priority: "", car: "",
       estimate: { quantity: "4", unitCost: "12.4", fund: "Team's fund", supplier: "RS Components", vatRate: "22", purchaseDate: "2026-10-01", arrivalDate: "" },
       actual: { quantity: "", unitCost: "", fund: "", supplier: "", vatRate: "", purchaseDate: "", arrivalDate: "" },
     });
@@ -82,6 +82,15 @@ describe("linePatch", () => {
     expect(draft.estimate.fund).toBe("");
     draft.estimate = { ...draft.estimate, fund: "Acme", supplier: "Nobody we know" };
     expect(linePatch(draft, line(shared), lookups)).toEqual({ version: 3 });
+  });
+
+  it("sends the car chosen for the line, and null to go back to the car of its season", () => {
+    const draft = editDraft(line(bought));
+    draft.car = "4";
+    expect(linePatch(draft, line(bought), lookups)).toEqual({ version: 3, carSeasonId: 4 });
+    const old = { ...line(bought), carSeasonId: 4 } as CalcLine;
+    expect(editDraft(old).car).toBe("4");
+    expect(linePatch({ ...editDraft(old), car: "" }, old, lookups)).toEqual({ version: 3, carSeasonId: null });
   });
 
   it("leaves the VAT rate alone when a sponsor's fund brings its own", () => {

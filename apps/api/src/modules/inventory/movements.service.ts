@@ -9,6 +9,7 @@ import { db } from "../../db/client";
 import { budgetLine, componentPart, inventoryItem, project, stockMovement } from "../../db/schema";
 import { loadSnapshot } from "../../snapshot";
 import { listLocations, listVatRates } from "../lookups/lookups.service";
+import { assertCarExists } from "../seasons/seasons.service";
 import { loadInventory, movementsOf } from "./inventory.data";
 import type { buildInput, movementInput, receiveInput } from "./inventory.schema";
 import { assertCanManageInventory, insertItem } from "./items.service";
@@ -91,6 +92,7 @@ export async function receive(input: z.infer<typeof receiveInput>) {
       prices = await typedPrices(input);
     }
     if (input.lineId === undefined && projectId !== null) await assertProject(tx, projectId);
+    await assertCarExists(tx, input.carSeasonId);
 
     let item;
     if (input.newItem) {
@@ -114,6 +116,7 @@ export async function receive(input: z.infer<typeof receiveInput>) {
         unitTeam: fromScaled(prices.team, 4),
         projectId,
         budgetLineId: input.lineId ?? null,
+        carSeasonId: input.carSeasonId ?? null,
         note: input.note ?? null,
       })
       .returning();

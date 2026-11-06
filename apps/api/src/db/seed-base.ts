@@ -15,7 +15,7 @@ const AREAS = [
 export async function seedBase(db: typeof Db) {
   await db
     .insert(season)
-    .values({ name: "2026-2027", startsOn: "2026-09-01", endsOn: "2027-08-31" })
+    .values({ name: "2026-2027", startsOn: "2026-09-01", endsOn: "2027-08-31", car: "Car 2026-2027" })
     .onConflictDoNothing();
   const [current] = await db.select().from(season).where(eq(season.name, "2026-2027"));
 

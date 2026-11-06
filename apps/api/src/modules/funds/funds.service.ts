@@ -6,7 +6,7 @@ import { db } from "../../db/client";
 import { fund, fundContract, lineFund } from "../../db/schema";
 import { canWrite, getCurrentUser } from "../auth/auth.service";
 import { getFixedSponsorRates, listVatRates } from "../lookups/lookups.service";
-import { getCurrentSeason } from "../seasons/seasons.service";
+import { assertSeasonOpen, getCurrentSeason } from "../seasons/seasons.service";
 import { ensureSupplier, renameSupplier } from "../suppliers/suppliers.service";
 
 async function assertCanManageShared() {
@@ -125,6 +125,7 @@ export async function createFund(input: SponsorInput, contracts: ContractInput[]
     throw invalid("A sponsor has one contract per phase");
   }
   return runWrite(actor, async (tx) => {
+    await assertSeasonOpen(tx, season.id);
     const [created] = await tx
       .insert(fund)
       .values({ seasonId: season.id, kind: "external", ...sponsorValues(input, rate) })
@@ -151,6 +152,7 @@ export async function updateFund(fundId: number, input: Partial<SponsorInput>) {
     const [target] = await tx.select().from(fund).where(eq(fund.id, fundId)).for("update");
     if (!target) throw notFound("Fund");
     if (target.kind === "team") throw invalid("The team fund is the team's own money: it has nothing to set");
+    await assertSeasonOpen(tx, target.seasonId);
 
     const merged: SponsorInput = {
       name: input.name ?? target.name,
@@ -183,6 +185,7 @@ export async function deleteFund(fundId: number) {
     const [target] = await tx.select().from(fund).where(eq(fund.id, fundId));
     if (!target) throw notFound("Fund");
     if (target.kind === "team") throw invalid("The team fund cannot be deleted");
+    await assertSeasonOpen(tx, target.seasonId);
 
     const [lines] = await tx.select({ n: sql<number>`count(*)::int` }).from(lineFund).where(eq(lineFund.fundId, fundId));
     if ((lines?.n ?? 0) > 0) throw conflict(`This fund pays ${lines?.n} budget lines`);
@@ -201,6 +204,7 @@ export async function setContract(fundId: number, phase: Phase, input: { amount:
     if (!owner) throw notFound("Fund");
     if (owner.kind === "team") throw invalid("The team fund has no contracts: it is the team's own money");
     if (owner.type !== "fund") throw invalid(`"${owner.name}" gives goods, not a sum of money: it has no contract`);
+    await assertSeasonOpen(tx, owner.seasonId);
     // one atomic write: two people setting the same money at once cannot leave two contracts
     const [saved] = await tx
       .insert(fundContract)
@@ -215,6 +219,8 @@ export async function setContract(fundId: number, phase: Phase, input: { amount:
 export async function clearContract(fundId: number, phase: Phase) {
   const actor = await assertCanManageShared();
   await runWrite(actor, async (tx) => {
+    const [owner] = await tx.select({ seasonId: fund.seasonId }).from(fund).where(eq(fund.id, fundId));
+    if (owner) await assertSeasonOpen(tx, owner.seasonId);
     const deleted = await tx
       .delete(fundContract)
       .where(and(eq(fundContract.fundId, fundId), eq(fundContract.phase, phase)))

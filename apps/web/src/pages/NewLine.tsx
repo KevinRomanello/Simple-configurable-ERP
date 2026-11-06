@@ -5,6 +5,7 @@ import { Chips } from "../components/Chips";
 import { SearchSelect } from "../components/SearchSelect";
 import { Field, FormPanel } from "../components/ui";
 import { choosesOwnRate, lineBody, newLineDraft, PHASES_OF, type FillIn, type LineDraft, type PhaseDraft } from "../lib/newLine";
+import { carLabel } from "../lib/season";
 import { todayIso } from "../lib/today";
 import { useAction } from "../lib/useAction";
 import type { GridLookups } from "./areaColumns";
@@ -73,6 +74,22 @@ export function PhaseFields({ idPrefix, phase, draft, lookups, onChange, fixedFu
   );
 }
 
+/**
+ * Which car the line is for: the car of the season, or (bought for an older car, say) the car of
+ * another season. The money still comes from this season's budget.
+ */
+export function CarField({ id, value, lookups, onChange }: { id: string; value: string; lookups: GridLookups; onChange: (car: string) => void }) {
+  const own = lookups.cars.find((s) => s.id === lookups.seasonId);
+  return (
+    <Field label="Car" htmlFor={id}>
+      <select id={id} className="input small" value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{own ? `${own.car} (this season)` : "This season's"}</option>
+        {lookups.cars.filter((s) => s.id !== lookups.seasonId).map((s) => <option key={s.id} value={s.id}>{carLabel(s)}</option>)}
+      </select>
+    </Field>
+  );
+}
+
 /** The form of a new line of a project, opened from the yellow «Add item» under its grid: only the name is needed. */
 export function NewLine({ project, lookups, onDone }: { project: { id: number; name: string }; lookups: GridLookups; onDone: () => void }) {
   const act = useAction();
@@ -115,6 +132,7 @@ export function NewLine({ project, lookups, onDone }: { project: { id: number; n
             {lookups.priorities.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </Field>
+        <CarField id={`${idPrefix}-car`} value={draft.car} lookups={lookups} onChange={(car) => change({ car })} />
       </div>
       {PHASES_OF[draft.fillIn].map((phase) => (
         <PhaseFields key={phase} idPrefix={idPrefix} phase={phase} draft={draft[phase]} lookups={lookups} onChange={changePhase(phase)} />

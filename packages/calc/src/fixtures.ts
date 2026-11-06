@@ -86,6 +86,7 @@ export function line(
     priority: null,
     note: null,
     version: 1,
+    carSeasonId: null,
     figures: { estimate, actual },
     ...overrides,
   };

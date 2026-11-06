@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { lookupCode } from "../../core/validation";
 import {
-  getCashFlowView, getFundAnalysis, getFundsSummary, getGantt, getItemsView, getSupplierAnalysis,
+  getCalendarYears, getCashFlowView, getFundAnalysis, getFundsSummary, getGantt, getItemsView, getSupplierAnalysis,
   getTotals, getVatReport,
 } from "./views.service";
 
@@ -21,6 +21,7 @@ export async function viewsRoutes(app: FastifyInstance) {
   app.get("/views/cashflow", () => getCashFlowView());
   app.get("/views/gantt", (request) => getGantt(phaseQuery.parse(request.query).phase));
   app.get("/views/totals", () => getTotals());
+  app.get("/views/calendar-years", () => getCalendarYears());
   app.get("/views/analysis/funds", () => getFundAnalysis());
   app.get("/views/analysis/suppliers", () => getSupplierAnalysis());
   app.get("/views/items", (request) => getItemsView(itemsQuery.parse(request.query)));

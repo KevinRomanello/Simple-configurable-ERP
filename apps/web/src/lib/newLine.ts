@@ -30,6 +30,8 @@ export interface LineDraft {
   item: string;
   category: string;
   priority: string;
+  /** The season whose car the line is for, as its id; "" = the car of the line's own season. */
+  car: string;
   fillIn: FillIn;
   estimate: PhaseDraft;
   actual: PhaseDraft;
@@ -40,7 +42,7 @@ export const EMPTY_PHASE: PhaseDraft = { quantity: "", unitCost: "", fund: "", s
 /** A new line as the form starts: the purchase date is today (the arrival date is left empty: it is not known yet). */
 export function newLineDraft(today: string): LineDraft {
   const phase = { ...EMPTY_PHASE, purchaseDate: today };
-  return { item: "", category: "", priority: "", fillIn: "estimate", estimate: phase, actual: phase };
+  return { item: "", category: "", priority: "", car: "", fillIn: "estimate", estimate: phase, actual: phase };
 }
 
 /** What the form needs to know about the funds and the suppliers (names are compared in lower case). */
@@ -74,6 +76,7 @@ export interface NewLineBody {
   item: string;
   category?: string;
   priority?: string;
+  carSeasonId?: number;
   figures?: Partial<Record<Phase, FiguresPatch>>;
 }
 
@@ -91,6 +94,7 @@ export function lineBody(draft: LineDraft, lookups: LineLookups, today: string):
     item: draft.item.trim(),
     ...(draft.category !== "" ? { category: draft.category } : {}),
     ...(draft.priority !== "" ? { priority: draft.priority } : {}),
+    ...(draft.car !== "" ? { carSeasonId: Number(draft.car) } : {}),
     ...(Object.keys(figures).length > 0 ? { figures } : {}),
   };
 }

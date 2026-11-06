@@ -11,6 +11,8 @@ export interface EditDraft {
   item: string;
   category: string;
   priority: string;
+  /** The season whose car the line is for, as its id; "" = the car of its own season. */
+  car: string;
   estimate: PhaseDraft;
   actual: PhaseDraft;
 }
@@ -46,6 +48,7 @@ export function editDraft(line: CalcLine): EditDraft {
     item: line.item,
     category: line.category ?? "",
     priority: line.priority ?? "",
+    car: line.carSeasonId === null ? "" : String(line.carSeasonId),
     estimate: phaseDraft(line, "estimate"),
     actual: phaseDraft(line, "actual"),
   };
@@ -82,6 +85,7 @@ export function linePatch(draft: EditDraft, line: CalcLine, lookups: LineLookups
   if (draft.item.trim() !== before.item) patch.item = draft.item.trim();
   if (draft.category !== before.category) patch.category = draft.category || null;
   if (draft.priority !== before.priority) patch.priority = draft.priority || null;
+  if (draft.car !== before.car) patch.carSeasonId = draft.car === "" ? null : Number(draft.car);
   const figures: NonNullable<LinePatch["figures"]> = {};
   for (const phase of PHASES) {
     const changed = phasePatch(draft[phase], before[phase], severalFunds(line, phase), lookups);

@@ -1,5 +1,5 @@
 import {
-  faAnglesLeft, faBars, faBoxesStacked, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece,
+  faAnglesLeft, faBars, faBoxesStacked, faCalendarDays, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece,
   faRepeat, faRightFromBracket, faSackDollar, faScaleBalanced, faSliders, faTable, faTruckFast, faUsers, faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -9,9 +9,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { api } from "../api/client";
 import { forgetUser, useMe } from "../lib/auth";
+import { useChosenSeasonId, useSeason } from "../lib/season";
 import { SCREEN, useMaxWidth } from "../lib/screen";
 import { IconButton } from "./Button";
 import { ExportProvider } from "./ExportBlocks";
+import { SeasonStrip, SeasonSwitcher } from "./SeasonSwitcher";
 
 /** `end`: the link is lit only for its own page, not for the pages below it (INVENTORY next to PENDING). */
 function Item({ to, icon, end, children }: { to: string; icon: IconDefinition; end?: boolean; children: string }) {
@@ -56,13 +58,14 @@ function useSidebarHidden() {
 
 /**
  * The menu of a phone or a tablet: the same as on a computer, shown over the page from the bar at the top, and closed by
- * itself when the page changes, with Esc or by touching outside it. While it is open the page under
+ * itself when the page or the season changes, with Esc or by touching outside it. While it is open the page under
  * it does not scroll, and the entry of the page you are on is in sight.
  */
 function useCompactMenu(compact: boolean) {
   const { pathname } = useLocation();
+  const season = useChosenSeasonId();
   const [shown, setShown] = useState(false);
-  useEffect(() => setShown(false), [pathname, compact]);
+  useEffect(() => setShown(false), [pathname, compact, season]);
   useEffect(() => {
     if (!shown) return;
     const close = (event: KeyboardEvent) => event.key === "Escape" && setShown(false);
@@ -89,16 +92,19 @@ export function Shell() {
   // behind the organisation's login there is nothing to sign out of here
   const signInOptions = useQuery({ queryKey: ["sign-in-options"], queryFn: api.signInOptions });
   const { pathname } = useLocation();
+  const season = useSeason();
+  const chosenSeason = useChosenSeasonId();
 
   const signOut = async () => {
     await api.signOut();
     forgetUser(queryClient); // shows the sign-in page...
     queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" }); // ...and drops the data of this person
   };
-  const brand = (
+  // the season is chosen in the menu; the bar of a phone only says which one it is
+  const brand = (choice: boolean) => (
     <div className="brand-text">
       <strong>E-Agle TRT</strong>
-      <span className="label-s muted">Budget 2026-2027</span>
+      {choice ? <SeasonSwitcher /> : <span className="label-s muted">Budget {season?.name ?? ""}</span>}
     </div>
   );
   const frame = compact ? `shell compact${menuShown ? " menu-shown" : ""}` : `shell${hidden ? " collapsed" : ""}`;
@@ -107,7 +113,7 @@ export function Shell() {
     <div className={frame}>
       {compact && (
         <header className="topbar">
-          {brand}
+          {brand(false)}
           <button type="button" className="icon-btn burger" aria-label="Show the menu" aria-expanded={menuShown} aria-controls="sidebar" onClick={() => setMenuShown(true)}>
             <FontAwesomeIcon icon={faBars} />
           </button>
@@ -121,7 +127,7 @@ export function Shell() {
       {compact && menuShown && <div className="menu-backdrop" onClick={() => setMenuShown(false)} />}
       <aside className="sidebar" id="sidebar">
         <div className="brand">
-          {brand}
+          {brand(true)}
           {compact ? (
             <button type="button" className="icon-btn burger" aria-label="Close the menu" onClick={() => setMenuShown(false)}>
               <FontAwesomeIcon icon={faXmark} />
@@ -155,6 +161,7 @@ export function Shell() {
           <Item to="/analysis/suppliers" icon={faTruckFast}>BOUGHT FROM ANALYSES</Item>
           <Item to="/analysis/items" icon={faMagnifyingGlass}>CATEGORY ANALYSES</Item>
           <Item to="/total" icon={faScaleBalanced}>TOTAL</Item>
+          <Item to="/calendar-years" icon={faCalendarDays}>CALENDAR YEARS</Item>
         </NavGroup>
 
         <NavGroup title="Inventory">
@@ -182,10 +189,11 @@ export function Shell() {
         </div>
       </aside>
       <main className="main">
+        <SeasonStrip />
         <ExportProvider>
-          {/* one page per address: the areas, items and components share a page, and without the key
-              the form left open on one would still be open (and write) on the next */}
-          <Outlet key={pathname} />
+          {/* one page per address and per season: the areas, items and components share a page, and without
+              the key a form left open on one would still be open (and write) on the next, or in another season */}
+          <Outlet key={`${chosenSeason ?? "today"}:${pathname}`} />
         </ExportProvider>
       </main>
     </div>

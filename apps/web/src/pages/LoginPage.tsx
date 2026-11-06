@@ -22,7 +22,7 @@ export function LoginPage() {
       <section className="login-card">
         <div className="brand">
           <strong>E-Agle TRT</strong>
-          <span className="label-s muted">Budget 2026-2027</span>
+          <span className="label-s muted">Budget and inventory</span>
         </div>
         <h1>Sign in</h1>
 

@@ -36,6 +36,8 @@ export interface CalcLine {
   priority: string | null;
   note: string | null;
   version: number;
+  /** Bought for the car of another season (its id); null = the car of its own season. */
+  carSeasonId: number | null;
   projectId: number;
   projectName: string;
   areaId: number;
@@ -115,6 +117,7 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
     priority: line.priority,
     note: line.note,
     version: line.version,
+    carSeasonId: line.carSeasonId,
     projectId: project.id,
     projectName: project.name,
     areaId: area.id,

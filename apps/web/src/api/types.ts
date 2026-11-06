@@ -1,11 +1,25 @@
 // Response shapes. The ones computed by the engine come straight from @erp/calc (type only:
 // no engine code is shipped to the browser); the rest are the plain rows of the write API.
 export type {
-  Analysis, Arrival, ArrivalStatus, AreaSheet, Bom, BomLine, CalcLine, CashFlowSummary, CostPoint, FundSummaryRow,
+  Analysis, Arrival, ArrivalStatus, AreaSheet, Bom, BomLine, CalcLine, CalendarYears, CashFlowSummary, CostPoint, FundSummaryRow,
   Gantt, ItemOrigin, ItemsView, MonthlyInflow, PendingLine, Phase, PhaseCalc, PriceBasis, PriceMethod, PricePoint,
   Priority, SponsorType, StatsRow, Totals, VatReport,
 } from "@erp/calc";
 import type { ItemOrigin, PendingLine, Phase, PriceBasis, PriceMethod, PricePoint, Bom, CostPoint, StatsRow } from "@erp/calc";
+
+/** GET /api/seasons: one budget, the car the team builds in it, and whether it can still be changed. */
+export interface Season {
+  id: number;
+  name: string;
+  startsOn: string;
+  endsOn: string;
+  car: string;
+  readOnly: boolean;
+  /** The season of today: shown when nothing else is chosen. */
+  current: boolean;
+  /** How many budget lines it has. */
+  lines: number;
+}
 
 export interface Area {
   id: number;
@@ -318,8 +332,10 @@ export interface ComponentDetail {
 }
 
 export interface StatsResult {
-  by: "project" | "area" | "category" | "location";
+  by: "project" | "area" | "category" | "location" | "car";
   basis: PriceBasis;
+  /** The season shown: what was bought and used in its days. */
+  season: { name: string; from: string; to: string };
   rows: StatsRow[];
 }
 

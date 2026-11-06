@@ -6,15 +6,15 @@ import type { Inflow, Phase } from "../api/types";
 import { Button, IconButton } from "../components/Button";
 import { MonthlyInflows } from "../components/MonthlyInflows";
 import { Cards, DataTable, Field, FormPanel, MoneyCard, PageHeader, Panel, type Column } from "../components/ui";
-import { useMe } from "../lib/auth";
 import { date, moneyFromDecimal } from "../lib/format";
+import { useCanEditShared } from "../lib/season";
 import { useAction } from "../lib/useAction";
 
 const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
 
 /** CASH FLOW: the money coming in and what is left after the team's spending, then the BANK balance (the order of the sheet). */
 export function CashFlowPage() {
-  const canEdit = useMe().permissions.canEditShared;
+  const canEdit = useCanEditShared();
   const [editingBank, setEditingBank] = useState(false);
 
   return (
@@ -40,7 +40,7 @@ export function CashFlowPage() {
 
 function BankBox({ editing, onDone }: { editing: boolean; onDone: () => void }) {
   const act = useAction();
-  const canEdit = useMe().permissions.canEditShared;
+  const canEdit = useCanEditShared();
   const bank = useQuery({ queryKey: ["bank"], queryFn: api.bank });
   const [amount, setAmount] = useState("");
   const [day, setDay] = useState("");
@@ -120,7 +120,7 @@ function NewInflow({ onDone }: { onDone: () => void }) {
 
 function PhaseCashFlow({ phase }: { phase: Phase }) {
   const act = useAction();
-  const canEdit = useMe().permissions.canEditShared;
+  const canEdit = useCanEditShared();
   const inflows = useQuery({ queryKey: ["inflows", phase], queryFn: () => api.inflows(phase) });
   const view = useQuery({ queryKey: ["cashflow"], queryFn: api.cashFlow });
   const summary = view.data?.[phase].summary;

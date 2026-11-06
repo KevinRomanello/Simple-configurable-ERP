@@ -23,7 +23,7 @@ Il budget dice cosa è stato **comprato** (le colonne ACTUAL di una voce); l'inv
 "Comprata" vuol dire **quantità nel consuntivo**. Una voce comprata senza data d'acquisto compare lo stesso in PENDING (con "no date").
 
 - **Dal budget.** La pagina **PENDING** elenca ciò che è stato comprato e non è arrivato, dal più vecchio, con giorni d'attesa e arrivo previsto. "Receive" apre un modulo già compilato (nome, categoria, quantità ancora da arrivare): scegli dove metterlo e quanti pezzi sono arrivati. **L'arrivo può essere parziale**: la voce resta in PENDING con la quantità che manca. Il modulo propone l'articolo già creato con gli arrivi precedenti della stessa voce, o uno con lo stesso nome. I prezzi (netto, con IVA, costo per il team) e il progetto vengono dal budget. Non si può ricevere più di quanto comprato (409); due arrivi simultanei non possono prendersi gli stessi pezzi.
-- **Fuori budget.** "Add goods" nella pagina INVENTORY: un acquisto fatto a parte, un regalo, qualcosa che c'era già. Prezzo netto e IVA a mano (o "a gift": il valore è registrato, il costo per il team è zero), progetto facoltativo.
+- **Fuori budget.** "Add goods" nella pagina INVENTORY: un acquisto fatto a parte, un regalo, qualcosa che c'era già. Prezzo netto e IVA a mano (o "a gift": il valore è registrato, il costo per il team è zero), progetto facoltativo, **macchina** (di base quella della stagione della data d'arrivo; se ne può scegliere un'altra).
 - Se la voce del budget viene cancellata dopo l'arrivo, il carico resta (il legame con la voce si perde, il resto no).
 
 ## 3. Decisione: la data di arrivo del consuntivo resta digitata a mano
@@ -115,7 +115,7 @@ Un componente è un articolo con origine `made` e una **distinta**: l'elenco del
 
 ## 10. Statistiche
 
-`GET /api/inventory/stats?by=project|area|category|location&basis=…`:
+`GET /api/inventory/stats?by=project|area|category|location|car&basis=…`. Contano gli arrivi e i prelievi **della stagione scelta nel menù** (con data tra il suo 1° settembre e il suo 31 agosto); lo scaffale, invece, è sempre quello di oggi. La risposta dice quale stagione (`season`: nome e date) e la pagina lo scrive in cima ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)).
 
 | Colonna | Significato |
 | --- | --- |
@@ -124,7 +124,7 @@ Un componente è un articolo con origine `made` e una **distinta**: l'elenco del
 | Used | uscita dallo scaffale **per un progetto**, al prezzo medio pagato fino ad allora. Le **parti consumate da una produzione** contano come usate per il progetto della produzione; l'uso di un **pezzo fatto da noi non conta** (il suo costo è già nelle parti: niente doppio conteggio) |
 | On the shelf | quanto c'è ora, al prezzo medio pagato |
 
-Per progetto e area (dal progetto della voce di budget, o scelto a mano) non c'è la giacenza: lo scaffale non appartiene a un progetto. Per luogo c'è solo la giacenza. Il totale di "Bought" è lo stesso comunque si tagli (c'è un test).
+Per progetto e area (dal progetto della voce di budget, o scelto a mano) non c'è la giacenza: lo scaffale non appartiene a un progetto. Per luogo c'è solo la giacenza. **Per macchina** (*By car*) ci sono solo Bought e On its way, per la macchina a cui è destinato ogni acquisto: quella della riga del budget, o quella scelta su un arrivo fuori budget, altrimenti quella della stagione della data. I prelievi non dicono su che macchina vanno. Il totale di "Bought" è lo stesso comunque si tagli (c'è un test).
 
 ## 11. Permessi, API, schermate
 

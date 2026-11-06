@@ -23,6 +23,11 @@ describe("lineBody", () => {
     expect(body(line({}))).not.toHaveProperty("category");
   });
 
+  it("takes the car only when another one than the season's is chosen", () => {
+    expect(body(line({ car: "3" }))).toMatchObject({ carSeasonId: 3 });
+    expect(body(line({}))).not.toHaveProperty("carSeasonId");
+  });
+
   it("sends the numbers, the fund, the supplier and the dates of the phase that was chosen", () => {
     const estimate = { ...EMPTY_PHASE, quantity: "2", unitCost: "12.5", fund: "Sponsor A", supplier: "Amazon", purchaseDate: "2026-11-02", arrivalDate: "2026-11-09" };
     expect(body(line({ estimate })).figures).toEqual({

@@ -21,8 +21,8 @@ La differenza tra le due cose si riassume in sei parole: **chi sei, chi può far
 | **Immagine Docker** | un unico `Dockerfile` con tutte le dipendenze di sviluppo e i test | più grande del necessario | **fatto**: `Dockerfile.prod`, due immagini (`api`, `web`) senza strumenti di sviluppo ([rilascio.md](rilascio.md)) |
 | **`tsx`** | è una dipendenza *di sviluppo* dell'API | in un'immagine di produzione "solo dipendenze vere" non ci sarebbe e l'API non partirebbe | spostarla tra le dipendenze (semplice) o compilare l'API con esbuild (più pulito) |
 | **Migrazioni, utente dell'API e dati di base** | si lanciano a mano (`db:migrate`, poi `db:roles`, `db:seed`) | in produzione una dimenticanza = app rotta | passo automatico del rilascio, sempre prima dell'avvio, in quest'ordine |
-| **Stagione** | `getCurrentSeason()` cerca "2026-2027"; le date della stagione nel seed (1/9/26 – 31/8/27) sono una mia ipotesi | funziona con una stagione sola | elenco stagioni e selettore |
-| **Impostazioni** | categorie, aliquote, unità, posti, soglia ±15%, confronti con BANK si cambiano dalla pagina Settings ([impostazioni.md](impostazioni.md)); restano nel codice le scadenze IVA e la stagione (i `// HARDCODED:` del [registro](hardcoded-registry.md)) | cambiarle richiede di modificare il codice | tabelle e pagina di amministrazione, dopo le risposte del tesoriere |
+| **Stagione** | **fatto il 6 novembre 2026**: selettore nel menù, stagioni e macchine in Settings ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)); le date 1/9 – 31/8 sono una regola del codice | per andare online serve la migrazione `0017` | rinominare la macchina della 2026-2027 in Settings (parte come «Car 2026-2027») |
+| **Impostazioni** | categorie, aliquote, unità, posti, soglia ±15%, confronti con BANK si cambiano dalla pagina Settings ([impostazioni.md](impostazioni.md)); restano nel codice le scadenze IVA e i giorni di una stagione (i `// HARDCODED:` del [registro](hardcoded-registry.md)) | cambiarle richiede di modificare il codice | tabelle e pagina di amministrazione, dopo le risposte del tesoriere |
 | **Backup** | non ci sono | se il volume del database si perde, i dati finiscono | copia notturna fuori dal server + prova di ripristino mensile |
 | **Test dell'API** | `global-setup` cancella e ricrea il database `erp_test` con le credenziali di `DATABASE_URL` | ok in sviluppo; non va mai lanciato contro il database di produzione | i test girano solo in locale e in CI, mai sul server |
 | **Importer dal foglio** | `load -- --replace` cancella e ricarica | serve una volta per la migrazione; dopo, pericoloso | si usa una sola volta; poi viene tolto dal server o protetto |
@@ -67,7 +67,7 @@ Le stime sono mie e non misurate: **S** ≈ 1 ora, **M** ≈ 2 ore, **L** ≈ 3�
 | **Esportazione** in CSV/xlsx delle viste | non c'è (era nei rischi del piano) | M |
 | **Voci senza categoria** in CATEGORY ANALYSES | non compaiono mai (come nel foglio): 17 voci su 52 nei tuoi dati | S, ma serve una decisione tua |
 | **Outflow rosso** nelle analisi | ogni outflow positivo è rosso (come nel foglio), poco utile | S, decisione tua |
-| **Nuova stagione**: crearla, portare avanti fondi e fornitori | solo la 2026-2027 | L |
+| **Nuova stagione**: crearla, portare avanti fondi e fornitori | fatto il 6 novembre 2026: **New season** in Settings copia progetti e sponsor (senza soldi); i fornitori sono già di tutte le stagioni ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)) | — |
 | Uso da **telefono** | fatto il 5 novembre 2026: menu, tabelle a schede, budget a schede con il modulo ([stile-interfaccia.md](stile-interfaccia.md), §12); manca la prova su telefoni veri | — |
 | Stati di caricamento, errori e vuoti più curati; navigazione da tastiera; accessibilità | di base | M |
 

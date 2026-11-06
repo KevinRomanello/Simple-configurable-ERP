@@ -9,7 +9,7 @@ import { area, budgetLine, fund, lineFigures, lineFund, project, supplier } from
 import { loadSnapshot } from "../../snapshot";
 import { canWrite, getCurrentUser, type User } from "../auth/auth.service";
 import { listCategories, listVatRates } from "../lookups/lookups.service";
-import { getCurrentSeason } from "../seasons/seasons.service";
+import { assertCarExists, assertSeasonOpen, getCurrentSeason } from "../seasons/seasons.service";
 import { ensureSupplier } from "../suppliers/suppliers.service";
 import type { CreateLineInput, FiguresInput, UpdateLineInput } from "./budget.schema";
 
@@ -44,6 +44,7 @@ export async function createProject(input: { areaCode: string; name: string; own
     const [target] = await tx.select().from(area).where(eq(area.code, input.areaCode));
     if (!target) throw notFound(`Area "${input.areaCode}"`);
     await assertCanWrite(actor, target.id);
+    await assertSeasonOpen(tx, season.id);
     // Two projects added at the same moment must not get the same position: take turns on the area.
     await tx.select({ id: area.id }).from(area).where(eq(area.id, target.id)).for("update");
     const [last] = await tx
@@ -64,16 +65,19 @@ export async function createProject(input: { areaCode: string; name: string; own
   });
 }
 
-async function projectOf(tx: Tx, projectId: number) {
+/** A project that the actor may change, in a season that is not read-only. */
+async function writableProject(tx: Tx, actor: User, projectId: number) {
   const [found] = await tx.select().from(project).where(eq(project.id, projectId));
   if (!found) throw notFound("Project");
+  await assertCanWrite(actor, found.areaId);
+  await assertSeasonOpen(tx, found.seasonId);
   return found;
 }
 
 export async function updateProject(projectId: number, input: { name?: string; ownerName?: string | null }) {
   const actor = await getCurrentUser();
   return runWrite(actor, async (tx) => {
-    await assertCanWrite(actor, (await projectOf(tx, projectId)).areaId);
+    await writableProject(tx, actor, projectId);
     const [updated] = await tx.update(project).set(input).where(eq(project.id, projectId)).returning();
     return updated!;
   });
@@ -83,7 +87,7 @@ export async function updateProject(projectId: number, input: { name?: string; o
 export async function deleteProject(projectId: number) {
   const actor = await getCurrentUser();
   await runWrite(actor, async (tx) => {
-    await assertCanWrite(actor, (await projectOf(tx, projectId)).areaId);
+    await writableProject(tx, actor, projectId);
     await tx.delete(project).where(eq(project.id, projectId));
   });
 }
@@ -208,12 +212,18 @@ async function saveAllFigures(tx: Tx, lineId: number, figures: CreateLineInput["
   }
 }
 
+/** The car of a line as it is stored: the car of its own season is no choice (null), like automatic. */
+async function carOf(tx: Tx, carSeasonId: number | null | undefined, ownSeasonId: number) {
+  await assertCarExists(tx, carSeasonId);
+  return carSeasonId === ownSeasonId ? null : carSeasonId;
+}
+
 /** Adds a line at the end of a project. */
 export async function createLine(projectId: number, input: CreateLineInput) {
   const actor = await getCurrentUser();
   await checkCategory(input.category);
   return runWrite(actor, async (tx) => {
-    await assertCanWrite(actor, (await projectOf(tx, projectId)).areaId);
+    const target = await writableProject(tx, actor, projectId);
     // Same as for projects: lines added at the same moment take turns on their project.
     await tx.select({ id: project.id }).from(project).where(eq(project.id, projectId)).for("update");
     const [last] = await tx
@@ -229,6 +239,7 @@ export async function createLine(projectId: number, input: CreateLineInput) {
         category: input.category ?? null,
         priority: input.priority ?? null,
         note: input.note ?? null,
+        carSeasonId: (await carOf(tx, input.carSeasonId, target.seasonId)) ?? null,
       })
       .returning();
     await saveAllFigures(tx, created!.id, input.figures);
@@ -236,13 +247,16 @@ export async function createLine(projectId: number, input: CreateLineInput) {
   });
 }
 
-async function lineWithArea(tx: Tx, lineId: number) {
+/** A line that the actor may change, in a season that is not read-only; with the season it is in. */
+async function writableLine(tx: Tx, actor: User, lineId: number) {
   const [found] = await tx
-    .select({ line: budgetLine, areaId: project.areaId })
+    .select({ areaId: project.areaId, seasonId: project.seasonId })
     .from(budgetLine)
     .innerJoin(project, eq(budgetLine.projectId, project.id))
     .where(eq(budgetLine.id, lineId));
   if (!found) throw notFound("Line");
+  await assertCanWrite(actor, found.areaId);
+  await assertSeasonOpen(tx, found.seasonId);
   return found;
 }
 
@@ -254,13 +268,13 @@ export async function updateLine(lineId: number, input: UpdateLineInput) {
   const actor = await getCurrentUser();
   await checkCategory(input.category);
   return runWrite(actor, async (tx) => {
-    const { areaId } = await lineWithArea(tx, lineId);
-    await assertCanWrite(actor, areaId);
+    const { seasonId } = await writableLine(tx, actor, lineId);
 
-    const { version, figures, ...fields } = input;
+    const { version, figures, carSeasonId, ...fields } = input;
+    const car = carSeasonId === undefined ? {} : { carSeasonId: await carOf(tx, carSeasonId, seasonId) };
     const [updated] = await tx
       .update(budgetLine)
-      .set({ ...fields, version: sql`${budgetLine.version} + 1` })
+      .set({ ...fields, ...car, version: sql`${budgetLine.version} + 1` })
       .where(and(eq(budgetLine.id, lineId), eq(budgetLine.version, version)))
       .returning();
     if (!updated) throw conflict("This line was changed by someone else: reload it and try again");
@@ -273,7 +287,7 @@ export async function updateLine(lineId: number, input: UpdateLineInput) {
 export async function deleteLine(lineId: number) {
   const actor = await getCurrentUser();
   await runWrite(actor, async (tx) => {
-    await assertCanWrite(actor, (await lineWithArea(tx, lineId)).areaId);
+    await writableLine(tx, actor, lineId);
     await tx.delete(budgetLine).where(eq(budgetLine.id, lineId));
   });
 }

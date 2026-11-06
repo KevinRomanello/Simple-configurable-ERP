@@ -9,8 +9,8 @@ import { money, moneyE4, quantity } from "../lib/format";
 import { editDraft, linePatch, PHASES, severalFunds, type EditDraft } from "../lib/lineEdit";
 import type { PhaseDraft } from "../lib/newLine";
 import { useAction } from "../lib/useAction";
-import type { GridLookups } from "./areaColumns";
-import { PhaseFields } from "./NewLine";
+import { carSeasonOf, type GridLookups } from "./areaColumns";
+import { CarField, PhaseFields } from "./NewLine";
 
 // A project of the budget on a phone, where the grid does not fit: one card per line with what
 // matters for the phase chosen (EXPECTED or ACTUAL), the yellow subtotal last. Touching a line opens
@@ -43,11 +43,13 @@ export function LineCards({ project, phase, lookups, canEdit, onRemove }: {
     <ul className="line-cards">
       {project.lines.map((line) => {
         const calc = line[phase];
+        const otherCar = line.carSeasonId === null ? undefined : carSeasonOf(lookups, line);
         const body = (
           <>
             <span className="line-main">
               <strong>{line.item}</strong>
               <span className="muted">{summary(line, phase)}</span>
+              {otherCar && <span className="pill car">for {otherCar.car}</span>}
               {line.arrival.status !== "planned" && <ArrivalPill status={line.arrival.status} />}
               {calc.shortCents > 0 && <span className="hint error">The funds miss {money(calc.shortCents)}</span>}
             </span>
@@ -115,6 +117,7 @@ function EditLine({ line, lookups, onDone, onRemove }: { line: CalcLine; lookups
               {lookups.priorities.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </Field>
+          <CarField id={`${idPrefix}-car`} value={draft.car} lookups={lookups} onChange={(car) => change({ car })} />
         </div>
         {PHASES.map((phase) => (
           <PhaseFields key={phase} idPrefix={idPrefix} phase={phase} draft={draft[phase]} lookups={lookups} onChange={changePhase(phase)}

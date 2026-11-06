@@ -5,6 +5,7 @@ import { api, type ReceiveBody } from "../api/client";
 import type { ItemDraft, ItemRow, PendingRow } from "../api/types";
 import { moneyE4, quantity as showQuantity } from "../lib/format";
 import { draftBody, emptyDraft, paramErrors, type InventoryLookups } from "../lib/inventory";
+import { carLabel, useSeasons } from "../lib/season";
 import { todayIso } from "../lib/today";
 import { useAction } from "../lib/useAction";
 import { Button } from "./Button";
@@ -46,6 +47,10 @@ export function ReceiveForm({
   const [vatRate, setVatRate] = useState(22);
   const [free, setFree] = useState(false);
   const [projectId, setProjectId] = useState("");
+  // goods from outside the budget are for the car of the season of their date, unless another is chosen
+  const seasons = useSeasons().data ?? [];
+  const [car, setCar] = useState("");
+  const dateSeason = seasons.find((s) => s.startsOn <= receivedOn && receivedOn <= s.endsOn);
 
   const ready =
     amount !== "" && location !== "" && (line !== undefined || unitNet !== "") &&
@@ -62,6 +67,7 @@ export function ReceiveForm({
       body.vatRate = vatRate;
       body.free = free;
       if (projectId) body.projectId = Number(projectId);
+      if (car) body.carSeasonId = Number(car);
     }
     if (await act(() => api.receive(body))) onDone();
   };
@@ -127,6 +133,12 @@ export function ReceiveForm({
                 onChange={setProjectId}
                 choices={[{ value: "", label: "(none)" }, ...(projects.data ?? []).map((p) => ({ value: String(p.id), label: `${p.areaName}: ${p.name}` }))]}
               />
+            </Field>
+            <Field label="Car" htmlFor="receive-car">
+              <select id="receive-car" className="input small" value={car} onChange={(e) => setCar(e.target.value)}>
+                <option value="">{dateSeason ? `${dateSeason.car} (from the date)` : "From the date"}</option>
+                {seasons.map((s) => <option key={s.id} value={s.id}>{carLabel(s)}</option>)}
+              </select>
             </Field>
             <label className="checkbox">
               <input type="checkbox" checked={free} onChange={(e) => setFree(e.target.checked)} />

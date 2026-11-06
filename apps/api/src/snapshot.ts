@@ -25,12 +25,12 @@ function figuresOf(row: FigureRow, fundIds: number[]): Figures {
 }
 
 /**
- * Everything the calculation engine needs, read from the database of the current season.
- * One read-only transaction, so a write that commits halfway cannot produce a snapshot where
- * the tables disagree with each other.
+ * Everything the calculation engine needs, read from the database of a season (the one chosen in
+ * the menu, unless another is given). One read-only transaction, so a write that commits halfway
+ * cannot produce a snapshot where the tables disagree with each other.
  */
-export async function loadSnapshot(): Promise<Snapshot> {
-  const season = await getCurrentSeason();
+export async function loadSnapshot(chosen?: { id: number }): Promise<Snapshot> {
+  const season = chosen ?? (await getCurrentSeason());
   const lookups = await loadLookups();
 
   return db.transaction(
@@ -99,6 +99,7 @@ export async function loadSnapshot(): Promise<Snapshot> {
           priority: line.priority,
           note: line.note,
           version: line.version,
+          carSeasonId: line.carSeasonId,
           figures: figuresByLine.get(line.id) ?? { estimate: null, actual: null },
         })),
         funds: funds.map((f) => ({

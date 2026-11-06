@@ -1,9 +1,10 @@
 import {
-  analysisByFund, analysisBySupplier, cashFlowByMonth, cashFlowSummary, fundContractsByMonth,
+  analysisByFund, analysisBySupplier, calendarYears, cashFlowByMonth, cashFlowSummary, computeLines, fundContractsByMonth,
   fundSummary, gantt, itemsView, totals, vatReport, type ItemsFilters, type Phase,
 } from "@erp/calc";
 import { notFound } from "../../core/errors";
 import { loadSnapshot } from "../../snapshot";
+import { allSeasons } from "../seasons/seasons.service";
 
 // Every view is the same two steps: read the snapshot, hand it to a pure function of the engine.
 // Nothing is stored, so a view can never be out of date.
@@ -50,4 +51,11 @@ export async function getVatReport(areaCode: string) {
   const snapshot = await loadSnapshot();
   if (!snapshot.areas.some((a) => a.code === areaCode)) throw notFound(`Area "${areaCode}"`);
   return vatReport(snapshot, areaCode);
+}
+
+/** The purchases of every season by calendar year: the only view that is not of one season. */
+export async function getCalendarYears() {
+  const lines = [];
+  for (const season of await allSeasons()) lines.push(...computeLines(await loadSnapshot(season)));
+  return calendarYears(lines);
 }

@@ -3,24 +3,28 @@ import { fromCents, fromScaled } from "@erp/api/money";
 import {
   area, bankSnapshot, budgetLine, fund, fundContract, lineFigures, lineFund, project, supplier, teamInflow,
 } from "@erp/api/schema";
-import { getCurrentSeason } from "@erp/api/seasons";
+import { getCurrentSeason, getSeasonByName } from "@erp/api/seasons";
 import { loadLookups } from "@erp/api/lookups";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { openWorkbook, readInputs } from "./read-inputs";
 import { toSnapshot } from "./to-snapshot";
 
-// Loads the workbook into the database of the current season. Development tool: it needs the
-// base data (`pnpm db:seed`) and refuses to touch a database that already has projects unless
-// called with --replace, which wipes the season's budget data and the supplier list first.
+// Loads the workbook into the database of a season: the season of today, or the one named with
+// --season=2025-2026 (created first in Settings). Development tool: it needs the base data
+// (`pnpm db:seed`) and refuses to touch a season that already has projects unless called with
+// --replace, which wipes that season's budget data first. Suppliers are one list for every season:
+// the ones already there are reused.
 
 const args = process.argv.slice(2);
 const replace = args.includes("--replace");
+const seasonName = args.find((a) => a.startsWith("--season="))?.slice("--season=".length);
 const path = args.find((a) => !a.startsWith("--")) ?? "../../fonti/Budget 26-27.xlsx";
 
 const { snapshot, warnings } = toSnapshot(readInputs(await openWorkbook(path)), await loadLookups());
 for (const w of warnings) console.warn(`warning: ${w}`);
 
-const season = await getCurrentSeason();
+const season = seasonName ? await getSeasonByName(seasonName) : await getCurrentSeason();
+console.log(`Loading into the season ${season.name}`);
 const areaIds = new Map((await db.select().from(area)).map((a) => [a.code, a.id]));
 
 await db.transaction(async (tx) => {
@@ -30,7 +34,7 @@ await db.transaction(async (tx) => {
     .where(eq(project.seasonId, season.id));
   const count = existing?.count ?? 0;
   if (count > 0 && !replace) {
-    throw new Error(`The season already has ${count} projects. Use --replace to wipe and reload.`);
+    throw new Error(`The season ${season.name} already has ${count} projects. Use --replace to wipe and reload.`);
   }
 
   // Wipe, children first (lines and their figures go with the projects).
@@ -40,7 +44,6 @@ await db.transaction(async (tx) => {
   await tx.delete(teamInflow).where(eq(teamInflow.seasonId, season.id));
   await tx.delete(bankSnapshot).where(eq(bankSnapshot.seasonId, season.id));
   await tx.delete(fund).where(and(eq(fund.seasonId, season.id), eq(fund.kind, "external")));
-  await tx.delete(supplier);
 
   // Funds: the team fund already exists; the snapshot's ids map to database ids.
   const [team] = await tx.select().from(fund).where(and(eq(fund.seasonId, season.id), eq(fund.kind, "team")));
@@ -64,10 +67,17 @@ await db.transaction(async (tx) => {
     fundIds.set(f.id, row!.id);
   }
 
+  // the suppliers already there (in any spelling) are reused: other seasons and the inventory use them
+  const known = new Map((await tx.select().from(supplier)).map((s) => [s.name.toLowerCase(), s.id]));
   const supplierIds = new Map<number, number>();
   for (const s of snapshot.suppliers) {
-    const [row] = await tx.insert(supplier).values({ name: s.name }).returning({ id: supplier.id });
-    supplierIds.set(s.id, row!.id);
+    let id = known.get(s.name.toLowerCase());
+    if (id === undefined) {
+      const [row] = await tx.insert(supplier).values({ name: s.name }).returning({ id: supplier.id });
+      id = row!.id;
+      known.set(s.name.toLowerCase(), id);
+    }
+    supplierIds.set(s.id, id);
   }
 
   const projectIds = new Map<number, number>();

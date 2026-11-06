@@ -11,6 +11,7 @@ import { Chips } from "../components/Chips";
 import { useMe } from "../lib/auth";
 import { money } from "../lib/format";
 import { canEditArea } from "../lib/permissions";
+import { useSeason, useSeasonOpen, useSeasons } from "../lib/season";
 import { SCREEN, useMaxWidth } from "../lib/screen";
 import { useAction } from "../lib/useAction";
 import { gridTheme } from "../theme/grid";
@@ -39,12 +40,15 @@ export function AreaPage() {
   const fundsActual = useQuery({ queryKey: ["funds", "actual"], queryFn: () => api.funds("actual") });
   const allFunds = useQuery({ queryKey: ["funds"], queryFn: () => api.funds() });
   const suppliers = useQuery({ queryKey: ["suppliers"], queryFn: api.suppliers });
+  const seasons = useSeasons();
+  const season = useSeason();
+  const seasonOpen = useSeasonOpen();
   // on a phone the grid does not fit: each project is a list of cards, of one phase at a time
   const phone = useMaxWidth(SCREEN.phone);
   const [phase, setPhase] = useState<Phase>("estimate");
 
   const lookups = useMemo<GridLookups | null>(() => {
-    if (!categories.data || !priorities.data || !vatRates.data || !fundsEstimate.data || !fundsActual.data || !allFunds.data || !suppliers.data) {
+    if (!categories.data || !priorities.data || !vatRates.data || !fundsEstimate.data || !fundsActual.data || !allFunds.data || !suppliers.data || !seasons.data || !season) {
       return null;
     }
     return {
@@ -56,8 +60,10 @@ export function AreaPage() {
       fundByName: new Map(allFunds.data.map((f) => [f.name.toLowerCase(), f])),
       supplierNames: suppliers.data.map((s) => s.name),
       supplierIdByName: new Map(suppliers.data.map((s) => [s.name.toLowerCase(), s.id])),
+      cars: seasons.data,
+      seasonId: season.id,
     };
-  }, [categories.data, priorities.data, vatRates.data, fundsEstimate.data, fundsActual.data, allFunds.data, suppliers.data]);
+  }, [categories.data, priorities.data, vatRates.data, fundsEstimate.data, fundsActual.data, allFunds.data, suppliers.data, seasons.data, season]);
 
   const commit: Commit = (line, patch) => {
     void act(() => api.updateLine(line.id, { version: line.version, ...patch }));
@@ -65,7 +71,8 @@ export function AreaPage() {
   const removeLine = (line: CalcLine) => {
     if (window.confirm(`Delete "${line.item}"?`)) void act(() => api.deleteLine(line.id));
   };
-  const canEdit = sheet.data ? canEditArea(me, sheet.data.area.id) : false;
+  // nobody changes the budget of a read-only season
+  const canEdit = sheet.data ? canEditArea(me, sheet.data.area.id) && seasonOpen : false;
   // the columns of a project depend on whether a line of it needs another fund (ALSO FROM), so each panel builds its own
   const buildColumns = useMemo(
     () => (lookups ? (moreFunds: MoreFunds) => areaColumns(lookups, commit, removeLine, canEdit, moreFunds) : null),
@@ -85,7 +92,9 @@ export function AreaPage() {
             ? phone
               ? "Budget lines by project. Touch a line to change it; amounts are calculated."
               : "Budget lines by project. Click a cell to edit it; amounts are calculated."
-            : "Budget lines by project. You can look but not change this area."
+            : seasonOpen
+              ? "Budget lines by project. You can look but not change this area."
+              : "Budget lines by project. This season is read-only: nothing in its budget can be changed."
         }
         add={canEdit ? { label: "New project", form: (close) => <NewProject areaCode={code} onDone={close} /> } : undefined}
       />

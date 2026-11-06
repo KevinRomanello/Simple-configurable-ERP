@@ -14,7 +14,7 @@ import { fundsRoutes } from "./modules/funds/funds.routes";
 import { healthRoutes } from "./modules/health/health.routes";
 import { inventoryRoutes } from "./modules/inventory/inventory.routes";
 import { lookupsRoutes } from "./modules/lookups/lookups.routes";
-import { seasonsRoutes } from "./modules/seasons/seasons.routes";
+import { addSeasonHook, seasonsRoutes } from "./modules/seasons/seasons.routes";
 import { suppliersRoutes } from "./modules/suppliers/suppliers.routes";
 import { usersRoutes } from "./modules/users/users.routes";
 import { viewsRoutes } from "./modules/views/views.routes";
@@ -69,6 +69,7 @@ export function buildApp(options: AppOptions = {}) {
   app.register(
     async (api) => {
       addAuthHook(api, config); // before any route, so every route below is protected
+      addSeasonHook(api); // the season chosen in the menu, for every route below
       await api.register(healthRoutes);
       await api.register(authRoutes, { config, google });
       await api.register(usersRoutes);

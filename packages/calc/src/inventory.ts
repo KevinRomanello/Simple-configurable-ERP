@@ -454,7 +454,7 @@ export function pendingLines(lines: CalcLine[], today: string): PendingLine[] {
 
 // --- statistics -----------------------------------------------------------------------------------
 
-export type StatsDimension = "project" | "area" | "category" | "location";
+export type StatsDimension = "project" | "area" | "category" | "location" | "car";
 
 export interface StatsRow {
   key: string;
@@ -474,11 +474,19 @@ export interface StatsRow {
 export interface StatsContext {
   projects: { id: number; name: string; areaId: number }[];
   areas: { id: number; name: string }[];
+  /** The days of the season shown: what was bought or used outside them is not counted (the stock is always today's). */
+  period?: { from: string; to: string };
+  /** For the cut by car: the car of every season, the season of the budget, and the season whose car each receipt is for (by movement id). */
+  cars?: { seasons: { id: number; car: string }[]; seasonId: number; receipts: Map<number, number | null> };
 }
 
 const NO_PROJECT = { key: "none", label: "(no project)" };
+const NO_CAR = { key: "none", label: "(no car)" };
 
-/** Money by project, area, category or location: what was bought, is on its way, was used, is in stock. */
+/**
+ * Money by project, area, category, location or car: what was bought, is on its way, was used, is in
+ * stock. By car only purchases count (bought and on its way): what is taken from the shelf has no car.
+ */
 export function stats(
   dimension: StatsDimension,
   data: InventoryData,
@@ -510,20 +518,29 @@ export function stats(
     return area ? { key: `area-${area.id}`, label: area.name } : NO_PROJECT;
   };
   const categoryKey = (category: string | null) => (category ? { key: category, label: category } : { key: "none", label: "(no category)" });
+  // two seasons with the same car are one car
+  const carNames = new Map((context.cars?.seasons ?? []).map((s) => [s.id, s.car]));
+  const carKey = (seasonId: number | null | undefined) => {
+    const car = seasonId == null ? undefined : carNames.get(seasonId);
+    return car ? { key: `car-${car.toLowerCase()}`, label: car } : NO_CAR;
+  };
   const projectBased = dimension === "project" || dimension === "area";
+  const purchaseKey = (m: MovementInput, category: string | null) =>
+    dimension === "car" ? carKey(context.cars?.receipts.get(m.id)) : projectBased ? projectKey(m.projectId) : categoryKey(category);
+  const inPeriod = (on: string) => !context.period || (on >= context.period.from && on <= context.period.to);
 
   for (const m of data.movements) {
     const item = items.get(m.itemId);
-    if (!item) continue;
+    if (!item || !inPeriod(m.on)) continue;
     if (m.kind === "receipt" && dimension !== "location") {
-      const target = projectBased ? projectKey(m.projectId) : categoryKey(item.category);
+      const target = purchaseKey(m, item.category);
       const r = row(target);
       r.boughtCents += valueCents(m.quantityMilli, priceOf(m, basis));
       r.involved.add(item.id);
     }
     // A piece made by the team is not counted when it is used: the parts it is made of were already counted
     // as used when they were taken for the build (for the project the build was for).
-    if (m.kind === "use" && dimension !== "location" && item.origin !== "made") {
+    if (m.kind === "use" && dimension !== "location" && dimension !== "car" && item.origin !== "made") {
       const target = projectBased ? projectKey(m.projectId) : categoryKey(item.category);
       const r = row(target);
       r.usedCents += valueCents(m.quantityMilli, unitPriceE4(receipts.get(item.id) ?? [], "average", m.on) ?? 0);
@@ -532,8 +549,9 @@ export function stats(
   }
 
   if (dimension !== "location") {
+    const lineCars = new Map(lines.map((l) => [l.id, l.carSeasonId ?? context.cars?.seasonId]));
     for (const p of pendingLines(lines, today)) {
-      const target = projectBased ? projectKey(p.projectId) : categoryKey(p.category);
+      const target = dimension === "car" ? carKey(lineCars.get(p.lineId)) : projectBased ? projectKey(p.projectId) : categoryKey(p.category);
       const r = row(target);
       r.pendingCents += valueCents(p.remainingMilli, p.prices[basis]);
     }

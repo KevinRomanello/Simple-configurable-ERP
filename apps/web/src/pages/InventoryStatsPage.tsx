@@ -7,7 +7,7 @@ import { BarsChart } from "../components/BarsChart";
 import { Chips } from "../components/Chips";
 import { PriceSelector } from "../components/PriceSelector";
 import { DataTable, PageHeader, Panel, type Column } from "../components/ui";
-import { money } from "../lib/format";
+import { date, money } from "../lib/format";
 import { usePrice } from "../lib/price";
 
 const BY: { value: StatsResult["by"]; label: string }[] = [
@@ -15,6 +15,7 @@ const BY: { value: StatsResult["by"]; label: string }[] = [
   { value: "area", label: "By area" },
   { value: "category", label: "By category" },
   { value: "location", label: "By place" },
+  { value: "car", label: "By car" },
 ];
 
 type Amount = "boughtCents" | "pendingCents" | "usedCents" | "stockCents";
@@ -33,6 +34,8 @@ const SHOWN: Record<StatsResult["by"], Amount[]> = {
   area: ["boughtCents", "pendingCents", "usedCents"],
   category: ["boughtCents", "pendingCents", "usedCents", "stockCents"],
   location: ["stockCents"],
+  // what is taken from the shelf does not say which car it goes on
+  car: ["boughtCents", "pendingCents"],
 };
 
 /** INVENTORY STATS: what was bought, what is on its way, what was used and what is on the shelf, cut the way you need. */
@@ -56,7 +59,10 @@ export function InventoryStatsPage() {
     <>
       <PageHeader
         title="INVENTORY STATS"
-        description="Bought is what has arrived, at the price of each arrival. On its way is what the budget bought and has not arrived. Used is what was taken from the shelf for a project, at the average price paid until then. On the shelf is valued at the average price paid."
+        description={
+          `${stats.data ? `The season ${stats.data.season.name}: what arrived or was used from ${date(stats.data.season.from)} to ${date(stats.data.season.to)}; the shelf is as it is today. ` : ""}` +
+          "Bought is what has arrived, at the price of each arrival. On its way is what the budget bought and has not arrived. Used is what was taken from the shelf for a project, at the average price paid until then. On the shelf is valued at the average price paid. By car: the car a purchase is for (the car of its season, unless another one was chosen)."
+        }
       />
 
       <Panel>

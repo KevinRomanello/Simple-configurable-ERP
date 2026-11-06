@@ -39,12 +39,17 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () =>
 
 const id = () => integer().primaryKey().generatedAlwaysAsIdentity();
 
-/** The budget is rebuilt every season; inventory (later) lives outside it. */
+/**
+ * One budget per season (1 September - 31 August), and the car the team builds in it. Inventory lives
+ * outside it. A read-only season refuses every change to its budget. docs/stagioni-anni-fiscali-e-macchine.md
+ */
 export const season = pgTable("season", {
   id: id(),
   name: text().notNull().unique(),
   startsOn: date().notNull(),
   endsOn: date().notNull(),
+  car: text().notNull(),
+  readOnly: boolean().notNull().default(false),
 });
 
 /** The six areas of the old sheet. `code` is a URL-safe slug, `name` is what the sheet showed. */
@@ -89,8 +94,10 @@ export const budgetLine = pgTable(
     note: text(),
     /** Bumped on every change; a write carrying an older version is rejected (optimistic lock). */
     version: integer().notNull().default(1),
+    /** Bought for the car of another season (an older car); null = the car of its own season. */
+    carSeasonId: integer().references(() => season.id),
   },
-  (t) => [index("budget_line_project").on(t.projectId)],
+  (t) => [index("budget_line_project").on(t.projectId), index("budget_line_car").on(t.carSeasonId)],
 );
 
 /** One row per line and phase. A missing phase means "all zeros". */
@@ -555,6 +562,11 @@ export const stockMovement = pgTable(
     budgetLineId: integer().references(() => budgetLine.id, { onDelete: "set null" }),
     /** A use only: the build (a `build` movement) that took these parts. Undoing the build removes them too. */
     builtBy: integer().references((): AnyPgColumn => stockMovement.id, { onDelete: "cascade" }),
+    /**
+     * A receipt from outside the budget bought for the car of another season; null = the car of the
+     * season of its date. A receipt of the budget follows its line.
+     */
+    carSeasonId: integer().references(() => season.id),
     note: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
@@ -575,6 +587,7 @@ export const stockMovement = pgTable(
     index("stock_movement_item").on(t.itemId),
     index("stock_movement_line").on(t.budgetLineId),
     index("stock_movement_project").on(t.projectId),
+    index("stock_movement_car").on(t.carSeasonId),
   ],
 );
 

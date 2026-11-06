@@ -154,7 +154,7 @@ export async function getSettings(): Promise<Settings> {
 }
 ```
 
-Chi chiamava `getSettings()` (lo snapshot, il calcolo, le pagine) non se n'è accorto. Restano scritti nel codice, con lo stesso schema, le scadenze IVA (`getVatRules`) e la stagione corrente: sono nel [registro](hardcoded-registry.md).
+Chi chiamava `getSettings()` (lo snapshot, il calcolo, le pagine) non se n'è accorto. Restano scritti nel codice, con lo stesso schema, le scadenze IVA (`getVatRules`) e i giorni di una stagione (`seasonDates`): sono nel [registro](hardcoded-registry.md). La stagione corrente non lo è più dal 6 novembre 2026: `getCurrentSeason()` legge quella scelta nel menù, e anche lì è cambiato solo il corpo della funzione.
 
 Il valore fa questo viaggio:
 
@@ -233,7 +233,7 @@ Cosa la riconciliazione **non** copre: i dati reali sono semplici (IVA quasi sem
 
 - **Login e storico ci sono** ([accesso-e-storico.md](accesso-e-storico.md)), ma l'app va ancora usata solo in locale: mancano HTTPS, backup e deploy ([produzione.md](produzione.md)).
 - **Il token di accesso (24 ore) non si revoca da solo**: si disattiva la persona dalla pagina Users (vale dalla richiesta dopo) o si cambia `JWT_SECRET` (disconnette tutti).
-- **Dati per stagione**: oggi esiste solo la stagione 2026-2027, scelta dentro `getCurrentSeason()`.
+- **Dati per stagione**: la stagione si sceglie nel menù e cambia tutto il sito; la si crea e la si blocca da Settings ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)). Nel database c'è solo la 2026-2027 finché non se ne crea un'altra.
 - **Incolla multi-riga da Sheets** non garantita nella griglia (versione Community).
 - **Sette domande aperte** per il tesoriere: il comportamento dello script è replicato com'è e ogni domanda è un'impostazione ([regole-script-attuale.md](regole-script-attuale.md), §15).
 - **Layout non disegnato su Figma**: menu, tabelle e grafici usano i token ma vanno rivisti con un designer ([stile-interfaccia.md](stile-interfaccia.md)).

@@ -136,6 +136,7 @@ export function toSnapshot(raw: RawInputs, lookups: Lookups): Converted {
           priority,
           note: line.note,
           version: 1,
+          carSeasonId: null, // the sheet has no column for it: the car of the season
           figures: {
             estimate: figuresOf(line.estimate, `${where} (estimate)`),
             actual: figuresOf(line.actual, `${where} (actual)`),

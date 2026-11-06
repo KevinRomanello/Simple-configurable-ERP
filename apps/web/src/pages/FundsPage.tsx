@@ -9,9 +9,9 @@ import { TableBox } from "../components/ExportBlocks";
 import { MonthlyInflows } from "../components/MonthlyInflows";
 import { SortTh } from "../components/SortTh";
 import { DataTable, EmptyRow, Field, FormPanel, PageHeader, Panel, type Column } from "../components/ui";
-import { useMe } from "../lib/auth";
 import { date, money, moneyFromDecimal } from "../lib/format";
 import { useSort, type SortAccessors } from "../lib/sort";
+import { useCanEditShared } from "../lib/season";
 import { useAction } from "../lib/useAction";
 
 const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
@@ -27,7 +27,7 @@ const TYPE_SHORT: Record<FundType, string> = { fund: "Fund", gift: "Goods, no VA
 
 /** CASH FROM: the sponsors, their contracts, what is left of them, and who pays the VAT. */
 export function FundsPage() {
-  const canEdit = useMe().permissions.canEditShared;
+  const canEdit = useCanEditShared();
 
   return (
     <>
@@ -225,7 +225,7 @@ const SPONSOR_SORT: SortAccessors<Fund> = {
 /** The definition of every sponsor and what it is worth, one row each, edited in place. */
 function SponsorsPanel() {
   const act = useAction();
-  const canEdit = useMe().permissions.canEditShared;
+  const canEdit = useCanEditShared();
   const funds = useQuery({ queryKey: ["funds"], queryFn: () => api.funds() });
   const rates = useQuery({ queryKey: ["vat-rates"], queryFn: api.vatRates });
   const fixedRates = useQuery({ queryKey: ["fixed-sponsor-rates"], queryFn: api.fixedSponsorRates });

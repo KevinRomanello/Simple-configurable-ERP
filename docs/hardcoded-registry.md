@@ -9,10 +9,14 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 | # | Cosa | Funzione (modulo) ↔ endpoint | Valore oggi | Diventerà |
 | --- | --- | --- | --- | --- |
 | 3 | Regole delle scadenze IVA | `getVatRules` (lookups) ↔ `GET /api/lookups/vat-rules` | trimestre → 16/05, 20/08, 16/11, 16/02 dell'anno dopo; weekend → lunedì; nessuna festività né proroga | **spariranno** quando l'IVA delle righe si pagherà alla data di pagamento ([sponsor-e-fondi.md](sponsor-e-fondi.md)); oggi le usano solo le righe del budget |
-| 4 | Orizzonte del report IVA per area | `vatReportHorizon` dentro `getSettings` (lookups) ↔ `GET /api/lookups/settings` | dal 3° trimestre 2026 al 4° 2027 (si allarga da solo intorno alle date) | sparirà con la stessa modifica (il report diventerà per mese di pagamento) |
-| 5 | Stagione corrente | `getCurrentSeason` (seasons) ↔ `GET /api/seasons/current` | 2026-2027 | elenco stagioni, selettore, creazione della nuova stagione ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)) |
+| 4 | Orizzonte del report IVA per area | `vatReportHorizon` dentro `getSettings` (lookups) ↔ `GET /api/lookups/settings` | dal 3° trimestre del primo anno della stagione mostrata al 4° del secondo (2026-27: dal 3° 2026 al 4° 2027); si allarga da solo intorno alle date | sparirà con la stessa modifica (il report diventerà per mese di pagamento) |
+| 5 | Giorni di una stagione: dal 1° settembre al 31 agosto, nome «2026-2027» | `seasonDates` (seasons) ↔ `POST /api/seasons` | settembre – agosto | un'impostazione di Settings, se la squadra cambia il suo anno ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)) |
 | 6 | Fuso orario della squadra, per sapere che giorno è «oggi» | `today` (core) ↔ un'impostazione della pagina Settings | `Europe/Rome` | un'impostazione di Settings, se una squadra non sta in Italia ([controllo-bug-e-prestazioni.md](controllo-bug-e-prestazioni.md), P2) |
 | 7 | Aliquota IVA che certi tipi di sponsor non scelgono: merce senza IVA **0%**, merce con controfattura **11%** | `getFixedSponsorRates` (lookups) ↔ `GET /api/lookups/sponsor-rates` | `gift` 0, `gift_vat` 11 | un valore della pagina Settings (oggi l'11% degli inflow è un'impostazione a parte, `inflowVatRate`) |
+
+### Implementato (6 novembre 2026): la stagione corrente
+
+Era la riga 5 («Stagione corrente», `getCurrentSeason`, fissa su 2026-2027). Ora la stagione si sceglie nel menù e arriva all'API in un header; senza scelta vale la stagione di oggi. È cambiato solo il corpo di `getCurrentSeason`. Le stagioni stanno nella tabella `season`, gestita da Settings › Seasons and cars ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)). Al suo posto la riga 5 è ora la regola dei giorni di una stagione.
 
 ### Implementati (26 ottobre 2026)
 

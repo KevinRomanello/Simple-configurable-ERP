@@ -2,6 +2,7 @@ import { PRIORITIES, type BankCompareMode, type FundType, type Lookups, type Pri
 import { asc } from "drizzle-orm";
 import { db } from "../../db/client";
 import { category, categoryField, location, setting, unit, vatRate } from "../../db/schema";
+import { getCurrentSeason } from "../seasons/seasons.service";
 import { ITEM_FIELDS, LOOKUP_DEFAULTS, type ItemField } from "./defaults";
 
 export { ITEM_FIELDS, type ItemField } from "./defaults";
@@ -52,10 +53,13 @@ export async function getVatRules(): Promise<VatRules> {
   };
 }
 
-/** The default span of the per-area VAT report; it widens by itself around the purchase dates. */
-function vatReportHorizon(): { from: Quarter; to: Quarter } {
+/**
+ * The default span of the per-area VAT report for the season starting in September of `startYear`:
+ * its quarters and the deadlines after them. It widens by itself around the purchase dates.
+ */
+function vatReportHorizon(startYear: number): { from: Quarter; to: Quarter } {
   // HARDCODED: goes away when the VAT of the lines is paid on the payment date (docs/sponsor-e-fondi.md)
-  return { from: { year: 2026, quarter: 3 }, to: { year: 2027, quarter: 4 } };
+  return { from: { year: startYear, quarter: 3 }, to: { year: startYear + 1, quarter: 4 } };
 }
 
 /** The switches of the calculation, as an admin set them on the Settings page. */
@@ -67,7 +71,7 @@ export async function getSettings(): Promise<Settings> {
     vatBaseWhenTotalSponsor: row.vatBaseWhenTotalSponsor as Settings["vatBaseWhenTotalSponsor"],
     inflowVatRate: Number(row.inflowVatRate),
     bankCompare: { summary: row.bankCompareSummary as BankCompareMode, timeline: row.bankCompareTimeline as BankCompareMode },
-    vatReportHorizon: vatReportHorizon(),
+    vatReportHorizon: vatReportHorizon(Number((await getCurrentSeason()).startsOn.slice(0, 4))),
   };
 }
 
@@ -81,7 +85,7 @@ export async function defaultLookups(): Promise<Lookups> {
     priorities: PRIORITIES,
     vatRates: LOOKUP_DEFAULTS.vatRates,
     vatRules: await getVatRules(),
-    settings: { ...LOOKUP_DEFAULTS.settings, vatReportHorizon: vatReportHorizon() },
+    settings: { ...LOOKUP_DEFAULTS.settings, vatReportHorizon: vatReportHorizon(2026) }, // the old sheet is the budget 2026-27
   };
 }
 

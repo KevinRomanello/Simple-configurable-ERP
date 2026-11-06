@@ -102,9 +102,9 @@ export function testApp(
     return {
       get: (url: string, headers?: Record<string, string>) => call("GET", url, undefined, headers),
       post: (url: string, body: unknown, headers?: Record<string, string>) => call("POST", url, body, headers),
-      patch: (url: string, body: unknown) => call("PATCH", url, body),
-      put: (url: string, body: unknown) => call("PUT", url, body),
-      del: (url: string) => call("DELETE", url),
+      patch: (url: string, body: unknown, headers?: Record<string, string>) => call("PATCH", url, body, headers),
+      put: (url: string, body: unknown, headers?: Record<string, string>) => call("PUT", url, body, headers),
+      del: (url: string, headers?: Record<string, string>) => call("DELETE", url, undefined, headers),
       /** A request with an arbitrary Cookie header (expired, forged...). */
       withCookie: (url: string, cookieHeader: string) =>
         app.inject({ method: "GET", url, headers: { cookie: cookieHeader } }).then((r) => ({
@@ -166,6 +166,12 @@ export async function resetData() {
     "truncate table line_figures, budget_line, project, fund_contract, team_inflow, bank_snapshot, supplier, audit_log, stock_movement, component_part, item_image, inventory_item, item_type restart identity cascade",
   );
   await db.delete(fund).where(eq(fund.kind, "external"));
+  // the seasons a test added go, with their team fund; the seed season is put back as it starts,
+  // and the history of all that goes too
+  await ownerPool.query("delete from fund where season_id in (select id from season where name <> '2026-2027')");
+  await ownerPool.query("delete from season where name <> '2026-2027'");
+  await ownerPool.query("update season set car = 'Car 2026-2027', read_only = false where name = '2026-2027' and (car <> 'Car 2026-2027' or read_only)");
+  await ownerPool.query("truncate table audit_log restart identity");
 }
 
 type Client = Pick<ReturnType<typeof testApp>, "get" | "post" | "put">;

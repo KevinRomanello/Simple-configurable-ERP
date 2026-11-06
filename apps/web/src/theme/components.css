@@ -56,6 +56,78 @@
   font-weight: 700;
   letter-spacing: 0;
 }
+/* The season the whole site shows: chosen under the name of the team, said again at the top of the
+   page when it is not the season of today (docs/stagioni-anni-fiscali-e-macchine.md). */
+.season-switcher {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+.season-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-left: calc(-1 * var(--space-xs));
+  padding: var(--space-3xs) var(--space-xs);
+  border: 1px solid transparent;
+  border-radius: var(--radius-3xs);
+  background: transparent;
+  color: var(--text-sub);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.season-button:hover,
+.season-button[aria-expanded="true"] {
+  border-color: var(--stroke-strong);
+  color: var(--text-strong);
+}
+.season-list {
+  margin: 0;
+  padding: var(--space-2xs) 0;
+  list-style: none;
+  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-3xs);
+  background: var(--bg-null);
+}
+.season-list button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3xs);
+  width: 100%;
+  padding: var(--space-2xs) var(--space-s);
+  border: 0;
+  background: transparent;
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.season-list button:hover {
+  background: var(--bg-sub);
+}
+.season-list button.chosen {
+  font-weight: 700;
+}
+.season-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-s);
+  padding: var(--space-xs) var(--space-m);
+  border-radius: var(--radius-3xs);
+  background: var(--primary-default);
+  color: var(--on-primary);
+  font-weight: 700;
+}
+/* on the yellow the button is the dark pill of the light theme, in both themes */
+.season-strip .btn {
+  background: var(--on-primary);
+  color: var(--primary-default);
+}
 .nav-group {
   display: flex;
   flex-direction: column;
@@ -541,6 +613,8 @@
 .pill.Medium { background: var(--warning-soft); color: var(--warning-strong); }
 .pill.Low { background: var(--success-soft); color: var(--success-strong); }
 .pill.teal { background: var(--bg-soft); color: var(--text-sub); }
+/* a budget line (or an arrival) bought for the car of another season */
+.pill.car { background: var(--warning-soft); color: var(--warning-strong); }
 .pill.hazard { background: var(--error-soft); color: var(--error-strong); margin-left: var(--space-3xs); }
 .empty {
   padding: var(--space-l);
@@ -1135,6 +1209,8 @@ body.no-scroll {
   }
   .shell.compact .brand {
     align-items: center;
+    /* it grows with the list of the seasons, and the menu under it scrolls instead of squeezing it */
+    flex-shrink: 0;
     min-height: 40px;
     margin-bottom: var(--space-s);
     padding: 0;
