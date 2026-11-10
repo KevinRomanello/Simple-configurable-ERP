@@ -4,6 +4,7 @@
 | --- | --- |
 | [piano-azione-v0.md](piano-azione-v0.md) | Cosa facciamo per arrivare a "stesse funzionalità dello script, ma su database": perimetro, blocchi di lavoro, difficoltà, rischi |
 | [architettura.md](architettura.md) | Stack, struttura del repository, livelli, modello dati, API, Docker, come si estende |
+| [schema-database.md](schema-database.md) | **Com'è organizzato il database**: la mappa dei sei gruppi di tabelle e i ponti fra loro, un diagramma ER per area (budget, fondi e CASH FLOW, registro di cassa, inventario, accesso e impostazioni), i collegamenti per nome, cosa fa rispettare il database e cosa finisce nello storico |
 | [regole-script-attuale.md](regole-script-attuale.md) | Le regole di calcolo estratte dallo script e verificate sul foglio reale (la specifica di parità), con i casi di prova |
 | [hardcoded-registry.md](hardcoded-registry.md) | Tutto ciò che è hardcoded per ora, in quale funzione-API vive e cosa diventerà |
 | [stile-interfaccia.md](stile-interfaccia.md) | Da dove vengono gli stili dell'interfaccia (Figma) e come si applicano |

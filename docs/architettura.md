@@ -108,6 +108,8 @@ Fisso per sempre (enum nel codice, non registrati come hardcode): fasi `estimate
 
 ## Modello dati (v0)
 
+I diagrammi di tutto il database, area per area, sono in [schema-database.md](schema-database.md); qui sotto ci sono le tabelle con le colonne.
+
 Soldi in `numeric` nel database e in interi nel codice: importi in centesimi, quantità in millesimi, costi unitari in decimillesimi di euro (`apps/api/src/core/money.ts` è l'unico punto di conversione, senza mai passare dai decimali binari); date come `date` ISO. Il VAT si arrotonda al centesimo riga per riga (Q7) in `calc/money.ts`. Le colonne SQL sono in `snake_case` (comodo per chi analizza). I nomi si confrontano senza distinzione di maiuscole (indice unico su `lower(name)`).
 
 | Tabella           | Campi                                                                                                                                 | Note                                                                                                                       |
