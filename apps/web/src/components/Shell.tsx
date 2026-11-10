@@ -1,5 +1,5 @@
 import {
-  faAnglesLeft, faBars, faBookOpen, faBoxesStacked, faCalendarDays, faCarSide, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece,
+  faAnglesLeft, faBars, faBookOpen, faBoxesStacked, faCalendarDays, faChevronDown, faCarSide, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece,
   faRepeat, faRightFromBracket, faSackDollar, faScaleBalanced, faSliders, faTable, faTruckFast, faUsers, faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -25,12 +25,54 @@ function Item({ to, icon, end, children }: { to: string; icon: IconDefinition; e
   );
 }
 
-/** A group of the menu, under its title: the same on a computer, a tablet and a phone. */
-function NavGroup({ title, children }: { title: string; children: ReactNode }) {
+/** The routes each group of the menu holds: the group of the page you are on opens by itself. */
+const GROUP_PATHS: Record<string, string[]> = {
+  budget: ["/budget/"],
+  views: ["/gantt/", "/analysis/"],
+  cash: ["/cash-from", "/bought-from", "/cash-flow", "/register"],
+  total: ["/total/"],
+  inventory: ["/inventory"],
+  admin: ["/users", "/settings", "/history"],
+};
+
+const CLOSED_GROUPS_KEY = "erp.menu-closed";
+
+/** The groups of the menu the person folded; remembered in this browser (and fine without it: every group is open). */
+function useClosedGroups() {
+  const [closed, setClosed] = useState<string[]>(() => {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(CLOSED_GROUPS_KEY) ?? "[]");
+      return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === "string") : [];
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(CLOSED_GROUPS_KEY, JSON.stringify(closed));
+    } catch {
+      // private window or blocked storage: the choice is simply not remembered
+    }
+  }, [closed]);
+  return {
+    closed,
+    toggle: (id: string) => setClosed((now) => (now.includes(id) ? now.filter((g) => g !== id) : [...now, id])),
+    open: (id: string) => setClosed((now) => (now.includes(id) ? now.filter((g) => g !== id) : now)),
+  };
+}
+
+/** A group of the menu: its title folds and unfolds it. The same on a computer, a tablet and a phone. */
+function NavGroup({ id, title, closed, onToggle, children }: { id: string; title: string; closed: string[]; onToggle: (id: string) => void; children: ReactNode }) {
+  const open = !closed.includes(id);
   return (
-    <nav className="nav-group">
-      <span className="nav-title label-xs bold">{title}</span>
-      {children}
+    <nav className="nav-group" aria-label={title}>
+      <button type="button" className="nav-title label-xs bold" aria-expanded={open} aria-controls={`nav-${id}`} onClick={() => onToggle(id)}>
+        {title}
+        <FontAwesomeIcon icon={faChevronDown} className={`nav-chevron${open ? "" : " shut"}`} />
+      </button>
+      <div id={`nav-${id}`} className="nav-items" hidden={!open}>
+        {children}
+      </div>
     </nav>
   );
 }
@@ -94,6 +136,13 @@ export function Shell() {
   const { pathname } = useLocation();
   const season = useSeason();
   const chosenSeason = useChosenSeasonId();
+  const groups = useClosedGroups();
+  // the group of the page you are on is open, even if it was folded before
+  const openGroup = groups.open;
+  useEffect(() => {
+    const found = Object.entries(GROUP_PATHS).find(([, paths]) => paths.some((path) => pathname.startsWith(path)));
+    if (found) openGroup(found[0]);
+  }, [pathname]);
 
   const signOut = async () => {
     await api.signOut();
@@ -140,7 +189,7 @@ export function Shell() {
         </div>
 
         {/* the pages follow the order of the sheets of the Excel file (Budget 26-27), then the ones it does not have */}
-        <NavGroup title="Budget">
+        <NavGroup id="budget" title="Budget" closed={groups.closed} onToggle={groups.toggle}>
           {areas.data?.map((area) => (
             <Item key={area.code} to={`/budget/${area.code}`} icon={faTable}>
               {area.name}
@@ -148,20 +197,7 @@ export function Shell() {
           ))}
         </NavGroup>
 
-        <NavGroup title="Cash">
-          <Item to="/cash-from" icon={faDatabase}>CASH FROM</Item>
-          <Item to="/bought-from" icon={faTruckFast}>BOUGHT FROM</Item>
-          <Item to="/cash-flow" icon={faRepeat}>CASH FLOW</Item>
-        </NavGroup>
-
-        {/* the money of the team: only the treasury and the admins see it */}
-        {me.permissions.canManageCash && (
-          <NavGroup title="Register">
-            <Item to="/register" icon={faBookOpen}>REGISTRO DI CASSA</Item>
-          </NavGroup>
-        )}
-
-        <NavGroup title="Views">
+        <NavGroup id="views" title="Views" closed={groups.closed} onToggle={groups.toggle}>
           <Item to="/gantt/estimate" icon={faChartLine}>EXPECTED GANTT</Item>
           <Item to="/gantt/actual" icon={faChartLine}>ACTUAL GANTT</Item>
           <Item to="/analysis/funds" icon={faSackDollar}>CASH FROM ANALYSES</Item>
@@ -169,14 +205,22 @@ export function Shell() {
           <Item to="/analysis/items" icon={faMagnifyingGlass}>CATEGORY ANALYSES</Item>
         </NavGroup>
 
+        {/* the money: the sponsors, the suppliers, the forecast and, for the treasury and the admins, the register of the team's money */}
+        <NavGroup id="cash" title="Cash" closed={groups.closed} onToggle={groups.toggle}>
+          <Item to="/cash-from" icon={faDatabase}>CASH FROM</Item>
+          <Item to="/bought-from" icon={faTruckFast}>BOUGHT FROM</Item>
+          <Item to="/cash-flow" icon={faRepeat}>CASH FLOW</Item>
+          {me.permissions.canManageCash && <Item to="/register" icon={faBookOpen}>REGISTRO DI CASSA</Item>}
+        </NavGroup>
+
         {/* they choose their season, year or car on their own, whatever is chosen above */}
-        <NavGroup title="Total">
+        <NavGroup id="total" title="Total" closed={groups.closed} onToggle={groups.toggle}>
           <Item to="/total/season" icon={faScaleBalanced}>SEASON TOTAL</Item>
           <Item to="/total/year" icon={faCalendarDays}>YEAR TOTAL</Item>
           <Item to="/total/car" icon={faCarSide}>CAR TOTAL</Item>
         </NavGroup>
 
-        <NavGroup title="Inventory">
+        <NavGroup id="inventory" title="Inventory" closed={groups.closed} onToggle={groups.toggle}>
           <Item to="/inventory" icon={faBoxesStacked} end>INVENTORY</Item>
           <Item to="/inventory/pending" icon={faHourglassHalf}>PENDING</Item>
           <Item to="/inventory/components" icon={faPuzzlePiece}>COMPONENTS</Item>
@@ -184,9 +228,9 @@ export function Shell() {
         </NavGroup>
 
         {(me.permissions.canManageUsers || me.permissions.canViewHistory || me.permissions.canManageSettings || me.permissions.canManageInventory || me.permissions.canManageCash) && (
-          <NavGroup title="Admin">
+          <NavGroup id="admin" title="Admin" closed={groups.closed} onToggle={groups.toggle}>
             {me.permissions.canManageUsers && <Item to="/users" icon={faUsers}>Users</Item>}
-            {/* a project manager keeps the types of the inventory there, and only them */}
+            {/* a user keeps the lists of the inventory there, and the treasury those of the register */}
             {(me.permissions.canManageSettings || me.permissions.canManageInventory || me.permissions.canManageCash) && <Item to="/settings" icon={faSliders}>Settings</Item>}
             {me.permissions.canViewHistory && <Item to="/history" icon={faClockRotateLeft}>History</Item>}
           </NavGroup>

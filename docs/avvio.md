@@ -105,7 +105,7 @@ docker compose run --rm -v "$PWD/fonti:/app/fonti:ro" api pnpm reconcile -- --db
 
 ## 3. Un giro in cinque minuti
 
-0. **In basso a sinistra** vedi chi sei e il tuo ruolo; il pulsante accanto è l'uscita. Nel gruppo **Admin** del menu ci sono **Users** (ruoli e aree dei capi area, solo admin), **Settings** (gli elenchi e il calcolo per l'admin; per i capi area solo i tipi dell'inventario) e **History** (chi ha cambiato cosa, per admin e capi area).
+0. **In basso a sinistra** vedi chi sei e il tuo ruolo; il pulsante accanto è l'uscita. Nel gruppo **Admin** del menu ci sono **Users** (ruoli e aree dei capi area, solo admin), **Settings** (tutto per l'admin; per i capi area categorie, unità, posti e tipi dell'inventario) e **History** (chi ha cambiato cosa, per admin e capi area).
 1. **MT + DMT** (menu a sinistra): vedi i progetti con le loro voci. Clicca una cella per modificarla (le celle grigie a destra sono calcolate, non si toccano). Cambia la quantità di una voce e guarda cambiare subito netto, IVA e totali.
 2. **Triangolo arancione** accanto a una voce: manca il tipo di sponsor o l'aliquota IVA, quindi l'IVA non è ancora contata.
 3. **New project** (in alto) e **Add item** (in fondo a ogni progetto): nuovi progetti e nuove voci; sono pulsanti gialli che aprono un modulo con tutte le caselle (per le voci si sceglie se compilare EXPECTED, ACTUAL o tutte e due). Il cestino in fondo alla riga elimina.
@@ -146,7 +146,7 @@ docker compose exec web pnpm --filter @erp/web test
 docker compose exec api pnpm --filter @erp/import-xlsx test
 ```
 
-Risultati attesi: 208 (motore), 392 (API), 101 (sito; 102 se in `fonti/` c'è il foglio vero del registro di cassa), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
+Risultati attesi: 208 (motore), 392 (API), 107 (sito; 108 se in `fonti/` c'è il foglio vero del registro di cassa), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
 
 Dentro `psql` (il terminale del database) servono pochi comandi: `\dt` elenca le tabelle, `select * from fund;` mostra i fondi, `\q` esce.
 

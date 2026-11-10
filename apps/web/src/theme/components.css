@@ -134,8 +134,36 @@
   gap: var(--space-3xs);
 }
 .nav-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
   padding: var(--space-xs) var(--space-xs) var(--space-2xs);
+  border: 0;
+  background: none;
   color: var(--text-soft);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.nav-title:hover {
+  color: var(--text-strong);
+}
+/* the title of a group folds and unfolds it */
+.nav-chevron {
+  font-size: 10px;
+  transition: transform 0.15s;
+}
+.nav-chevron.shut {
+  transform: rotate(-90deg);
+}
+.nav-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+.nav-items[hidden] {
+  display: none;
 }
 .nav-link {
   display: flex;
@@ -1433,25 +1461,31 @@ body.no-scroll {
 }
 
 /* --- the register of the team's money (docs/registro-di-cassa.md) ---------------------------------- */
-/* the row to type a new movement, and a row being changed: the yellow of the rows that act */
-.data-table.register tr.entry td {
-  background: var(--primary-default);
-  color: var(--on-primary);
-  vertical-align: middle;
-}
-.data-table.register tr.entry .input {
+/* a cell that reads as text and turns into its box on a click (components/EditCell.tsx) */
+.edit-cell {
+  display: block;
   width: 100%;
-  min-width: 90px;
+  min-height: 1.6em;
+  padding: 0 var(--space-3xs);
+  border: 1px solid transparent;
+  border-radius: var(--radius-3xs);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: text;
 }
-.data-table.register tr.entry td:nth-child(2) .input {
-  min-width: 200px;
+.edit-cell:hover,
+.edit-cell:focus-visible {
+  border-color: var(--stroke-sub);
+  background: var(--bg-weak);
 }
-.data-table.register tr.entry .inline-form {
-  flex-wrap: nowrap;
-  align-items: center;
+.data-table.register td .input {
+  width: 100%;
 }
-.data-table.register tr.entry .inline-form .input {
-  width: auto;
+.data-table.register td input.input[type="number"] {
+  width: 96px;
+  text-align: right;
 }
 /* the balances at the start of the year, like the row of the sheet */
 .data-table.register tr.opening td {

@@ -1,4 +1,4 @@
-import { faCheck, faFileExcel, faLink, faPen, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faFileExcel, faLink, faPen, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
 import { api } from "../api/client";
@@ -8,18 +8,23 @@ import { CashImport } from "../components/CashImport";
 import { Chips } from "../components/Chips";
 import { PayLines } from "../components/PayLines";
 import { CommitInput } from "../components/CommitInput";
+import { EditCell } from "../components/EditCell";
 import { TableBox } from "../components/ExportBlocks";
 import { SearchSelect } from "../components/SearchSelect";
 import { Cards, Field, FormPanel, Loading, Message, MoneyCard, PageHeader, Panel } from "../components/ui";
+import { SortTh } from "../components/SortTh";
 import { useMe } from "../lib/auth";
 import { date, money } from "../lib/format";
 import { decimalText } from "../lib/lineEdit";
+import { nameIn, registerSort } from "../lib/registerSort";
+import { useSort } from "../lib/sort";
 import { todayIso } from "../lib/today";
 import { useAction } from "../lib/useAction";
 
 // The register of the team's money, as the treasury's sheet: every movement of Cassa, Banca and
-// Paypal with the balances after it. The row at the top types a new movement; the pencil of a row
-// changes it. Not designed in Figma: the tables of the site. docs/registro-di-cassa.md
+// Paypal with the balances after it. "New movement" types a new movement; a click on a cell changes it
+// in place, the pencil of a row opens the whole movement. Every column sorts, like the other tables.
+// Not designed in Figma: the tables of the site. docs/registro-di-cassa.md
 
 const ACCOUNTS: { value: CashAccount; label: string }[] = [
   { value: "cash", label: "CASSA" },
@@ -71,65 +76,17 @@ const bodyOf = (d: Draft): CashEntryBody => ({
 
 const complete = (d: Draft) => d.on !== "" && Number(d.amount) > 0;
 
-/** The boxes of one movement in the cells of a row: the row of a new movement, and a row being changed. */
-function EntryCells({ draft, onChange, onSave, onCancel, categories, methods, idPrefix }: {
-  draft: Draft;
-  onChange: (change: Partial<Draft>) => void;
-  onSave: () => void;
-  onCancel?: () => void;
-  categories: CashListItem[];
-  methods: CashListItem[];
-  idPrefix: string;
-}) {
-  const id = (name: string) => `${idPrefix}-${name}`;
-  const choose = (categoryId: string) => {
-    const voce = categories.find((c) => String(c.id) === categoryId);
-    // the Voce can say that money in on it is sponsorship; the box of the row stays the person's to change
-    onChange({ categoryId, ...(draft.direction === "in" && voce ? { sponsorship: voce.sponsorship === true } : {}) });
-  };
-  const enter = (event: React.KeyboardEvent) => {
-    if (event.key === "Enter" && complete(draft)) onSave();
-    if (event.key === "Escape") onCancel?.();
-  };
-  return (
-    <>
-      <td><input id={id("on")} className="input small" type="date" aria-label="Data" min="2000-01-01" max="2100-12-31" value={draft.on} onChange={(e) => onChange({ on: e.target.value })} onKeyDown={enter} /></td>
-      <td><input id={id("description")} className="input small" aria-label="Descrizione" maxLength={500} value={draft.description} onChange={(e) => onChange({ description: e.target.value })} onKeyDown={enter} /></td>
-      <td>
-        <SearchSelect id={id("voce")} label="Voce" value={draft.categoryId} onChange={choose} choices={[{ value: "", label: "—" }, ...categories.map((c) => ({ value: String(c.id), label: c.name }))]} />
-      </td>
-      <td>
-        <select id={id("method")} className="input small" aria-label="Metodo di pagamento" value={draft.methodId} onChange={(e) => onChange({ methodId: e.target.value })}>
-          <option value="">—</option>
-          {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
-      </td>
-      <td><input type="checkbox" aria-label="Check fattura" checked={draft.invoiceChecked} onChange={(e) => onChange({ invoiceChecked: e.target.checked })} /></td>
-      <td><input type="checkbox" aria-label="Sponsorship" disabled={draft.direction === "out"} checked={draft.direction === "in" && draft.sponsorship} onChange={(e) => onChange({ sponsorship: e.target.checked })} /></td>
-      <td colSpan={9} className="group-start">
-        <div className="inline-form">
-          <select className="input small" aria-label="Conto" value={draft.account} onChange={(e) => onChange({ account: e.target.value as CashAccount })}>
-            {ACCOUNTS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
-          </select>
-          <select className="input small" aria-label="Entrata o uscita" value={draft.direction} onChange={(e) => onChange({ direction: e.target.value as "in" | "out", ...(e.target.value === "out" ? { sponsorship: false } : {}) })}>
-            <option value="in">Entrate</option>
-            <option value="out">Uscite</option>
-          </select>
-          <input id={id("amount")} className="input small" type="number" aria-label="Importo" min="0" step="0.01" placeholder="0,00" value={draft.amount} onChange={(e) => onChange({ amount: e.target.value })} onKeyDown={enter} />
-          <Button small icon={faCheck} disabled={!complete(draft)} onClick={onSave}>{onCancel ? "Save" : "Add"}</Button>
-          {onCancel && <IconButton icon={faXmark} label="Cancel" onClick={onCancel} />}
-        </div>
-      </td>
-      <td />
-    </>
-  );
-}
-
-/** The form of a new movement, opened by the yellow button of the header; it stays open so that a batch can be typed, keeping the day and the account. */
-function NewMovement({ categories, methods, onClose }: { categories: CashListItem[]; methods: CashListItem[]; onClose: () => void }) {
+/**
+ * The form of a movement. Without `entry` it is the form of a new one, opened by the yellow button of the
+ * header: it stays open so that a batch can be typed, keeping the day and the account. With `entry` it
+ * changes that movement (the pencil of a row), also its account and whether it is money in or out, which
+ * the cells of the table cannot do, and closes when saved.
+ */
+function MovementForm({ entry, categories, methods, onClose }: { entry?: CashEntryRow; categories: CashListItem[]; methods: CashListItem[]; onClose: () => void }) {
   const act = useAction();
-  const [draft, setDraft] = useState<Draft>(() => newDraft(todayIso(), "bank"));
+  const [draft, setDraft] = useState<Draft>(() => (entry ? draftOf(entry) : newDraft(todayIso(), "bank")));
   const [last, setLast] = useState("");
+  const form = entry ? "edit-move" : "new-move";
   const change = (part: Partial<Draft>) => setDraft((d) => ({ ...d, ...part }));
   const choose = (categoryId: string) => {
     const voce = categories.find((c) => String(c.id) === categoryId);
@@ -137,6 +94,10 @@ function NewMovement({ categories, methods, onClose }: { categories: CashListIte
     change({ categoryId, ...(draft.direction === "in" && voce ? { sponsorship: voce.sponsorship === true } : {}) });
   };
   const add = async () => {
+    if (entry) {
+      if (await act(() => api.updateCashEntry(entry.id, bodyOf(draft)))) onClose();
+      return;
+    }
     if (await act(() => api.createCashEntry(bodyOf(draft)))) {
       setLast(`Added: ${draft.description.trim() || "movement"}, ${draft.direction === "in" ? "Entrate" : "Uscite"} ${draft.amount} (${ACCOUNTS.find((a) => a.value === draft.account)?.label})`);
       setDraft(newDraft(draft.on, draft.account));
@@ -144,40 +105,40 @@ function NewMovement({ categories, methods, onClose }: { categories: CashListIte
   };
   return (
     <FormPanel
-      title="New movement"
-      description="One movement of money on one account, like a row of the sheet. After Add the form stays open with the same day and account, to type the next one."
-      submitLabel="Add movement"
+      title={entry ? "Change movement" : "New movement"}
+      description={entry ? "Everything about this movement, also the account and whether it is money in or out. The other boxes can also be changed with a click in the table." : "One movement of money on one account, like a row of the sheet. After Add the form stays open with the same day and account, to type the next one."}
+      submitLabel={entry ? "Save movement" : "Add movement"}
       canSubmit={complete(draft)}
       onSubmit={add}
       onCancel={onClose}
       layout="stack"
     >
       <div className="form-grid">
-        <Field label="Data" htmlFor="new-move-on">
-          <input id="new-move-on" className="input small" type="date" min="2000-01-01" max="2100-12-31" value={draft.on} onChange={(e) => change({ on: e.target.value })} />
+        <Field label="Data" htmlFor={`${form}-on`}>
+          <input id={`${form}-on`} className="input small" type="date" min="2000-01-01" max="2100-12-31" value={draft.on} onChange={(e) => change({ on: e.target.value })} />
         </Field>
-        <Field label="Conto" htmlFor="new-move-account">
-          <select id="new-move-account" className="input small" value={draft.account} onChange={(e) => change({ account: e.target.value as CashAccount })}>
+        <Field label="Conto" htmlFor={`${form}-account`}>
+          <select id={`${form}-account`} className="input small" value={draft.account} onChange={(e) => change({ account: e.target.value as CashAccount })}>
             {ACCOUNTS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
           </select>
         </Field>
-        <Field label="Entrate o uscite" htmlFor="new-move-direction">
-          <select id="new-move-direction" className="input small" value={draft.direction} onChange={(e) => change({ direction: e.target.value as "in" | "out", ...(e.target.value === "out" ? { sponsorship: false } : {}) })}>
+        <Field label="Entrate o uscite" htmlFor={`${form}-direction`}>
+          <select id={`${form}-direction`} className="input small" value={draft.direction} onChange={(e) => change({ direction: e.target.value as "in" | "out", ...(e.target.value === "out" ? { sponsorship: false } : {}) })}>
             <option value="out">Uscite (money out)</option>
             <option value="in">Entrate (money in)</option>
           </select>
         </Field>
-        <Field label="Importo (€)" htmlFor="new-move-amount">
-          <input id="new-move-amount" className="input small" type="number" min="0" step="0.01" placeholder="0,00" value={draft.amount} onChange={(e) => change({ amount: e.target.value })} />
+        <Field label="Importo (€)" htmlFor={`${form}-amount`}>
+          <input id={`${form}-amount`} className="input small" type="number" min="0" step="0.01" placeholder="0,00" value={draft.amount} onChange={(e) => change({ amount: e.target.value })} />
         </Field>
-        <Field label="Descrizione" htmlFor="new-move-description" className="wide">
-          <input id="new-move-description" className="input small" maxLength={500} autoFocus value={draft.description} onChange={(e) => change({ description: e.target.value })} />
+        <Field label="Descrizione" htmlFor={`${form}-description`} className="wide">
+          <input id={`${form}-description`} className="input small" maxLength={500} autoFocus value={draft.description} onChange={(e) => change({ description: e.target.value })} />
         </Field>
-        <Field label="Voce" htmlFor="new-move-voce">
-          <SearchSelect id="new-move-voce" value={draft.categoryId} onChange={choose} choices={[{ value: "", label: "—" }, ...categories.map((c) => ({ value: String(c.id), label: c.name }))]} />
+        <Field label="Voce" htmlFor={`${form}-voce`}>
+          <SearchSelect id={`${form}-voce`} value={draft.categoryId} onChange={choose} choices={[{ value: "", label: "—" }, ...categories.map((c) => ({ value: String(c.id), label: c.name }))]} />
         </Field>
-        <Field label="Metodo di pagamento" htmlFor="new-move-method">
-          <select id="new-move-method" className="input small" value={draft.methodId} onChange={(e) => change({ methodId: e.target.value })}>
+        <Field label="Metodo di pagamento" htmlFor={`${form}-method`}>
+          <select id={`${form}-method`} className="input small" value={draft.methodId} onChange={(e) => change({ methodId: e.target.value })}>
             <option value="">—</option>
             {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
@@ -233,16 +194,18 @@ export function CashRegisterPage() {
   const [voce, setVoce] = useState("");
   const [text, setText] = useState("");
   const [toCheck, setToCheck] = useState(false);
-  const [editing, setEditing] = useState<{ id: number; draft: Draft } | null>(null);
   const [importing, setImporting] = useState(false);
-  const [linking, setLinking] = useState<number | null>(null);
-  const linkedEntry = register.data?.entries.find((e) => e.id === linking);
+  // the movement being changed as a whole, or the one whose budget lines are being chosen: one panel at a time
+  const [panel, setPanel] = useState<{ kind: "edit" | "link"; id: number } | null>(null);
+  const panelEntry = register.data?.entries.find((e) => e.id === panel?.id);
+  const sort = useSort(registerSort(categories.data ?? [], methods.data ?? []));
 
   if (!canManageCash) return <Message>Only the treasury and the admins can see the register.</Message>;
   if (!register.data || !categories.data || !methods.data) return <Loading />;
   const data = register.data;
   const voci = categories.data;
-  const nameOf = (list: CashListItem[], id: number | null) => list.find((i) => i.id === id)?.name ?? "";
+  const nameOf = nameIn;
+  const update = (e: CashEntryRow, body: Partial<CashEntryBody>) => act(() => api.updateCashEntry(e.id, body));
 
   const shown = data.entries.filter(
     (e) =>
@@ -252,10 +215,6 @@ export function CashRegisterPage() {
       (!toCheck || !e.invoiceChecked) &&
       (text === "" || e.description.toLowerCase().includes(text.toLowerCase())),
   );
-  const change = (e: CashEntryRow) => setEditing({ id: e.id, draft: draftOf(e) });
-  const save = async () => {
-    if (editing && (await act(() => api.updateCashEntry(editing.id, bodyOf(editing.draft))))) setEditing(null);
-  };
   const remove = (e: CashEntryRow) => {
     if (window.confirm(`Delete "${e.description || "this movement"}" of ${date(e.on)}?`)) void act(() => api.deleteCashEntry(e.id));
   };
@@ -264,8 +223,8 @@ export function CashRegisterPage() {
     <>
       <PageHeader
         title="REGISTRO DI CASSA"
-        description="The movements of the team's money (Cassa, Banca, Paypal), as in the sheet of the treasury. New movement adds one; the pencil of a row changes it. The balances are worked out from the movements and are those of the whole year, even when a filter hides rows. The funds of the sponsors are not here."
-        add={{ label: "New movement", form: (close) => <NewMovement categories={voci} methods={methods.data} onClose={close} /> }}
+        description="The movements of the team's money (Cassa, Banca, Paypal), as in the sheet of the treasury. New movement adds one; click a box of a row to change it, the pencil changes the whole movement. The balances are worked out from the movements and are those of the whole year, even when a filter hides rows. The funds of the sponsors are not here."
+        add={{ label: "New movement", form: (close) => <MovementForm categories={voci} methods={methods.data} onClose={close} /> }}
         actions={
           <>
             <Field label="Year" htmlFor="register-year">
@@ -278,9 +237,12 @@ export function CashRegisterPage() {
         }
       />
       {importing && <CashImport categories={voci} methods={methods.data} onClose={() => setImporting(false)} />}
-      {linkedEntry && (
-        <Panel title={`Lines paid by: ${linkedEntry.description || "this payment"} (${date(linkedEntry.on)})`}>
-          <PayLines entry={linkedEntry} onClose={() => setLinking(null)} />
+      {panelEntry && panel?.kind === "edit" && (
+        <MovementForm key={panelEntry.id} entry={panelEntry} categories={voci} methods={methods.data} onClose={() => setPanel(null)} />
+      )}
+      {panelEntry && panel?.kind === "link" && (
+        <Panel title={`Budget lines paid by: ${panelEntry.description || "this payment"} (${date(panelEntry.on)})`}>
+          <PayLines entry={panelEntry} onClose={() => setPanel(null)} />
         </Panel>
       )}
       <Cards>
@@ -313,6 +275,8 @@ export function CashRegisterPage() {
         </label>
       </div>
 
+      {sort.state && <p className="muted">Sorted by a column: the Progressivo columns follow the order of the days, so they add up row by row only in the original order (click the header again to get it back).</p>}
+
       <TableBox title={`Registro di cassa ${data.year}`}>
         <table className="data-table register">
           <thead>
@@ -323,58 +287,76 @@ export function CashRegisterPage() {
               <th />
             </tr>
             <tr>
-              <th>DATA</th>
-              <th>DESCRIZIONE</th>
-              <th>VOCE</th>
-              <th>METODO DI PAGAMENTO</th>
-              <th>CHECK FATTURA</th>
-              <th>SPONSORSHIP</th>
+              <SortTh sort={sort} by="on">DATA</SortTh>
+              <SortTh sort={sort} by="description">DESCRIZIONE</SortTh>
+              <SortTh sort={sort} by="voce">VOCE</SortTh>
+              <SortTh sort={sort} by="method">METODO DI PAGAMENTO</SortTh>
+              <SortTh sort={sort} by="invoice">CHECK FATTURA</SortTh>
+              <SortTh sort={sort} by="sponsorship">SPONSORSHIP</SortTh>
               {ACCOUNTS.map((a) => (
                 <Fragment key={a.value}>
-                  <th className="num group-start">ENTRATE</th>
-                  <th className="num">USCITE</th>
-                  <th className="num sum">PROGRESSIVO</th>
+                  <SortTh sort={sort} by={`${a.value}.in`} className="num group-start">ENTRATE</SortTh>
+                  <SortTh sort={sort} by={`${a.value}.out`} className="num">USCITE</SortTh>
+                  <SortTh sort={sort} by={`${a.value}.balance`} className="num sum">PROGRESSIVO</SortTh>
                 </Fragment>
               ))}
-              <th className="num sum">PROGRESSIVO CUMULATO</th>
+              <SortTh sort={sort} by="total" className="num sum">PROGRESSIVO CUMULATO</SortTh>
               <th />
             </tr>
           </thead>
           <tbody>
             <OpeningRow register={data} />
-            {shown.map((e) =>
-              editing?.id === e.id ? (
-                <tr key={e.id} className="entry">
-                  <EntryCells draft={editing.draft} onChange={(c) => setEditing({ id: e.id, draft: { ...editing.draft, ...c } })} onSave={save} onCancel={() => setEditing(null)} categories={voci} methods={methods.data} idPrefix={`entry-${e.id}`} />
-                </tr>
-              ) : (
-                <tr key={e.id}>
-                  <td>{date(e.on)}</td>
-                  <td className="lines">
-                    {e.description}
-                    {e.inflow && <span className="muted"> · received the inflow {e.inflow.sourceName}</span>}
-                    {e.lines.length > 0 && <span className="muted"> · paid {e.lines.map((l) => `${l.item} ${money(l.cents)}`).join(", ")}</span>}
-                  </td>
-                  <td className="lines">{nameOf(voci, e.categoryId)}</td>
-                  <td>{nameOf(methods.data, e.methodId)}</td>
-                  <td>{e.invoiceChecked ? "yes" : ""}</td>
-                  <td>{e.sponsorship ? "yes" : ""}</td>
-                  {ACCOUNTS.map((a) => (
-                    <Fragment key={a.value}>
-                      <td className="num group-start">{e.account === a.value && e.cents > 0 ? money(e.cents) : ""}</td>
-                      <td className="num">{e.account === a.value && e.cents < 0 ? money(-e.cents) : ""}</td>
-                      <td className={`num sum${e.account === a.value ? "" : " muted"}`}>{money(e.balances[a.value])}</td>
-                    </Fragment>
-                  ))}
-                  <td className="num sum">{money(e.total)}</td>
-                  <td className="num">
-                    {e.cents < 0 && <IconButton icon={faLink} label="Lines of the budget paid" onClick={() => setLinking(linking === e.id ? null : e.id)} />}
-                    <IconButton icon={faPen} label="Change movement" onClick={() => change(e)} />
-                    <IconButton icon={faTrash} label="Delete movement" danger onClick={() => remove(e)} />
-                  </td>
-                </tr>
-              ),
-            )}
+            {sort.sorted(shown).map((e) => (
+              <tr key={e.id}>
+                <td>
+                  <EditCell kind="date" value={e.on} display={date(e.on)} label="the date" onCommit={(v) => v !== "" && update(e, { on: v })} />
+                </td>
+                <td className="lines">
+                  <EditCell kind="text" value={e.description} label="the description" onCommit={(v) => update(e, { description: v })} />
+                  {e.inflow && <span className="muted">received the inflow {e.inflow.sourceName}</span>}
+                  {e.lines.length > 0 && <span className="muted">paid {e.lines.map((l) => `${l.item} ${money(l.cents)}`).join(", ")}</span>}
+                </td>
+                <td className="lines">
+                  <EditCell
+                    kind="choice"
+                    value={String(e.categoryId ?? "")}
+                    display={nameOf(voci, e.categoryId) || undefined}
+                    label="the Voce"
+                    options={[{ value: "", label: "—" }, ...voci.map((v) => ({ value: String(v.id), label: v.name }))]}
+                    onCommit={(v) => update(e, { categoryId: v === "" ? null : Number(v) })}
+                  />
+                </td>
+                <td>
+                  <EditCell
+                    kind="choice"
+                    value={String(e.methodId ?? "")}
+                    display={nameOf(methods.data, e.methodId) || undefined}
+                    label="the payment method"
+                    options={[{ value: "", label: "—" }, ...methods.data.map((m) => ({ value: String(m.id), label: m.name }))]}
+                    onCommit={(v) => update(e, { methodId: v === "" ? null : Number(v) })}
+                  />
+                </td>
+                <td><input type="checkbox" aria-label="Check fattura" checked={e.invoiceChecked} onChange={(event) => update(e, { invoiceChecked: event.target.checked })} /></td>
+                <td><input type="checkbox" aria-label="Sponsorship" disabled={e.cents < 0} checked={e.sponsorship} onChange={(event) => update(e, { sponsorship: event.target.checked })} /></td>
+                {ACCOUNTS.map((a) => (
+                  <Fragment key={a.value}>
+                    <td className="num group-start">
+                      {e.account === a.value && e.cents > 0 && <EditCell kind="amount" value={decimalText(e.cents, 2)} display={money(e.cents)} label="the amount" onCommit={(v) => update(e, { amount: v })} />}
+                    </td>
+                    <td className="num">
+                      {e.account === a.value && e.cents < 0 && <EditCell kind="amount" value={decimalText(-e.cents, 2)} display={money(-e.cents)} label="the amount" onCommit={(v) => update(e, { amount: v })} />}
+                    </td>
+                    <td className={`num sum${e.account === a.value ? "" : " muted"}`}>{money(e.balances[a.value])}</td>
+                  </Fragment>
+                ))}
+                <td className="num sum">{money(e.total)}</td>
+                <td className="num">
+                  {e.cents < 0 && <IconButton icon={faLink} label="Link to budget lines" onClick={() => setPanel(panel?.kind === "link" && panel.id === e.id ? null : { kind: "link", id: e.id })} />}
+                  <IconButton icon={faPen} label="Change the whole movement" onClick={() => setPanel(panel?.kind === "edit" && panel.id === e.id ? null : { kind: "edit", id: e.id })} />
+                  <IconButton icon={faTrash} label="Delete movement" danger onClick={() => remove(e)} />
+                </td>
+              </tr>
+            ))}
             {shown.length === 0 && (
               <tr><td colSpan={17} className="empty">{data.entries.length === 0 ? "No movements in this year yet" : "No movement matches the filters"}</td></tr>
             )}

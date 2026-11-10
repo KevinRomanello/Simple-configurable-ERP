@@ -51,6 +51,34 @@ Descritto in [registro-di-cassa.md](registro-di-cassa.md) (§2 e §6). Non blocc
 2. **Le Voci 9.4 (Pec aruba) e 9.5 (saldo fattura)**, 42 righe, non compaiono nel rendiconto del foglio («voci di ricavocosto»): è voluto? Conta quando si farà il rendiconto.
 3. **Il Paypal** non è nel «Progressivo cumulato» del foglio (che è Cassa + Banca): è voluto? Il sito fa come il foglio.
 
+### D8. CASH FLOW dopo il registro: tenerlo, e dove si scrivono gli inflow
+
+Il foglio «Pagamenti e Scadenze» della tesoreria ha **due tabelle affiancate**: *IN ENTRATA* (data attesa, ente o persona, importo, IVA, fattura?, descrizione, casella «saldo») e *IN USCITA* (data, ente o persona, importo, descrizione, casella). Sono le due metà di una **previsione**.
+
+- *IN ENTRATA* è già nel sito: sono gli inflow EXPECTED di CASH FLOW, e la casella «saldo» è «Mark as received».
+- *IN USCITA* oggi il sito la ricava dal budget (le righe da pagare con la loro data, le scadenze dell'IVA), ma non ha le uscite **fuori budget** (un'assicurazione, una quota) e non si scrive da nessuna parte.
+- **CASH FLOW non si elimina**: è l'unica pagina che calcola il «Left value» e la linea del tempo degli incassi. Si può invece togliergli i moduli: diventa una **vista calcolata**, e gli inflow attesi e le uscite previste fuori budget si scrivono in una scheda del registro, **«Pagamenti e Scadenze»**, con le due tabelle e la casella «saldo» che collega al movimento vero.
+- Chi è un'azienda lì è lo stesso che in CASH FROM (uno sponsor), ma oggi nell'inflow il nome è testo libero: scegliendolo dall'elenco degli sponsor si evitano doppioni e refusi.
+- **Fino ad allora**: un ritocco piccolo (il pulsante «New inflow» dentro il riquadro EXPECTED e rinominato «New expected inflow», un rimando nel riquadro ACTUAL).
+- **Da decidere:** fare «Pagamenti e Scadenze» (piano a parte) o lasciare CASH FLOW com'è con il ritocco.
+
+### D9. Un movimento dovuto dal budget
+
+Una riga ACTUAL pagata dal fondo del team con ancora qualcosa da pagare è un movimento **dovuto**. Oggi la si collega a mano a un'uscita del registro *dopo* averla pagata.
+
+- **Proposta:** un elenco **«Da pagare»**, **calcolato** dal budget e non salvato (così non si può disallineare): le righe con il residuo, con la data d'acquisto o la scadenza dell'IVA. Da ogni riga un pulsante **Pay** crea l'uscita nel registro già compilata (descrizione, importo del residuo, giorno di oggi) e già collegata alla riga. Il budget genera la scadenza, il registro la chiude. Sarebbe la tabella *IN USCITA* di D8.
+- Non farei una tabella di «uscite previste» salvata: duplicherebbe il budget.
+- **Domanda per la tesoriera:** un fornitore con IVA si paga **lordo subito** (netto più IVA in un bonifico) o **netto subito e l'IVA alla scadenza** che il sito calcola? Se è lordo, il collegamento deve poter coprire anche l'IVA, altrimenti la previsione la conta due volte (già uscita e ancora da pagare). Oggi il collegamento copre solo il netto.
+
+### D10. Le spese del registro nelle pagine TOTAL
+
+Le pagine TOTAL sono il **budget** (previsto contro reale, per area, progetto e categoria) più i soldi in entrata. Le uscite del registro non ci sono.
+
+- **Non sommerei le uscite del registro alle righe ACTUAL del budget**: sono gli stessi soldi visti da due lati (un'uscita collegata a una riga è la riga), quindi si conterebbero due volte; e il registro ha anche uscite che non sono nel budget (assicurazioni, commissioni, pagamenti dell'IVA).
+- **«Solo gli inflow e outflow della banca come sommatoria»** è una vista onesta e diversa: i **soldi veri dell'anno**, entrate e uscite per Voce, con il totale. È il rendiconto («voci di ricavocosto»), che avevamo lasciato fuori.
+- **Proposta:** il TOTAL resta del budget. In **YEAR TOTAL** (il registro è per anno solare) un riquadro a parte, **«Soldi veri (registro)»**: entrate e uscite per Voce e il netto, con una riga di quadratura («di cui collegate a righe del budget» e «fuori budget»), che dice quanto si spende senza averlo previsto. In SEASON TOTAL niente: una stagione attraversa due anni solari.
+- Le entrate: il blocco «money in» potrebbe prendere dal registro le entrate **vere** dell'anno (tutte, non solo le sponsorizzazioni) al posto degli inflow scritti a mano. Da decidere insieme al rendiconto.
+
 ## Accesso e rilascio
 
 ### D5. Le risposte di IT per il login dietro il proxy

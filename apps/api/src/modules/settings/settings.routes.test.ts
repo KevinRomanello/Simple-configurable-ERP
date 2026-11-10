@@ -23,19 +23,41 @@ async function lineOf(category: string) {
 }
 
 describe("who", () => {
-  it("only an admin reads and changes the settings", async () => {
-    for (const person of [pm, viewer]) {
-      const as = api.as(person);
-      const tries = [
-        await as.get("/api/settings"),
-        await as.post("/api/settings/categories", { name: "Tools" }),
-        await as.post("/api/settings/vat-rates", { rate: 5 }),
-        await as.patch("/api/settings/calculation", { inflowVatRate: 10 }),
-      ];
-      expect(tries.map((r) => r.status)).toEqual([403, 403, 403, 403]);
-    }
+  it("an admin changes everything; a user keeps the lists of the inventory but not the calculation, the VAT rates or the seasons; a viewer nothing", async () => {
+    const user = api.as(pm);
+    expect((await user.get("/api/settings")).status).toBe(200);
+    const category = await user.post("/api/settings/categories", { name: "Tools" });
+    const unit = await user.post("/api/settings/units", { name: "drum" });
+    const place = await user.post("/api/settings/locations", { site: "Lab", room: "Shelf" });
+    expect([category.status, unit.status, place.status]).toEqual([201, 201, 201]);
+    expect((await user.patch(`/api/settings/categories/${category.body.id}`, { name: "Tools 2" })).status).toBe(204);
+    expect((await user.put("/api/settings/uncategorized-fields", { fields: ["purpose"] })).status).toBe(204);
+    expect((await user.patch(`/api/settings/units/${unit.body.id}`, { name: "drum 2" })).status).toBe(204);
+    expect((await user.patch(`/api/settings/locations/${place.body.id}`, { room: "Shelf 2" })).status).toBe(204);
+    expect((await user.del(`/api/settings/locations/${place.body.id}`)).status).toBe(204);
+    expect((await user.del(`/api/settings/units/${unit.body.id}`)).status).toBe(204);
+    expect((await user.del(`/api/settings/categories/${category.body.id}`)).status).toBe(204);
+
+    // the switches of the calculation, the VAT rates and the seasons stay with the admin
+    const notTheirs = [
+      await user.post("/api/settings/vat-rates", { rate: 5 }),
+      await user.patch("/api/settings/calculation", { inflowVatRate: 10 }),
+      await user.post("/api/seasons", { startYear: 2030, car: "Car" }),
+    ];
+    expect(notTheirs.map((r) => r.status)).toEqual([403, 403, 403]);
+
+    const viewing = api.as(viewer);
+    const tries = [
+      await viewing.get("/api/settings"),
+      await viewing.post("/api/settings/categories", { name: "Tools" }),
+      await viewing.post("/api/settings/units", { name: "drum" }),
+      await viewing.post("/api/settings/locations", { site: "Lab", room: "Shelf" }),
+      await viewing.post("/api/settings/vat-rates", { rate: 5 }),
+      await viewing.patch("/api/settings/calculation", { inflowVatRate: 10 }),
+    ];
+    expect(tries.map((r) => r.status)).toEqual([403, 403, 403, 403, 403, 403]);
     expect((await api.get("/api/me")).body.permissions.canManageSettings).toBe(true);
-    expect((await api.as(pm).get("/api/me")).body.permissions.canManageSettings).toBe(false);
+    expect((await user.get("/api/me")).body.permissions.canManageSettings).toBe(false);
   });
 
   it("starts from the values of the old sheet", async () => {

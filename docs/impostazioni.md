@@ -1,6 +1,6 @@
 # Impostazioni (pagina Settings)
 
-**Stato: fatto** (26 ottobre 2026; tipi dell'inventario il 4 novembre). Gli elenchi da cui le altre pagine scelgono e gli interruttori del calcolo erano scritti nel codice (gli «hardcode» della regola 4, [hardcoded-registry.md](hardcoded-registry.md)). Ora stanno nel database e li cambia l'**admin** dalla pagina **Admin → Settings**; i **tipi dell'inventario** li cambiano anche i **pm**. Un cambiamento vale subito per tutte le pagine e finisce nella cronologia (History), come il resto.
+**Stato: fatto** (26 ottobre 2026; tipi dell'inventario il 4 novembre). Gli elenchi da cui le altre pagine scelgono e gli interruttori del calcolo erano scritti nel codice (gli «hardcode» della regola 4, [hardcoded-registry.md](hardcoded-registry.md)). Ora stanno nel database e li cambia l'**admin** dalla pagina **Admin → Settings**; gli elenchi con cui si scrive l'**inventario** (**categorie, unità, posti, tipi**) li cambiano anche i **pm** (nel sito «User»), perché senza non si può usare l'inventario (10 novembre 2026). Un cambiamento vale subito per tutte le pagine e finisce nella cronologia (History), come il resto.
 
 ## 1. Cosa si imposta
 
@@ -19,7 +19,7 @@ Regole comuni:
 
 - **Si cancella solo ciò che non è usato.** La colonna **USED BY** dice quante volte (righe e articoli per una categoria, sponsor e righe per un'aliquota, articoli per un'unità, movimenti per un posto); il cestino è spento finché è usato, e il server rifiuta comunque (`409`, con cosa lo usa).
 - **Nomi unici** senza badare alle maiuscole (`409` se esiste già).
-- **Solo l'admin** legge e scrive questa pagina, **tranne il riquadro Item types**, che è anche dei **pm** (`403` per gli altri; i tipi usano `canManageInventory`, come il resto dell'inventario), **e le liste del registro**, che sono anche dei **pm con la spunta Treasury** (`canManageCash`). Il menù mostra Settings all'admin e al pm (con la spunta, anche le liste del registro); ognuno vede solo i suoi riquadri. Il viewer non vede la pagina (vede i tipi nell'inventario).
+- **L'admin** legge e scrive tutta la pagina. **I pm** (`canManageInventory`, come il resto dell'inventario) leggono `GET /api/settings` e cambiano **Categories** (con i loro campi e l'ordine), **Units**, **Places** e **Item types**; restano **solo dell'admin** i **switch del calcolo** (Calculation), le **aliquote IVA** (VAT rates) e le **stagioni** (Seasons and cars): per loro il server risponde `403`. Una categoria serve anche al budget (i blocchi di TOTAL e del Gantt): chi la aggiunge o la rinomina cambia anche quelle pagine, e una categoria in uso non si cancella. **Le liste del registro**, che sono anche dei **pm con la spunta Treasury** (`canManageCash`). Il menù mostra Settings all'admin e al pm (con la spunta, anche le liste del registro); ognuno vede solo i suoi riquadri. Il viewer non vede la pagina (vede i tipi nell'inventario).
 - Le priorità (High, Medium, Low) **non** sono qui: sono fisse per scelta (i colori del foglio).
 
 ### La scelta «IVA quando uno sponsor copre tutta la riga»
@@ -44,7 +44,7 @@ Cambiarla cambia subito tutte le righe pagate da uno sponsor così. La pagina lo
 | pagina | `apps/web/src/pages/SettingsPage.tsx`, fatta con i modelli dell'interfaccia ([stile-interfaccia.md](stile-interfaccia.md)); non c'è un riferimento Figma, come per Users e History |
 | permesso | `canManageSettings` in `permissionsOf` (`auth.service.ts`) |
 
-**API** (con login; solo admin):
+**API** (con login; admin, e i pm per le liste dell'inventario: categorie, unità, posti; il calcolo e le aliquote IVA solo admin):
 
 | Metodo | Percorso | Cosa fa |
 | --- | --- | --- |

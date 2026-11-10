@@ -117,7 +117,7 @@ Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modific
 | Fornitori (aggiungere, eliminare) | sì | **sì** | **sì** | **sì** | no |
 | **Inventario** (articoli, arrivi, movimenti, immagini, distinte dei componenti) | sì | **sì**, qualunque area | **sì** | **sì** | no (lo vede) |
 | Utenti, ruoli, aree assegnate, le spunte Treasury e Sponsors | sì | no | no | no | no |
-| Impostazioni (pagina Settings, [impostazioni.md](impostazioni.md)) | sì | solo Item types | Item types e le liste del registro | solo Item types | no |
+| Impostazioni (pagina Settings, [impostazioni.md](impostazioni.md)) | sì, tutta | categorie, unità, posti e Item types (non il calcolo, le aliquote IVA e le stagioni) | come il pm, più le liste del registro | come il pm | no |
 | Storico delle modifiche | sì | **sì** (tutto) | **sì** | **sì** | no |
 
 `canWrite(utente, area)` (in `auth.service.ts`): `admin` → sì; `pm` → sì solo se l'area è tra le sue; `viewer` → no. Gli sponsor e i loro contratti (CASH FROM) usano `canManageFunds`: `admin`, e il `pm` con la spunta `sponsors` (`app_user.sponsors`; su un altro ruolo non conta). I soldi del team (registro, inflow, BANK) usano `canManageCash`: `admin`, e il `pm` con la spunta `treasury` (`app_user.treasury`; su un altro ruolo non conta). I fornitori usano `canManageSuppliers` (chiunque non sia `viewer`) e lo storico `canViewHistory` (idem); la pagina Settings `canManageSettings` (solo `admin`).

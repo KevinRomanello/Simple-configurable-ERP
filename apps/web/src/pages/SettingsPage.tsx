@@ -17,25 +17,32 @@ import { SeasonsPanel } from "./SeasonsPanel";
 const FIELDS: ItemField[] = ["purpose", "safetyCodes", "disposal", "storageNotes", "maintenanceNotes"];
 
 /**
- * Settings: the lists the other pages choose from and the switches of the calculation (admins), and
- * the types of the inventory (admins and project managers, who see only those). They used to be
- * written in the code. A change applies at once to every page and goes into the history.
+ * Settings: the switches of the calculation, the VAT rates and the seasons (admins), and the lists the
+ * inventory is written with: categories, units, places and the types of the items (admins and users, who
+ * see only those; the treasury also sees the lists of the register). They used to be written in the
+ * code. A change applies at once to every page and goes into the history.
  * Not designed in Figma: built from the models of the interface. docs/impostazioni.md
  */
 export function SettingsPage() {
   const { canManageSettings, canManageInventory, canManageCash } = useMe().permissions;
-  const view = useQuery({ queryKey: ["settings"], queryFn: api.settings, enabled: canManageSettings });
+  const view = useQuery({ queryKey: ["settings"], queryFn: api.settings, enabled: canManageSettings || canManageInventory });
 
   if (!canManageSettings && !canManageInventory && !canManageCash) return <Message>Only an admin, a user or the treasury can change the settings.</Message>;
+  if (!view.data && canManageInventory) return <Loading />;
   if (!canManageSettings) {
+    // a user: the lists the inventory is written with (and, with the treasury box, those of the register)
+    const data = view.data!;
     return (
       <>
         <PageHeader
           title="Settings"
-          description={`${canManageInventory ? "The types of the inventory and what is written about each item of them." : "The Voci and the payment methods of the register."} The other settings are kept by an admin.`}
+          description={`The categories, units, places and types of the inventory${canManageCash ? ", and the Voci and the payment methods of the register" : ""}. The other settings are kept by an admin.`}
         />
-        {canManageInventory && <ItemTypesPanel />}
+        <CategoriesPanel data={data} />
+        <ItemTypesPanel />
         {canManageCash && <CashListsPanel />}
+        <UnitsPanel units={data.units} />
+        <LocationsPanel locations={data.locations} />
       </>
     );
   }

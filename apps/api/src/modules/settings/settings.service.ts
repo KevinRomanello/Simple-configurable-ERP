@@ -1,19 +1,28 @@
 import { asc, count, eq, max, or, sql, type SQL } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
-import { conflict, invalid, notFound } from "../../core/errors";
+import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { budgetLine, category, categoryField, fund, inventoryItem, lineFigures, location, setting, stockMovement, unit, vatRate } from "../../db/schema";
-import { getCurrentUser, requireAdmin } from "../auth/auth.service";
+import { canManageInventory, getCurrentUser, requireAdmin } from "../auth/auth.service";
 import { ITEM_FIELDS, type ItemField } from "../lookups/defaults";
 import { getSettings } from "../lookups/lookups.service";
 
-// The Settings page: the lists and the switches of the calculation, kept by an admin
-// (docs/impostazioni.md). Every change goes into the history (the tables have the audit trigger).
+// The Settings page (docs/impostazioni.md). The switches of the calculation, the VAT rates and the
+// seasons are the admin's; the lists the inventory is written with (categories, units, places) are also
+// kept by the project managers, who need them to use the inventory. Every change goes into the history
+// (the tables have the audit trigger).
 
 async function asAdmin() {
   const actor = await getCurrentUser();
   requireAdmin(actor);
+  return actor;
+}
+
+/** The lists of the inventory: the admins and the project managers (the people who keep the inventory). */
+async function asInventoryKeeper() {
+  const actor = await getCurrentUser();
+  if (!(await canManageInventory(actor))) throw forbidden("Only an admin or a user can change this list");
   return actor;
 }
 
@@ -35,7 +44,7 @@ const sameName = (column: typeof category.name | typeof unit.name, name: string)
 
 /** Everything the Settings page shows, with how much each entry is used (GET /api/settings). */
 export async function readSettings() {
-  await asAdmin();
+  await asInventoryKeeper();
   const [categories, fields, rates, units, locations, calculation] = await Promise.all([
     db.select().from(category).orderBy(asc(category.position), asc(category.id)),
     db.select().from(categoryField),
@@ -90,7 +99,7 @@ async function setFields(tx: Tx, categoryId: number | null, fields: ItemField[])
 
 /** A new category, last in the order; without fields it shows the same as an item without a category. */
 export async function createCategory(input: { name: string; fields?: ItemField[] }) {
-  const actor = await asAdmin();
+  const actor = await asInventoryKeeper();
   return runWrite(actor, async (tx) => {
     const [twin] = await tx.select().from(category).where(sameName(category.name, input.name));
     if (twin) throw conflict(`"${twin.name}" already exists`);
@@ -104,7 +113,7 @@ export async function createCategory(input: { name: string; fields?: ItemField[]
 
 /** Renames a category (the lines and the items that use it follow) and/or sets which fields it shows. */
 export async function updateCategory(categoryId: number, input: { name?: string; fields?: ItemField[] }) {
-  const actor = await asAdmin();
+  const actor = await asInventoryKeeper();
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(category).where(eq(category.id, categoryId)).for("update");
     if (!target) throw notFound("Category");
@@ -120,7 +129,7 @@ export async function updateCategory(categoryId: number, input: { name?: string;
 }
 
 export async function deleteCategory(categoryId: number) {
-  const actor = await asAdmin();
+  const actor = await asInventoryKeeper();
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(category).where(eq(category.id, categoryId));
     if (!target) throw notFound("Category");
@@ -134,7 +143,7 @@ export async function deleteCategory(categoryId: number) {
 
 /** The fields of an item without a category. */
 export async function setUncategorizedFields(fields: ItemField[]) {
-  const actor = await asAdmin();
+  const actor = await asInventoryKeeper();
   await runWrite(actor, (tx) => setFields(tx, null, fields));
 }
 
@@ -148,7 +157,7 @@ async function reorder(tx: Tx, table: typeof category | typeof location, ids: nu
 }
 
 export async function orderCategories(ids: number[]) {
-  const actor = await asAdmin();
+  const actor = await asInventoryKeeper();
   await runWrite(actor, (tx) => reorder(tx, category, ids));
 }
 
@@ -180,7 +189,7 @@ export async function deleteVatRate(rateId: number) {
 // --- units ---------------------------------------------------------------------------------------
 
 export async function createUnit(name: string) {
-  const actor = await asAdmin();
+  const actor = await asInventoryKeeper();
   return runWrite(actor, async (tx) => {
     const [twin] = await tx.select().from(unit).where(sameName(unit.name, name));
     if (twin) throw conflict(`"${twin.name}" is already in the list`);
@@ -191,7 +200,7 @@ export async function createUnit(name: string) {
 
 /** Renames a unit; the items counted in it follow. */
 export async function renameUnit(unitId: number, name: string) {
-  const actor = await asAdmin();
+  const actor = await asInventoryKeeper();
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(unit).where(eq(unit.id, unitId)).for("update");
     if (!target) throw notFound("Unit");
@@ -203,7 +212,7 @@ export async function renameUnit(unitId: number, name: string) {
 }
 
 export async function deleteUnit(unitId: number) {
-  const actor = await asAdmin();
+  const actor = await asInventoryKeeper();
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(unit).where(eq(unit.id, unitId));
     if (!target) throw notFound("Unit");
@@ -218,7 +227,7 @@ const slug = (text: string) => text.toLowerCase().normalize("NFD").replace(/[̀-
 
 /** A new place, last in the order. Its code (what the movements store) is made from its names and never changes. */
 export async function createLocation(input: { site: string; room: string }) {
-  const actor = await asAdmin();
+  const actor = await asInventoryKeeper();
   return runWrite(actor, async (tx) => {
     const [twin] = await tx.select().from(location).where(sql`lower(${location.site}) = lower(${input.site}) and lower(${location.room}) = lower(${input.room})`);
     if (twin) throw conflict(`"${twin.site} / ${twin.room}" already exists`);
@@ -234,7 +243,7 @@ export async function createLocation(input: { site: string; room: string }) {
 
 /** Renames the site or the room of a place; its code stays, so the movements stay right. */
 export async function updateLocation(locationId: number, input: { site?: string; room?: string }) {
-  const actor = await asAdmin();
+  const actor = await asInventoryKeeper();
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(location).where(eq(location.id, locationId)).for("update");
     if (!target) throw notFound("Place");
@@ -247,7 +256,7 @@ export async function updateLocation(locationId: number, input: { site?: string;
 }
 
 export async function deleteLocation(locationId: number) {
-  const actor = await asAdmin();
+  const actor = await asInventoryKeeper();
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(location).where(eq(location.id, locationId));
     if (!target) throw notFound("Place");
@@ -259,7 +268,7 @@ export async function deleteLocation(locationId: number) {
 }
 
 export async function orderLocations(ids: number[]) {
-  const actor = await asAdmin();
+  const actor = await asInventoryKeeper();
   await runWrite(actor, (tx) => reorder(tx, location, ids));
 }
 

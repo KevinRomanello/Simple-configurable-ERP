@@ -21,7 +21,7 @@ import {
   updateLocation,
 } from "./settings.service";
 
-// The Settings page (admin only: the service checks it). docs/impostazioni.md
+// The Settings page (the service checks who: docs/impostazioni.md).
 const idParam = z.object({ id });
 const name = shortText(60);
 const fields = z.array(z.enum(ITEM_FIELDS)).max(ITEM_FIELDS.length);
