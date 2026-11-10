@@ -8,7 +8,7 @@ Ogni pagina con tabelle o grafici ha un pulsante **Download** tra i comandi dell
 
 | | PDF | Excel |
 | --- | --- | --- |
-| Tabella | testo, con le intestazioni a gruppi (EXPECTED / ACTUAL), le righe di totale in grigio, le fasce dei gruppi in giallo | un foglio per tabella, con numeri e date **veri** (si possono sommare), formato euro/percentuale/data, intestazione bloccata, celle unite dove la tabella le unisce |
+| Tabella | testo, con le intestazioni a gruppi (EXPECTED / ACTUAL), le righe di totale in giallo, le fasce dei gruppi (il nome di un'area) in grigio | un foglio per tabella, con numeri e date **veri** (si possono sommare), formato euro/percentuale/data, intestazione bloccata, celle unite dove la tabella le unisce |
 | Grafico | un'immagine, **sempre su fondo bianco** con testi scuri e legenda (a capo se non c'è posto) | nel foglio: l'immagine e sotto i numeri del grafico (in euro), perché in Excel si possano riusare |
 | Pagina del PDF | A4 orizzontale; **A3 orizzontale** se una tabella ha più di 14 colonne (le griglie del budget ne hanno 27), così una tabella non si spezza mai su due pagine | — |
 

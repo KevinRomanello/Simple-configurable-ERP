@@ -13,7 +13,7 @@ const pdfText = (text: string) =>
 
 const FILL: Record<NonNullable<Cell["fill"]>, [number, number, number]> = {
   head: [70, 70, 70],
-  band: [243, 255, 23],
+  band: [204, 204, 204], // the gray of the heading of a group of rows (an area): only the sums are yellow
   total: [243, 255, 23], // the yellow of the total rows on the screen
 };
 

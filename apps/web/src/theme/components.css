@@ -582,9 +582,10 @@
 .data-table td.lines {
   white-space: normal;
 }
+/* the heading of a group of rows (an area in the Gantt) is gray: only the rows that sum up are yellow */
 .data-table tr.group td {
-  background: var(--primary-default);
-  color: var(--on-primary);
+  background: var(--bg-sub);
+  color: var(--text-strong);
   font-weight: 700;
 }
 .negative {
