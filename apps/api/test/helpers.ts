@@ -1,3 +1,4 @@
+import { CASH_CATEGORIES, CASH_METHODS } from "../src/modules/cash/defaults";
 import { eq, sql } from "drizzle-orm";
 import pg from "pg";
 import type { FastifyInstance } from "fastify";
@@ -31,6 +32,10 @@ export interface Person {
   email: string;
   role: User["role"];
   areas?: string[];
+  /** A project manager who also keeps the money of the team. */
+  treasury?: boolean;
+  /** A project manager who also keeps the sponsors. */
+  sponsors?: boolean;
 }
 
 export const ADMIN: Person = { email: "admin@team.test", role: "admin" };
@@ -40,8 +45,8 @@ export async function createUser(person: Person): Promise<User & { active: boole
   const email = person.email.toLowerCase();
   const [existing] = await db.select().from(appUser).where(sql`lower(${appUser.email}) = ${email}`);
   const [row] = existing
-    ? await db.update(appUser).set({ role: person.role, active: true }).where(eq(appUser.id, existing.id)).returning()
-    : await db.insert(appUser).values({ email, name: email.split("@")[0]!, role: person.role }).returning();
+    ? await db.update(appUser).set({ role: person.role, treasury: person.treasury ?? false, sponsors: person.sponsors ?? false, active: true }).where(eq(appUser.id, existing.id)).returning()
+    : await db.insert(appUser).values({ email, name: email.split("@")[0]!, role: person.role, treasury: person.treasury ?? false, sponsors: person.sponsors ?? false }).returning();
 
   await db.delete(userArea).where(eq(userArea.userId, row!.id));
   const areaIds: number[] = [];
@@ -50,7 +55,7 @@ export async function createUser(person: Person): Promise<User & { active: boole
     await db.insert(userArea).values({ userId: row!.id, areaId: found!.id });
     areaIds.push(found!.id);
   }
-  return { id: row!.id, email, name: row!.name, role: row!.role, areaIds, active: true };
+  return { id: row!.id, email, name: row!.name, role: row!.role, treasury: row!.treasury, sponsors: row!.sponsors, areaIds, active: true };
 }
 
 /** The Cookie header of a signed-in user. */
@@ -171,6 +176,12 @@ export async function resetData() {
   await ownerPool.query("delete from fund where season_id in (select id from season where name <> '2026-2027')");
   await ownerPool.query("delete from season where name <> '2026-2027'");
   await ownerPool.query("update season set car = 'Car 2026-2027', read_only = false where name = '2026-2027' and (car <> 'Car 2026-2027' or read_only)");
+  // the register and its two lists, as a new installation has them
+  await ownerPool.query("truncate table cash_entry, cash_opening, cash_category, cash_method restart identity cascade");
+  for (const [index, c] of CASH_CATEGORIES.entries()) {
+    await ownerPool.query("insert into cash_category (name, position, sponsorship) values ($1, $2, $3)", [c.name, index + 1, c.sponsorship]);
+  }
+  for (const [index, name] of CASH_METHODS.entries()) await ownerPool.query("insert into cash_method (name, position) values ($1, $2)", [name, index + 1]);
   await ownerPool.query("truncate table audit_log restart identity");
 }
 

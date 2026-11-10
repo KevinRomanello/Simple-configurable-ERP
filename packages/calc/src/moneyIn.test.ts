@@ -9,7 +9,7 @@ const season2026 = snapshot({
     { id: 2, fundId: 2, phase: "actual", amountCents: 800_000, inflowDate: "2027-02-01" },
     { id: 3, fundId: 3, phase: "estimate", amountCents: 300_000, inflowDate: null },
   ],
-  inflows: [{ id: 1, phase: "actual", sourceName: "Gala dinner", amountCents: 250_000, inflowDate: "2026-12-12" }],
+  inflows: [{ id: 1, phase: "actual", sourceName: "Gala dinner", amountCents: 250_000, inflowDate: "2026-12-12", sponsorship: true }],
   bank: { amountCents: 560_000, asOfDate: "2026-10-15" },
 });
 const season2025 = snapshot({
@@ -30,6 +30,19 @@ describe("moneyIn", () => {
     ]);
     expect(rows[0]!.asOf).toBe("2026-10-15");
     expect(total).toEqual({ estimate: 1_860_000, actual: 1_610_000 });
+  });
+
+  it("for a season: an inflow dated on or before the BANK day is already in the BANK; in a year it counts", () => {
+    const withOld = snapshot({
+      funds: [teamFund],
+      inflows: [
+        { id: 1, phase: "actual", sourceName: "Old", amountCents: 100_000, inflowDate: "2026-10-15", sponsorship: true },
+        { id: 2, phase: "actual", sourceName: "New", amountCents: 50_000, inflowDate: "2026-10-16", sponsorship: true },
+      ],
+      bank: { amountCents: 560_000, asOfDate: "2026-10-15" },
+    });
+    expect(moneyIn([withOld]).rows.map((r) => r.label)).toEqual(["BANK", "New"]);
+    expect(moneyIn([withOld], "2026").rows.map((r) => r.label)).toEqual(["New", "Old"]);
   });
 
   it("for a calendar year: what is dated in it, of every season, the same sponsor in one row, no BANK and nothing without a date", () => {

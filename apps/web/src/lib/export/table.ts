@@ -154,7 +154,8 @@ export function tableFromDom(element: HTMLTableElement): Table {
       });
     });
   const head = element.tHead ? [...element.tHead.rows].map(rowOf) : [];
-  const body = [...element.tBodies].flatMap((section) => [...section.rows].map(rowOf));
+  // a row marked so (the row to type a new movement in) is a command, not data
+  const body = [...element.tBodies].flatMap((section) => [...section.rows].filter((tr) => !tr.hasAttribute("data-export-skip")).map(rowOf));
   return dropEmptyColumns({ head, body });
 }
 

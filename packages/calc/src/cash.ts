@@ -22,7 +22,7 @@ export interface InflowVat {
 export function inflowVat(snapshot: Snapshot, phase: Phase): InflowVat[] {
   const rate = snapshot.lookups.settings.inflowVatRate;
   return bankInflows(snapshot, phase)
-    .filter((i): i is InflowInput & { inflowDate: string } => i.inflowDate !== null)
+    .filter((i): i is InflowInput & { inflowDate: string } => i.inflowDate !== null && i.sponsorship)
     .map((i) => ({ dueDate: firstDayOfNextQuarter(i.inflowDate), cents: percentOf(i.amountCents, rate) }))
     .filter((v) => v.cents > 0);
 }

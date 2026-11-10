@@ -52,6 +52,7 @@ export function LineCards({ project, phase, lookups, canEdit, onRemove }: {
               {otherCar && <span className="pill car">for {otherCar.car}</span>}
               {line.arrival.status !== "planned" && <ArrivalPill status={line.arrival.status} />}
               {calc.shortCents > 0 && <span className="hint error">The funds miss {money(calc.shortCents)}</span>}
+              {calc.paidCents > 0 && <span className="hint">{calc.paidCents >= calc.teamFundCents ? "Paid" : `Paid ${money(calc.paidCents)} of ${money(calc.teamFundCents)}`}</span>}
             </span>
             <span className="line-amount">
               <strong>{money(calc.amounts.grossCents)}</strong>

@@ -8,9 +8,10 @@
 | --- | --- |
 | Come si entra | **dietro il proxy dell'organizzazione**: l'header `X-Email` (§12, il modo del deploy); oppure **Google**, solo account del dominio del team (§2). Niente password nostre |
 | Cosa dice "sei dentro" | un **JWT** firmato, valido **24 ore**, in un cookie `HttpOnly`; **nessuna tabella di sessioni** |
-| Ruoli | `admin` (il tesoriere), `pm` (per **area**), `viewer` |
+| Ruoli | `admin` (il tesoriere), `pm` (per **area**; nel sito si chiama **«User»**, il valore tecnico resta `pm`) e `viewer`. Due cose non sono ruoli ma **spunte di un pm**, che l'admin mette da Users: **«Treasury»** (i soldi del team, [registro-di-cassa.md](registro-di-cassa.md)) e **«Sponsors»** (chi tiene gli sponsor: non è uno sponsor, gestisce i loro fondi) |
 | Primo accesso | chi ha un account del team entra da solo come **`viewer`**; un admin lo promuove |
-| Fondi, contratti, ingressi, BANK | **solo `admin`** |
+| Fondi e contratti (CASH FROM) | **`admin` e i `pm` con la spunta Sponsors** |
+| Il registro di cassa, gli inflow e il BANK di CASH FLOW | **`admin` e i `pm` con la spunta Treasury** |
 | Impostazioni (categorie, aliquote, unità, posti, interruttori del calcolo: pagina Settings) | **solo `admin`**; il riquadro **Item types** (tipi dell'inventario e loro parametri) anche `pm`, come il resto dell'inventario |
 | Fornitori | `admin` e `pm` possono aggiungerli (e toglierli, se non usati) |
 | Storico | **tabella** `audit_log` scritta da **trigger** del database; lo vedono `admin` e `pm` |
@@ -104,20 +105,22 @@ Google accetta come URI di reindirizzamento solo indirizzi HTTPS con un nome di 
 
 Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modificare (`user_area`: utente, area).
 
-| Azione | `admin` | `pm` | `viewer` |
-| --- | --- | --- | --- |
-| Vedere tutto: aree, viste, grafici, analisi | sì | sì | sì |
-| Voci e progetti (aggiungere, modificare, eliminare) | tutte le aree | **solo le aree assegnate** | no |
-| Fondi, contratti, ingressi, BANK | sì | **no** | no |
-| Scegliere la stagione da guardare (menù) | sì | sì | sì |
-| Stagioni: crearle, la loro macchina, la sola lettura (Settings) | sì | no | no |
-| Fornitori (aggiungere, eliminare) | sì | **sì** | no |
-| **Inventario** (articoli, arrivi, movimenti, immagini, distinte dei componenti) | sì | **sì**, qualunque area | no (lo vede) |
-| Utenti, ruoli, aree assegnate | sì | no | no |
-| Impostazioni (pagina Settings, [impostazioni.md](impostazioni.md)) | sì | solo Item types | no |
-| Storico delle modifiche | sì | **sì** (tutto) | no |
+| Azione | `admin` | `pm` («User») | `pm` con **Treasury** | `pm` con **Sponsors** | `viewer` |
+| --- | --- | --- | --- | --- | --- |
+| Vedere tutto: aree, viste, grafici, analisi (il registro no, vedi sotto) | sì | sì | sì | sì | sì |
+| Voci e progetti (aggiungere, modificare, eliminare) | tutte le aree | **solo le aree assegnate** | **solo le aree assegnate** | **solo le aree assegnate** | no |
+| Fondi e contratti (CASH FROM) | sì | **no** | **no** | **sì** | no |
+| Inflow e BANK scritto a mano (CASH FLOW), segnare un inflow come ricevuto | sì | **no** | **sì** | **no** | no |
+| **Registro di cassa** (vederlo e scriverlo, le sue liste, l'import, i collegamenti alle righe del budget) | sì | **no** (`403`) | **sì** | **no** (`403`) | no (`403`) |
+| Scegliere la stagione da guardare (menù) | sì | sì | sì | sì | sì |
+| Stagioni: crearle, la loro macchina, la sola lettura (Settings) | sì | no | no | no | no |
+| Fornitori (aggiungere, eliminare) | sì | **sì** | **sì** | **sì** | no |
+| **Inventario** (articoli, arrivi, movimenti, immagini, distinte dei componenti) | sì | **sì**, qualunque area | **sì** | **sì** | no (lo vede) |
+| Utenti, ruoli, aree assegnate, le spunte Treasury e Sponsors | sì | no | no | no | no |
+| Impostazioni (pagina Settings, [impostazioni.md](impostazioni.md)) | sì | solo Item types | Item types e le liste del registro | solo Item types | no |
+| Storico delle modifiche | sì | **sì** (tutto) | **sì** | **sì** | no |
 
-`canWrite(utente, area)` (in `auth.service.ts`): `admin` → sì; `pm` → sì solo se l'area è tra le sue; `viewer` → no. Per i dati condivisi si chiede `canWrite(utente, null)`: **solo `admin`**. I fornitori usano `canManageSuppliers` (chiunque non sia `viewer`) e lo storico `canViewHistory` (idem); la pagina Settings `canManageSettings` (solo `admin`).
+`canWrite(utente, area)` (in `auth.service.ts`): `admin` → sì; `pm` → sì solo se l'area è tra le sue; `viewer` → no. Gli sponsor e i loro contratti (CASH FROM) usano `canManageFunds`: `admin`, e il `pm` con la spunta `sponsors` (`app_user.sponsors`; su un altro ruolo non conta). I soldi del team (registro, inflow, BANK) usano `canManageCash`: `admin`, e il `pm` con la spunta `treasury` (`app_user.treasury`; su un altro ruolo non conta). I fornitori usano `canManageSuppliers` (chiunque non sia `viewer`) e lo storico `canViewHistory` (idem); la pagina Settings `canManageSettings` (solo `admin`).
 
 In una stagione **in sola lettura** nessuno, admin compreso, cambia il budget (voci, progetti, fondi, contratti, ingressi, BANK): il server risponde `409` e il sito nasconde i comandi. L'admin la riapre da Settings ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)).
 

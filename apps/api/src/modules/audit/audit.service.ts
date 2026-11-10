@@ -63,6 +63,10 @@ function labelOf(table: string, row: Json): string {
       return "BANK";
     case "inventory_item":
       return pick("name");
+    case "cash_entry":
+      return pick("description");
+    case "cash_opening":
+      return `${pick("account")} on 1 January ${String(row.year ?? "")}`;
     case "stock_movement":
       return `${pick("kind")} of item ${String(row.item_id ?? "")}`;
     case "category_field":

@@ -7,13 +7,14 @@ import { useAction } from "../lib/useAction";
 
 const ROLES: { value: Role; label: string }[] = [
   { value: "viewer", label: "viewer: looks only" },
-  { value: "pm", label: "pm: changes their areas" },
+  { value: "pm", label: "user: changes their areas" },
   { value: "admin", label: "admin: everything" },
 ];
 
 /**
  * Who can sign in and what they may do. People appear here after their first sign-in, as viewers;
- * an admin makes them pm (and picks their areas) or admin. Not designed in Figma yet.
+ * an admin makes them a user (the `pm` role: they pick their areas, and tick Treasury if they keep the
+ * team's money and Sponsors if they keep the sponsors) or admin. Not designed in Figma yet.
  */
 export function UsersPage() {
   const act = useAction();
@@ -43,7 +44,7 @@ export function UsersPage() {
     },
     {
       key: "areas",
-      header: "AREAS (PM)",
+      header: "AREAS, TREASURY AND SPONSORS (USER)",
       cell: (u) =>
         u.role === "pm" ? (
           <div className="area-boxes">
@@ -53,6 +54,14 @@ export function UsersPage() {
                 {area.name}
               </label>
             ))}
+            <label className="checkbox" title="The register of the team's money, and the BANK and the inflows of CASH FLOW">
+              <input type="checkbox" checked={u.treasury} aria-label={`${u.name} keeps the team's money (treasury)`} onChange={(e) => change(u, { treasury: e.target.checked })} />
+              <strong>Treasury</strong>
+            </label>
+            <label className="checkbox" title="The funds of the sponsors and their contracts (CASH FROM)">
+              <input type="checkbox" checked={u.sponsors} aria-label={`${u.name} keeps the sponsors`} onChange={(e) => change(u, { sponsors: e.target.checked })} />
+              <strong>Sponsors</strong>
+            </label>
           </div>
         ) : (
           <span className="muted">—</span>

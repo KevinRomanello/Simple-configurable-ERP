@@ -64,7 +64,7 @@ export function ItemTypesPanel() {
     <Panel title="Item types">
       <p className="muted">
         The kinds of things each area keeps (Resistor, Capacitor, Screw…) and what is written about each item of them: a number with its unit
-        (10k, 100n with k, M, m, µ…), one of a list, a text, a yes or no. Admins and project managers keep them; everybody sees them in the
+        (10k, 100n with k, M, m, µ…), one of a list, a text, a yes or no. Admins and users keep them; everybody sees them in the
         inventory, where they filter the list. A type of no area is offered to every area.
       </p>
       <DataTable title="Item types" columns={columns} rows={types.data} rowKey={(t) => t.id} empty="No types yet" />

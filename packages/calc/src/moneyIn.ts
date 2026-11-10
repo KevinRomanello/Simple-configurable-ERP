@@ -23,7 +23,8 @@ export interface MoneyIn {
  * For one season: its BANK (the same in both phases), the money of each sponsor and the inflows of
  * CASH FLOW. For a calendar year (`year`): the money of the sponsors and the inflows dated in it, of
  * every season, and no BANK (a balance on a day, not something that came in). Sponsors and sources
- * with the same name (any case) are one row.
+ * with the same name (any case) are one row. In a season, an inflow dated on or before the BANK day is
+ * already in the BANK (the register's sponsorship money is), so it is not counted a second time.
  */
 export function moneyIn(snapshots: Snapshot[], year?: string): MoneyIn {
   const rows = new Map<string, MoneyInRow>();
@@ -41,7 +42,11 @@ export function moneyIn(snapshots: Snapshot[], year?: string): MoneyIn {
     }
     const funds = new Map(snapshot.funds.map((f) => [f.id, f.name]));
     for (const c of snapshot.contracts) add("sponsor", funds.get(c.fundId) ?? `Fund ${c.fundId}`, c.phase, c.amountCents, c.inflowDate);
-    for (const i of snapshot.inflows) add("inflow", i.sourceName, i.phase, i.amountCents, i.inflowDate);
+    const bankDay = year === undefined ? (snapshot.bank?.asOfDate ?? null) : null;
+    for (const i of snapshot.inflows) {
+      if (bankDay !== null && i.inflowDate !== null && i.inflowDate <= bankDay) continue;
+      add("inflow", i.sourceName, i.phase, i.amountCents, i.inflowDate);
+    }
   }
 
   const order = { bank: 0, sponsor: 1, inflow: 2 };

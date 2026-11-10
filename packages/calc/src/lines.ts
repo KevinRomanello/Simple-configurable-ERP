@@ -18,6 +18,12 @@ export interface PhaseCalc {
   shortCents: number;
   /** The net purchases paid from the team fund (VAT excluded). */
   teamFundCents: number;
+  /** How much of it the payments of the register linked to this line have paid (ACTUAL only). */
+  paidCents: number;
+  /** What is still to leave the team fund: `teamFundCents` less what is paid. */
+  teamFundDueCents: number;
+  /** When it leaves: the purchase date, or the day after the BANK when that has passed and the line is partly paid. */
+  cashDate: string | null;
   supplierId: number | null;
   supplierName: string | null;
   purchaseDate: string | null;
@@ -63,6 +69,7 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
   const funds = new Map(snapshot.funds.map((f) => [f.id, f]));
   const suppliers = new Map(snapshot.suppliers.map((s) => [s.id, s]));
   const received = new Map(snapshot.receipts.map((r) => [r.lineId, r.quantityMilli]));
+  const paid = new Map((snapshot.payments ?? []).map((p) => [p.lineId, p.cents]));
 
   // What each fund can still pay in a phase: its contracts (a gift has none and is never short).
   const balances: Record<Phase, FundBalances> = { estimate: new Map(), actual: new Map() };
@@ -71,11 +78,15 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
     balance.set(contract.fundId, (balance.get(contract.fundId) ?? 0) + contract.amountCents);
   }
 
-  function phaseCalc(phase: Phase, figures: Figures | null): PhaseCalc {
+  function phaseCalc(phase: Phase, figures: Figures | null, lineId: number): PhaseCalc {
     const chosen = (figures?.fundIds ?? []).map((id) => funds.get(id)).filter((f): f is FundInput => f !== undefined);
     const settled = settleLine(figures, chosen, balances[phase], settings);
     const supplier = figures?.supplierId != null ? suppliers.get(figures.supplierId) : undefined;
     const purchaseDate = figures?.purchaseDate ?? null;
+    // a line with payments counts only what is still to pay; one without keeps the rule of the purchase date
+    const paidCents = phase === "actual" ? (paid.get(lineId) ?? 0) : 0;
+    const teamFundDueCents = Math.max(0, settled.teamFundCents - paidCents);
+    const late = paidCents > 0 && teamFundDueCents > 0 && snapshot.lateFrom !== undefined && purchaseDate !== null && purchaseDate < snapshot.lateFrom;
 
     return {
       figures,
@@ -84,6 +95,9 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
       fundName: chosen.length > 0 ? chosen.map((f) => f.name).join(" + ") : null,
       shortCents: settled.shares.reduce((sum, s) => sum + s.shortCents, 0),
       teamFundCents: settled.teamFundCents,
+      paidCents,
+      teamFundDueCents,
+      cashDate: late ? snapshot.lateFrom! : purchaseDate,
       supplierId: supplier?.id ?? null,
       supplierName: supplier?.name ?? null,
       purchaseDate,
@@ -123,8 +137,8 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
     areaId: area.id,
     areaCode: area.code,
     areaName: area.name,
-    estimate: phaseCalc("estimate", line.figures.estimate),
-    actual: phaseCalc("actual", line.figures.actual),
+    estimate: phaseCalc("estimate", line.figures.estimate, line.id),
+    actual: phaseCalc("actual", line.figures.actual, line.id),
     arrival: arrivalOf(line.figures.actual?.quantityMilli ?? 0, received.get(line.id) ?? 0),
   }));
 }

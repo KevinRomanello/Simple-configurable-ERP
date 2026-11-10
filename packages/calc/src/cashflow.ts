@@ -37,8 +37,8 @@ export function cashFlowSummary(snapshot: Snapshot, phase: Phase): CashFlowSumma
 
   const lines = computeLines(snapshot).map((l) => l[phase]);
   const teamPurchases = lines
-    .filter((p) => counts(p.purchaseDate))
-    .reduce((sum, p) => sum + p.teamFundCents, 0);
+    .filter((p) => counts(p.cashDate))
+    .reduce((sum, p) => sum + p.teamFundDueCents, 0);
   const teamVat =
     lines.filter((p) => p.teamVatCents > 0 && counts(p.vatDueDate)).reduce((sum, p) => sum + p.teamVatCents, 0) +
     inflowVat(snapshot, phase).filter((v) => counts(v.dueDate)).reduce((sum, v) => sum + v.cents, 0);

@@ -5,10 +5,12 @@ import type { BankCompare, Calculation, ItemField, SettingsView } from "../api/t
 import { Button } from "../components/Button";
 import { CommitInput } from "../components/CommitInput";
 import { DeleteButton, OrderButtons } from "../components/ListButtons";
+import { QuickAdd, usedBy } from "../components/QuickAdd";
 import { AddSection, DataTable, Field, FormPanel, Loading, Message, PageHeader, Panel, type Column } from "../components/ui";
 import { useMe } from "../lib/auth";
 import { FIELD_LABELS } from "../lib/inventory";
 import { useAction } from "../lib/useAction";
+import { CashListsPanel } from "./CashListsPanel";
 import { ItemTypesPanel } from "./ItemTypesPanel";
 import { SeasonsPanel } from "./SeasonsPanel";
 
@@ -21,15 +23,19 @@ const FIELDS: ItemField[] = ["purpose", "safetyCodes", "disposal", "storageNotes
  * Not designed in Figma: built from the models of the interface. docs/impostazioni.md
  */
 export function SettingsPage() {
-  const { canManageSettings, canManageInventory } = useMe().permissions;
+  const { canManageSettings, canManageInventory, canManageCash } = useMe().permissions;
   const view = useQuery({ queryKey: ["settings"], queryFn: api.settings, enabled: canManageSettings });
 
-  if (!canManageSettings && !canManageInventory) return <Message>Only an admin or a project manager can change the settings.</Message>;
+  if (!canManageSettings && !canManageInventory && !canManageCash) return <Message>Only an admin, a user or the treasury can change the settings.</Message>;
   if (!canManageSettings) {
     return (
       <>
-        <PageHeader title="Settings" description="The types of the inventory and what is written about each item of them. The other settings are kept by an admin." />
-        <ItemTypesPanel />
+        <PageHeader
+          title="Settings"
+          description={`${canManageInventory ? "The types of the inventory and what is written about each item of them." : "The Voci and the payment methods of the register."} The other settings are kept by an admin.`}
+        />
+        {canManageInventory && <ItemTypesPanel />}
+        {canManageCash && <CashListsPanel />}
       </>
     );
   }
@@ -46,6 +52,7 @@ export function SettingsPage() {
       <CalculationPanel calculation={data.calculation} />
       <CategoriesPanel data={data} />
       <ItemTypesPanel />
+      <CashListsPanel />
       <div className="two-columns">
         <VatRatesPanel rates={data.vatRates} />
         <UnitsPanel units={data.units} />
@@ -56,27 +63,6 @@ export function SettingsPage() {
 }
 
 // --- pieces shared by the lists ----------------------------------------------------------------
-
-const usedBy = <T extends { usedBy: number }>(): Column<T> => ({ key: "usedBy", header: "USED BY", num: true, sort: (r) => r.usedBy, cell: (r) => r.usedBy || "" });
-
-/** The yellow button under a list and, opened by it, the form with the one box of what is added. */
-function QuickAdd({ id, noun, label, type = "text", onAdd }: { id: string; noun: string; label: string; type?: "text" | "number"; onAdd: (text: string) => Promise<boolean> }) {
-  return <AddSection label={`New ${noun}`} form={(close) => <QuickAddForm id={id} noun={noun} label={label} type={type} onAdd={onAdd} onDone={close} />} />;
-}
-
-function QuickAddForm({ id, noun, label, type, onAdd, onDone }: { id: string; noun: string; label: string; type: "text" | "number"; onAdd: (text: string) => Promise<boolean>; onDone: () => void }) {
-  const [text, setText] = useState("");
-  const submit = async () => {
-    if (await onAdd(text.trim())) onDone();
-  };
-  return (
-    <FormPanel title={`New ${noun}`} submitLabel={`Add ${noun}`} canSubmit={text.trim() !== ""} onSubmit={submit} onCancel={onDone}>
-      <Field label={label} htmlFor={id}>
-        <input id={id} className="input small" type={type} step={type === "number" ? "0.01" : undefined} autoFocus value={text} onChange={(e) => setText(e.target.value)} />
-      </Field>
-    </FormPanel>
-  );
-}
 
 // --- the switches of the calculation ------------------------------------------------------------
 

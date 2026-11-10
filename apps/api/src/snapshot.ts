@@ -1,11 +1,13 @@
-import type { Figures, Phase, Snapshot } from "@erp/calc";
+import { addDays, type Figures, type Phase, type Snapshot } from "@erp/calc";
 import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import { toCents, toScaled } from "./core/money";
 import { db } from "./db/client";
 import {
-  area, bankSnapshot, budgetLine, fund, fundContract, lineFigures, lineFund, project, stockMovement, supplier, teamInflow,
+  area, budgetLine, fund, fundContract, lineFigures, lineFund, project, stockMovement, supplier,
 } from "./db/schema";
+import { loadPayments } from "./modules/cash/cash.service";
 import { loadLookups } from "./modules/lookups/lookups.service";
+import { bankOf, loadInflows } from "./modules/cashflow/cashflow.service";
 import { getCurrentSeason } from "./modules/seasons/seasons.service";
 
 type FigureRow = typeof lineFigures.$inferSelect;
@@ -29,7 +31,7 @@ function figuresOf(row: FigureRow, fundIds: number[]): Figures {
  * the menu, unless another is given). One read-only transaction, so a write that commits halfway
  * cannot produce a snapshot where the tables disagree with each other.
  */
-export async function loadSnapshot(chosen?: { id: number }): Promise<Snapshot> {
+export async function loadSnapshot(chosen?: { id: number; startsOn: string; endsOn: string }): Promise<Snapshot> {
   const season = chosen ?? (await getCurrentSeason());
   const lookups = await loadLookups();
 
@@ -63,9 +65,11 @@ export async function loadSnapshot(chosen?: { id: number }): Promise<Snapshot> {
         .from(fundContract)
         .innerJoin(fund, eq(fundContract.fundId, fund.id))
         .where(eq(fund.seasonId, season.id));
-      const inflows = await tx.select().from(teamInflow).where(eq(teamInflow.seasonId, season.id));
       const suppliers = await tx.select().from(supplier);
-      const [bank] = await tx.select().from(bankSnapshot).where(eq(bankSnapshot.seasonId, season.id));
+      const bank = await bankOf(tx, season);
+      const inflows = await loadInflows(tx, season, bank);
+      // what the register paid of the lines only matters when the BANK is the register's (the payments are in it)
+      const payments = bank?.source === "register" ? await loadPayments(tx, season.id) : undefined;
       const arrived = await tx
         .select({ lineId: stockMovement.budgetLineId, quantity: sql<string>`sum(${stockMovement.quantity})` })
         .from(stockMovement)
@@ -85,7 +89,9 @@ export async function loadSnapshot(chosen?: { id: number }): Promise<Snapshot> {
       }
 
       return {
-        lookups,
+        // a BANK that comes from the register is exact to the day, so everything is compared with it by day
+        // (the two settings of the old sheet are for a BANK written by hand)
+        lookups: bank?.source === "register" ? { ...lookups, settings: { ...lookups.settings, bankCompare: { summary: "day", timeline: "day" } } } : lookups,
         areas: areas.map((a) => ({ id: a.id, code: a.code, name: a.name, position: a.position })),
         projects: projects.map((p) => ({
           id: p.id, areaId: p.areaId, name: p.name, ownerName: p.ownerName, position: p.position,
@@ -114,11 +120,13 @@ export async function loadSnapshot(chosen?: { id: number }): Promise<Snapshot> {
           id: c.id, fundId: c.fundId, phase: c.phase, amountCents: toCents(c.amount), inflowDate: c.inflowDate,
         })),
         inflows: inflows.map((i) => ({
-          id: i.id, phase: i.phase, sourceName: i.sourceName, amountCents: toCents(i.amount), inflowDate: i.inflowDate,
+          id: i.id, phase: i.phase, sourceName: i.sourceName, amountCents: i.countedCents, inflowDate: i.countedOn,
+          sponsorship: i.sponsorship,
         })),
         suppliers: suppliers.map((s) => ({ id: s.id, name: s.name })),
         receipts: arrived.map((r) => ({ lineId: r.lineId!, quantityMilli: toScaled(r.quantity, 3) })),
-        bank: bank ? { amountCents: toCents(bank.amount), asOfDate: bank.asOfDate } : null,
+        bank: bank ? { amountCents: bank.amountCents, asOfDate: bank.asOfDate } : null,
+        ...(payments && bank?.asOfDate ? { payments, lateFrom: addDays(bank.asOfDate, 1) } : {}),
       };
     },
     { isolationLevel: "repeatable read", accessMode: "read only" },

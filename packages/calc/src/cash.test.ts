@@ -15,8 +15,8 @@ function scenario(overrides: Partial<Snapshot> = {}): Snapshot {
     bank: { amountCents: 500_000, asOfDate: "2026-11-15" },
     funds: [teamFund],
     inflows: [
-      { id: 1, phase: "estimate", sourceName: "First", amountCents: 50_000, inflowDate: "2026-12-05" },
-      { id: 2, phase: "estimate", sourceName: "Second", amountCents: 100_000, inflowDate: "2026-12-10" },
+      { id: 1, phase: "estimate", sourceName: "First", amountCents: 50_000, inflowDate: "2026-12-05", sponsorship: true },
+      { id: 2, phase: "estimate", sourceName: "Second", amountCents: 100_000, inflowDate: "2026-12-10", sponsorship: true },
     ],
     ...overrides,
   });
@@ -41,15 +41,15 @@ describe("inflows", () => {
   it("an inflow on the last day of a quarter pays on the next day; one on the first day, a quarter later", () => {
     const s = scenario({
       inflows: [
-        { id: 1, phase: "estimate", sourceName: "A", amountCents: 10_000, inflowDate: "2026-12-31" },
-        { id: 2, phase: "estimate", sourceName: "B", amountCents: 10_000, inflowDate: "2027-04-01" },
+        { id: 1, phase: "estimate", sourceName: "A", amountCents: 10_000, inflowDate: "2026-12-31", sponsorship: true },
+        { id: 2, phase: "estimate", sourceName: "B", amountCents: 10_000, inflowDate: "2027-04-01", sponsorship: true },
       ],
     });
     expect(inflowVat(s, "estimate").map((v) => v.dueDate)).toEqual(["2027-01-01", "2027-07-01"]);
   });
 
   it("without a date have no day to pay the VAT on yet", () => {
-    const s = scenario({ inflows: [{ id: 1, phase: "estimate", sourceName: "A", amountCents: 100_000, inflowDate: null }] });
+    const s = scenario({ inflows: [{ id: 1, phase: "estimate", sourceName: "A", amountCents: 100_000, inflowDate: null, sponsorship: true }] });
     expect(inflowVat(s, "estimate")).toEqual([]);
   });
 

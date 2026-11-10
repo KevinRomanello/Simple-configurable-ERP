@@ -58,8 +58,11 @@ interface Movement {
   date: string;
   month: string;
   cents: number;
-  /** The part of a purchase paid from the team fund (VAT excluded); zero for a VAT movement. */
+  /** The part of a purchase still to leave the team fund (VAT excluded); zero for a VAT movement. */
   teamFundCents: number;
+  /** When it leaves the team fund: the day of the movement, or later for a purchase that is late (see `PhaseCalc.cashDate`). */
+  cashDate: string;
+  cashMonth: string;
 }
 
 const VAT_ROW_NAME = "VAT Outflow";
@@ -78,7 +81,9 @@ function movementsOf(lines: CalcLine[], phase: Phase): Movement[] {
         date: p.purchaseDate,
         month: monthKey(p.purchaseDate),
         cents,
-        teamFundCents: p.teamFundCents,
+        teamFundCents: p.teamFundDueCents,
+        cashDate: p.cashDate ?? p.purchaseDate,
+        cashMonth: monthKey(p.cashDate ?? p.purchaseDate),
       });
     }
     if (p.teamVatCents > 0 && p.vatDueDate) {
@@ -89,6 +94,8 @@ function movementsOf(lines: CalcLine[], phase: Phase): Movement[] {
         month: monthKey(p.vatDueDate),
         cents: p.teamVatCents,
         teamFundCents: 0,
+        cashDate: p.vatDueDate,
+        cashMonth: monthKey(p.vatDueDate),
       });
     }
   }
@@ -169,6 +176,7 @@ export function gantt(snapshot: Snapshot, phase: Phase): Gantt {
   // The timeline spans every month with a movement, an inflow, or the BANK balance.
   const monthKeys = new Set<string>([
     ...movements.map((m) => m.month),
+    ...movements.map((m) => m.cashMonth),
     ...inflows.map((i) => monthKey(i.inflowDate!)),
     ...inflowVatDue.map((v) => monthKey(v.dueDate)),
   ]);
@@ -182,7 +190,7 @@ export function gantt(snapshot: Snapshot, phase: Phase): Gantt {
 
   // --- Team's fund table -------------------------------------------------------------------
   const categories = snapshot.lookups.categories;
-  const counted = movements.filter((m) => afterBank(m.date));
+  const counted = movements.filter((m) => afterBank(m.cashDate));
   const bankMonth = bankDate === null ? null : monthKey(bankDate);
 
   let running = bank !== null && bankDate === null ? bank.amountCents : 0;
@@ -192,7 +200,7 @@ export function gantt(snapshot: Snapshot, phase: Phase): Gantt {
       .reduce((total, i) => total + i.amountCents, 0);
     if (bank && bankMonth === month) inflowCents += bank.amountCents;
 
-    const inMonth = counted.filter((m) => m.month === month);
+    const inMonth = counted.filter((m) => m.cashMonth === month);
     const purchases = inMonth.filter((m) => m.kind === "purchase" && m.teamFundCents > 0);
     const outflowVatCents =
       inMonth.filter((m) => m.kind === "vat").reduce((total, m) => total + m.cents, 0) +

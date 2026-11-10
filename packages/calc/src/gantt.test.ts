@@ -12,8 +12,8 @@ function scenario(overrides: Partial<Snapshot> = {}): Snapshot {
     projects: [{ id: 1, areaId: 1, name: "P", ownerName: null, position: 1 }],
     bank: { amountCents: 500_000, asOfDate: "2026-11-15" },
     inflows: [
-      { id: 1, phase: "estimate", sourceName: "X", amountCents: 200_000, inflowDate: "2026-11-10" },
-      { id: 2, phase: "estimate", sourceName: "Y", amountCents: 100_000, inflowDate: "2026-12-05" },
+      { id: 1, phase: "estimate", sourceName: "X", amountCents: 200_000, inflowDate: "2026-11-10", sponsorship: true },
+      { id: 2, phase: "estimate", sourceName: "Y", amountCents: 100_000, inflowDate: "2026-12-05", sponsorship: true },
     ],
     lines: [
       line(1, 1, figures(1, 500, { fundIds: [1], vatRate: 20, purchaseDate: "2026-11-20" }), null, {
@@ -68,7 +68,7 @@ describe("gantt: Team's fund table", () => {
 
   it("leaves the months before the BANK date blank", () => {
     const s = scenario({
-      inflows: [{ id: 1, phase: "estimate", sourceName: "X", amountCents: 1, inflowDate: "2026-09-10" }],
+      inflows: [{ id: 1, phase: "estimate", sourceName: "X", amountCents: 1, inflowDate: "2026-09-10", sponsorship: true }],
     });
     const { teamFund } = gantt(s, "estimate");
     expect(teamFund.rows.map((r) => r.finalCents)).toEqual([null, null, 500_000, 500_000, 500_000, 490_000]);

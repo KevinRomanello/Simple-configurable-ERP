@@ -11,6 +11,8 @@ export async function usersRoutes(app: FastifyInstance) {
       z
         .object({
           role: z.enum(["admin", "pm", "viewer"]),
+          treasury: z.boolean(),
+          sponsors: z.boolean(),
           active: z.boolean(),
           areaIds: z.array(id),
         })

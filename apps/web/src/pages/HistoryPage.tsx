@@ -100,7 +100,7 @@ export function HistoryPage() {
     enabled: allowed,
   });
 
-  if (!allowed) return <Message>The history is for admins and project managers.</Message>;
+  if (!allowed) return <Message>The history is for admins and users.</Message>;
 
   return (
     <>

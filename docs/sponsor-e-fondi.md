@@ -14,7 +14,7 @@ Uno sponsor è una voce di **CASH FROM**. Nella riga del budget scegli *con cosa
 
 ## 2. Come si definisce uno sponsor
 
-Pagina **CASH FROM**: il bottone giallo **New sponsor** in alto apre il form in un riquadro (nome, parametri e soldi del fondo); sotto, il riquadro **SPONSORS** è la tabella dove si modifica tutto sul posto, **soldi e data compresi**; i riquadri EXPECTED e ACTUAL mostrano solo i risultati (cosa resta di ogni fondo, gli ingressi per mese). Scrive solo l'admin (`GET`/`POST`/`PATCH`/`DELETE /api/funds`):
+Pagina **CASH FROM**: il bottone giallo **New sponsor** in alto apre il form in un riquadro (nome, parametri e soldi del fondo); sotto, il riquadro **SPONSORS** è la tabella dove si modifica tutto sul posto, **soldi e data compresi**; i riquadri EXPECTED e ACTUAL mostrano solo i risultati (cosa resta di ogni fondo, gli ingressi per mese). Scrivono l'admin e i pm con la spunta «Sponsors», chi tiene gli sponsor (`GET`/`POST`/`PATCH`/`DELETE /api/funds`):
 
 | Campo | Valori | Cosa decide |
 | --- | --- | --- |
@@ -87,9 +87,9 @@ La tendina di ALSO FROM, con la ricerca, propone solo i fondi dello **stesso gru
 Fino al 26 ottobre 2026 esisteva anche uno sponsor «in cassa» (`mode = cash`). Non c'è più: **i soldi che entrano nel conto del team sono un inflow di CASH FLOW** (pulsante giallo **New inflow**: lato Expected o Actual, azienda, valore, data). Uno sponsor serve solo a pagare acquisti del budget.
 
 - l'inflow conta in CASH FLOW e nel Gantt, nel mese della sua data;
-- su **ogni** inflow il team deve **l'11% di IVA** (è una sponsorizzazione, fatturata; fissa per legge, la versano le ASD), che si paga **il primo giorno del trimestre successivo** alla data dell'inflow, a trimestri di calendario: un inflow del 9/1/2026 paga il 1/4/2026, uno del 10/12/2026 di 1.000,00 € paga 110,00 € il 1/1/2027, uno dell'1/4 paga l'1/7. Compare nell'IVA del team (CASH FLOW, riga *VAT* del Gantt), non nel report IVA per progetto;
+- su ogni inflow **di sponsorizzazione** (la spunta **Sponsorship**, accesa di base) il team deve **l'11% di IVA** (è fatturata; fissa per legge, la versano le ASD), che si paga **il primo giorno del trimestre successivo** alla data dell'inflow, a trimestri di calendario: un inflow del 9/1/2026 paga il 1/4/2026, uno del 10/12/2026 di 1.000,00 € paga 110,00 € il 1/1/2027, uno dell'1/4 paga l'1/7. Compare nell'IVA del team (CASH FLOW, riga *VAT* del Gantt), non nel report IVA per progetto;
 - un inflow **senza data** non ha un giorno in cui pagare: l'IVA non compare finché non lo si data;
-- non c'è una casella per escludere l'IVA: per il tesoriere tutti la pagano (scelta del 26/10/2026; aggiungerla sarebbe una colonna in più in `team_inflow`).
+- **la casella per escludere l'IVA c'è dal 10/11/2026**: la spunta **Sponsorship** (`team_inflow.sponsorship`, di base vera, quindi i numeri di prima non cambiano). Un inflow non spuntato è denaro normale (una quota associativa): conta in CASH FLOW e nel Gantt ma **non paga l'11%**. Lo stesso vale per le entrate del registro di cassa ([registro-di-cassa.md](registro-di-cassa.md)).
 
 La migrazione `0009_one_kind_of_sponsor.sql` ha trasformato gli sponsor in cassa rimasti in inflow (un inflow per ogni contratto, con la stessa fase, valore e data) e poi ha tolto le colonne `mode` e `pays_vat` e il tipo `fund_mode`: nessun dato perso. Provata su una copia dei dati reali di quel giorno.
 
@@ -106,7 +106,7 @@ La migrazione `0009_one_kind_of_sponsor.sql` ha trasformato gli sponsor in cassa
 | 11% | `getSettings().inflowVatRate`: si cambia dalla pagina Settings ([impostazioni.md](impostazioni.md)) |
 | schermate | `FundsPage.tsx` (bottone New sponsor e suo form, tabella SPONSORS con i soldi, riquadri dei risultati), `areaColumns.tsx` (CASH FROM, ALSO FROM, icona di avviso) |
 
-**API** (tutte con login; scrive solo l'admin):
+**API** (tutte con login; scrivono l'admin e i pm con la spunta «Sponsors»):
 
 | Metodo | Percorso | Cosa fa |
 | --- | --- | --- |

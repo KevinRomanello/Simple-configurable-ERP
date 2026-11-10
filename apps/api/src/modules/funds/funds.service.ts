@@ -4,14 +4,14 @@ import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { fund, fundContract, lineFund } from "../../db/schema";
-import { canWrite, getCurrentUser } from "../auth/auth.service";
+import { canManageFunds, getCurrentUser } from "../auth/auth.service";
 import { getFixedSponsorRates, listVatRates } from "../lookups/lookups.service";
 import { assertSeasonOpen, getCurrentSeason } from "../seasons/seasons.service";
 import { ensureSupplier, renameSupplier } from "../suppliers/suppliers.service";
 
 async function assertCanManageShared() {
   const actor = await getCurrentUser();
-  if (!(await canWrite(actor, null))) throw forbidden("You cannot change funds");
+  if (!(await canManageFunds(actor))) throw forbidden("You cannot change funds");
   return actor;
 }
 

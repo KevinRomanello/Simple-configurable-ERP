@@ -8,7 +8,7 @@ const person = (role: Me["role"], areaIds: number[] = []): Me => ({
   name: "A",
   role,
   areaIds,
-  permissions: { canEditShared: false, canManageSuppliers: false, canManageInventory: false, canViewHistory: false, canManageUsers: false, canManageSettings: false },
+  permissions: { canEditShared: false, canManageCash: false, canManageSuppliers: false, canManageInventory: false, canViewHistory: false, canManageUsers: false, canManageSettings: false },
 });
 
 describe("canEditArea", () => {

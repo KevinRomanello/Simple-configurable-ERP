@@ -7,6 +7,7 @@ import { AuthGate, forgetUser } from "./lib/auth";
 import { AnalysisPage } from "./pages/AnalysisPage";
 import { AreaPage } from "./pages/AreaPage";
 import { CashFlowPage } from "./pages/CashFlowPage";
+import { CashRegisterPage } from "./pages/CashRegisterPage";
 import { FundsPage } from "./pages/FundsPage";
 import { ComponentPage } from "./pages/ComponentPage";
 import { ComponentsPage } from "./pages/ComponentsPage";
@@ -41,6 +42,7 @@ export function App() {
                 <Route path="cash-from" element={<FundsPage />} />
                 <Route path="bought-from" element={<SuppliersPage />} />
                 <Route path="cash-flow" element={<CashFlowPage />} />
+                <Route path="register" element={<CashRegisterPage />} />
                 <Route path="gantt/:phase" element={<GanttPage />} />
                 <Route path="total" element={<Navigate to="/total/season" replace />} />
                 <Route path="total/season" element={<TotalPage kind="season" />} />

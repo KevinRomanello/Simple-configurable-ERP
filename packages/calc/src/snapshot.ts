@@ -76,6 +76,8 @@ export interface InflowInput {
   sourceName: string;
   amountCents: number;
   inflowDate: string | null;
+  /** Sponsorship money owes the VAT on inflows; any other money (a membership fee) does not. */
+  sponsorship: boolean;
 }
 
 export interface SupplierInput {
@@ -102,6 +104,12 @@ export interface Lookups {
   settings: Settings;
 }
 
+/** A payment of the register linked to a budget line: how much of its team fund purchase it has paid (ACTUAL). */
+export interface LinePayment {
+  lineId: number;
+  cents: number;
+}
+
 export interface Snapshot {
   lookups: Lookups;
   /** Ordered by position. */
@@ -115,4 +123,12 @@ export interface Snapshot {
   /** One entry per budget line that has arrived, at least in part (see docs/inventario.md). */
   receipts: ReceiptInput[];
   bank: BankInput | null;
+  /**
+   * Payments of the register linked to ACTUAL lines, summed by line. Present only when the BANK comes
+   * from the register (otherwise the payments are not in it): a line with payments counts only what is
+   * still to pay. Without it, every line counts as before (docs/registro-di-cassa.md, section 5bis).
+   */
+  payments?: LinePayment[];
+  /** The day after the BANK day: a line that is still to be paid and whose date has passed leaves the team fund then. */
+  lateFrom?: string;
 }

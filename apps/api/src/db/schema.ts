@@ -1,4 +1,4 @@
-import { FUND_TYPES, MOVEMENT_KINDS, PHASES, SPONSOR_TYPES } from "@erp/calc";
+import { CASH_ACCOUNTS, FUND_TYPES, MOVEMENT_KINDS, PHASES, SPONSOR_TYPES } from "@erp/calc";
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
@@ -28,6 +28,8 @@ export const sponsorTypeEnum = pgEnum("sponsor_type", SPONSOR_TYPES);
 export const fundKindEnum = pgEnum("fund_kind", ["team", "external"]);
 export const fundTypeEnum = pgEnum("fund_type", FUND_TYPES);
 export const userRoleEnum = pgEnum("user_role", ["admin", "pm", "viewer"]);
+/** The three places the team's money is kept: the cash box, the bank account, the Paypal account. */
+export const cashAccountEnum = pgEnum("cash_account", CASH_ACCOUNTS);
 export const movementKindEnum = pgEnum("movement_kind", MOVEMENT_KINDS);
 export const itemOriginEnum = pgEnum("item_origin", ["bought", "made"]);
 /** What is written in a parameter of an item type: a number (with its unit), one of a list, a text, a yes or no. */
@@ -208,8 +210,98 @@ export const teamInflow = pgTable(
     sourceName: text().notNull(),
     amount: numeric({ precision: 14, scale: 2 }).notNull(),
     inflowDate: date(),
+    /** Sponsorship money is invoiced and owes the VAT on inflows; any other money (a membership fee) does not. */
+    sponsorship: boolean().notNull().default(true),
+    /** The movement of the register that received this (expected) inflow; empty while it has not arrived. */
+    cashEntryId: integer()
+      .references((): AnyPgColumn => cashEntry.id, { onDelete: "set null" })
+      .unique(),
   },
   (t) => [index("team_inflow_season").on(t.seasonId), check("team_inflow_non_negative", sql`${t.amount} >= 0`)],
+);
+
+// --- the register of the team's money (docs/registro-di-cassa.md) -------------------------------
+
+/** The "Voce" of a movement ("2.1 da soci e tesserati"): the lists live in Settings. */
+export const cashCategory = pgTable(
+  "cash_category",
+  {
+    id: id(),
+    name: text().notNull(),
+    position: integer().notNull(),
+    /** Money that comes in on this Voce is sponsorship unless said otherwise on the movement (a starting value only). */
+    sponsorship: boolean().notNull().default(false),
+  },
+  (t) => [uniqueIndex("cash_category_name_uq").on(sql`lower(${t.name})`)],
+);
+
+/** How a payment was made ("Completato bonifico", "Paypal"...): a list in Settings. */
+export const cashMethod = pgTable(
+  "cash_method",
+  {
+    id: id(),
+    name: text().notNull(),
+    position: integer().notNull(),
+  },
+  (t) => [uniqueIndex("cash_method_name_uq").on(sql`lower(${t.name})`)],
+);
+
+/** One movement of money: on one account, in (positive) or out (negative). Balances are never stored. */
+export const cashEntry = pgTable(
+  "cash_entry",
+  {
+    id: id(),
+    entryOn: date().notNull(),
+    description: text().notNull().default(""),
+    categoryId: integer().references(() => cashCategory.id),
+    methodId: integer().references(() => cashMethod.id),
+    /** Where the money moved; the method says how it was paid (a Paypal payment can leave the bank account). */
+    account: cashAccountEnum().notNull(),
+    amount: numeric({ precision: 14, scale: 2 }).notNull(),
+    /** The "Check fattura" box of the sheet. */
+    invoiceChecked: boolean().notNull().default(false),
+    /** Money in only: it owes the VAT on inflows, like an inflow of CASH FLOW. */
+    sponsorship: boolean().notNull().default(false),
+  },
+  (t) => [
+    index("cash_entry_on").on(t.entryOn),
+    index("cash_entry_category").on(t.categoryId),
+    index("cash_entry_method").on(t.methodId),
+    check("cash_entry_amount", sql`${t.amount} <> 0`),
+    check("cash_entry_sponsorship", sql`not ${t.sponsorship} or ${t.amount} > 0`),
+  ],
+);
+
+/** A payment of the register that pays (part of) a budget line: what it paid of the team fund's purchase. */
+export const cashEntryLine = pgTable(
+  "cash_entry_line",
+  {
+    id: id(),
+    entryId: integer()
+      .notNull()
+      .references(() => cashEntry.id, { onDelete: "cascade" }),
+    lineId: integer()
+      .notNull()
+      .references(() => budgetLine.id, { onDelete: "cascade" }),
+    amount: numeric({ precision: 14, scale: 2 }).notNull(),
+  },
+  (t) => [
+    unique("cash_entry_line_uq").on(t.entryId, t.lineId),
+    index("cash_entry_line_line").on(t.lineId),
+    check("cash_entry_line_amount", sql`${t.amount} > 0`),
+  ],
+);
+
+/** What an account held on 1 January of a year; a year without one starts from where the year before ended. */
+export const cashOpening = pgTable(
+  "cash_opening",
+  {
+    id: id(),
+    year: integer().notNull(),
+    account: cashAccountEnum().notNull(),
+    amount: numeric({ precision: 14, scale: 2 }).notNull(),
+  },
+  (t) => [unique("cash_opening_year_account_uq").on(t.year, t.account)],
 );
 
 /** The BANK box of the CASH FLOW sheet: one balance at one date, valid for both phases. */
@@ -331,6 +423,10 @@ export const appUser = pgTable(
     email: text().notNull(),
     name: text().notNull(),
     role: userRoleEnum().notNull().default("viewer"),
+    /** A project manager who also keeps the money of the team: the register, and the BANK and inflows of CASH FLOW. */
+    treasury: boolean().notNull().default(false),
+    /** A project manager who also keeps the sponsors: their funds and contracts (CASH FROM). */
+    sponsors: boolean().notNull().default(false),
     active: boolean().notNull().default(true),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },

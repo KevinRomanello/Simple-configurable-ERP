@@ -6,6 +6,7 @@
 
 | Riquadro | Cosa | Regole |
 | --- | --- | --- |
+| **Register: Voci** e **Register: payment methods** (dopo Item types; gli admin e i pm con la spunta **Treasury**) | le Voci e i metodi di pagamento del registro di cassa, con il loro ordine; per ogni Voce «Sponsorship by default» | USED BY, ordine, nomi unici e niente cancellazione di ciò che è usato, come le categorie; rinominare non rovina niente (i movimenti tengono l'id). Tutto in [registro-di-cassa.md](registro-di-cassa.md) |
 | **Seasons and cars** (il primo) | le stagioni (1/9 – 31/8): date, la **macchina** di ognuna (si rinomina sul posto), **READ-ONLY**, quante righe ha il budget; **New season** con l'anno di settembre in cui parte e la macchina | una nuova stagione parte dalla più recente (stessi progetti vuoti, stessi sponsor senza soldi, un Team's fund suo); una stagione in sola lettura si guarda ma il suo budget non si cambia; le stagioni non si cancellano. Tutto in [stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md) |
 | **Calculation** | soglia degli scostamenti evidenziati in TOTAL (15%); IVA sugli inflow (11%); su cosa si calcola l'IVA quando uno sponsor copre tutta la riga (Q1); confronto con la data del BANK nel riepilogo di CASH FLOW e nel Gantt (Q2) | ogni voce ha accanto la sua **spiegazione** con un esempio; si salva con **Save** (Undo torna ai valori salvati) |
 | **Categories** | le categorie del budget e dell'inventario, il loro **ordine** (è quello dei blocchi di TOTAL e del Gantt: frecce ↑↓) e, per ognuna, quali campi facoltativi mostra un articolo (a cosa serve, codici di sicurezza, smaltimento, stoccaggio, manutenzione); in fondo, i campi degli articoli **senza categoria** | rinominare una categoria la rinomina su **tutte** le righe e gli articoli che la usano; una nuova categoria va in fondo e parte con i campi degli articoli senza categoria |
@@ -18,7 +19,7 @@ Regole comuni:
 
 - **Si cancella solo ciò che non è usato.** La colonna **USED BY** dice quante volte (righe e articoli per una categoria, sponsor e righe per un'aliquota, articoli per un'unità, movimenti per un posto); il cestino è spento finché è usato, e il server rifiuta comunque (`409`, con cosa lo usa).
 - **Nomi unici** senza badare alle maiuscole (`409` se esiste già).
-- **Solo l'admin** legge e scrive questa pagina, **tranne il riquadro Item types**, che è anche dei **pm**: lo controlla il server (`403` per gli altri; i tipi usano `canManageInventory`, come il resto dell'inventario). Il menù mostra Settings all'admin e al pm; il pm vede solo Item types. Il viewer non vede la pagina (vede i tipi nell'inventario).
+- **Solo l'admin** legge e scrive questa pagina, **tranne il riquadro Item types**, che è anche dei **pm** (`403` per gli altri; i tipi usano `canManageInventory`, come il resto dell'inventario), **e le liste del registro**, che sono anche dei **pm con la spunta Treasury** (`canManageCash`). Il menù mostra Settings all'admin e al pm (con la spunta, anche le liste del registro); ognuno vede solo i suoi riquadri. Il viewer non vede la pagina (vede i tipi nell'inventario).
 - Le priorità (High, Medium, Low) **non** sono qui: sono fisse per scelta (i colori del foglio).
 
 ### La scelta «IVA quando uno sponsor copre tutta la riga»

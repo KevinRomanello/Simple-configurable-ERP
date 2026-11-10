@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 /** A text box in a table that saves when it loses focus (or on Enter), and only if the text changed. */
-export function CommitInput({ value, label, list, wide, onCommit }: { value: string; label: string; list?: string; wide?: boolean; onCommit: (text: string) => void }) {
+export function CommitInput({ value, label, list, wide, placeholder, onCommit }: { value: string; label: string; list?: string; wide?: boolean; placeholder?: string; onCommit: (text: string) => void }) {
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
   const commit = () => {
@@ -13,6 +13,7 @@ export function CommitInput({ value, label, list, wide, onCommit }: { value: str
       className={`input small${wide ? " wide" : ""}`}
       value={text}
       list={list}
+      placeholder={placeholder}
       aria-label={label}
       onChange={(e) => setText(e.target.value)}
       onBlur={commit}

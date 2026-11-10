@@ -1,5 +1,5 @@
 import {
-  faAnglesLeft, faBars, faBoxesStacked, faCalendarDays, faCarSide, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece,
+  faAnglesLeft, faBars, faBookOpen, faBoxesStacked, faCalendarDays, faCarSide, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece,
   faRepeat, faRightFromBracket, faSackDollar, faScaleBalanced, faSliders, faTable, faTruckFast, faUsers, faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -154,6 +154,13 @@ export function Shell() {
           <Item to="/cash-flow" icon={faRepeat}>CASH FLOW</Item>
         </NavGroup>
 
+        {/* the money of the team: only the treasury and the admins see it */}
+        {me.permissions.canManageCash && (
+          <NavGroup title="Register">
+            <Item to="/register" icon={faBookOpen}>REGISTRO DI CASSA</Item>
+          </NavGroup>
+        )}
+
         <NavGroup title="Views">
           <Item to="/gantt/estimate" icon={faChartLine}>EXPECTED GANTT</Item>
           <Item to="/gantt/actual" icon={faChartLine}>ACTUAL GANTT</Item>
@@ -176,11 +183,11 @@ export function Shell() {
           <Item to="/inventory/stats" icon={faChartPie}>INVENTORY STATS</Item>
         </NavGroup>
 
-        {(me.permissions.canManageUsers || me.permissions.canViewHistory || me.permissions.canManageSettings || me.permissions.canManageInventory) && (
+        {(me.permissions.canManageUsers || me.permissions.canViewHistory || me.permissions.canManageSettings || me.permissions.canManageInventory || me.permissions.canManageCash) && (
           <NavGroup title="Admin">
             {me.permissions.canManageUsers && <Item to="/users" icon={faUsers}>Users</Item>}
             {/* a project manager keeps the types of the inventory there, and only them */}
-            {(me.permissions.canManageSettings || me.permissions.canManageInventory) && <Item to="/settings" icon={faSliders}>Settings</Item>}
+            {(me.permissions.canManageSettings || me.permissions.canManageInventory || me.permissions.canManageCash) && <Item to="/settings" icon={faSliders}>Settings</Item>}
             {me.permissions.canViewHistory && <Item to="/history" icon={faClockRotateLeft}>History</Item>}
           </NavGroup>
         )}

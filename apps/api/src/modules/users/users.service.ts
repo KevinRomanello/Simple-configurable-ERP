@@ -9,7 +9,7 @@ type Reader = Pick<typeof db, "select">;
 
 async function withAreas(reader: Reader, row: typeof appUser.$inferSelect): Promise<User> {
   const areas = await reader.select({ areaId: userArea.areaId }).from(userArea).where(eq(userArea.userId, row.id));
-  return { id: row.id, email: row.email, name: row.name, role: row.role, areaIds: areas.map((a) => a.areaId).sort((a, b) => a - b) };
+  return { id: row.id, email: row.email, name: row.name, role: row.role, treasury: row.treasury, sponsors: row.sponsors, areaIds: areas.map((a) => a.areaId).sort((a, b) => a - b) };
 }
 
 /** The active user with this id, or null (unknown or deactivated people have no access). */
@@ -73,15 +73,20 @@ export async function listUsers(): Promise<UserRow[]> {
     email: row.email,
     name: row.name,
     role: row.role,
+    treasury: row.treasury,
+    sponsors: row.sponsors,
     active: row.active,
     areaIds: links.filter((l) => l.userId === row.id).map((l) => l.areaId).sort((a, b) => a - b),
   }));
 }
 
-/** Changes role, active flag and assigned areas of a person (admins only). */
+/**
+ * Changes role, treasury and sponsors boxes, active flag and assigned areas of a person (admins only).
+ * The two boxes are for project managers: they are cleared when the person is anything else.
+ */
 export async function updateUser(
   userId: number,
-  patch: { role?: Role; active?: boolean; areaIds?: number[] },
+  patch: { role?: Role; treasury?: boolean; sponsors?: boolean; active?: boolean; areaIds?: number[] },
 ): Promise<UserRow> {
   const actor = await getCurrentUser();
   requireAdmin(actor);
@@ -111,8 +116,15 @@ export async function updateUser(
       if ((others?.n ?? 0) === 0) throw conflict("There must be at least one active admin");
     }
 
+    if (patch.treasury === true && role !== "pm") throw invalid("The treasury box is for project managers: make the person a pm first");
+    const treasury = role === "pm" && (patch.treasury ?? target.treasury);
+    if (patch.sponsors === true && role !== "pm") throw invalid("The sponsors box is for project managers: make the person a pm first");
+    const sponsors = role === "pm" && (patch.sponsors ?? target.sponsors);
+
     const changes: Partial<typeof appUser.$inferInsert> = {};
     if (patch.role !== undefined && patch.role !== target.role) changes.role = patch.role;
+    if (treasury !== target.treasury) changes.treasury = treasury;
+    if (sponsors !== target.sponsors) changes.sponsors = sponsors;
     if (patch.active !== undefined && patch.active !== target.active) changes.active = patch.active;
     if (Object.keys(changes).length > 0) await tx.update(appUser).set(changes).where(eq(appUser.id, userId));
 

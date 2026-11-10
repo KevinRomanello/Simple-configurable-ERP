@@ -2,7 +2,7 @@
 
 L'elenco **unico** delle decisioni ancora aperte, con chi deve rispondere, cosa cambia e dove è descritto il dettaglio. Quando una decisione si chiude si sposta nel documento che la riguarda (e si toglie da qui); quando ne nasce una nuova si aggiunge qui.
 
-Ultimo aggiornamento: **29 ottobre 2026**. Chiuse il 29/10: annullare i movimenti e il progetto delle parti di una produzione ([inventario.md](inventario.md), §16 e §18).
+Ultimo aggiornamento: **10 novembre 2026** (aggiunta D7: le domande per la tesoriera sul registro di cassa). Prima: 29 ottobre 2026. Chiuse il 29/10: annullare i movimenti e il progetto delle parti di una produzione ([inventario.md](inventario.md), §16 e §18).
 
 ## Urgente
 
@@ -42,6 +42,14 @@ Già descritta in [sponsor-e-fondi.md](sponsor-e-fondi.md), §8 («Ancora da far
 ### D4. Stagioni, anno fiscale e macchine
 
 Piano completo, con le fasi e le domande, in [stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md) (§7 «Da decidere prima di partire»). Niente codice scritto.
+
+### D7. Il registro di cassa: tre domande per la tesoriera
+
+Descritto in [registro-di-cassa.md](registro-di-cassa.md) (§2 e §6). Non bloccano niente: l'import le segnala e lascia scegliere.
+
+1. **Le 6 righe di maggio 2025** dentro il foglio del 2026 e la scritta **«saldo al 01/01/2025»**: sono errori di battitura (2026) o dati veri? Contate nel 2026 i saldi del foglio tornano al centesimo; lasciate fuori la Banca differisce di quanto valgono.
+2. **Le Voci 9.4 (Pec aruba) e 9.5 (saldo fattura)**, 42 righe, non compaiono nel rendiconto del foglio («voci di ricavocosto»): è voluto? Conta quando si farà il rendiconto.
+3. **Il Paypal** non è nel «Progressivo cumulato» del foglio (che è Cassa + Banca): è voluto? Il sito fa come il foglio.
 
 ## Accesso e rilascio
 

@@ -34,6 +34,12 @@ export function useCanEditShared(): boolean {
   return useMe().permissions.canEditShared && open;
 }
 
+/** Whether the person may change the BANK and the inflows of the season shown: the team's money is the treasury's. */
+export function useCanManageCash(): boolean {
+  const open = useSeasonOpen();
+  return useMe().permissions.canManageCash && open;
+}
+
 /**
  * Shows another season: every page reads its data again (who is signed in stays). Choosing the
  * season of today forgets the choice, so next September the site moves on by itself.

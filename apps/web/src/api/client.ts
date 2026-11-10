@@ -1,5 +1,5 @@
 import type {
-  Analysis, Area, AreaSheet, Bank, Calculation, CashFlowSummary, CategoryFields, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, SponsorBody, StatsResult, Supplier, TotalsView, TypeParam, UserRow, VatReport,
+  Analysis, Area, AreaSheet, Bank, ApplyBody, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, SponsorBody, StatsResult, Supplier, TotalsView, TypeParam, UserRow, VatReport,
 } from "./types";
 import type { NewLineBody } from "../lib/newLine";
 import { chosenSeasonId } from "../lib/seasonChoice";
@@ -184,7 +184,7 @@ export const api = {
 
   // users and history
   users: () => get<UserRow[]>("/users"),
-  updateUser: (id: number, body: { role?: Role; active?: boolean; areaIds?: number[] }) =>
+  updateUser: (id: number, body: { role?: Role; treasury?: boolean; sponsors?: boolean; active?: boolean; areaIds?: number[] }) =>
     patch<UserRow>(`/users/${id}`, body),
   history: (query: { table?: string; before?: number }) => {
     const params = new URLSearchParams({ limit: "50" });
@@ -266,6 +266,27 @@ export const api = {
   /** The VAT rate that some kinds of sponsor cannot choose (goods: 0, goods against a counter-invoice: 11). */
   fixedSponsorRates: () => get<Partial<Record<FundType, number>>>("/lookups/sponsor-rates"),
 
+  // the register of the team's money (treasury and admins)
+  cashRegister: (year?: number) => get<CashRegister>(`/cash/register${year ? `?year=${year}` : ""}`),
+  createCashEntry: (body: CashEntryBody) => post("/cash/entries", body),
+  updateCashEntry: (id: number, body: Partial<CashEntryBody>) => patch(`/cash/entries/${id}`, body),
+  deleteCashEntry: (id: number) => del(`/cash/entries/${id}`),
+  payableLines: () => get<PayableLine[]>("/cash/payable-lines"),
+  setCashEntryLines: (id: number, lines: { lineId: number; amount: string }[]) => put(`/cash/entries/${id}/lines`, { lines }),
+  setCashOpening: (body: { year: number; account: CashAccount; amount: string | null }) => put("/cash/openings", body),
+  previewCashImport: (body: ImportBody) => post<ImportPreview>("/cash/import/preview", body),
+  applyCashImport: (body: ApplyBody) => post<ImportResult>("/cash/import", body),
+  cashCategories: () => get<CashListItem[]>("/cash/categories"),
+  createCashCategory: (body: { name: string; sponsorship?: boolean }) => post("/cash/categories", body),
+  updateCashCategory: (id: number, body: { name?: string; sponsorship?: boolean }) => patch(`/cash/categories/${id}`, body),
+  deleteCashCategory: (id: number) => del(`/cash/categories/${id}`),
+  orderCashCategories: (ids: number[]) => put("/cash/categories/order", { ids }),
+  cashMethods: () => get<CashListItem[]>("/cash/methods"),
+  createCashMethod: (name: string) => post("/cash/methods", { name }),
+  renameCashMethod: (id: number, name: string) => patch(`/cash/methods/${id}`, { name }),
+  deleteCashMethod: (id: number) => del(`/cash/methods/${id}`),
+  orderCashMethods: (ids: number[]) => put("/cash/methods/order", { ids }),
+
   // seasons
   seasons: () => get<Season[]>("/seasons"),
   createSeason: (body: { startYear: number; car: string }) => post<Season>("/seasons", body),
@@ -294,9 +315,14 @@ export const api = {
   createSupplier: (name: string) => post("/suppliers", { name }),
   deleteSupplier: (id: number) => del(`/suppliers/${id}`),
   inflows: (phase: Phase) => get<Inflow[]>(`/inflows?phase=${phase}`),
-  createInflow: (body: { phase: Phase; sourceName: string; amount: string; inflowDate?: string | null }) =>
+  createInflow: (body: { phase: Phase; sourceName: string; amount: string; inflowDate?: string | null; sponsorship?: boolean }) =>
     post("/inflows", body),
   deleteInflow: (id: number) => del(`/inflows/${id}`),
+  receivable: () => get<Receivable[]>("/inflows/receivable"),
+  /** An expected inflow arrived: a new movement of the register, or one that is already there. */
+  receiveInflow: (id: number, body: { entryId: number } | { on: string; account: CashAccount; amount?: string; categoryId?: number | null; methodId?: number | null }) =>
+    post(`/inflows/${id}/receive`, body),
+  unreceiveInflow: (id: number) => del(`/inflows/${id}/receive`),
   bank: () => get<Bank | null>("/bank"),
   setBank: (body: { amount: string; asOfDate?: string | null }) => put("/bank", body),
   clearBank: () => del("/bank"),

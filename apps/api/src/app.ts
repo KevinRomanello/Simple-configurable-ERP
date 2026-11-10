@@ -9,6 +9,7 @@ import { addAuthHook, authRoutes } from "./modules/auth/auth.routes";
 import { createGoogleClient, type GoogleClient } from "./modules/auth/google";
 import { auditRoutes } from "./modules/audit/audit.routes";
 import { budgetRoutes } from "./modules/budget/budget.routes";
+import { cashRoutes } from "./modules/cash/cash.routes";
 import { cashflowRoutes } from "./modules/cashflow/cashflow.routes";
 import { fundsRoutes } from "./modules/funds/funds.routes";
 import { healthRoutes } from "./modules/health/health.routes";
@@ -81,6 +82,7 @@ export function buildApp(options: AppOptions = {}) {
       await api.register(suppliersRoutes);
       await api.register(inventoryRoutes);
       await api.register(cashflowRoutes);
+      await api.register(cashRoutes);
       await api.register(viewsRoutes);
       await api.register(settingsRoutes);
     },

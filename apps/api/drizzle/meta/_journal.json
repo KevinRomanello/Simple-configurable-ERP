@@ -127,6 +127,34 @@
       "when": 1793959289568,
       "tag": "0017_seasons_and_cars",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794304341874,
+      "tag": "0018_cash_register",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794306579961,
+      "tag": "0019_roles_sp_and_treasury",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794306828187,
+      "tag": "0020_register_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794308418943,
+      "tag": "0021_sponsors_box",
+      "breakpoints": true
     }
   ]
 }

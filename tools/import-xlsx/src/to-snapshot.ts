@@ -175,6 +175,7 @@ export function toSnapshot(raw: RawInputs, lookups: Lookups): Converted {
         sourceName: row.name,
         amountCents: cents(row.amount),
         inflowDate: row.date,
+        sponsorship: true, // the sheet knows only sponsorship money
       });
     }
   }

@@ -1431,3 +1431,37 @@ body.no-scroll {
     min-height: 36px;
   }
 }
+
+/* --- the register of the team's money (docs/registro-di-cassa.md) ---------------------------------- */
+/* the row to type a new movement, and a row being changed: the yellow of the rows that act */
+.data-table.register tr.entry td {
+  background: var(--primary-default);
+  color: var(--on-primary);
+  vertical-align: middle;
+}
+.data-table.register tr.entry .input {
+  width: 100%;
+  min-width: 90px;
+}
+.data-table.register tr.entry td:nth-child(2) .input {
+  min-width: 200px;
+}
+.data-table.register tr.entry .inline-form {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+.data-table.register tr.entry .inline-form .input {
+  width: auto;
+}
+/* the balances at the start of the year, like the row of the sheet */
+.data-table.register tr.opening td {
+  font-weight: 700;
+  background: var(--bg-soft);
+}
+.data-table.register tr.opening .input {
+  width: 8.5em;
+  text-align: right;
+}
+.data-table.register td.lines {
+  min-width: 180px;
+}
