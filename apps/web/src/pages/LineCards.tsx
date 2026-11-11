@@ -23,7 +23,7 @@ function summary(line: CalcLine, phase: Phase): string {
   const calc = line[phase];
   if (!calc.figures) return "Nothing written yet";
   return [
-    `${quantity(calc.figures.quantityMilli)} × ${moneyE4(calc.figures.unitCostE4)}`,
+    `${quantity(calc.figures.quantityMilli)} × ${moneyE4(calc.figures.unitGrossE4 != null ? calc.unitPriceE4.gross : calc.unitPriceE4.net)}${calc.figures.unitGrossE4 != null ? " with VAT" : ""}`,
     line.category,
     calc.fundName,
     calc.supplierName && `from ${calc.supplierName}`,

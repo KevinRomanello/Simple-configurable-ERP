@@ -7,7 +7,11 @@ import type { Phase } from "../api/types";
 /** What a phase of the form asks. Everything is text, as typed. */
 export interface PhaseDraft {
   quantity: string;
+  /** The price of one unit, as typed: without VAT or with it, as `priceMode` says. */
   unitCost: string;
+  priceMode: "net" | "gross";
+  /** The price the other way, kept to swap to when the person changes `priceMode` (worked out from the line; empty for a new one). */
+  otherCost: string;
   /** The name of the fund (CASH FROM), as the list shows it. */
   fund: string;
   /** The name of the supplier (BOUGHT FROM). */
@@ -37,7 +41,7 @@ export interface LineDraft {
   actual: PhaseDraft;
 }
 
-export const EMPTY_PHASE: PhaseDraft = { quantity: "", unitCost: "", fund: "", supplier: "", vatRate: "", purchaseDate: "", arrivalDate: "" };
+export const EMPTY_PHASE: PhaseDraft = { quantity: "", unitCost: "", priceMode: "net", otherCost: "", fund: "", supplier: "", vatRate: "", purchaseDate: "", arrivalDate: "" };
 
 /** A new line as the form starts: the purchase date is today (the arrival date is left empty: it is not known yet). */
 export function newLineDraft(today: string): LineDraft {
@@ -60,7 +64,7 @@ export function choosesOwnRate(fundName: string, lookups: LineLookups): boolean 
 export function phaseFigures(draft: PhaseDraft, lookups: LineLookups): FiguresPatch | undefined {
   const figures: FiguresPatch = {};
   if (draft.quantity !== "") figures.quantity = Number(draft.quantity);
-  if (draft.unitCost !== "") figures.unitNetCost = Number(draft.unitCost);
+  if (draft.unitCost !== "") figures[draft.priceMode === "gross" ? "unitGrossCost" : "unitNetCost"] = Number(draft.unitCost);
   const fund = lookups.fundByName.get(draft.fund.toLowerCase());
   if (fund) figures.fundIds = [fund.id];
   // a goods sponsor chosen as the fund and no supplier: the server makes it the supplier too

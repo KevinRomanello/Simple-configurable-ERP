@@ -155,6 +155,13 @@
       "when": 1794308418943,
       "tag": "0021_sponsors_box",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794422068182,
+      "tag": "0022_gross_price",
+      "breakpoints": true
     }
   ]
 }

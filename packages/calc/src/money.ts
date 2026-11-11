@@ -13,6 +13,14 @@ export function netCents(quantityMilli: number, unitCostE4: number): number {
   return roundDiv(quantityMilli * unitCostE4, 100_000);
 }
 
+/** quantity x a unit price that has the VAT in it, in cents: the same arithmetic as `netCents`. */
+export const grossCents = netCents;
+
+/** What a price with the VAT in it is before the VAT at `percent`, rounded to the cent. */
+export function netOfGross(grossCentsAmount: number, percent: number): number {
+  return roundDiv(grossCentsAmount * 10_000, 10_000 + Math.round(percent * 100));
+}
+
 /** `percent` of an amount in cents. The percent may have up to two decimals (e.g. 4.5). */
 export function percentOf(cents: number, percent: number): number {
   return roundDiv(cents * Math.round(percent * 100), 10_000);

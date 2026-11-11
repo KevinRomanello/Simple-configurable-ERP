@@ -83,15 +83,20 @@ function companionNames(lookups: GridLookups, phase: Phase, line: CalcLine): str
     .filter((f) => f.kind === "external" && f.type === "fund" && f.group !== null && f.group.toLowerCase() === first.group?.toLowerCase())
     .map((f) => f.name);
 }
+/** Whether the price of this phase of a line was typed with the VAT in it. */
+const typedWithVat = (row: Row | undefined, phase: Phase) => isLine(row) && row[phase].figures?.unitGrossE4 != null;
+const PRICE_WITH_VAT_TIP = "Worked out from the price with VAT. Type a net price here to keep that one instead.";
+const PARTIAL_NEEDS_NET_TIP = "A partial sponsor takes the VAT only on what it does not cover: type the net price.";
 const blank = (value: unknown) => value === "" || value === null || value === undefined;
 
 /** A cell the person can change: calls `commit` instead of writing into the grid. */
 function editableCell(
   commit: Commit,
   toPatch: (value: any) => Omit<LinePatch, "version">,
+  allowed: (line: CalcLine) => boolean = () => true,
 ): Pick<ColDef<Row>, "editable" | "valueSetter"> {
   return {
-    editable: (p) => isLine(p.data) && !p.node.rowPinned,
+    editable: (p) => isLine(p.data) && !p.node.rowPinned && allowed(p.data),
     valueSetter: (p: ValueSetterParams<Row>) => {
       // an editor closed without a choice hands back what the cell showed: that is no change
       if (isLine(p.data) && p.newValue !== p.oldValue) commit(p.data, toPatch(p.newValue));
@@ -171,16 +176,31 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFu
       cellEditorParams: { min: 0, precision: 3 },
       ...editableCell(commit, (v) => patchFigures({ quantity: asNumber(v) })),
     },
+    // the price is typed in one of these two, whichever the person has in hand: the other is worked out from it
     {
       colId: `${phase}.unitNetCost`,
       headerName: "NET UNIT COST",
       width: 120,
-      cellClass: "num",
-      valueGetter: (p) => (fig(p.data) ? fig(p.data)!.unitCostE4 / 10_000 : null),
+      cellClass: (p) => (typedWithVat(p.data, phase) ? ["num", "cell-derived"] : "num"),
+      tooltipValueGetter: (p) => (typedWithVat(p.data, phase) ? PRICE_WITH_VAT_TIP : undefined),
+      valueGetter: (p) => (isLine(p.data) && fig(p.data) ? p.data[phase].unitPriceE4.net / 10_000 : null),
       valueFormatter: (p) => (p.value == null ? "" : money(Math.round(p.value * 100))),
       cellEditor: "agNumberCellEditor",
       cellEditorParams: { min: 0, precision: 4 },
       ...editableCell(commit, (v) => patchFigures({ unitNetCost: asNumber(v) })),
+    },
+    {
+      colId: `${phase}.unitGrossCost`,
+      headerName: "GROSS UNIT COST",
+      width: 130,
+      cellClass: (p) => (fig(p.data) && !typedWithVat(p.data, phase) ? ["num", "cell-derived"] : "num"),
+      tooltipValueGetter: (p) => (isLine(p.data) && p.data[phase].figures?.sponsorType === "partial" ? PARTIAL_NEEDS_NET_TIP : undefined),
+      valueGetter: (p) => (isLine(p.data) && fig(p.data) ? p.data[phase].unitPriceE4.gross / 10_000 : null),
+      valueFormatter: (p) => (p.value == null ? "" : money(Math.round(p.value * 100))),
+      cellEditor: "agNumberCellEditor",
+      cellEditorParams: { min: 0, precision: 4 },
+      // a partial sponsor takes the VAT only on what it does not cover: a price with VAT cannot be worked back
+      ...editableCell(commit, (v) => patchFigures({ unitGrossCost: asNumber(v) }), (line) => line[phase].figures?.sponsorType !== "partial"),
     },
     amountColumn("net", "NET COST", (a) => a.netCents),
     amountColumn("vat", "VAT", (a) => a.vatCents, 100),

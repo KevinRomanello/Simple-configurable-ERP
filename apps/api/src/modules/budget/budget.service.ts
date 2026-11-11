@@ -1,4 +1,4 @@
-import { areaSheet, netCents, type AreaSheet, type Phase } from "@erp/calc";
+import { areaSheet, grossCents, netCents, type AreaSheet, type Phase } from "@erp/calc";
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { toCents, toScaled } from "../../core/money";
@@ -8,7 +8,7 @@ import { db } from "../../db/client";
 import { area, budgetLine, fund, lineFigures, lineFund, project, supplier } from "../../db/schema";
 import { loadSnapshot } from "../../snapshot";
 import { canWrite, getCurrentUser, type User } from "../auth/auth.service";
-import { listCategories, listVatRates } from "../lookups/lookups.service";
+import { getDefaultVatRate, listCategories, listVatRates } from "../lookups/lookups.service";
 import { assertCarExists, assertSeasonOpen, getCurrentSeason } from "../seasons/seasons.service";
 import { ensureSupplier } from "../suppliers/suppliers.service";
 import type { CreateLineInput, FiguresInput, UpdateLineInput } from "./budget.schema";
@@ -120,6 +120,11 @@ async function withGoodsSponsor(tx: Tx, patch: FiguresInput): Promise<FiguresInp
 /**
  * Applies a partial change to the figures of one phase of a line, creating them if needed, and
  * checks the rules that depend on the combined result (VAT rate list, partial sponsor range).
+ *
+ * The price is typed either without VAT (`unitNetCost`) or with it (`unitGrossCost`): the one sent is
+ * the one kept, and the other is worked out when the line is read (docs/prezzo-lordo.md). A price
+ * with VAT needs a rate and a sponsor type to be worked out: when they are missing the line starts
+ * from the main rate and from "no sponsor", which the person can change.
  */
 async function saveFigures(tx: Tx, lineId: number, phase: Phase, change: FiguresInput) {
   const patch = await withGoodsSponsor(tx, change);
@@ -128,9 +133,15 @@ async function saveFigures(tx: Tx, lineId: number, phase: Phase, change: Figures
     .from(lineFigures)
     .where(and(eq(lineFigures.lineId, lineId), eq(lineFigures.phase, phase)));
 
+  if (patch.unitNetCost !== undefined && patch.unitGrossCost !== undefined) {
+    throw invalid("Type the price either without VAT or with it, not both");
+  }
+  // the price kept: the one typed now, or the one the line already had
+  const unitGrossCost = patch.unitGrossCost ?? (patch.unitNetCost !== undefined ? null : (current?.unitGrossCost ?? null));
   const merged = {
     quantity: patch.quantity ?? current?.quantity ?? "0",
-    unitNetCost: patch.unitNetCost ?? current?.unitNetCost ?? "0",
+    unitNetCost: unitGrossCost !== null ? "0" : (patch.unitNetCost ?? current?.unitNetCost ?? "0"),
+    unitGrossCost,
     sponsorType: patch.sponsorType !== undefined ? patch.sponsorType : (current?.sponsorType ?? null),
     sponsorValue: patch.sponsorValue !== undefined ? patch.sponsorValue : (current?.sponsorValue ?? null),
     vatRate:
@@ -140,14 +151,24 @@ async function saveFigures(tx: Tx, lineId: number, phase: Phase, change: Figures
     arrivalDate: patch.arrivalDate !== undefined ? patch.arrivalDate : (current?.arrivalDate ?? null),
   };
 
+  if (merged.unitGrossCost !== null) {
+    if (merged.sponsorType === "partial") throw invalid("A partial sponsor needs the price without VAT: type the net price");
+    merged.sponsorType ??= "none";
+    merged.vatRate ??= await getDefaultVatRate();
+  }
   if (merged.vatRate !== null && !(await listVatRates()).includes(merged.vatRate)) {
     throw invalid(`VAT rate ${merged.vatRate}% is not one of the allowed rates`);
   }
   // quantity and unit cost are each limited on their own; together they must stay within the range
   // the calculations can add up exactly
-  const net = netCents(toScaled(merged.quantity, 3), toScaled(merged.unitNetCost, 4));
+  const quantityMilli = toScaled(merged.quantity, 3);
+  const net = netCents(quantityMilli, toScaled(merged.unitNetCost, 4));
+  const gross = merged.unitGrossCost === null ? 0 : grossCents(quantityMilli, toScaled(merged.unitGrossCost, 4));
   if (net > LIMITS.netCost * 100) {
     throw invalid(`The net cost of a line cannot be more than ${LIMITS.netCost.toLocaleString("en-US")} euros`);
+  }
+  if (gross > LIMITS.netCost * 100) {
+    throw invalid(`The cost of a line cannot be more than ${LIMITS.netCost.toLocaleString("en-US")} euros`);
   }
   if (merged.sponsorType === "partial" && merged.sponsorValue !== null) {
     const sponsor = toCents(merged.sponsorValue);

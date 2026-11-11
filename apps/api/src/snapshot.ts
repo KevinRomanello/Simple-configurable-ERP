@@ -16,6 +16,7 @@ function figuresOf(row: FigureRow, fundIds: number[]): Figures {
   return {
     quantityMilli: toScaled(row.quantity, 3),
     unitCostE4: toScaled(row.unitNetCost, 4),
+    unitGrossE4: row.unitGrossCost === null ? null : toScaled(row.unitGrossCost, 4),
     sponsorType: row.sponsorType,
     sponsorValueCents: row.sponsorValue === null ? null : toCents(row.sponsorValue),
     vatRate: row.vatRate === null ? null : Number(row.vatRate),

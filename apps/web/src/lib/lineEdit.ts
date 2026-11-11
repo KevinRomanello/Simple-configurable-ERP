@@ -33,7 +33,10 @@ function phaseDraft(line: CalcLine, phase: Phase): PhaseDraft {
   if (!figures) return EMPTY_PHASE;
   return {
     quantity: decimalText(figures.quantityMilli, 3),
-    unitCost: decimalText(figures.unitCostE4, 4),
+    // a price typed with the VAT is shown as typed; the other way round is kept for when the person switches
+    unitCost: decimalText(figures.unitGrossE4 != null ? figures.unitGrossE4 : figures.unitCostE4, 4),
+    priceMode: figures.unitGrossE4 != null ? "gross" : "net",
+    otherCost: decimalText(figures.unitGrossE4 != null ? calc.unitPriceE4.net : calc.unitPriceE4.gross, 4),
     fund: figures.fundIds.length === 1 ? (calc.fundName ?? "") : "",
     supplier: calc.supplierName ?? "",
     vatRate: figures.vatRate === null ? "" : String(figures.vatRate),
@@ -61,7 +64,9 @@ export function editDraft(line: CalcLine): EditDraft {
 function phasePatch(draft: PhaseDraft, before: PhaseDraft, several: boolean, lookups: LineLookups): FiguresPatch | undefined {
   const patch: FiguresPatch = {};
   if (draft.quantity !== before.quantity) patch.quantity = Number(draft.quantity || "0");
-  if (draft.unitCost !== before.unitCost) patch.unitNetCost = Number(draft.unitCost || "0");
+  if (draft.unitCost !== before.unitCost || draft.priceMode !== before.priceMode) {
+    patch[draft.priceMode === "gross" ? "unitGrossCost" : "unitNetCost"] = Number(draft.unitCost || "0");
+  }
   if (draft.fund !== before.fund && !several) {
     const fund = lookups.fundByName.get(draft.fund.toLowerCase());
     if (draft.fund === "") patch.fundIds = [];

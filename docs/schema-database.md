@@ -88,7 +88,8 @@ erDiagram
     integer supplier_id FK
     phase phase "estimate o actual"
     numeric quantity
-    numeric unit_net_cost
+    numeric unit_net_cost "senza IVA; 0 se il prezzo è con IVA"
+    numeric unit_gross_cost "con IVA; vuoto = il prezzo è senza IVA"
     sponsor_type sponsor_type "none, partial, total"
     numeric vat_rate
     date purchase_date
@@ -463,7 +464,7 @@ Oltre alle chiavi esterne, il database dice no a:
 | --- | --- |
 | un fondo del team per stagione; il fondo del team è semplice; uno sponsor ha un'aliquota | `fund` |
 | un contratto per fondo e fase; importo non negativo | `fund_contract` |
-| una riga di cifre per voce e fase; quantità e costo non negativi | `line_figures` |
+| una riga di cifre per voce e fase; quantità e costo non negativi; il prezzo scritto con IVA non è negativo e allora il netto salvato è 0 (un solo prezzo) | `line_figures` |
 | un fondo una volta sola per riga di cifre, e una sola posizione | `line_fund` |
 | importo non negativo; un'entrata riceve al più un inflow | `team_inflow` |
 | importo mai zero; la spunta Sponsorship solo sulle entrate | `cash_entry` |

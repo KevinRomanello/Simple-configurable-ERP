@@ -75,6 +75,8 @@ describe("phaseFigures", () => {
 
   it("lets a zero through: quantity 0 is something typed", () => {
     expect(phaseFigures({ ...EMPTY_PHASE, quantity: "0" }, lookups)).toEqual({ quantity: 0 });
+    // a price typed with the VAT is sent as that, not as a net price
+    expect(phaseFigures({ ...EMPTY_PHASE, quantity: "2", unitCost: "61", priceMode: "gross" }, lookups)).toEqual({ quantity: 2, unitGrossCost: 61 });
   });
 });
 

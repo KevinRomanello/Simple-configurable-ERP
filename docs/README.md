@@ -5,6 +5,7 @@
 | [piano-azione-v0.md](piano-azione-v0.md) | Cosa facciamo per arrivare a "stesse funzionalità dello script, ma su database": perimetro, blocchi di lavoro, difficoltà, rischi |
 | [piano-ritocchi-registro-menu-permessi.md](piano-ritocchi-registro-menu-permessi.md) | Piano (in attesa del via, 10 novembre 2026): registro ordinabile, modifica delle righe sul posto, menù a tendina riordinato, permessi dello User sulle impostazioni dell'inventario |
 | [architettura.md](architettura.md) | Stack, struttura del repository, livelli, modello dati, API, Docker, come si estende |
+| [prezzo-lordo.md](prezzo-lordo.md) | **Il prezzo con l'IVA nel budget** (fatto): scrivere il prezzo di un'unità con l'IVA invece che senza; che aliquota si usa e chi la decide; perché il lordo scritto resta esatto; più fondi con aliquote diverse; lo sponsor parziale non ammesso; la colonna `unit_gross_cost` |
 | [schema-database.md](schema-database.md) | **Com'è organizzato il database**: la mappa dei sei gruppi di tabelle e i ponti fra loro, un diagramma ER per area (budget, fondi e CASH FLOW, registro di cassa, inventario, accesso e impostazioni), i collegamenti per nome, cosa fa rispettare il database e cosa finisce nello storico |
 | [regole-script-attuale.md](regole-script-attuale.md) | Le regole di calcolo estratte dallo script e verificate sul foglio reale (la specifica di parità), con i casi di prova |
 | [hardcoded-registry.md](hardcoded-registry.md) | Tutto ciò che è hardcoded per ora, in quale funzione-API vive e cosa diventerà |

@@ -1,0 +1,2 @@
+ALTER TABLE "line_figures" ADD COLUMN "unit_gross_cost" numeric(14, 4);--> statement-breakpoint
+ALTER TABLE "line_figures" ADD CONSTRAINT "line_figures_one_price" CHECK ("line_figures"."unit_gross_cost" is null or ("line_figures"."unit_gross_cost" >= 0 and "line_figures"."unit_net_cost" = 0));

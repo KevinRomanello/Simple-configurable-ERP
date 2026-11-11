@@ -39,8 +39,20 @@ export function PhaseFields({ idPrefix, phase, draft, lookups, onChange, fixedFu
         <Field label="Quantity" htmlFor={id("quantity")}>
           <input id={id("quantity")} className="input small" type="number" min="0" step="0.001" value={draft.quantity} onChange={(e) => onChange({ quantity: e.target.value })} />
         </Field>
-        <Field label="Net unit cost" htmlFor={id("cost")}>
-          <input id={id("cost")} className="input small" type="number" min="0" step="0.0001" value={draft.unitCost} onChange={(e) => onChange({ unitCost: e.target.value })} />
+        <Field label={draft.priceMode === "gross" ? "Unit cost with VAT" : "Net unit cost"} htmlFor={id("cost")}>
+          <div className="inline-form">
+            <input id={id("cost")} className="input small" type="number" min="0" step="0.0001" value={draft.unitCost} onChange={(e) => onChange({ unitCost: e.target.value })} />
+            {/* switching keeps the same price, said the other way (a new line has nothing to convert: the number stays) */}
+            <select
+              aria-label="Price without or with VAT"
+              className="input small"
+              value={draft.priceMode}
+              onChange={(e) => onChange({ priceMode: e.target.value as "net" | "gross", unitCost: draft.otherCost || draft.unitCost, otherCost: draft.otherCost ? draft.unitCost : "" })}
+            >
+              <option value="net">without VAT</option>
+              <option value="gross">with VAT</option>
+            </select>
+          </div>
         </Field>
         <Field label="Cash from" htmlFor={id("fund")}>
           {fixedFunds !== undefined ? (

@@ -10,6 +10,7 @@ import { PHASES, type Phase } from "./types";
 const NOTHING: PhaseCalc = {
   figures: null,
   amounts: { ...ZERO_AMOUNTS, complete: true },
+  unitPriceE4: { net: 0, gross: 0 },
   shares: [],
   fundName: null,
   shortCents: 0,

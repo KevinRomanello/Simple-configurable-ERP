@@ -16,6 +16,8 @@ const phase = (figures: Partial<NonNullable<PhaseCalc["figures"]>> | null, names
       quantityMilli: 0, unitCostE4: 0, sponsorType: null, sponsorValueCents: null, vatRate: null, fundIds: [], supplierId: null,
       purchaseDate: null, arrivalDate: null, ...figures,
     },
+    // the other way of the price: with 22% VAT on a price typed without it, the net of a price typed with it
+    unitPriceE4: figures?.unitGrossE4 != null ? { net: Math.round(figures.unitGrossE4 / 1.22), gross: figures.unitGrossE4 } : { net: figures?.unitCostE4 ?? 0, gross: Math.round((figures?.unitCostE4 ?? 0) * 1.22) },
     fundName: names.fund ?? null,
     supplierName: names.supplier ?? null,
   }) as PhaseCalc;
@@ -42,8 +44,8 @@ describe("editDraft", () => {
   it("starts from the line as it is; a phase with nothing typed is empty", () => {
     expect(editDraft(line(bought))).toEqual({
       item: "Microcontroller", category: "Components", priority: "", car: "",
-      estimate: { quantity: "4", unitCost: "12.4", fund: "Team's fund", supplier: "RS Components", vatRate: "22", purchaseDate: "2026-10-01", arrivalDate: "" },
-      actual: { quantity: "", unitCost: "", fund: "", supplier: "", vatRate: "", purchaseDate: "", arrivalDate: "" },
+      estimate: { quantity: "4", unitCost: "12.4", priceMode: "net", otherCost: "15.128", fund: "Team's fund", supplier: "RS Components", vatRate: "22", purchaseDate: "2026-10-01", arrivalDate: "" },
+      actual: { quantity: "", unitCost: "", priceMode: "net", otherCost: "", fund: "", supplier: "", vatRate: "", purchaseDate: "", arrivalDate: "" },
     });
   });
 });
@@ -97,5 +99,29 @@ describe("linePatch", () => {
     const draft = editDraft(line(bought));
     draft.estimate = { ...draft.estimate, fund: "Acme", vatRate: "10" };
     expect(linePatch(draft, line(bought), lookups).figures?.estimate).toEqual({ fundIds: [2] });
+  });
+});
+
+describe("a price typed with the VAT", () => {
+  const withVat = phase({ quantityMilli: 1000, unitCostE4: 0, unitGrossE4: 1_220_000, vatRate: 22, sponsorType: "none" }, { fund: "Team's fund" });
+
+  it("starts from the price as it was typed, with the net kept for when the person switches", () => {
+    expect(editDraft(line(withVat)).estimate).toMatchObject({ unitCost: "122", priceMode: "gross", otherCost: "100" });
+  });
+
+  it("sends the price with VAT when it is typed, and the net price when the person switches back and types it", () => {
+    const draft = editDraft(line(bought));
+    draft.estimate = { ...draft.estimate, unitCost: "15", priceMode: "gross" };
+    expect(linePatch(draft, line(bought), lookups).figures).toEqual({ estimate: { unitGrossCost: 15 } });
+
+    const back = editDraft(line(withVat));
+    back.estimate = { ...back.estimate, unitCost: "90", priceMode: "net" };
+    expect(linePatch(back, line(withVat), lookups).figures).toEqual({ estimate: { unitNetCost: 90 } });
+  });
+
+  it("switching the kind of price only sends it said the other way", () => {
+    const draft = editDraft(line(bought));
+    draft.estimate = { ...draft.estimate, priceMode: "gross", unitCost: draft.estimate.otherCost, otherCost: draft.estimate.unitCost };
+    expect(linePatch(draft, line(bought), lookups).figures).toEqual({ estimate: { unitGrossCost: 15.128 } });
   });
 });

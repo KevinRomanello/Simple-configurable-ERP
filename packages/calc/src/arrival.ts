@@ -48,5 +48,5 @@ export function linePricesE4(line: CalcLine): UnitPricesE4 | null {
   const { amounts } = line.actual;
   // cents x 100 000 / thousandths = ten-thousandths of a euro per unit
   const perUnit = (cents: number) => roundDiv(cents * 100_000, figures.quantityMilli);
-  return { net: figures.unitCostE4, gross: perUnit(amounts.grossCents), team: perUnit(amounts.outflowCents) };
+  return { net: line.actual.unitPriceE4.net, gross: perUnit(amounts.grossCents), team: perUnit(amounts.outflowCents) };
 }

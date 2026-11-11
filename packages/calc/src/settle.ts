@@ -1,5 +1,5 @@
-import { lineAmounts, sponsorSplit, ZERO_AMOUNTS, type LineAmounts } from "./line";
-import { netCents, percentOf } from "./money";
+import { lineAmounts, splitGross, sponsorSplit, ZERO_AMOUNTS, type LineAmounts } from "./line";
+import { grossCents, netCents, percentOf } from "./money";
 import type { Figures, FundInput } from "./snapshot";
 import type { Settings } from "./types";
 
@@ -68,8 +68,14 @@ export function settleLine(
     return { amounts: lineAmounts(figures, settings), shares: [], teamVatCents: 0, teamFundCents: 0 };
   }
 
-  const net = netCents(figures.quantityMilli, figures.unitCostE4);
   const gift = funds.find(isGift);
+  if (figures.unitGrossE4 != null) {
+    const gross = grossCents(figures.quantityMilli, figures.unitGrossE4);
+    return gift || figures.sponsorType === "total"
+      ? settleTotalGross(figures, gross, gift ?? funds[0]!, balances, settings)
+      : settleSharesGross(figures, gross, funds, balances, settings);
+  }
+  const net = netCents(figures.quantityMilli, figures.unitCostE4);
   return gift || figures.sponsorType === "total"
     ? settleTotal(figures, net, gift ?? funds[0]!, balances, settings)
     : settleShares(figures, net, funds, balances, settings);
@@ -106,6 +112,69 @@ function settleTotal(
     ],
     teamVatCents: teamPays ? vat : 0,
     teamFundCents: 0,
+  };
+}
+
+/** `settleTotal` for a price typed with the VAT in it: the net is what is left of it, the share carries the VAT. */
+function settleTotalGross(figures: Figures, gross: number, fund: FundInput, balances: FundBalances, settings: Settings): Settlement {
+  const team = fund.kind === "team";
+  const rate = isGift(fund) ? giftRate(fund) : team ? figures.vatRate : fund.vatRate;
+  const { net, vat } = rate === null ? { net: gross, vat: 0 } : splitGross(gross, rate, "total", settings);
+
+  const teamPays = team || isGift(fund);
+  const drawn = teamPays ? 0 : vat;
+  if (drawn > 0) balances.set(fund.id, (balances.get(fund.id) ?? 0) - drawn);
+
+  return {
+    amounts: { netCents: net, vatCents: vat, grossCents: gross, sponsorCents: net, outflowCents: vat, complete: rate !== null },
+    shares: [
+      { fundId: fund.id, fundName: fund.name, netCents: 0, vatCents: vat, teamPaysVat: teamPays, drawnCents: drawn, shortCents: 0 },
+    ],
+    teamVatCents: teamPays ? vat : 0,
+    teamFundCents: 0,
+  };
+}
+
+/**
+ * `settleShares` for a price typed with the VAT in it. The funds pay the gross in order: a sponsor's fund
+ * pays net + VAT out of its balance, so what it can pay of the gross is its whole balance, and the rest
+ * goes to the next fund at its own rate (the team's, at the rate of the line). The VAT of each share is
+ * what is left of its gross after the net, so the shares add up to exactly what was typed.
+ */
+function settleSharesGross(figures: Figures, gross: number, funds: FundInput[], balances: FundBalances, settings: Settings): Settlement {
+  let remaining = gross;
+  let complete = true;
+  const shares = funds.map((fund, index): FundShare => {
+    const team = fund.kind === "team";
+    const rate = team ? figures.vatRate : fund.vatRate;
+    if (rate === null) complete = false;
+
+    const before = team ? Infinity : Math.max(0, balances.get(fund.id) ?? 0);
+    const last = index === funds.length - 1;
+    const part = last ? remaining : Math.min(remaining, before);
+    const { net, vat } = rate === null ? { net: part, vat: 0 } : splitGross(part, rate, null, settings);
+    const drawn = team ? net : part; // a sponsor's fund covers the VAT too
+    remaining -= part;
+
+    if (!team) balances.set(fund.id, (balances.get(fund.id) ?? 0) - drawn);
+    return {
+      fundId: fund.id,
+      fundName: fund.name,
+      netCents: net,
+      vatCents: vat,
+      teamPaysVat: team,
+      drawnCents: drawn,
+      shortCents: last && !team ? Math.max(0, drawn - before) : 0,
+    };
+  });
+
+  const net = shares.reduce((sum, s) => sum + s.netCents, 0);
+  const vat = shares.reduce((sum, s) => sum + s.vatCents, 0);
+  return {
+    amounts: { netCents: net, vatCents: vat, grossCents: gross, sponsorCents: 0, outflowCents: gross, complete },
+    shares,
+    teamVatCents: shares.filter((s) => s.teamPaysVat).reduce((sum, s) => sum + s.vatCents, 0),
+    teamFundCents: funds.reduce((sum, fund, i) => sum + (fund.kind === "team" ? shares[i]!.netCents : 0), 0),
   };
 }
 

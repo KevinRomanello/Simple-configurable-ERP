@@ -9,6 +9,8 @@ export const figuresInput = z
   .object({
     quantity: decimal(3, LIMITS.quantity),
     unitNetCost: decimal(4, LIMITS.unitCost),
+    /** The price typed with the VAT in it: the one of the two prices that is kept is the one sent (not both). */
+    unitGrossCost: decimal(4, LIMITS.unitCost),
     sponsorType: z.enum(SPONSOR_TYPES).nullable(),
     sponsorValue: decimal(2, LIMITS.netCost).nullable(),
     vatRate: z.number().min(0).max(100).nullable(),

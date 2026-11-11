@@ -113,6 +113,12 @@ export const lineFigures = pgTable(
     phase: phaseEnum().notNull(),
     quantity: numeric({ precision: 14, scale: 3 }).notNull().default("0"),
     unitNetCost: numeric({ precision: 14, scale: 4 }).notNull().default("0"),
+    /**
+     * The price of one unit when it was typed with the VAT in it (a receipt, an invoice total): then this is
+     * the number that never moves and the net is worked out from it, and `unit_net_cost` is 0. Empty: the price
+     * was typed without VAT (`unit_net_cost`). docs/prezzo-lordo.md
+     */
+    unitGrossCost: numeric({ precision: 14, scale: 4 }),
     // Null sponsor type or VAT rate = the line is incomplete (VAT is not computed yet).
     sponsorType: sponsorTypeEnum(),
     sponsorValue: numeric({ precision: 14, scale: 2 }),
@@ -125,6 +131,7 @@ export const lineFigures = pgTable(
     unique("line_figures_line_phase_uq").on(t.lineId, t.phase),
     index("line_figures_supplier").on(t.supplierId),
     check("line_figures_non_negative", sql`${t.quantity} >= 0 and ${t.unitNetCost} >= 0`),
+    check("line_figures_one_price", sql`${t.unitGrossCost} is null or (${t.unitGrossCost} >= 0 and ${t.unitNetCost} = 0)`),
   ],
 );
 

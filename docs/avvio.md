@@ -146,7 +146,7 @@ docker compose exec web pnpm --filter @erp/web test
 docker compose exec api pnpm --filter @erp/import-xlsx test
 ```
 
-Risultati attesi: 208 (motore), 392 (API), 107 (sito; 108 se in `fonti/` c'è il foglio vero del registro di cassa), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
+Risultati attesi: 223 (motore), 398 (API), 110 (sito; 111 se in `fonti/` c'è il foglio vero del registro di cassa), 3 (importer). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
 
 Dentro `psql` (il terminale del database) servono pochi comandi: `\dt` elenca le tabelle, `select * from fund;` mostra i fondi, `\q` esce.
 

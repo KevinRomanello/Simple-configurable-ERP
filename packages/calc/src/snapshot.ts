@@ -9,6 +9,13 @@ import type { FundType, Phase, Priority, Settings, SponsorType, VatRules } from 
 export interface Figures {
   quantityMilli: number;
   unitCostE4: number;
+  /**
+   * The price of one unit typed WITH the VAT in it (an invoice total, a receipt), in ten-thousandths of a
+   * euro. When it is there it is the number that never moves and the net is worked out from it (the VAT
+   * rate of the line, or of the fund that pays); `unitCostE4` is then 0. Absent or null: the price was
+   * typed without VAT. A partial sponsor is not allowed with it (the server refuses that).
+   */
+  unitGrossE4?: number | null;
   sponsorType: SponsorType | null;
   /** Only meaningful for a partial sponsor; a total sponsor always covers the whole net. */
   sponsorValueCents: number | null;

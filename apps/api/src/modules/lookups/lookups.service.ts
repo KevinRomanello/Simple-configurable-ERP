@@ -29,6 +29,15 @@ export async function listVatRates(): Promise<number[]> {
 }
 
 /**
+ * The VAT rate a line starts from when its price is typed with the VAT in it and no rate is chosen yet, in
+ * percent: the main one, which the person can change on the line.
+ */
+export async function getDefaultVatRate(): Promise<number> {
+  // HARDCODED: the main VAT rate will be a value of the Settings page, chosen among the VAT rates
+  return 22;
+}
+
+/**
  * The VAT rate a kind of sponsor cannot choose, in percent: goods given for free owe no VAT, goods
  * given against an advertising counter-invoice always owe the same. The other kinds choose their own.
  */

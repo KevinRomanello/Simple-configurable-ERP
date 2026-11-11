@@ -1,4 +1,4 @@
-import { netCents, percentOf } from "./money";
+import { grossCents, netCents, netOfGross, percentOf } from "./money";
 import type { Figures } from "./snapshot";
 import type { Settings, SponsorType } from "./types";
 
@@ -55,6 +55,7 @@ export function sumAmounts(list: Iterable<Amounts>): Amounts {
  */
 export function lineAmounts(figures: Figures | null, settings: Settings): LineAmounts {
   if (!figures) return { ...ZERO_AMOUNTS, complete: true };
+  if (figures.unitGrossE4 != null) return grossLineAmounts(figures, settings);
 
   const net = netCents(figures.quantityMilli, figures.unitCostE4);
   const { sponsorType, vatRate } = figures;
@@ -70,6 +71,33 @@ export function lineAmounts(figures: Figures | null, settings: Settings): LineAm
     outflowCents: gross - sponsor,
     complete: sponsorType !== null && vatRate !== null,
   };
+}
+
+/**
+ * `lineAmounts` for a price typed with the VAT in it: the gross is what was typed and never moves, the net
+ * is what is left when the VAT at the line's rate is taken out, and the VAT is the difference, so the
+ * cents always add up to what was typed. Without a rate or a sponsor type there is no VAT yet: the typed
+ * price counts as the net and the line is flagged incomplete.
+ */
+function grossLineAmounts(figures: Figures, settings: Settings): LineAmounts {
+  const gross = grossCents(figures.quantityMilli, figures.unitGrossE4!);
+  const { sponsorType, vatRate } = figures;
+  if (sponsorType === null || vatRate === null) {
+    return { netCents: gross, vatCents: 0, grossCents: gross, sponsorCents: 0, outflowCents: gross, complete: false };
+  }
+  const { net, vat } = splitGross(gross, vatRate, sponsorType, settings);
+  const sponsor = sponsorType === "total" ? net : sponsorType === "partial" ? (figures.sponsorValueCents ?? 0) : 0;
+  return { netCents: net, vatCents: vat, grossCents: gross, sponsorCents: sponsor, outflowCents: gross - sponsor, complete: true };
+}
+
+/**
+ * The net and the VAT of a price typed with the VAT in it. When a sponsor covers the whole line and the
+ * VAT is taken on what the sponsor does not cover (open question Q1), nothing is left to tax.
+ */
+export function splitGross(gross: number, rate: number, sponsorType: SponsorType | null, settings: Settings): { net: number; vat: number } {
+  if (sponsorType === "total" && settings.vatBaseWhenTotalSponsor === "net-minus-sponsor") return { net: gross, vat: 0 };
+  const net = netOfGross(gross, rate);
+  return { net, vat: gross - net };
 }
 
 /** What the sponsor covers of a net cost, and the amount the VAT rate is applied to. */

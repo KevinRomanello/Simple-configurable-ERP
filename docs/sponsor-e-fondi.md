@@ -44,6 +44,8 @@ L'IVA che il team paga di tasca sua è quindi solo quella delle righe pagate con
 
 Il tipo C chiude la domanda **Q1** («sponsor totale: IVA sull'intero netto?»): sì, è voluto, e il motore già lo faceva (`vatBaseWhenTotalSponsor = "net"`).
 
+> **Il prezzo con l'IVA** (11 novembre 2026): una riga si può scrivere anche con il prezzo **con** l'IVA ([prezzo-lordo.md](prezzo-lordo.md)). Chi decide l'aliquota resta quello di questo documento: il fondo di uno sponsor impone la sua, il fondo del team usa quella della riga; un fondo di sponsor paga sempre il lordo.
+
 ## 3bis. Uno sponsor di merce è anche un fornitore
 
 Chi regala la merce è anche chi la «vende»: per uno sponsor di tipo B o C il fondo (CASH FROM) e il fornitore (BOUGHT FROM) sono la stessa azienda. Il collegamento passa dal **nome**, senza badare alle maiuscole. Vale per i tipi di merce, non per un fondo (A: soldi).

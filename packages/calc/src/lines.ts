@@ -1,4 +1,5 @@
 import { arrivalOf, type Arrival } from "./arrival";
+import { roundDiv } from "./money";
 import type { LineAmounts } from "./line";
 import { settleLine, type FundBalances, type FundShare } from "./settle";
 import type { Figures, FundInput, Snapshot } from "./snapshot";
@@ -10,6 +11,11 @@ export interface PhaseCalc {
   /** What was typed in (null when the phase has no data yet): an editing screen starts from it. */
   figures: Figures | null;
   amounts: LineAmounts;
+  /**
+   * The price of one unit both ways, in ten-thousandths of a euro: the one that was typed is exact, the other
+   * is worked out from the amounts of the line (so it can be a hair off when the quantity is large).
+   */
+  unitPriceE4: { net: number; gross: number };
   /** The funds that pay the line, in order, each with its part (see settle.ts). */
   shares: FundShare[];
   /** Their names for display, "A + B"; null without funds. */
@@ -88,9 +94,19 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
     const teamFundDueCents = Math.max(0, settled.teamFundCents - paidCents);
     const late = paidCents > 0 && teamFundDueCents > 0 && snapshot.lateFrom !== undefined && purchaseDate !== null && purchaseDate < snapshot.lateFrom;
 
+    const quantity = figures?.quantityMilli ?? 0;
+    // cents x 100 000 / thousandths = ten-thousandths of a euro per unit
+    const perUnit = (cents: number) => (quantity > 0 ? roundDiv((cents * 100_000), quantity) : 0);
+    const typedGross = figures?.unitGrossE4 != null;
+    const unitPriceE4 = {
+      net: typedGross ? perUnit(settled.amounts.netCents) : (figures?.unitCostE4 ?? 0),
+      gross: typedGross ? figures!.unitGrossE4! : perUnit(settled.amounts.grossCents),
+    };
+
     return {
       figures,
       amounts: settled.amounts,
+      unitPriceE4,
       shares: settled.shares,
       fundName: chosen.length > 0 ? chosen.map((f) => f.name).join(" + ") : null,
       shortCents: settled.shares.reduce((sum, s) => sum + s.shortCents, 0),

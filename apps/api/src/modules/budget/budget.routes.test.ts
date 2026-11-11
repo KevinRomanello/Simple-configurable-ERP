@@ -356,3 +356,70 @@ describe("the funds that pay a line", () => {
     expect((await sheet()).projects[0].lines[0].estimate.amounts.vatCents).toBe(0);
   });
 });
+
+// A price typed with the VAT in it (docs/prezzo-lordo.md)
+describe("a price typed with the VAT", () => {
+  const phaseOf = async () => (await sheet()).projects[0].lines[0].actual;
+  async function lineWith(figures: object) {
+    const { id } = await project();
+    const created = await api.post(`/api/projects/${id}/lines`, { item: "Receipt", figures: { actual: figures } });
+    expect(created.status).toBe(201);
+    return created.body.id as number;
+  }
+
+  it("takes the VAT out at the main rate when none is chosen, and the line starts without a sponsor", async () => {
+    await lineWith({ quantity: 1, unitGrossCost: "122" });
+    const actual = await phaseOf();
+    expect(actual.figures).toMatchObject({ unitCostE4: 0, unitGrossE4: 1_220_000, vatRate: 22, sponsorType: "none" });
+    expect(actual.amounts).toMatchObject({ netCents: 10_000, vatCents: 2_200, grossCents: 12_200, outflowCents: 12_200, complete: true });
+    expect(actual.unitPriceE4).toEqual({ net: 1_000_000, gross: 1_220_000 });
+  });
+
+  it("keeps the number typed when the rate changes: the gross stays and the net moves", async () => {
+    const lineId = await lineWith({ quantity: 1, unitGrossCost: "10.01" });
+    expect((await phaseOf()).amounts).toMatchObject({ grossCents: 1_001, netCents: 820, vatCents: 181 });
+    await api.patch(`/api/lines/${lineId}`, { version: 1, figures: { actual: { vatRate: 11 } } });
+    expect((await phaseOf()).amounts).toMatchObject({ grossCents: 1_001, netCents: 902, vatCents: 99 });
+  });
+
+  it("typing a net price takes the line back to a price without VAT, which is kept as typed", async () => {
+    const lineId = await lineWith({ quantity: 1, unitGrossCost: "122" });
+    expect((await api.patch(`/api/lines/${lineId}`, { version: 1, figures: { actual: { unitNetCost: "100" } } })).status).toBe(200);
+    const actual = await phaseOf();
+    expect(actual.figures).toMatchObject({ unitCostE4: 1_000_000, unitGrossE4: null });
+    expect(actual.amounts).toMatchObject({ netCents: 10_000, vatCents: 2_200, grossCents: 12_200 });
+    // and the other way again
+    await api.patch(`/api/lines/${lineId}`, { version: 2, figures: { actual: { unitGrossCost: "50" } } });
+    expect((await phaseOf()).figures).toMatchObject({ unitCostE4: 0, unitGrossE4: 500_000 });
+  });
+
+  it("a fund that pays a decided VAT decides the rate: 111,00 at the 11% of the fund is 100,00 and 11,00", async () => {
+    const fundId = await sponsorId(api, "Eleven", { vatRate: 11 });
+    await lineWith({ quantity: 1, unitGrossCost: "111", fundIds: [fundId] });
+    const actual = await phaseOf();
+    expect(actual.amounts).toMatchObject({ netCents: 10_000, vatCents: 1_100, grossCents: 11_100 });
+    expect(actual.shares[0]).toMatchObject({ drawnCents: 11_100 });
+  });
+
+  it("refuses both prices at once, and a partial sponsor with a price with VAT (in both orders)", async () => {
+    const { id } = await project();
+    const both = await api.post(`/api/projects/${id}/lines`, { item: "X", figures: { actual: { unitNetCost: "1", unitGrossCost: "1" } } });
+    expect(both.status).toBe(400);
+
+    const withVat = (await api.post(`/api/projects/${id}/lines`, { item: "Y", figures: { actual: { quantity: 1, unitGrossCost: "100" } } })).body;
+    const partial = await api.patch(`/api/lines/${withVat.id}`, { version: 1, figures: { actual: { sponsorType: "partial", sponsorValue: "10" } } });
+    expect(partial.status).toBe(400);
+    expect(partial.body.error).toMatch(/net price/);
+
+    const net = (await api.post(`/api/projects/${id}/lines`, { item: "Z", figures: { actual: { quantity: 1, unitNetCost: "100", sponsorType: "partial", sponsorValue: "10", vatRate: 22 } } })).body;
+    expect((await api.patch(`/api/lines/${net.id}`, { version: 1, figures: { actual: { unitGrossCost: "100" } } })).status).toBe(400);
+  });
+
+  it("limits the cost of a line with VAT like the net one, and refuses a negative or untidy price", async () => {
+    const { id } = await project();
+    const post = (figures: object) => api.post(`/api/projects/${id}/lines`, { item: "Big", figures: { actual: figures } });
+    expect((await post({ quantity: 20, unitGrossCost: "9000000" })).status).toBe(400);
+    expect((await post({ quantity: 1, unitGrossCost: "-1" })).status).toBe(400);
+    expect((await post({ quantity: 1, unitGrossCost: "1.23456" })).status).toBe(400);
+  });
+});

@@ -57,6 +57,8 @@ const del = (path: string) => request<void>("DELETE", path);
 export interface FiguresPatch {
   quantity?: number | null;
   unitNetCost?: number | null;
+  /** The price typed with the VAT in it; send this or `unitNetCost`, not both. */
+  unitGrossCost?: number | null;
   sponsorType?: string | null;
   sponsorValue?: number | null;
   vatRate?: number | null;

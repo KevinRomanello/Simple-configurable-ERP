@@ -743,6 +743,8 @@
 .ag-header-group-cell.phase-estimate { background: var(--bg-sub); }
 .ag-header-group-cell.phase-actual { background: var(--primary-soft); color: var(--text-strong); }
 .ag-cell.calc { color: var(--text-sub); text-align: right; }
+/* a price that is worked out from the other one (net from gross, gross from net) */
+.ag-cell.cell-derived { color: var(--text-soft); font-style: italic; }
 /* a thicker bar where a group of columns begins: expected | actual */
 .ag-cell.phase-start,
 .ag-header-cell.phase-start,
