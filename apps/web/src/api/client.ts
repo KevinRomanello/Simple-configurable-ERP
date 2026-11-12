@@ -1,5 +1,5 @@
 import type {
-  Analysis, Area, AreaSheet, Bank, ApplyBody, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, SponsorBody, StatsResult, Supplier, TotalsView, TypeParam, UserRow, VatReport,
+  Analysis, Area, AreaSheet, Bank, ApplyBody, CategoryDefault, ToLinkRow, ToPay, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, SponsorBody, Statement, StatsResult, Supplier, TotalsView, TypeParam, UserRow, VatReport,
 } from "./types";
 import type { NewLineBody } from "../lib/newLine";
 import { chosenSeasonId } from "../lib/seasonChoice";
@@ -67,6 +67,15 @@ export interface FiguresPatch {
   supplierId?: number | null;
   purchaseDate?: string | null;
   arrivalDate?: string | null;
+}
+/** What the form of TO PAY sends: one new payment for the lines, with an amount for each. */
+export interface PayBody {
+  on: string;
+  account: CashAccount;
+  methodId: number | null;
+  categoryId: number | null;
+  description?: string;
+  lines: { lineId: number; amount: string }[];
 }
 export interface LinePatch {
   version: number;
@@ -274,6 +283,14 @@ export const api = {
   updateCashEntry: (id: number, body: Partial<CashEntryBody>) => patch(`/cash/entries/${id}`, body),
   deleteCashEntry: (id: number) => del(`/cash/entries/${id}`),
   payableLines: () => get<PayableLine[]>("/cash/payable-lines"),
+  /** FINANCIAL STATEMENT: the table of income and costs of a year, as the sheet of the treasury works it out. */
+  cashStatement: (year?: number) => get<Statement>(`/cash/statement${year ? `?year=${year}` : ""}`),
+  /** TO PAY: what the team still owes of the lines bought, the payment that pays them, and the payments that pay no line yet. */
+  toPay: (allSeasons: boolean) => get<ToPay>(`/cash/to-pay${allSeasons ? "?allSeasons=1" : ""}`),
+  payLines: (body: PayBody) => post<{ id: number }>("/cash/to-pay/pay", body),
+  toLink: () => get<ToLinkRow[]>("/cash/to-link"),
+  categoryDefaults: () => get<CategoryDefault[]>("/cash/category-defaults"),
+  setCategoryDefault: (categoryId: number, voceId: number | null) => put(`/cash/category-defaults/${categoryId}`, { voceId }),
   setCashEntryLines: (id: number, lines: { lineId: number; amount: string }[]) => put(`/cash/entries/${id}/lines`, { lines }),
   setCashOpening: (body: { year: number; account: CashAccount; amount: string | null }) => put("/cash/openings", body),
   previewCashImport: (body: ImportBody) => post<ImportPreview>("/cash/import/preview", body),

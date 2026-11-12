@@ -40,7 +40,7 @@ export function cashFlowSummary(snapshot: Snapshot, phase: Phase): CashFlowSumma
     .filter((p) => counts(p.cashDate))
     .reduce((sum, p) => sum + p.teamFundDueCents, 0);
   const teamVat =
-    lines.filter((p) => p.teamVatCents > 0 && counts(p.vatDueDate)).reduce((sum, p) => sum + p.teamVatCents, 0) +
+    lines.filter((p) => p.teamVatDueCents > 0 && counts(p.vatCashDate)).reduce((sum, p) => sum + p.teamVatDueCents, 0) +
     inflowVat(snapshot, phase).filter((v) => counts(v.dueDate)).reduce((sum, v) => sum + v.cents, 0);
 
   const teamOutflowsCents = teamPurchases + teamVat;

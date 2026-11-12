@@ -41,7 +41,7 @@ Oggi la matita trasforma la riga in una fila di caselle strette, una accanto all
 
 ## 6. Il menù a lato
 
-- **Nuovo ordine:** Budget (le aree), **Views**, **Cash** (CASH FROM, BOUGHT FROM, CASH FLOW e **REGISTRO DI CASSA**, quest'ultimo solo per tesoreria e admin; il gruppo «Register» sparisce), **Total**, **Inventory**, poi **Admin** (Users, Settings, History) com'è.
+- **Nuovo ordine:** Budget (le aree), **Views**, **Cash** (CASH FROM, BOUGHT FROM, CASH FLOW e **CASH REGISTER**, quest'ultimo solo per tesoreria e admin; il gruppo «Register» sparisce), **Total**, **Inventory**, poi **Admin** (Users, Settings, History) com'è.
 - **A tendina:** il titolo di ogni gruppo si clicca e il gruppo si chiude o si apre (una freccia a lato). Il gruppo della pagina in cui sei si apre da solo; la scelta si ricorda nel browser (con prova senza archivio: si apre tutto). Vale uguale sul telefono e sul tablet, dove il menù si apre sopra la pagina.
 - File: `Shell.tsx` e gli stili del menù.
 - **Dubbio:** «a tendina» come fisarmonica (i gruppi si chiudono, il menù resta a lato) o come menù che si apre al passaggio del mouse? Propongo la fisarmonica: funziona anche sul telefono.

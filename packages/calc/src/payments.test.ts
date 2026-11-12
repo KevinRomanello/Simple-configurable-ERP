@@ -75,3 +75,43 @@ describe("CASH FLOW and the Gantt with payments", () => {
     expect(rows.find((r) => r.month === "2026-11")?.outflowAllCents ?? 0).toBe(0);
   });
 });
+
+describe("a payment covers the net first, then the VAT", () => {
+  // line 1: 1000.00 net + 220.00 VAT (22%) bought on 1 Oct 2026; the VAT is due on 16 Feb 2027, after the BANK day
+  const only = (payments: Snapshot["payments"], lateFrom: string | undefined = "2026-11-11") =>
+    computeLines({ ...scenario(payments, lateFrom), lines: scenario(undefined).lines.slice(0, 1) })[0]!.actual;
+
+  it("the gross at once pays everything: neither the net nor the VAT is left", () => {
+    expect(only([{ lineId: 1, cents: 122_000 }])).toMatchObject({ paidCents: 122_000, unpaidFundCents: 0, unpaidVatCents: 0, teamFundDueCents: 0, teamVatDueCents: 0 });
+  });
+
+  it("the net alone leaves the VAT to pay, on its deadline; a bit more than the net pays a bit of the VAT", () => {
+    expect(only([{ lineId: 1, cents: 100_000 }])).toMatchObject({ unpaidFundCents: 0, unpaidVatCents: 22_000, teamVatDueCents: 22_000, vatCashDate: "2027-02-16" });
+    expect(only([{ lineId: 1, cents: 110_000 }])).toMatchObject({ unpaidFundCents: 0, unpaidVatCents: 12_000 });
+    expect(only([{ lineId: 1, cents: 60_000 }])).toMatchObject({ unpaidFundCents: 40_000, unpaidVatCents: 22_000 });
+  });
+
+  it("the VAT already paid is not counted again on its deadline, in CASH FLOW and in the Gantt", () => {
+    const vatOf = (cents: number) => cashFlowSummary({ ...scenario([{ lineId: 1, cents }]), lines: scenario(undefined).lines.slice(0, 1) }, "actual").teamOutflowsCents;
+    // the net is past and paid: only the VAT on 16 Feb counts, or nothing when it was paid too
+    expect(vatOf(100_000)).toBe(22_000);
+    expect(vatOf(122_000)).toBe(0);
+    const rows = gantt({ ...scenario([{ lineId: 1, cents: 122_000 }]), lines: scenario(undefined).lines.slice(0, 1) }, "actual").teamFund.rows;
+    expect(rows.reduce((sum, r) => sum + r.outflowVatCents, 0)).toBe(0);
+  });
+
+  it("a VAT whose deadline has passed and is not paid yet counts from the day after the BANK, but only for a line with payments", () => {
+    const old = (payments: Snapshot["payments"]) =>
+      computeLines({ ...scenario(payments), lines: [line(1, 1, null, figures(1, 1_000, { fundIds: [1], vatRate: 22, purchaseDate: "2025-10-01" }))] })[0]!.actual;
+    expect(old([{ lineId: 1, cents: 100_000 }])).toMatchObject({ teamVatDueCents: 22_000, vatDueDate: "2026-02-16", vatCashDate: "2026-11-11" });
+    expect(old([])).toMatchObject({ vatCashDate: "2026-02-16" }); // no payments: as before, it is in the BANK
+  });
+
+  it("the payments are read whatever the BANK is, but only change the forecast when it comes from the register", () => {
+    const typedBank = only([{ lineId: 1, cents: 122_000 }], undefined);
+    expect(computeLines({ ...scenario([{ lineId: 1, cents: 122_000 }]), lateFrom: undefined, lines: scenario(undefined).lines.slice(0, 1) })[0]!.actual).toMatchObject({
+      paidCents: 122_000, unpaidFundCents: 0, unpaidVatCents: 0, teamFundDueCents: 100_000, teamVatDueCents: 22_000,
+    });
+    expect(typedBank.paidCents).toBe(122_000);
+  });
+});

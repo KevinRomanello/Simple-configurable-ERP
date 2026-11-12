@@ -18,6 +18,8 @@ import { InventoryStatsPage } from "./pages/InventoryStatsPage";
 import { ItemPage } from "./pages/ItemPage";
 import { ItemsPage } from "./pages/ItemsPage";
 import { PendingPage } from "./pages/PendingPage";
+import { StatementPage } from "./pages/StatementPage";
+import { ToPayPage } from "./pages/ToPayPage";
 import { SuppliersPage } from "./pages/SuppliersPage";
 import { TotalPage } from "./pages/TotalPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -43,6 +45,8 @@ export function App() {
                 <Route path="bought-from" element={<SuppliersPage />} />
                 <Route path="cash-flow" element={<CashFlowPage />} />
                 <Route path="register" element={<CashRegisterPage />} />
+                <Route path="to-pay" element={<ToPayPage />} />
+                <Route path="statement" element={<StatementPage />} />
                 <Route path="gantt/:phase" element={<GanttPage />} />
                 <Route path="total" element={<Navigate to="/total/season" replace />} />
                 <Route path="total/season" element={<TotalPage kind="season" />} />

@@ -1,12 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import {
-  createCashCategory, createCashMethod, deleteCashCategory, deleteCashMethod, listCashCategories, listCashMethods,
-  orderCashCategories, orderCashMethods, renameCashMethod, updateCashCategory,
+  createCashCategory, createCashMethod, deleteCashCategory, deleteCashMethod, listCashCategories, listCashMethods, listCategoryDefaults,
+  orderCashCategories, orderCashMethods, renameCashMethod, setCategoryDefault, updateCashCategory,
 } from "./cash-lists.service";
 import { applyImport, previewImport } from "./cash-import.service";
-import { listPayableLines, setEntryLines } from "./cash-links.service";
-import { applyInput, createEntryInput, linesInput, previewInput, entryParam, listInput, openingInput, orderInput, registerQuery, updateEntryInput, updateListInput } from "./cash.schema";
+import { listPayableLines, listToLink, listToPay, payLines, setEntryLines } from "./cash-links.service";
+import { applyInput, categoryDefaultInput, createEntryInput, linesInput, payInput, toPayQuery, previewInput, entryParam, listInput, openingInput, orderInput, registerQuery, updateEntryInput, updateListInput } from "./cash.schema";
 import { assertCanManageCash, createEntry, deleteEntry, getRegister, setOpening, updateEntry } from "./cash.service";
+import { getStatement } from "./statement.service";
 
 // The register of the team's money, and its two lists. Only the treasury and the admins (every service checks it).
 export async function cashRoutes(app: FastifyInstance) {
@@ -17,10 +18,21 @@ export async function cashRoutes(app: FastifyInstance) {
     await deleteEntry(entryParam.parse(request.params).id);
     return reply.code(204).send();
   });
+  // the financial statement of a year, as the sheet of the treasury works it out
+  app.get("/cash/statement", (request) => getStatement(registerQuery.parse(request.query).year));
   // the payments of the register tied to the lines of the budget
   app.get("/cash/payable-lines", () => listPayableLines());
   app.put("/cash/entries/:id/lines", async (request, reply) => {
     await setEntryLines(entryParam.parse(request.params).id, linesInput.parse(request.body).lines);
+    return reply.code(204).send();
+  });
+  // TO PAY: what the team still owes of the lines bought, the button that pays them, and the payments to tie
+  app.get("/cash/to-pay", (request) => listToPay(toPayQuery.parse(request.query).allSeasons !== undefined));
+  app.post("/cash/to-pay/pay", async (request, reply) => reply.code(201).send(await payLines(payInput.parse(request.body))));
+  app.get("/cash/to-link", () => listToLink());
+  app.get("/cash/category-defaults", () => listCategoryDefaults());
+  app.put("/cash/category-defaults/:id", async (request, reply) => {
+    await setCategoryDefault(entryParam.parse(request.params).id, categoryDefaultInput.parse(request.body).voceId);
     return reply.code(204).send();
   });
   app.put("/cash/openings", async (request, reply) => {

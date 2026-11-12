@@ -401,6 +401,7 @@ erDiagram
     integer id PK
     text name
     integer position
+    integer default_voce_id FK "la Voce da cui parte un pagamento"
   }
   category_field {
     integer id PK
@@ -433,6 +434,7 @@ erDiagram
   app_user ||--o{ user_area : "aree del pm"
   area ||--o{ user_area : "chi la cambia"
   category |o--o{ category_field : "campi mostrati"
+  cash_category |o--o{ category : "Voce di partenza"
 ```
 
 - `user_area` serve solo ai `pm`; `app_user` non si cancella (si **disattiva**), così lo storico continua a puntare a una persona.

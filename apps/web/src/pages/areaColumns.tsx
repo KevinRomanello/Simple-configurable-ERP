@@ -118,7 +118,7 @@ const choosesOwnRate = (lookups: GridLookups, fundIds: number[]) =>
 /** What each fund of a line pays, and what is missing. */
 function fundTip(row: Row | undefined, phase: Phase, lookups: GridLookups): string | undefined {
   if (!isLine(row)) return undefined;
-  const { shares, shortCents, paidCents, teamFundCents } = row[phase];
+  const { shares, shortCents, paidCents, teamFundCents, teamVatCents } = row[phase];
   if (shares.length === 0) return undefined;
   const lines = shares.map((s) =>
     // goods paid with a counter-invoice: the sponsor gives the goods, the team's own money pays the VAT of the invoice
@@ -128,7 +128,7 @@ function fundTip(row: Row | undefined, phase: Phase, lookups: GridLookups): stri
   );
   if (shortCents > 0) lines.push(`${money(shortCents)} missing: not enough in the fund`);
   // payments of the register tied to this line (only when the BANK comes from the register)
-  if (paidCents > 0) lines.push(paidCents >= teamFundCents ? `Paid from the register: ${money(paidCents)}` : `Paid from the register: ${money(paidCents)} of ${money(teamFundCents)}`);
+  if (paidCents > 0) lines.push(paidCents >= teamFundCents + teamVatCents ? `Paid from the register: ${money(paidCents)}` : `Paid from the register: ${money(paidCents)} of ${money(teamFundCents + teamVatCents)}`);
   return lines.join("\n");
 }
 

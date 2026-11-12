@@ -650,6 +650,36 @@
   text-align: center;
   color: var(--text-soft);
 }
+/* FINANCIAL STATEMENT: the table of the legal sheet, row by row (bold titles and sums, boxes of the sections) */
+.statement td:nth-child(n + 2) {
+  width: 11rem;
+  white-space: nowrap;
+}
+.statement .st-title td,
+.statement .st-total td,
+.statement .st-result td {
+  background: var(--bg-soft);
+}
+.statement .st-sum td,
+.statement .st-result td {
+  border-top: 1px solid var(--stroke-sub);
+}
+.statement .st-blank td {
+  height: var(--space-m);
+  padding: 0;
+}
+.st-flag {
+  margin-left: var(--space-xs);
+  color: var(--warning-strong);
+}
+/* the list of things to check: each one a name, what it is, and what it does this year */
+.issue-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
+  padding: 0;
+  list-style: none;
+}
 .two-columns {
   display: grid;
   /* never wider than the screen: on a phone the two blocks go one under the other */

@@ -2,7 +2,7 @@
 
 L'elenco **unico** delle decisioni ancora aperte, con chi deve rispondere, cosa cambia e dove è descritto il dettaglio. Quando una decisione si chiude si sposta nel documento che la riguarda (e si toglie da qui); quando ne nasce una nuova si aggiunge qui.
 
-Ultimo aggiornamento: **10 novembre 2026** (aggiunta D7: le domande per la tesoriera sul registro di cassa). Prima: 29 ottobre 2026. Chiuse il 29/10: annullare i movimenti e il progetto delle parti di una produzione ([inventario.md](inventario.md), §16 e §18).
+Ultimo aggiornamento: **12 novembre 2026** (aggiunta D11: i difetti del rendiconto uguale al foglio). Il 10 novembre: D7, le domande per la tesoriera sul registro di cassa. Prima: 29 ottobre 2026. Chiuse il 29/10: annullare i movimenti e il progetto delle parti di una produzione ([inventario.md](inventario.md), §16 e §18).
 
 ## Urgente
 
@@ -48,8 +48,19 @@ Piano completo, con le fasi e le domande, in [stagioni-anni-fiscali-e-macchine.m
 Descritto in [registro-di-cassa.md](registro-di-cassa.md) (§2 e §6). Non bloccano niente: l'import le segnala e lascia scegliere.
 
 1. **Le 6 righe di maggio 2025** dentro il foglio del 2026 e la scritta **«saldo al 01/01/2025»**: sono errori di battitura (2026) o dati veri? Contate nel 2026 i saldi del foglio tornano al centesimo; lasciate fuori la Banca differisce di quanto valgono.
-2. **Le Voci 9.4 (Pec aruba) e 9.5 (saldo fattura)**, 42 righe, non compaiono nel rendiconto del foglio («voci di ricavocosto»): è voluto? Conta quando si farà il rendiconto.
+2. **Le Voci 9.4 (Pec aruba) e 9.5 (saldo fattura)**, 42 righe, non compaiono nel rendiconto del foglio («voci di ricavocosto»): è voluto? Il rendiconto del sito è uguale al foglio e le segnala: vedi D11.
 3. **Il Paypal** non è nel «Progressivo cumulato» del foglio (che è Cassa + Banca): è voluto? Il sito fa come il foglio.
+
+### D11. Il rendiconto uguale al foglio: i suoi difetti, per la tesoreria e il commercialista
+
+FINANCIAL STATEMENT ([registro-di-cassa.md](registro-di-cassa.md), §5.5) è **uguale al foglio «voci di ricavocosto»**, difetti compresi, perché serve per motivi legali; il pulsante **Things to check** li spiega e dice quanti soldi dell'anno toccano. Se si vogliono **correggere** è una scelta della tesoreria e del commercialista, una per una (cambia solo `getStatementLayout`, riga 9 del registro degli hardcode):
+
+1. **Il Paypal** non è letto dalle righe QUOTE ASSOCIATIVE, 1.2 Cancelleria e 1.3 Materiale sportivo: voluto? Oggi non c'è Paypal su quelle Voci.
+2. **«4.4 da università»** non entra nella sezione 4 «Contributi da enti pubblici» (che somma solo 4.1, 4.2 e 4.3) né in nessun totale: i suoi soldi non sono in TOTALE RICAVI. Un errore di formula, o l'università non è un ente pubblico per il rendiconto?
+3. **«PRODUTTIVE MARGINALI (Eventi di raccolta fondi)»** non è in nessun totale e non è una Voce del registro: è una riga di intestazione andata a capo della riga 5, o una riga vera da avere fra le Voci?
+4. **«9. IVA»** è dentro «8. IMPOSTE E TASSE»: l'IVA va in quella sezione o è una sezione a sé (e allora il totale dei costi deve sommarla come nona)?
+5. **Le Voci 9.4 Pec aruba e 9.5 saldo fattura** non hanno riga nel rendiconto, e i movimenti senza Voce non compaiono: in quale riga vanno? Con i dati veri del 2026 sono una quarantina di movimenti, e i soldi mancano dai totali.
+6. **Il segno**: la colonna «importi parziali» è senza segno. Un rimborso su un costo (per esempio un noleggio restituito) va a ridurre il costo: la riga 4.2 Noleggi, oggi, ha un saldo positivo. È giusto così?
 
 ### D8. CASH FLOW dopo il registro: tenerlo, e dove si scrivono gli inflow
 
@@ -64,6 +75,8 @@ Il foglio «Pagamenti e Scadenze» della tesoreria ha **due tabelle affiancate**
 
 ### D9. Un movimento dovuto dal budget
 
+**Fatto** (11 novembre 2026, [registro-di-cassa.md](registro-di-cassa.md), §5.4): la pagina TO PAY, calcolata dal budget, con il pulsante «Pay»; il collegamento copre netto + IVA (prima il netto). Il testo qui sotto è la discussione di partenza.
+
 Una riga ACTUAL pagata dal fondo del team con ancora qualcosa da pagare è un movimento **dovuto**. Oggi la si collega a mano a un'uscita del registro *dopo* averla pagata.
 
 - **Proposta:** un elenco **«Da pagare»**, **calcolato** dal budget e non salvato (così non si può disallineare): le righe con il residuo, con la data d'acquisto o la scadenza dell'IVA. Da ogni riga un pulsante **Pay** crea l'uscita nel registro già compilata (descrizione, importo del residuo, giorno di oggi) e già collegata alla riga. Il budget genera la scadenza, il registro la chiude. Sarebbe la tabella *IN USCITA* di D8.
@@ -71,6 +84,8 @@ Una riga ACTUAL pagata dal fondo del team con ancora qualcosa da pagare è un mo
 - **Domanda per la tesoriera:** un fornitore con IVA si paga **lordo subito** (netto più IVA in un bonifico) o **netto subito e l'IVA alla scadenza** che il sito calcola? Se è lordo, il collegamento deve poter coprire anche l'IVA, altrimenti la previsione la conta due volte (già uscita e ancora da pagare). Oggi il collegamento copre solo il netto.
 
 ### D10. Le spese del registro nelle pagine TOTAL
+
+**Deciso nel design** ([tesoreria-design.md](tesoreria-design.md), §4): non si sommano le uscite collegate (sono già nelle righe del budget); si contano **solo** i movimenti fuori budget, come area derivata. Il riquadro dei «soldi veri» del rendiconto è la pagina FINANCIAL STATEMENT (§3). Il testo qui sotto è la discussione di partenza.
 
 Le pagine TOTAL sono il **budget** (previsto contro reale, per area, progetto e categoria) più i soldi in entrata. Le uscite del registro non ci sono.
 

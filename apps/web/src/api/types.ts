@@ -3,9 +3,9 @@
 export type {
   Analysis, Arrival, ArrivalStatus, AreaSheet, Bom, BomLine, CalcLine, CashFlowSummary, CostPoint, FundSummaryRow,
   Gantt, ItemOrigin, ItemsView, MoneyIn, MonthlyInflow, PendingLine, Phase, PhaseCalc, PriceBasis, PriceMethod, PricePoint,
-  Priority, SponsorType, StatsRow, Totals, TotalsBlock, TotalsFigures, VatReport,
+  Priority, SponsorType, StatementIssue, StatementIssueKind, StatementRow, StatsRow, ToPayLine, ToPayStatus, Totals, TotalsBlock, TotalsFigures, VatReport,
 } from "@erp/calc";
-import type { ItemOrigin, MoneyIn, PendingLine, Phase, PriceBasis, PriceMethod, PricePoint, Bom, CostPoint, StatsRow, Totals } from "@erp/calc";
+import type { ItemOrigin, MoneyIn, PendingLine, Phase, PriceBasis, PriceMethod, PricePoint, Bom, CostPoint, StatementIssue, StatementRow, StatsRow, ToPayLine, Totals } from "@erp/calc";
 
 /** GET /api/views/totals(/year, /car): TOTAL of a season, a calendar year or a car, and what came in (none for a car). */
 export type TotalsView = Totals & {
@@ -103,13 +103,57 @@ export interface Receivable {
   sponsorship: boolean;
 }
 
-/** GET /api/cash/payable-lines: an ACTUAL line the team fund pays, and how much the register has paid of it. */
+/** GET /api/cash/payable-lines: an ACTUAL line the team pays for (the net out of its fund and the VAT), and how much the register has paid of it. */
 export interface PayableLine {
   lineId: number;
   item: string;
   project: string;
   teamFundCents: number;
+  teamVatCents: number;
+  /** The net and the VAT together: the most a payment can cover. */
+  totalCents: number;
   paidCents: number;
+}
+
+/** GET /api/cash/to-pay: a line the team still has to pay, with the season it is of and the Voce its category starts from. */
+export interface ToPayRow extends ToPayLine {
+  seasonId: number;
+  seasonName: string;
+  suggestedCategoryId: number | null;
+}
+export interface ToPay {
+  rows: ToPayRow[];
+  /** The method of the last payment: the next one starts from it. */
+  lastMethodId: number | null;
+}
+
+/** GET /api/cash/statement: the financial statement of a calendar year (the table of the sheet), and what to check in it. */
+export interface Statement {
+  year: number;
+  /** The years of the register, the current one included, newest first. */
+  years: number[];
+  rows: StatementRow[];
+  issues: StatementIssue[];
+}
+
+/** GET /api/cash/to-link: a payment that pays no line of the budget yet. */
+export interface ToLinkRow {
+  id: number;
+  on: string;
+  description: string;
+  account: CashAccount;
+  /** Negative: money out. */
+  cents: number;
+  categoryId: number | null;
+  methodId: number | null;
+  lines: [];
+}
+
+/** GET /api/cash/category-defaults: the Voce a payment for a line of this budget category starts from. */
+export interface CategoryDefault {
+  categoryId: number;
+  name: string;
+  voceId: number | null;
 }
 
 export interface Bank {

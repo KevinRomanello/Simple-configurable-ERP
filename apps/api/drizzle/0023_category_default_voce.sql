@@ -1,0 +1,2 @@
+ALTER TABLE "category" ADD COLUMN "default_voce_id" integer;--> statement-breakpoint
+ALTER TABLE "category" ADD CONSTRAINT "category_default_voce_id_cash_category_id_fk" FOREIGN KEY ("default_voce_id") REFERENCES "public"."cash_category"("id") ON DELETE set null ON UPDATE no action;

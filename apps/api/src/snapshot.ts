@@ -69,8 +69,9 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
       const suppliers = await tx.select().from(supplier);
       const bank = await bankOf(tx, season);
       const inflows = await loadInflows(tx, season, bank);
-      // what the register paid of the lines only matters when the BANK is the register's (the payments are in it)
-      const payments = bank?.source === "register" ? await loadPayments(tx, season.id) : undefined;
+      // what the register paid of the lines: always read (the budget and TO PAY say it); it changes the forecast
+      // only when the BANK is the register's (the payments are in it), which `lateFrom` below says
+      const payments = await loadPayments(tx, season.id);
       const arrived = await tx
         .select({ lineId: stockMovement.budgetLineId, quantity: sql<string>`sum(${stockMovement.quantity})` })
         .from(stockMovement)
@@ -127,7 +128,8 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
         suppliers: suppliers.map((s) => ({ id: s.id, name: s.name })),
         receipts: arrived.map((r) => ({ lineId: r.lineId!, quantityMilli: toScaled(r.quantity, 3) })),
         bank: bank ? { amountCents: bank.amountCents, asOfDate: bank.asOfDate } : null,
-        ...(payments && bank?.asOfDate ? { payments, lateFrom: addDays(bank.asOfDate, 1) } : {}),
+        payments,
+        ...(bank?.source === "register" && bank.asOfDate ? { lateFrom: addDays(bank.asOfDate, 1) } : {}),
       };
     },
     { isolationLevel: "repeatable read", accessMode: "read only" },

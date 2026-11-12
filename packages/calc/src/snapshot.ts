@@ -111,7 +111,7 @@ export interface Lookups {
   settings: Settings;
 }
 
-/** A payment of the register linked to a budget line: how much of its team fund purchase it has paid (ACTUAL). */
+/** The payments of the register linked to a budget line, summed: how much of what the team pays for it (net, then VAT) is paid (ACTUAL). */
 export interface LinePayment {
   lineId: number;
   cents: number;
@@ -131,11 +131,11 @@ export interface Snapshot {
   receipts: ReceiptInput[];
   bank: BankInput | null;
   /**
-   * Payments of the register linked to ACTUAL lines, summed by line. Present only when the BANK comes
-   * from the register (otherwise the payments are not in it): a line with payments counts only what is
-   * still to pay. Without it, every line counts as before (docs/registro-di-cassa.md, section 5bis).
+   * Payments of the register linked to ACTUAL lines, summed by line: what the page TO PAY and the budget say
+   * is paid. They change the forecast only when `lateFrom` is there too, which is when the BANK comes from the
+   * register (otherwise the payments are not in it): then a line counts only what is still to pay.
    */
   payments?: LinePayment[];
-  /** The day after the BANK day: a line that is still to be paid and whose date has passed leaves the team fund then. */
+  /** Set only when the BANK comes from the register: the day after the BANK day, when a late line leaves the team fund. */
   lateFrom?: string;
 }

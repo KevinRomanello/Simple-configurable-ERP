@@ -14,6 +14,7 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 | 6 | Fuso orario della squadra, per sapere che giorno è «oggi» | `today` (core) ↔ un'impostazione della pagina Settings | `Europe/Rome` | un'impostazione di Settings, se una squadra non sta in Italia ([controllo-bug-e-prestazioni.md](controllo-bug-e-prestazioni.md), P2) |
 | 7 | Aliquota IVA che certi tipi di sponsor non scelgono: merce senza IVA **0%**, merce con controfattura **11%** | `getFixedSponsorRates` (lookups) ↔ `GET /api/lookups/sponsor-rates` | `gift` 0, `gift_vat` 11 | un valore della pagina Settings (oggi l'11% degli inflow è un'impostazione a parte, `inflowVatRate`) |
 | 8 | Aliquota IVA di partenza di una riga il cui prezzo è scritto **con** l'IVA e che non ne ha ancora una scelta: **22%** | `getDefaultVatRate` (lookups) ↔ `GET /api/lookups/default-vat-rate` (futuro) | 22 | un valore della pagina Settings, scelto fra le aliquote dell'elenco |
+| 9 | Le righe del rendiconto (FINANCIAL STATEMENT): ordine, etichette, quali righe sommano quali, quali Voci escludono il Paypal, difetti del foglio compresi | `getStatementLayout` (lookups) ↔ `GET /api/lookups/statement-layout` (futuro) | le 70 righe del foglio «voci di ricavocosto», con i suoi numeri di riga | un elenco della pagina Settings, tenuto dall'admin ([registro-di-cassa.md](registro-di-cassa.md), §5.5) |
 
 ### Implementato (6 novembre 2026): la stagione corrente
 

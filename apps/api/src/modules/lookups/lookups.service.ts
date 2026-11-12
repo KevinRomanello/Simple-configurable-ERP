@@ -1,4 +1,4 @@
-import { PRIORITIES, type BankCompareMode, type FundType, type Lookups, type Priority, type Quarter, type Settings, type VatRules } from "@erp/calc";
+import { PRIORITIES, type BankCompareMode, type FundType, type Lookups, type Priority, type Quarter, type Settings, type StatementSpec, type VatRules } from "@erp/calc";
 import { asc } from "drizzle-orm";
 import { db } from "../../db/client";
 import { category, categoryField, location, setting, unit, vatRate } from "../../db/schema";
@@ -35,6 +35,87 @@ export async function listVatRates(): Promise<number[]> {
 export async function getDefaultVatRate(): Promise<number> {
   // HARDCODED: the main VAT rate will be a value of the Settings page, chosen among the VAT rates
   return 22;
+}
+
+/**
+ * The rows of the financial statement, in the order and with the labels the team must show (they are copied from the
+ * sheet "voci di ricavocosto", defects included: docs/registro-di-cassa.md). `row` is the row of that sheet, which
+ * the sums refer to. A Voce of the register is counted in the row that has its name.
+ */
+export async function getStatementLayout(): Promise<StatementSpec[]> {
+  // HARDCODED: the rows of the financial statement will be a list of the Settings page, kept by the admin
+  return [
+    { row: 1, kind: "title", label: "RICAVI", side: "in" },
+    { row: 2, kind: "voce", label: "1. QUOTE ASSOCIATIVE", bold: true, paypal: false },
+    { row: 3, kind: "sum", label: "2. CONTRIBUTI DEGLI ASSOCIATI E DEI TESSERATI", of: [4, 5, 6], total: false },
+    { row: 4, kind: "voce", label: "2.1 da soci e tesserati", bold: false, paypal: true },
+    { row: 5, kind: "voce", label: "2.2 da altre associazioni", bold: false, paypal: true },
+    { row: 6, kind: "voce", label: "2.3 da altri (ad es. Federazioni)", bold: false, paypal: true },
+    { row: 7, kind: "sum", label: "3. EROGAZIONI LIBERALI RICEVUTE", of: [8, 9], total: false },
+    { row: 8, kind: "voce", label: "3.1 da soci", bold: false, paypal: true },
+    { row: 9, kind: "voce", label: "3.2 da non soci", bold: false, paypal: true },
+    { row: 10, kind: "sum", label: "4. CONTRIBUTI DA ENTI PUBBLICI", of: [11, 12, 13], total: false },
+    { row: 11, kind: "voce", label: "4.1 da comune, provincia, regione, stato", bold: false, paypal: true },
+    { row: 12, kind: "voce", label: "4.2 da Comunità europea e da altri organismi internazionali", bold: false, paypal: true },
+    { row: 13, kind: "voce", label: "4.3 da 5 per mille", bold: false, paypal: true },
+    { row: 14, kind: "voce", label: "4.4 da università", bold: false, paypal: true },
+    { row: 15, kind: "voce", label: "5. ENTRATE DA ATTIVITA’ COMMERCIALI", bold: true, paypal: true },
+    { row: 16, kind: "voce", label: "PRODUTTIVE MARGINALI (Eventi di raccolta fondi)", bold: false, paypal: true },
+    { row: 17, kind: "sum", label: "TOTALE RICAVI DA ATTIVITA' ISTITUZIONALE (tipica)", of: [2, 3, 7, 10, 15], total: true },
+    { row: 18, kind: "sum", label: "6. ENTRATE COMMERCIALI (da attività accessoria)", of: [19, 20, 21], total: false },
+    { row: 19, kind: "voce", label: "6.1 Da pubblicità e sponsorizzazioni", bold: false, paypal: true },
+    { row: 20, kind: "voce", label: "6.2 per attività svolte nei confronti di non associati", bold: false, paypal: true },
+    { row: 21, kind: "voce", label: "6.3 Entrate commerciali di altro tipo (rimborsi)", bold: false, paypal: true },
+    { row: 22, kind: "sum", label: "TOTALE RICAVI DA ATTIVITA' COMMERCIALE (accessoria)", of: [18], total: true },
+    { row: 23, kind: "sum", label: "7. ALTRE ENTRATE", of: [24, 25, 26], total: false },
+    { row: 24, kind: "voce", label: "7.1 Da rendite patrimoniali", bold: false, paypal: true },
+    { row: 25, kind: "voce", label: "7.2 rendite finanziarie", bold: false, paypal: true },
+    { row: 26, kind: "voce", label: "7.3 altro: CAMBI ATTIVI", bold: false, paypal: true },
+    { row: 27, kind: "sum", label: "TOTALE RICAVI", of: [17, 22, 23], total: true },
+    { row: 28, kind: "blank" },
+    { row: 29, kind: "title", label: "COSTI", side: "out" },
+    { row: 30, kind: "sum", label: "1. ACQUISTO DI BENI E DI MERCI", of: [31, 32, 33, 34], total: false },
+    { row: 31, kind: "voce", label: "1.1 Attrezzature", bold: false, paypal: true },
+    { row: 32, kind: "voce", label: "1.2 Cancelleria e materiali da ufficio", bold: false, paypal: false },
+    { row: 33, kind: "voce", label: "1.3 Materiale sportivo (per le ASD)", bold: false, paypal: false },
+    { row: 34, kind: "voce", label: "1.4 Altro", bold: false, paypal: true },
+    { row: 35, kind: "sum", label: "2. ACQUISTO DI SERVIZI", of: [36, 37, 38, 39, 40], total: false },
+    { row: 36, kind: "voce", label: "2.1 Assicurazioni", bold: false, paypal: true },
+    { row: 37, kind: "voce", label: "2.2 Servizi informatici", bold: false, paypal: true },
+    { row: 38, kind: "voce", label: "2.3 Spese postali", bold: false, paypal: true },
+    { row: 39, kind: "voce", label: "2.4 Consulenze/ servizi contabili", bold: false, paypal: true },
+    { row: 40, kind: "voce", label: "2.5 Altri", bold: false, paypal: true },
+    { row: 41, kind: "sum", label: "3. UTENZE (telefono, luce, riscaldamento,…)", of: [42, 43, 44, 45], total: false },
+    { row: 42, kind: "voce", label: "3.1 Luce", bold: false, paypal: true },
+    { row: 43, kind: "voce", label: "3.2 Acqua", bold: false, paypal: true },
+    { row: 44, kind: "voce", label: "3.3 Gas", bold: false, paypal: true },
+    { row: 45, kind: "voce", label: "3.4 Altre", bold: false, paypal: true },
+    { row: 46, kind: "sum", label: "4. GODIMENTO BENI DI TERZI (affitti e noleggi)", of: [47, 48, 49], total: false },
+    { row: 47, kind: "voce", label: "4.1 Affitti", bold: false, paypal: true },
+    { row: 48, kind: "voce", label: "4.2 Noleggi", bold: false, paypal: true },
+    { row: 49, kind: "voce", label: "4.3 Altri", bold: false, paypal: true },
+    { row: 50, kind: "sum", label: "5. AFFILIAZIONI E TESSERAMENTI", of: [51, 52], total: false },
+    { row: 51, kind: "voce", label: "5.1 Affiliazioni a federazioni", bold: false, paypal: true },
+    { row: 52, kind: "voce", label: "5.2 Altri", bold: false, paypal: true },
+    { row: 53, kind: "sum", label: "6. COSTI PER COLLABORATORI", of: [54, 55, 56], total: false },
+    { row: 54, kind: "voce", label: "6.1 Costi per collaboratori (occasionali, forfettari e dipendenti)", bold: false, paypal: true },
+    { row: 55, kind: "voce", label: "6.2 Rimborsi spese analitici", bold: false, paypal: true },
+    { row: 56, kind: "voce", label: "6.3 Altri costi", bold: false, paypal: true },
+    { row: 57, kind: "sum", label: "7. COSTI BANCARI", of: [58, 59], total: false },
+    { row: 58, kind: "voce", label: "7.1 Commissioni e spese tenuta conto", bold: false, paypal: true },
+    { row: 59, kind: "voce", label: "7.2 Altri", bold: false, paypal: true },
+    { row: 60, kind: "sum", label: "8. IMPOSTE E TASSE", of: [61, 62, 63, 64], total: false },
+    { row: 61, kind: "voce", label: "8.1 IRES/IRAP", bold: false, paypal: true },
+    { row: 62, kind: "voce", label: "8.2 Imposta di bollo", bold: false, paypal: true },
+    { row: 63, kind: "voce", label: "8.3 Dazi doganali", bold: false, paypal: true },
+    { row: 64, kind: "sum", label: "9. IVA", of: [65, 66, 67], total: false },
+    { row: 65, kind: "voce", label: "9.1 IVA a credito", bold: false, paypal: true },
+    { row: 66, kind: "voce", label: "9.2 IVA a debito", bold: false, paypal: true },
+    { row: 67, kind: "voce", label: "9.3 Liquidazione IVA", bold: false, paypal: true },
+    { row: 68, kind: "sum", label: "TOTALE COSTI", of: [30, 35, 41, 46, 50, 53, 57, 60], total: true },
+    { row: 69, kind: "blank" },
+    { row: 70, kind: "result", label: "AVANZO O DISAVANZO DI GESTIONE", plus: 27, minus: 68 },
+  ];
 }
 
 /**

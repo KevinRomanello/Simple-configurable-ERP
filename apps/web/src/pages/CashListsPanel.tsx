@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
-import type { CashListItem } from "../api/types";
+import type { CashListItem, CategoryDefault } from "../api/types";
 import { CommitInput } from "../components/CommitInput";
 import { DeleteButton, OrderButtons } from "../components/ListButtons";
 import { QuickAdd, usedBy } from "../components/QuickAdd";
@@ -58,11 +58,41 @@ function Methods() {
   );
 }
 
+/** For each category of the budget, the Voce a payment for one of its lines starts from (TO PAY); the treasury changes it when paying. */
+function CategoryVoci() {
+  const act = useAction();
+  const defaults = useQuery({ queryKey: ["category-defaults"], queryFn: api.categoryDefaults });
+  const voci = useQuery({ queryKey: ["cash-categories"], queryFn: api.cashCategories });
+  const columns: Column<CategoryDefault>[] = [
+    { key: "category", header: "BUDGET CATEGORY", cell: (c) => c.name },
+    {
+      key: "voce",
+      header: "VOCE OF THE PAYMENT",
+      cell: (c) => (
+        <select className="input small" aria-label={`Voce for ${c.name}`} value={c.voceId ?? ""} onChange={(e) => act(() => api.setCategoryDefault(c.categoryId, e.target.value === "" ? null : Number(e.target.value)))}>
+          <option value="">— (chosen when paying)</option>
+          {(voci.data ?? []).map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+        </select>
+      ),
+    },
+  ];
+  return (
+    <Panel title="Register: Voce of a payment, by budget category">
+      <p className="muted">
+        When a line of the budget is paid from TO PAY, the payment starts from the Voce of the category of the line (Asset → 1.1 Attrezzature, for example).
+        It can always be changed in the form of the payment.
+      </p>
+      <DataTable title="Voce by budget category" columns={columns} rows={defaults.data} rowKey={(c) => c.categoryId} empty="No categories" />
+    </Panel>
+  );
+}
+
 export function CashListsPanel() {
   return (
     <>
       <Voci />
       <Methods />
+      <CategoryVoci />
     </>
   );
 }

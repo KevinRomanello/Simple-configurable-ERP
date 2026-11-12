@@ -60,6 +60,8 @@ interface Movement {
   cents: number;
   /** The part of a purchase still to leave the team fund (VAT excluded); zero for a VAT movement. */
   teamFundCents: number;
+  /** The VAT of a VAT movement still to leave the team fund; zero for a purchase. */
+  teamVatDueCents: number;
   /** When it leaves the team fund: the day of the movement, or later for a purchase that is late (see `PhaseCalc.cashDate`). */
   cashDate: string;
   cashMonth: string;
@@ -82,6 +84,7 @@ function movementsOf(lines: CalcLine[], phase: Phase): Movement[] {
         month: monthKey(p.purchaseDate),
         cents,
         teamFundCents: p.teamFundDueCents,
+        teamVatDueCents: 0,
         cashDate: p.cashDate ?? p.purchaseDate,
         cashMonth: monthKey(p.cashDate ?? p.purchaseDate),
       });
@@ -94,8 +97,9 @@ function movementsOf(lines: CalcLine[], phase: Phase): Movement[] {
         month: monthKey(p.vatDueDate),
         cents: p.teamVatCents,
         teamFundCents: 0,
-        cashDate: p.vatDueDate,
-        cashMonth: monthKey(p.vatDueDate),
+        teamVatDueCents: p.teamVatDueCents,
+        cashDate: p.vatCashDate ?? p.vatDueDate,
+        cashMonth: monthKey(p.vatCashDate ?? p.vatDueDate),
       });
     }
   }
@@ -203,7 +207,7 @@ export function gantt(snapshot: Snapshot, phase: Phase): Gantt {
     const inMonth = counted.filter((m) => m.cashMonth === month);
     const purchases = inMonth.filter((m) => m.kind === "purchase" && m.teamFundCents > 0);
     const outflowVatCents =
-      inMonth.filter((m) => m.kind === "vat").reduce((total, m) => total + m.cents, 0) +
+      inMonth.filter((m) => m.kind === "vat").reduce((total, m) => total + m.teamVatDueCents, 0) +
       inflowVatDue
         .filter((v) => monthKey(v.dueDate) === month && afterBank(v.dueDate))
         .reduce((total, v) => total + v.cents, 0);

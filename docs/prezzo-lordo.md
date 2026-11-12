@@ -61,7 +61,7 @@ L'IVA di una riga dipende da chi la paga, come per il prezzo netto ([sponsor-e-f
 ## 8. Cosa resta fuori
 
 - Lo sponsor parziale con il lordo (§3).
-- Il **collegamento delle uscite del registro alle righe** ([registro-di-cassa.md](registro-di-cassa.md), §5.3) usa ancora la quota **netta** del fondo del team. Un prezzo con l'IVA coincide con ciò che esce dalla banca, e questo potrà semplificare il collegamento (D9 di [da-decidere.md](da-decidere.md)).
+- Il **collegamento delle uscite del registro alle righe** ([registro-di-cassa.md](registro-di-cassa.md), §5.3) copre ora **netto + IVA**: un prezzo scritto con l'IVA coincide con ciò che esce dalla banca, e la pagina TO PAY (§5.4) lo usa per pagare una riga con un solo bonifico.
 - L'aliquota di partenza (22%) non è ancora una scelta di Settings.
 
 ## 9. Prove

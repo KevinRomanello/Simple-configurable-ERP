@@ -166,7 +166,14 @@ async function restoreSettings() {
 }
 
 export async function resetData() {
-  await restoreSettings(); // first: its history rows go with the truncate below
+  // the register's lists first: the categories of the budget point to them (their default Voce), so emptying them
+  // takes the categories along (truncate ... cascade); the settings are put back right after
+  await ownerPool.query("truncate table cash_entry, cash_opening, cash_category, cash_method restart identity cascade");
+  for (const [index, c] of CASH_CATEGORIES.entries()) {
+    await ownerPool.query("insert into cash_category (name, position, sponsorship) values ($1, $2, $3)", [c.name, index + 1, c.sponsorship]);
+  }
+  for (const [index, name] of CASH_METHODS.entries()) await ownerPool.query("insert into cash_method (name, position) values ($1, $2)", [name, index + 1]);
+  await restoreSettings(); // its history rows go with the truncate below
   await ownerPool.query(
     "truncate table line_figures, budget_line, project, fund_contract, team_inflow, bank_snapshot, supplier, audit_log, stock_movement, component_part, item_image, inventory_item, item_type restart identity cascade",
   );
@@ -176,12 +183,6 @@ export async function resetData() {
   await ownerPool.query("delete from fund where season_id in (select id from season where name <> '2026-2027')");
   await ownerPool.query("delete from season where name <> '2026-2027'");
   await ownerPool.query("update season set car = 'Car 2026-2027', read_only = false where name = '2026-2027' and (car <> 'Car 2026-2027' or read_only)");
-  // the register and its two lists, as a new installation has them
-  await ownerPool.query("truncate table cash_entry, cash_opening, cash_category, cash_method restart identity cascade");
-  for (const [index, c] of CASH_CATEGORIES.entries()) {
-    await ownerPool.query("insert into cash_category (name, position, sponsorship) values ($1, $2, $3)", [c.name, index + 1, c.sponsorship]);
-  }
-  for (const [index, name] of CASH_METHODS.entries()) await ownerPool.query("insert into cash_method (name, position) values ($1, $2)", [name, index + 1]);
   await ownerPool.query("truncate table audit_log restart identity");
 }
 

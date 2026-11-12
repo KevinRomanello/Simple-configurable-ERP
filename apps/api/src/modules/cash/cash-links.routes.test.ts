@@ -209,7 +209,7 @@ describe("a payment that paid lines of the budget", () => {
     const row = (await register()).entries.find((e: { id: number }) => e.id === bill.id);
     expect(row.lines).toEqual([{ lineId: sensor, item: "Sensor", cents: 25_050 }]);
     expect((await api.get("/api/cash/payable-lines")).body).toEqual([
-      { lineId: sensor, item: "Sensor", project: "Steering", teamFundCents: 100_000, paidCents: 25_050 },
+      { lineId: sensor, item: "Sensor", project: "Steering", teamFundCents: 100_000, teamVatCents: 22_000, totalCents: 122_000, paidCents: 25_050 },
     ]);
 
     await pay(bill.id, []); // taking the links away
@@ -233,11 +233,11 @@ describe("a payment that paid lines of the budget", () => {
     expect((await pay(bill.id, [{ lineId: sensor, amount: "0" }])).status).toBe(400);
     expect((await pay(99_999, [{ lineId: sensor, amount: "1" }])).status).toBe(404);
 
-    // two payments can share a line, but never above what the team fund pays of it
+    // two payments can share a line, but never above what the team pays for it: the net 1000,00 and the VAT 220,00
     await pay(bill.id, [{ lineId: sensor, amount: "400" }]);
     const big = await entry({ direction: "out", amount: "900", on: later(-1) });
-    expect((await pay(big.id, [{ lineId: sensor, amount: "700" }])).status).toBe(400); // 400 + 700 > 1000
-    expect((await pay(big.id, [{ lineId: sensor, amount: "600" }])).status).toBe(204);
+    expect((await pay(big.id, [{ lineId: sensor, amount: "821" }])).status).toBe(400); // 400 + 821 > 1220
+    expect((await pay(big.id, [{ lineId: sensor, amount: "820" }])).status).toBe(204);
 
     // a payment cannot shrink below its links, nor turn into money in
     expect((await api.patch(`/api/cash/entries/${bill.id}`, { amount: "300" })).status).toBe(409);
@@ -258,5 +258,148 @@ describe("a payment that paid lines of the budget", () => {
     const season = (await api.get("/api/seasons/current")).body;
     await api.patch(`/api/seasons/${season.id}`, { readOnly: true });
     expect((await pay(bill.id, [])).status).toBe(409);
+  });
+});
+
+describe("a payment covers the net first and then the VAT, in the forecast", () => {
+  // a line of 1000,00 + 22% bought 10 days ago: the net is in the past, the VAT is due after the BANK day
+  async function bought(purchaseDate: string) {
+    const { id } = (await api.post("/api/projects", { areaCode: "mt-dmt", name: "Steering" })).body;
+    const team = (await api.get("/api/funds")).body.find((f: { kind: string }) => f.kind === "team");
+    const created = await api.post(`/api/projects/${id}/lines`, {
+      item: "Sensor",
+      figures: { actual: { quantity: 1, unitNetCost: "1000", sponsorType: "none", vatRate: 22, fundIds: [team.id], purchaseDate } },
+    });
+    return created.body.id as number;
+  }
+  const outflows = async () => (await cashFlow()).actual.summary.teamOutflowsCents as number;
+
+  it("the gross at once leaves nothing to count, not even the VAT on its deadline; the net alone leaves the VAT", async () => {
+    await openRegister();
+    const lineId = await bought(later(-10));
+    const before = await outflows(); // the VAT (220,00) is still to come
+    const net = await entry({ direction: "out", amount: "1000", on: later(-1) });
+    await api.put(`/api/cash/entries/${net.id}/lines`, { lines: [{ lineId, amount: "1000" }] });
+    expect(await outflows()).toBe(before); // the net was past and in the BANK; the VAT stays
+    const vat = await entry({ direction: "out", amount: "220", on: today() });
+    await api.put(`/api/cash/entries/${vat.id}/lines`, { lines: [{ lineId, amount: "220" }] });
+    expect(await outflows()).toBe(before - 22_000); // the VAT is paid too: no longer counted on its deadline
+  });
+});
+
+describe("TO PAY: what the team still owes of the lines bought", () => {
+  async function bought(purchaseDate: string | null, item = "Sensor", net = "1000") {
+    const projects = (await api.get("/api/areas/mt-dmt/sheet")).body.projects;
+    const { id } = projects[0] ?? (await api.post("/api/projects", { areaCode: "mt-dmt", name: "Steering" })).body;
+    const team = (await api.get("/api/funds")).body.find((f: { kind: string }) => f.kind === "team");
+    const created = await api.post(`/api/projects/${id}/lines`, {
+      item,
+      category: "Asset",
+      figures: { actual: { quantity: 1, unitNetCost: net, sponsorType: "none", vatRate: 22, fundIds: [team.id], ...(purchaseDate ? { purchaseDate } : {}) } },
+    });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    return created.body.id as number;
+  }
+  const toPay = async (query = "") => (await api.get(`/api/cash/to-pay${query}`)).body;
+  const pay = (body: object) => api.post("/api/cash/to-pay/pay", { on: today(), account: "bank", ...body });
+
+  it("lists a line bought and not paid with the net and the VAT, and the Voce its category starts from", async () => {
+    const lineId = await bought(later(-3));
+    const voce = (await api.get("/api/cash/categories")).body.find((c: { name: string }) => c.name === "1.1 Attrezzature");
+    const asset = (await api.get("/api/cash/category-defaults")).body.find((c: { name: string }) => c.name === "Asset");
+    expect((await api.put(`/api/cash/category-defaults/${asset.categoryId}`, { voceId: voce.id })).status).toBe(204);
+
+    const { rows, lastMethodId } = await toPay();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ lineId, item: "Sensor", status: "due", teamFundCents: 100_000, teamVatCents: 22_000, dueCents: 122_000, daysWaiting: 3, suggestedCategoryId: voce.id });
+    expect(lastMethodId).toBeNull();
+    // taking the Voce away
+    await api.put(`/api/cash/category-defaults/${asset.categoryId}`, { voceId: null });
+    expect((await toPay()).rows[0].suggestedCategoryId).toBeNull();
+  });
+
+  it("Pay makes the payment in the register, tied to the line, and the line is gone from the list", async () => {
+    const lineId = await bought(later(-3));
+    const method = (await api.get("/api/cash/methods")).body[0];
+    const paid = await pay({ methodId: method.id, lines: [{ lineId, amount: "1220" }] });
+    expect(paid.status).toBe(201);
+    expect(paid.body).toMatchObject({ cents: -122_000, account: "bank", methodId: method.id, description: "Sensor" });
+
+    expect((await toPay()).rows).toEqual([]);
+    const row = (await api.get(`/api/cash/register?year=${today().slice(0, 4)}`)).body.entries.find((e: { id: number }) => e.id === paid.body.id);
+    expect(row.lines).toEqual([{ lineId, item: "Sensor", cents: 122_000 }]);
+    expect((await api.get("/api/cash/to-pay")).body.lastMethodId).toBe(method.id); // the next payment starts from it
+  });
+
+  it("pays in part: the rest of the net and the VAT stay in the list; the net comes first", async () => {
+    const lineId = await bought(later(-3));
+    await pay({ lines: [{ lineId, amount: "600" }] });
+    expect((await toPay()).rows[0]).toMatchObject({ status: "partial", paidCents: 60_000, unpaidFundCents: 40_000, unpaidVatCents: 22_000, dueCents: 62_000 });
+    await pay({ lines: [{ lineId, amount: "400" }] });
+    expect((await toPay()).rows[0]).toMatchObject({ unpaidFundCents: 0, unpaidVatCents: 22_000, dueCents: 22_000 });
+    expect((await pay({ lines: [{ lineId, amount: "220.01" }] })).status).toBe(400); // more than what is left
+    expect((await pay({ lines: [{ lineId, amount: "220" }] })).status).toBe(201);
+    expect((await toPay()).rows).toEqual([]);
+  });
+
+  it("one payment for several lines: one movement of money out as big as they add up to, with a link for each", async () => {
+    const a = await bought(later(-3), "Sensor A", "100");
+    const b = await bought(later(-2), "Cable B", "50");
+    const paid = await pay({ description: "Invoice 17", lines: [{ lineId: a, amount: "122" }, { lineId: b, amount: "61" }] });
+    expect(paid.status).toBe(201);
+    expect(paid.body).toMatchObject({ cents: -18_300, description: "Invoice 17" });
+    const row = (await api.get(`/api/cash/register?year=${today().slice(0, 4)}`)).body.entries.find((e: { id: number }) => e.id === paid.body.id);
+    expect(row.lines.map((l: { item: string; cents: number }) => [l.item, l.cents])).toEqual([["Sensor A", 12_200], ["Cable B", 6_100]]);
+    // with no description it takes the names of the lines
+    const c = await bought(later(-1), "Fan C", "10");
+    const d = await bought(later(-1), "Fan D", "10");
+    expect((await pay({ lines: [{ lineId: c, amount: "12.2" }, { lineId: d, amount: "12.2" }] })).body.description).toBe("Fan C, Fan D");
+  });
+
+  it("refuses what does not add up, and leaves the register as it was: all or nothing", async () => {
+    const a = await bought(later(-3), "Sensor A", "100");
+    const b = await bought(later(-2), "Cable B", "50");
+    const count = async () => (await api.get(`/api/cash/register?year=${today().slice(0, 4)}`)).body.entries.length;
+    const before = await count();
+    expect((await pay({ lines: [{ lineId: a, amount: "122" }, { lineId: b, amount: "61.01" }] })).status).toBe(400); // the second is too much
+    expect((await pay({ lines: [{ lineId: a, amount: "10" }, { lineId: a, amount: "10" }] })).status).toBe(400); // twice
+    expect((await pay({ lines: [{ lineId: a, amount: "0" }] })).status).toBe(400);
+    expect((await pay({ lines: [] })).status).toBe(400);
+    expect((await pay({ lines: [{ lineId: 99_999, amount: "1" }] })).status).toBe(404);
+    expect((await pay({ on: "nope", lines: [{ lineId: a, amount: "1" }] })).status).toBe(400);
+    expect(await count()).toBe(before);
+  });
+
+  it("is for the treasury and the admins, and a closed season takes no payment", async () => {
+    const lineId = await bought(later(-3));
+    for (const person of [PM, SP]) {
+      const as = api.as(person);
+      expect((await as.get("/api/cash/to-pay")).status).toBe(403);
+      expect((await as.post("/api/cash/to-pay/pay", { on: today(), account: "bank", lines: [{ lineId, amount: "1" }] })).status).toBe(403);
+      expect((await as.get("/api/cash/to-link")).status).toBe(403);
+      expect((await as.get("/api/cash/category-defaults")).status).toBe(403);
+    }
+    expect((await api.as(TREASURER).get("/api/cash/to-pay")).status).toBe(200);
+    const season = (await api.get("/api/seasons/current")).body;
+    await api.patch(`/api/seasons/${season.id}`, { readOnly: true });
+    expect((await pay({ lines: [{ lineId, amount: "1" }] })).status).toBe(409);
+  });
+
+  it("offers the payments that pay no line yet, newest first, and not the money in or the ones already tied", async () => {
+    const lineId = await bought(later(-3));
+    await openRegister();
+    const loose = await entry({ direction: "out", amount: "30", description: "Loose", on: later(-2) });
+    const tied = await entry({ direction: "out", amount: "100", description: "Tied", on: later(-1) });
+    await entry({ direction: "in", amount: "50", description: "Money in", on: later(-1) });
+    await api.put(`/api/cash/entries/${tied.id}/lines`, { lines: [{ lineId, amount: "100" }] });
+    const list = (await api.get("/api/cash/to-link")).body;
+    expect(list.map((e: { description: string }) => e.description)).toEqual(["Loose"]);
+    expect(list[0]).toMatchObject({ id: loose.id, cents: -3_000, lines: [] });
+  });
+
+  it("refuses a Voce that does not exist as the default of a category", async () => {
+    const asset = (await api.get("/api/cash/category-defaults")).body.find((c: { name: string }) => c.name === "Asset");
+    expect((await api.put(`/api/cash/category-defaults/${asset.categoryId}`, { voceId: 99_999 })).status).toBe(400);
+    expect((await api.put("/api/cash/category-defaults/99999", { voceId: null })).status).toBe(404);
   });
 });

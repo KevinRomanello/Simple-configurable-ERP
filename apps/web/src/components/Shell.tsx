@@ -1,6 +1,6 @@
 import {
-  faAnglesLeft, faBars, faBookOpen, faBoxesStacked, faCalendarDays, faChevronDown, faCarSide, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece,
-  faRepeat, faRightFromBracket, faSackDollar, faScaleBalanced, faSliders, faTable, faTruckFast, faUsers, faXmark,
+  faAnglesLeft, faBars, faBookOpen, faBoxesStacked, faCalendarDays, faChevronDown, faCarSide, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faFileInvoiceDollar, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece,
+  faMoneyBillWave, faRepeat, faRightFromBracket, faSackDollar, faScaleBalanced, faSliders, faTable, faTruckFast, faUsers, faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -29,7 +29,8 @@ function Item({ to, icon, end, children }: { to: string; icon: IconDefinition; e
 const GROUP_PATHS: Record<string, string[]> = {
   budget: ["/budget/"],
   views: ["/gantt/", "/analysis/"],
-  cash: ["/cash-from", "/bought-from", "/cash-flow", "/register"],
+  cash: ["/cash-from", "/bought-from", "/cash-flow"],
+  treasury: ["/register", "/to-pay", "/statement"],
   total: ["/total/"],
   inventory: ["/inventory"],
   admin: ["/users", "/settings", "/history"],
@@ -205,13 +206,21 @@ export function Shell() {
           <Item to="/analysis/items" icon={faMagnifyingGlass}>CATEGORY ANALYSES</Item>
         </NavGroup>
 
-        {/* the money: the sponsors, the suppliers, the forecast and, for the treasury and the admins, the register of the team's money */}
+        {/* the money: the sponsors, the suppliers and the forecast */}
         <NavGroup id="cash" title="Cash" closed={groups.closed} onToggle={groups.toggle}>
           <Item to="/cash-from" icon={faDatabase}>CASH FROM</Item>
           <Item to="/bought-from" icon={faTruckFast}>BOUGHT FROM</Item>
           <Item to="/cash-flow" icon={faRepeat}>CASH FLOW</Item>
-          {me.permissions.canManageCash && <Item to="/register" icon={faBookOpen}>REGISTRO DI CASSA</Item>}
         </NavGroup>
+
+        {/* the team's own money, for the treasury and the admins: the register, what is still to pay and the financial statement */}
+        {me.permissions.canManageCash && (
+          <NavGroup id="treasury" title="Treasury" closed={groups.closed} onToggle={groups.toggle}>
+            <Item to="/register" icon={faBookOpen}>CASH REGISTER</Item>
+            <Item to="/to-pay" icon={faMoneyBillWave}>TO PAY</Item>
+            <Item to="/statement" icon={faFileInvoiceDollar}>FINANCIAL STATEMENT</Item>
+          </NavGroup>
+        )}
 
         {/* they choose their season, year or car on their own, whatever is chosen above */}
         <NavGroup id="total" title="Total" closed={groups.closed} onToggle={groups.toggle}>

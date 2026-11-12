@@ -333,6 +333,8 @@ export const category = pgTable(
     id: id(),
     name: text().notNull(),
     position: integer().notNull(),
+    /** The Voce of the register a payment for a line of this category starts from (the treasury changes it when paying). */
+    defaultVoceId: integer().references(() => cashCategory.id, { onDelete: "set null" }),
   },
   (t) => [uniqueIndex("category_name_uq").on(sql`lower(${t.name})`)],
 );

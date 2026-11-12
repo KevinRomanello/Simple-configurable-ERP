@@ -162,6 +162,13 @@
       "when": 1794422068182,
       "tag": "0022_gross_price",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794426667386,
+      "tag": "0023_category_default_voce",
+      "breakpoints": true
     }
   ]
 }

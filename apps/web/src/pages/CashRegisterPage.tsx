@@ -222,7 +222,7 @@ export function CashRegisterPage() {
   return (
     <>
       <PageHeader
-        title="REGISTRO DI CASSA"
+        title="CASH REGISTER"
         description="The movements of the team's money (Cassa, Banca, Paypal), as in the sheet of the treasury. New movement adds one; click a box of a row to change it, the pencil changes the whole movement. The balances are worked out from the movements and are those of the whole year, even when a filter hides rows. The funds of the sponsors are not here."
         add={{ label: "New movement", form: (close) => <MovementForm categories={voci} methods={methods.data} onClose={close} /> }}
         actions={
@@ -277,7 +277,7 @@ export function CashRegisterPage() {
 
       {sort.state && <p className="muted">Sorted by a column: the Progressivo columns follow the order of the days, so they add up row by row only in the original order (click the header again to get it back).</p>}
 
-      <TableBox title={`Registro di cassa ${data.year}`}>
+      <TableBox title={`Cash register ${data.year}`}>
         <table className="data-table register">
           <thead>
             <tr>

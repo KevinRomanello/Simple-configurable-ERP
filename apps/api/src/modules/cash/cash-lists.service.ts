@@ -2,8 +2,8 @@ import { asc, eq, sql } from "drizzle-orm";
 import { conflict, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { cashCategory, cashEntry, cashMethod } from "../../db/schema";
-import { assertCanManageCash } from "./cash.service";
+import { cashCategory, cashEntry, cashMethod, category } from "../../db/schema";
+import { assertCanManageCash, assertListed } from "./cash.service";
 
 // The two lists of the register, kept in Settings: the Voci and the payment methods. Like the
 // categories, what is in use cannot be deleted, and renaming needs no care: movements hold the id.
@@ -101,4 +101,22 @@ export async function orderCashCategories(ids: number[]) {
 export async function orderCashMethods(ids: number[]) {
   const actor = await assertCanManageCash();
   await runWrite(actor, (tx) => reorder(tx, cashMethod, ids));
+}
+
+// --- the Voce a payment starts from, for each category of the budget ---------------------------------
+
+/** Every category of the budget with the Voce a payment for one of its lines starts from (TO PAY), or null. */
+export async function listCategoryDefaults() {
+  await assertCanManageCash();
+  const rows = await db.select().from(category).orderBy(asc(category.position), asc(category.id));
+  return rows.map((c) => ({ categoryId: c.id, name: c.name, voceId: c.defaultVoceId }));
+}
+
+export async function setCategoryDefault(categoryId: number, voceId: number | null) {
+  const actor = await assertCanManageCash();
+  await runWrite(actor, async (tx) => {
+    await assertListed(tx, voceId, null);
+    const changed = await tx.update(category).set({ defaultVoceId: voceId }).where(eq(category.id, categoryId)).returning({ id: category.id });
+    if (changed.length === 0) throw notFound("Category");
+  });
 }

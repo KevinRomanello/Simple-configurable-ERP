@@ -24,12 +24,25 @@ export interface PhaseCalc {
   shortCents: number;
   /** The net purchases paid from the team fund (VAT excluded). */
   teamFundCents: number;
-  /** How much of it the payments of the register linked to this line have paid (ACTUAL only). */
+  /**
+   * How much the payments of the register linked to this line have paid (ACTUAL only). A payment covers what the
+   * team pays for the line: the net first, then the VAT (docs/registro-di-cassa.md, section 5.3).
+   */
   paidCents: number;
-  /** What is still to leave the team fund: `teamFundCents` less what is paid. */
+  /** What is left to pay of the net and of the VAT, whatever the BANK is: this is what the page TO PAY lists. */
+  unpaidFundCents: number;
+  unpaidVatCents: number;
+  /**
+   * What the forecast counts as still to leave the team fund (VAT excluded): `unpaidFundCents` when the BANK comes
+   * from the register (the payments are in it), the whole `teamFundCents` otherwise.
+   */
   teamFundDueCents: number;
-  /** When it leaves: the purchase date, or the day after the BANK when that has passed and the line is partly paid. */
+  /** The same for the VAT the team pays: what is left, counted on its deadline. */
+  teamVatDueCents: number;
+  /** When the net leaves: the purchase date, or the day after the BANK when that has passed and something of the line is paid. */
   cashDate: string | null;
+  /** When the VAT leaves: its deadline, or the day after the BANK when that has passed and something of the line is paid. */
+  vatCashDate: string | null;
   supplierId: number | null;
   supplierName: string | null;
   purchaseDate: string | null;
@@ -89,10 +102,18 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
     const settled = settleLine(figures, chosen, balances[phase], settings);
     const supplier = figures?.supplierId != null ? suppliers.get(figures.supplierId) : undefined;
     const purchaseDate = figures?.purchaseDate ?? null;
-    // a line with payments counts only what is still to pay; one without keeps the rule of the purchase date
+    // a payment covers the net the team pays first and then the VAT: the gross at once, or the net now and the VAT later
     const paidCents = phase === "actual" ? (paid.get(lineId) ?? 0) : 0;
-    const teamFundDueCents = Math.max(0, settled.teamFundCents - paidCents);
-    const late = paidCents > 0 && teamFundDueCents > 0 && snapshot.lateFrom !== undefined && purchaseDate !== null && purchaseDate < snapshot.lateFrom;
+    const unpaidFundCents = settled.teamFundCents - Math.min(paidCents, settled.teamFundCents);
+    const unpaidVatCents = settled.teamVatCents - Math.min(Math.max(0, paidCents - settled.teamFundCents), settled.teamVatCents);
+    // the forecast counts only what is still to pay when the BANK is the register's (the payments are in it);
+    // a line without payments keeps the rule of the purchase date and of the VAT deadline
+    const inBank = snapshot.lateFrom !== undefined;
+    const teamFundDueCents = inBank ? unpaidFundCents : settled.teamFundCents;
+    const teamVatDueCents = inBank ? unpaidVatCents : settled.teamVatCents;
+    const vatDueDate = settled.teamVatCents > 0 && purchaseDate ? vatDeadline(purchaseDate, vatRules) : null;
+    // something paid and something left, and the day has passed: it has not left yet, so it counts from the day after the BANK
+    const late = (due: number, date: string | null) => inBank && paidCents > 0 && due > 0 && date !== null && date < snapshot.lateFrom!;
 
     const quantity = figures?.quantityMilli ?? 0;
     // cents x 100 000 / thousandths = ten-thousandths of a euro per unit
@@ -112,14 +133,18 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
       shortCents: settled.shares.reduce((sum, s) => sum + s.shortCents, 0),
       teamFundCents: settled.teamFundCents,
       paidCents,
+      unpaidFundCents,
+      unpaidVatCents,
       teamFundDueCents,
-      cashDate: late ? snapshot.lateFrom! : purchaseDate,
+      teamVatDueCents,
+      cashDate: late(teamFundDueCents, purchaseDate) ? snapshot.lateFrom! : purchaseDate,
+      vatCashDate: late(teamVatDueCents, vatDueDate) ? snapshot.lateFrom! : vatDueDate,
       supplierId: supplier?.id ?? null,
       supplierName: supplier?.name ?? null,
       purchaseDate,
       arrivalDate: figures?.arrivalDate ?? null,
       teamVatCents: settled.teamVatCents,
-      vatDueDate: settled.teamVatCents > 0 && purchaseDate ? vatDeadline(purchaseDate, vatRules) : null,
+      vatDueDate,
     };
   }
 
