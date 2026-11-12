@@ -60,7 +60,7 @@ Il calcolo è **puro** (`outsideBudget` in `packages/calc/src/outside.ts`) e lo 
 
 ## 6. Da sapere
 
-- **Solo ACTUAL**: non c'è un preventivo per Voce (per esempio il previsto dell'anno per le assicurazioni). È la fase 4, dopo.
+- **Solo ACTUAL**: non c'è un preventivo per Voce (per esempio il previsto dell'anno per le assicurazioni). È la fase 4, rimandata: le decisioni da prendere sono in [da-decidere.md](da-decidere.md), D13.
 - **Se una Voce passa da «fuori budget» a «di progetto»** i suoi movimenti escono dall'area e tornano in «Payments to tie to a line»: è il modo per scoprire se erano pagamenti di righe del budget (un dubbio vero per **9.5 saldo fattura**, [da-decidere.md](da-decidere.md), D12).
 - Il mese è quello **della data del movimento**: un'uscita di dicembre in una stagione che finisce ad agosto non c'è; un'uscita dopo il 31 agosto è della stagione dopo.
 - La categoria «Administration» è una categoria come le altre di Settings: se un admin la cancella o la rinomina, le righe dell'area restano nel blocco ALL ma non in un blocco di categoria.

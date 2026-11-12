@@ -1,4 +1,7 @@
-import type { Me } from "../api/types";
+import type { Me, Role } from "../api/types";
+
+/** How a role is called on screen: the `pm` is a "user" (the Users page says the same). */
+export const ROLE_NAME: Record<Role, string> = { admin: "admin", pm: "user", viewer: "viewer" };
 
 /**
  * Whether the person may change the budget of an area. The same rule the server applies on every

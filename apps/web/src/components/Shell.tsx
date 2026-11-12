@@ -9,6 +9,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { api } from "../api/client";
 import { forgetUser, useMe } from "../lib/auth";
+import { ROLE_NAME } from "../lib/permissions";
 import { useChosenSeasonId, useSeason } from "../lib/season";
 import { SCREEN, useMaxWidth } from "../lib/screen";
 import { IconButton } from "./Button";
@@ -249,7 +250,7 @@ export function Shell() {
         <div className="sidebar-footer">
           <div className="who">
             <strong>{me.name}</strong>
-            <span className="label-s muted">{me.role}</span>
+            <span className="label-s muted">{ROLE_NAME[me.role]}</span>
           </div>
           {signInOptions.data?.proxy === false && <IconButton icon={faRightFromBracket} label="Sign out" onClick={signOut} />}
         </div>

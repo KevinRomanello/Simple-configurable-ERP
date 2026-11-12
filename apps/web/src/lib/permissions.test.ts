@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Me } from "../api/types";
-import { canEditArea } from "./permissions";
+import { canEditArea, ROLE_NAME } from "./permissions";
 
 const person = (role: Me["role"], areaIds: number[] = []): Me => ({
   id: 1,
@@ -25,5 +25,11 @@ describe("canEditArea", () => {
 
   it("never lets a viewer edit, even with areas left over from an old role", () => {
     expect(canEditArea(person("viewer", [1]), 1)).toBe(false);
+  });
+});
+
+describe("ROLE_NAME", () => {
+  it("calls the project manager a user, as the Users page does", () => {
+    expect([ROLE_NAME.admin, ROLE_NAME.pm, ROLE_NAME.viewer]).toEqual(["admin", "user", "viewer"]);
   });
 });

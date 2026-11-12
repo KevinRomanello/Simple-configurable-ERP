@@ -11,7 +11,7 @@ Nasce dal feedback della tesoreria (11 novembre 2026): tre richieste, che chiudo
 | 1. Treasury + TO PAY | **fatta e provata** (11 novembre 2026); documenti permanenti aggiornati |
 | 2. FINANCIAL STATEMENT | **fatta e provata** (12 novembre 2026); documenti permanenti aggiornati |
 | 3. Fuori budget (ambito per Voce, area derivata) | **fatta e provata** (12 novembre 2026); documenti permanenti: [spese-fuori-budget.md](spese-fuori-budget.md) |
-| 4. Preventivo per Voce dell'area derivata | dopo |
+| 4. Preventivo per Voce dell'area derivata | **rimandata** (12 novembre 2026: «ci pensiamo dopo»); le domande sono in [da-decidere.md](da-decidere.md), D13 |
 
 **Decisioni prese:**
 - **I nomi delle pagine nel menù sono in inglese** (12 novembre): **CASH REGISTER**, **TO PAY** e **FINANCIAL STATEMENT** (fase 2, fatta). Le parole *dentro* il registro restano quelle del foglio (Data, Descrizione, Voce…), come deciso il 10 novembre.

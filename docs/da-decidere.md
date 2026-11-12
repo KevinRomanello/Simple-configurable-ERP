@@ -2,7 +2,7 @@
 
 L'elenco **unico** delle decisioni ancora aperte, con chi deve rispondere, cosa cambia e dove è descritto il dettaglio. Quando una decisione si chiude si sposta nel documento che la riguarda (e si toglie da qui); quando ne nasce una nuova si aggiunge qui.
 
-Ultimo aggiornamento: **12 novembre 2026** (aggiunta D11: i difetti del rendiconto uguale al foglio; D10 chiusa, aggiunta D12: l'area ADMINISTRATION). Il 10 novembre: D7, le domande per la tesoriera sul registro di cassa. Prima: 29 ottobre 2026. Chiuse il 29/10: annullare i movimenti e il progetto delle parti di una produzione ([inventario.md](inventario.md), §16 e §18).
+Ultimo aggiornamento: **12 novembre 2026** (aggiunta D11: i difetti del rendiconto uguale al foglio; D10 chiusa, aggiunta D12: l'area ADMINISTRATION; D13: il preventivo per Voce, rimandato). Il 10 novembre: D7, le domande per la tesoriera sul registro di cassa. Prima: 29 ottobre 2026. Chiuse il 29/10: annullare i movimenti e il progetto delle parti di una produzione ([inventario.md](inventario.md), §16 e §18).
 
 ## Urgente
 
@@ -89,6 +89,19 @@ L'area è fatta ([spese-fuori-budget.md](spese-fuori-budget.md), 12 novembre 202
 
 1. **L'ambito di partenza di ogni Voce** è una proposta (tutto «fuori budget» tranne 1.1 Attrezzature e 1.4 Altro «di progetto», e «ignorate» 6.1 sponsorizzazioni e l'IVA 9.1–9.3). Si corregge in Settings, colonna COUNTS. In particolare **9.5 saldo fattura** (e 9.4 Pec aruba), una quarantina di movimenti: se sono pagamenti di fatture di righe del budget vanno su «On a project» (e si collegano alle righe da TO PAY); se sono spese di gestione restano fuori budget. Oggi sono nell'ultimo progetto dell'area, «Voci not in the statement».
 2. **CAR TOTAL**: l'area conta come ogni riga della stagione, cioè nella macchina della stagione. Una spesa di gestione (assicurazione, bollo) non è davvero «della macchina»: va bene, o la CAR TOTAL deve escluderla?
+
+### D13. Il preventivo per Voce delle spese fuori budget (fase 4, rimandata)
+
+Oggi l'area ADMINISTRATION ha solo l'ACTUAL ([spese-fuori-budget.md](spese-fuori-budget.md), §6): nei TOTAL ha l'EXPECTED a zero e nessun allarme di scostamento. Il preventivo (per esempio il previsto della stagione per le assicurazioni) darebbe il confronto previsto contro reale. **Rimandata il 12 novembre 2026** ("ci pensiamo dopo"); prima va deciso **se serve**: la richiesta di far comparire queste voci nei totali è già soddisfatta.
+
+Come lo farei: un importo per Voce e per stagione, scritto in Settings in un riquadro «Expected outside the budget» (non c'è una pagina dell'area), ripartito in parti uguali sui mesi della stagione; l'importo di una Voce di entrata è il «Money in» atteso; la funzione `outsideBudget` aggiunge la fase EXPECTED alle righe. Una tabella piccola `(stagione, Voce, importo)`. Fuori: IVA, preventivi pluriennali, una pagina dell'area.
+
+Da decidere:
+
+1. **Conta in CASH FLOW?** Un preventivo è una spesa che deve ancora uscire: andrebbe nella previsione EXPECTED («Left value») come pagata dal fondo del team. È la parte delicata: cambia numeri che oggi tornano.
+2. **La ripartizione**: in parti uguali sui 12 mesi, o con il mese scelto (l'assicurazione si paga a dicembre)?
+3. **L'allarme di scostamento** con la stessa soglia delle altre aree, o spento per ADMINISTRATION (le spese di gestione potrebbero farlo scattare spesso)?
+4. **Stagione nuova**: i preventivi si copiano dalla precedente o si riparte da zero?
 
 ## Accesso e rilascio
 
