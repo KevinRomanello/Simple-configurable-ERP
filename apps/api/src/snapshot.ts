@@ -6,6 +6,7 @@ import {
   area, budgetLine, fund, fundContract, lineFigures, lineFund, project, stockMovement, supplier,
 } from "./db/schema";
 import { loadPayments } from "./modules/cash/cash.service";
+import { loadOutsideBudget } from "./modules/cash/outside-budget.service";
 import { loadLookups } from "./modules/lookups/lookups.service";
 import { bankOf, loadInflows } from "./modules/cashflow/cashflow.service";
 import { getCurrentSeason } from "./modules/seasons/seasons.service";
@@ -78,6 +79,11 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
         .where(and(eq(stockMovement.kind, "receipt"), isNotNull(stockMovement.budgetLineId)))
         .groupBy(stockMovement.budgetLineId);
 
+      // what the register says is outside the budget, as the lines of the derived area (none when the area is not there)
+      const areaInputs = areas.map((a) => ({ id: a.id, code: a.code, name: a.name, position: a.position, derived: a.derived }));
+      const derived = areaInputs.find((a) => a.derived);
+      const outside = derived ? await loadOutsideBudget(tx, season, derived) : null;
+
       const fundIdsByFigures = new Map<number, number[]>();
       for (const { figuresId, fundId } of lineFunds) {
         fundIdsByFigures.set(figuresId, [...(fundIdsByFigures.get(figuresId) ?? []), fundId]);
@@ -94,11 +100,12 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
         // a BANK that comes from the register is exact to the day, so everything is compared with it by day
         // (the two settings of the old sheet are for a BANK written by hand)
         lookups: bank?.source === "register" ? { ...lookups, settings: { ...lookups.settings, bankCompare: { summary: "day", timeline: "day" } } } : lookups,
-        areas: areas.map((a) => ({ id: a.id, code: a.code, name: a.name, position: a.position })),
-        projects: projects.map((p) => ({
-          id: p.id, areaId: p.areaId, name: p.name, ownerName: p.ownerName, position: p.position,
-        })),
-        lines: lines.map(({ line }) => ({
+        areas: areaInputs,
+        projects: [
+          ...projects.map((p) => ({ id: p.id, areaId: p.areaId, name: p.name, ownerName: p.ownerName, position: p.position })),
+          ...(outside?.projects ?? []),
+        ],
+        lines: [...lines.map(({ line }) => ({
           id: line.id,
           projectId: line.projectId,
           position: line.position,
@@ -109,7 +116,7 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
           version: line.version,
           carSeasonId: line.carSeasonId,
           figures: figuresByLine.get(line.id) ?? { estimate: null, actual: null },
-        })),
+        })), ...(outside?.lines ?? [])],
         funds: funds.map((f) => ({
           id: f.id,
           name: f.name,
@@ -126,7 +133,8 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
           sponsorship: i.sponsorship,
         })),
         suppliers: suppliers.map((s) => ({ id: s.id, name: s.name })),
-        receipts: arrived.map((r) => ({ lineId: r.lineId!, quantityMilli: toScaled(r.quantity, 3) })),
+        receipts: [...arrived.map((r) => ({ lineId: r.lineId!, quantityMilli: toScaled(r.quantity, 3) })), ...(outside?.receipts ?? [])],
+        registerIncome: outside?.income ?? [],
         bank: bank ? { amountCents: bank.amountCents, asOfDate: bank.asOfDate } : null,
         payments,
         ...(bank?.source === "register" && bank.asOfDate ? { lateFrom: addDays(bank.asOfDate, 1) } : {}),

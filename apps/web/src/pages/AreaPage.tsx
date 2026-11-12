@@ -79,7 +79,8 @@ export function AreaPage() {
     [lookups, canEdit], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  if (sheet.isError) return <Message>Area not found.</Message>;
+  // the derived area (what is outside the budget) has no page of its own: it is in TOTAL, the Gantt and the analyses
+  if (sheet.isError || sheet.data?.area.derived) return <Message>Area not found.</Message>;
   if (!sheet.data || !lookups || !buildColumns) return <Loading />;
   const data = sheet.data;
 

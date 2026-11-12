@@ -43,6 +43,7 @@ export async function createProject(input: { areaCode: string; name: string; own
   return runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(area).where(eq(area.code, input.areaCode));
     if (!target) throw notFound(`Area "${input.areaCode}"`);
+    if (target.derived) throw forbidden("This area is calculated from the register: change the movements there");
     await assertCanWrite(actor, target.id);
     await assertSeasonOpen(tx, season.id);
     // Two projects added at the same moment must not get the same position: take turns on the area.

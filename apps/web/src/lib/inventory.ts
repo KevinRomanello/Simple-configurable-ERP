@@ -117,7 +117,7 @@ export function useInventoryLookups() {
   if (!categories.data || !units.data || !locations.data || !fields.data || !vatRates.data || !areas.data || !types.data) return null;
   return {
     categories: categories.data, units: units.data, locations: locations.data, fields: fields.data, vatRates: vatRates.data,
-    areas: areas.data, types: types.data,
+    areas: areas.data.filter((a) => !a.derived), types: types.data,
   };
 }
 

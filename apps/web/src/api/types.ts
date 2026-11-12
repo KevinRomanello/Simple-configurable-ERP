@@ -3,9 +3,9 @@
 export type {
   Analysis, Arrival, ArrivalStatus, AreaSheet, Bom, BomLine, CalcLine, CashFlowSummary, CostPoint, FundSummaryRow,
   Gantt, ItemOrigin, ItemsView, MoneyIn, MonthlyInflow, PendingLine, Phase, PhaseCalc, PriceBasis, PriceMethod, PricePoint,
-  Priority, SponsorType, StatementIssue, StatementIssueKind, StatementRow, StatsRow, ToPayLine, ToPayStatus, Totals, TotalsBlock, TotalsFigures, VatReport,
+  CashScope, Priority, SponsorType, StatementIssue, StatementIssueKind, StatementRow, StatsRow, ToPayLine, ToPayStatus, Totals, TotalsBlock, TotalsFigures, VatReport,
 } from "@erp/calc";
-import type { ItemOrigin, MoneyIn, PendingLine, Phase, PriceBasis, PriceMethod, PricePoint, Bom, CostPoint, StatementIssue, StatementRow, StatsRow, ToPayLine, Totals } from "@erp/calc";
+import type { CashScope, ItemOrigin, MoneyIn, PendingLine, Phase, PriceBasis, PriceMethod, PricePoint, Bom, CostPoint, StatementIssue, StatementRow, StatsRow, ToPayLine, Totals } from "@erp/calc";
 
 /** GET /api/views/totals(/year, /car): TOTAL of a season, a calendar year or a car, and what came in (none for a car). */
 export type TotalsView = Totals & {
@@ -33,6 +33,8 @@ export interface Area {
   code: string;
   name: string;
   position: number;
+  /** Calculated from the register of the team's money (what is outside the budget): read-only, nobody is assigned to it. */
+  derived: boolean;
 }
 
 export type FundType = "fund" | "gift" | "gift_vat";
@@ -475,6 +477,8 @@ export interface CashListItem {
   usedBy: number;
   /** Voci only: money in on it is sponsorship unless the movement says otherwise. */
   sponsorship?: boolean;
+  /** Voci only: where its money counts (on a budget line, in the derived area, or nowhere). */
+  scope?: CashScope;
 }
 
 export interface CashEntryRow {

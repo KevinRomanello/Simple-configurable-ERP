@@ -191,7 +191,8 @@ export function Shell() {
 
         {/* the pages follow the order of the sheets of the Excel file (Budget 26-27), then the ones it does not have */}
         <NavGroup id="budget" title="Budget" closed={groups.closed} onToggle={groups.toggle}>
-          {areas.data?.map((area) => (
+          {/* the derived area (what is outside the budget) has no page: it is a row of TOTAL, the Gantt and the analyses */}
+          {areas.data?.filter((area) => !area.derived).map((area) => (
             <Item key={area.code} to={`/budget/${area.code}`} icon={faTable}>
               {area.name}
             </Item>

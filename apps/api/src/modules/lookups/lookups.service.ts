@@ -38,6 +38,15 @@ export async function getDefaultVatRate(): Promise<number> {
 }
 
 /**
+ * The budget category of the lines of the derived area (what the team spends outside the budget, calculated from the
+ * register). It is one of the categories of the Settings page, so it shows in the blocks of TOTAL and of the Gantt.
+ */
+export async function getDerivedAreaCategory(): Promise<string> {
+  // HARDCODED: the category of the lines calculated from the register will be a value of the Settings page, chosen among the categories
+  return "Administration";
+}
+
+/**
  * The rows of the financial statement, in the order and with the labels the team must show (they are copied from the
  * sheet "voci di ricavocosto", defects included: docs/registro-di-cassa.md). `row` is the row of that sheet, which
  * the sums refer to. A Voce of the register is counted in the row that has its name.

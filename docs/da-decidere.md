@@ -2,7 +2,7 @@
 
 L'elenco **unico** delle decisioni ancora aperte, con chi deve rispondere, cosa cambia e dove è descritto il dettaglio. Quando una decisione si chiude si sposta nel documento che la riguarda (e si toglie da qui); quando ne nasce una nuova si aggiunge qui.
 
-Ultimo aggiornamento: **12 novembre 2026** (aggiunta D11: i difetti del rendiconto uguale al foglio). Il 10 novembre: D7, le domande per la tesoriera sul registro di cassa. Prima: 29 ottobre 2026. Chiuse il 29/10: annullare i movimenti e il progetto delle parti di una produzione ([inventario.md](inventario.md), §16 e §18).
+Ultimo aggiornamento: **12 novembre 2026** (aggiunta D11: i difetti del rendiconto uguale al foglio; D10 chiusa, aggiunta D12: l'area ADMINISTRATION). Il 10 novembre: D7, le domande per la tesoriera sul registro di cassa. Prima: 29 ottobre 2026. Chiuse il 29/10: annullare i movimenti e il progetto delle parti di una produzione ([inventario.md](inventario.md), §16 e §18).
 
 ## Urgente
 
@@ -83,16 +83,12 @@ Una riga ACTUAL pagata dal fondo del team con ancora qualcosa da pagare è un mo
 - Non farei una tabella di «uscite previste» salvata: duplicherebbe il budget.
 - **Domanda per la tesoriera:** un fornitore con IVA si paga **lordo subito** (netto più IVA in un bonifico) o **netto subito e l'IVA alla scadenza** che il sito calcola? Se è lordo, il collegamento deve poter coprire anche l'IVA, altrimenti la previsione la conta due volte (già uscita e ancora da pagare). Oggi il collegamento copre solo il netto.
 
-### D10. Le spese del registro nelle pagine TOTAL
+### D12. L'area ADMINISTRATION: due cose da guardare con la tesoreria
 
-**Deciso nel design** ([tesoreria-design.md](tesoreria-design.md), §4): non si sommano le uscite collegate (sono già nelle righe del budget); si contano **solo** i movimenti fuori budget, come area derivata. Il riquadro dei «soldi veri» del rendiconto è la pagina FINANCIAL STATEMENT (§3). Il testo qui sotto è la discussione di partenza.
+L'area è fatta ([spese-fuori-budget.md](spese-fuori-budget.md), 12 novembre 2026): le spese e le entrate fuori budget contano nei TOTAL, nel Gantt e nelle analisi. Il **preventivo per Voce** (fase 4) non c'è ancora. Non blocca niente:
 
-Le pagine TOTAL sono il **budget** (previsto contro reale, per area, progetto e categoria) più i soldi in entrata. Le uscite del registro non ci sono.
-
-- **Non sommerei le uscite del registro alle righe ACTUAL del budget**: sono gli stessi soldi visti da due lati (un'uscita collegata a una riga è la riga), quindi si conterebbero due volte; e il registro ha anche uscite che non sono nel budget (assicurazioni, commissioni, pagamenti dell'IVA).
-- **«Solo gli inflow e outflow della banca come sommatoria»** è una vista onesta e diversa: i **soldi veri dell'anno**, entrate e uscite per Voce, con il totale. È il rendiconto («voci di ricavocosto»), che avevamo lasciato fuori.
-- **Proposta:** il TOTAL resta del budget. In **YEAR TOTAL** (il registro è per anno solare) un riquadro a parte, **«Soldi veri (registro)»**: entrate e uscite per Voce e il netto, con una riga di quadratura («di cui collegate a righe del budget» e «fuori budget»), che dice quanto si spende senza averlo previsto. In SEASON TOTAL niente: una stagione attraversa due anni solari.
-- Le entrate: il blocco «money in» potrebbe prendere dal registro le entrate **vere** dell'anno (tutte, non solo le sponsorizzazioni) al posto degli inflow scritti a mano. Da decidere insieme al rendiconto.
+1. **L'ambito di partenza di ogni Voce** è una proposta (tutto «fuori budget» tranne 1.1 Attrezzature e 1.4 Altro «di progetto», e «ignorate» 6.1 sponsorizzazioni e l'IVA 9.1–9.3). Si corregge in Settings, colonna COUNTS. In particolare **9.5 saldo fattura** (e 9.4 Pec aruba), una quarantina di movimenti: se sono pagamenti di fatture di righe del budget vanno su «On a project» (e si collegano alle righe da TO PAY); se sono spese di gestione restano fuori budget. Oggi sono nell'ultimo progetto dell'area, «Voci not in the statement».
+2. **CAR TOTAL**: l'area conta come ogni riga della stagione, cioè nella macchina della stagione. Una spesa di gestione (assicurazione, bollo) non è davvero «della macchina»: va bene, o la CAR TOTAL deve escluderla?
 
 ## Accesso e rilascio
 

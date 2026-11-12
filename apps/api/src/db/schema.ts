@@ -1,4 +1,4 @@
-import { CASH_ACCOUNTS, FUND_TYPES, MOVEMENT_KINDS, PHASES, SPONSOR_TYPES } from "@erp/calc";
+import { CASH_ACCOUNTS, FUND_TYPES, MOVEMENT_KINDS, PHASES, SPONSOR_TYPES, type CashScope } from "@erp/calc";
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
@@ -60,6 +60,8 @@ export const area = pgTable("area", {
   code: text().notNull().unique(),
   name: text().notNull(),
   position: integer().notNull(),
+  /** Calculated from the register of the team's money (what is outside the budget), not typed: read-only, no rows of its own. */
+  derived: boolean().notNull().default(false),
 });
 
 export const project = pgTable(
@@ -238,8 +240,17 @@ export const cashCategory = pgTable(
     position: integer().notNull(),
     /** Money that comes in on this Voce is sponsorship unless said otherwise on the movement (a starting value only). */
     sponsorship: boolean().notNull().default(false),
+    /**
+     * Where the money of this Voce counts: `project` is spent on a budget line (it counts through the line it is tied
+     * to); `outside` is not in the budget (a stamp duty, a membership fee) and counts in the derived area; `ignore`
+     * never counts there. docs/spese-fuori-budget.md
+     */
+    scope: text().notNull().default("project").$type<CashScope>(),
   },
-  (t) => [uniqueIndex("cash_category_name_uq").on(sql`lower(${t.name})`)],
+  (t) => [
+    uniqueIndex("cash_category_name_uq").on(sql`lower(${t.name})`),
+    check("cash_category_scope_known", sql`${t.scope} in ('project', 'outside', 'ignore')`),
+  ],
 );
 
 /** How a payment was made ("Completato bonifico", "Paypal"...): a list in Settings. */

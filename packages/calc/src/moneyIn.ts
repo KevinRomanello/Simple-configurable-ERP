@@ -5,7 +5,8 @@ import type { Phase } from "./types";
 // docs/stagioni-anni-fiscali-e-macchine.md
 
 export interface MoneyInRow {
-  kind: "bank" | "sponsor" | "inflow";
+  /** `register`: money that came in outside the budget (a membership fee), by Voce of the register. */
+  kind: "bank" | "sponsor" | "inflow" | "register";
   /** The sponsor or where the inflow came from; "BANK" for the balance of the account. */
   label: string;
   /** The day of the BANK balance (null for the other rows). */
@@ -24,7 +25,8 @@ export interface MoneyIn {
  * CASH FLOW. For a calendar year (`year`): the money of the sponsors and the inflows dated in it, of
  * every season, and no BANK (a balance on a day, not something that came in). Sponsors and sources
  * with the same name (any case) are one row. In a season, an inflow dated on or before the BANK day is
- * already in the BANK (the register's sponsorship money is), so it is not counted a second time.
+ * already in the BANK (the register's sponsorship money is), so it is not counted a second time; the money that
+ * came in outside the budget (a fee) follows the same rule, so in a season it shows only after the BANK day.
  */
 export function moneyIn(snapshots: Snapshot[], year?: string): MoneyIn {
   const rows = new Map<string, MoneyInRow>();
@@ -47,9 +49,14 @@ export function moneyIn(snapshots: Snapshot[], year?: string): MoneyIn {
       if (bankDay !== null && i.inflowDate !== null && i.inflowDate <= bankDay) continue;
       add("inflow", i.sourceName, i.phase, i.amountCents, i.inflowDate);
     }
+    // the same rule for what came in outside the budget: up to the BANK day it is in the BANK; a calendar year counts all of it
+    for (const r of snapshot.registerIncome ?? []) {
+      if (bankDay !== null && r.on <= bankDay) continue;
+      add("register", r.voce, "actual", r.cents, r.on);
+    }
   }
 
-  const order = { bank: 0, sponsor: 1, inflow: 2 };
+  const order = { bank: 0, sponsor: 1, inflow: 2, register: 3 };
   const sorted = [...rows.values()].sort((a, b) => order[a.kind] - order[b.kind] || a.label.localeCompare(b.label));
   const total = (phase: Phase) => sorted.reduce((sum, r) => sum + (phase === "estimate" ? r.estimateCents : r.actualCents), 0);
   return { rows: sorted, total: { estimate: total("estimate"), actual: total("actual") } };

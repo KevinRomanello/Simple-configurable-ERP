@@ -14,6 +14,7 @@ export * from "./items";
 export * from "./line";
 export * from "./lines";
 export * from "./money";
+export * from "./outside";
 export * from "./register";
 export * from "./moneyIn";
 export * from "./settle";

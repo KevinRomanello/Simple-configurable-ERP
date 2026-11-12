@@ -4,12 +4,14 @@ import { area, fund, season } from "./schema";
 
 // Reference data every installation needs. Idempotent: running it twice changes nothing.
 const AREAS = [
-  { code: "mt-dmt", name: "MT + DMT" },
-  { code: "sw", name: "SW" },
-  { code: "hw", name: "HW" },
-  { code: "cm", name: "CM" },
-  { code: "mgt", name: "MGT" },
-  { code: "rt", name: "RT" },
+  { code: "mt-dmt", name: "MT + DMT", derived: false },
+  { code: "sw", name: "SW", derived: false },
+  { code: "hw", name: "HW", derived: false },
+  { code: "cm", name: "CM", derived: false },
+  { code: "mgt", name: "MGT", derived: false },
+  { code: "rt", name: "RT", derived: false },
+  // what the team spends and receives outside the budget (a stamp duty, a fee), calculated from the register: read-only, last
+  { code: "administration", name: "ADMINISTRATION", derived: true },
 ];
 
 export async function seedBase(db: typeof Db) {

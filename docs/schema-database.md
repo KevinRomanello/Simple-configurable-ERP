@@ -64,6 +64,7 @@ erDiagram
     text code "slug, unico"
     text name
     integer position
+    boolean derived "calcolata dal registro, sola lettura"
   }
   project {
     integer id PK
@@ -208,6 +209,7 @@ erDiagram
     text name "unico senza maiuscole"
     integer position
     boolean sponsorship "valore di partenza"
+    text scope "project, outside o ignore"
   }
   cash_method {
     integer id PK
@@ -481,7 +483,7 @@ Oltre alle chiavi esterne, il database dice no a:
 
 ## 9. Cosa è nello storico
 
-I trigger `audit_row()` scrivono in `audit_log` ogni inserimento, modifica e cancellazione di **30 tabelle su 34**: tutto ciò che cambia soldi, budget, registro, liste, utenti e inventario. **Non** ci sono: `audit_log` stessa, `area` (le sei aree non cambiano) e i due file binari `item_image` e `item_datasheet_file` (la descrizione della scheda dati sì, `item_datasheet`).
+I trigger `audit_row()` scrivono in `audit_log` ogni inserimento, modifica e cancellazione di **30 tabelle su 34**: tutto ciò che cambia soldi, budget, registro, liste, utenti e inventario. **Non** ci sono: `audit_log` stessa, `area` (le aree non cambiano) e i due file binari `item_image` e `item_datasheet_file` (la descrizione della scheda dati sì, `item_datasheet`).
 
 ## 10. Tipi enumerati
 

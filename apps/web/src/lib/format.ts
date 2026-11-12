@@ -75,10 +75,10 @@ export function dateTime(iso: string): string {
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
-/** 2026-11 -> nov 26. */
+/** 2026-11 -> nov 2026. The whole year: "nov 26" reads as the 26th of November. */
 export function month(key: string): string {
   const [y, m] = key.split("-");
-  return `${MONTHS[Number(m) - 1]} ${y?.slice(2)}`;
+  return `${MONTHS[Number(m) - 1]} ${y}`;
 }
 
 /** "2026-10-15" (a bank date) shown as a month, as the old sheet did. */

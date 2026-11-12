@@ -10,7 +10,7 @@ Nasce dal feedback della tesoreria (11 novembre 2026): tre richieste, che chiudo
 | --- | --- |
 | 1. Treasury + TO PAY | **fatta e provata** (11 novembre 2026); documenti permanenti aggiornati |
 | 2. FINANCIAL STATEMENT | **fatta e provata** (12 novembre 2026); documenti permanenti aggiornati |
-| 3. Fuori budget (ambito per Voce, area derivata) | da fare, dopo la fase 2 |
+| 3. Fuori budget (ambito per Voce, area derivata) | **fatta e provata** (12 novembre 2026); documenti permanenti: [spese-fuori-budget.md](spese-fuori-budget.md) |
 | 4. Preventivo per Voce dell'area derivata | dopo |
 
 **Decisioni prese:**
@@ -19,7 +19,15 @@ Nasce dal feedback della tesoreria (11 novembre 2026): tre richieste, che chiudo
 - Si parte dalla fase 1 con «più righe in un pagamento» incluso (§2.3).
 - Il file di lavoro è questo; i documenti permanenti si aggiornano alla fine di ogni fase.
 
-**Ancora aperte** (§6): 3 l'ambito per Voce · 4 il nome dell'area derivata · 5 solo ACTUAL per l'area derivata · (la 2, l'IVA, è chiusa).
+**Ancora aperte**: nessuna per le fasi fatte; restano le domande D11 e D12 di [da-decidere.md](da-decidere.md) e la fase 4 (il preventivo per Voce). Le decisioni 3, 4 e 5 le ha chiuse il «sì» del 12 novembre: ambito per Voce come in §4.1, area **ADMINISTRATION**, solo ACTUAL.
+
+### Fase 3: fatta (12 novembre 2026)
+- [x] Dati: `cash_category.scope` e `area.derived` (migrazione `0024`, con i valori di partenza sulle Voci che ci sono), la riga dell'area in `seedBase`.
+- [x] Calcolo: `outsideBudget` (righe per Voce e mese, progetti per sezione del rendiconto, entrate come «money in»), `sectionsOfVoci`, la riga «register» in `moneyIn`; 11 prove.
+- [x] API: `loadOutsideBudget` nello snapshot (tutte le viste la vedono), l'ambito nell'elenco delle Voci, il filtro di «Payments to tie to a line», `createProject` rifiutato sull'area derivata; 16 prove con le mutazioni.
+- [x] Sito: la colonna COUNTS in Settings, la riga «outside the budget» in Money in, l'area tolta da menù, Users e tipi di articolo. **La pagina dell'area** (griglia di sola lettura) la prima versione ce l'aveva: **tolta su richiesta** (c'è il registro); l'area resta una riga dei totali.
+- [x] Giro nel browser sui dati di sviluppo (sola lettura): l'area, YEAR TOTAL con le entrate, Settings.
+- **Differenze dal design:** il progetto per sezione usa il rendiconto (e un progetto «Voci not in the statement» per le Voci che il rendiconto non ha); un mese con più entrate che uscite su una Voce è «money in», non una riga negativa; il «money in» di una stagione conta solo ciò che viene dopo il giorno del BANK (il resto è già nel BANK).
 
 ### Fase 2: fatta (12 novembre 2026)
 - [x] Calcolo: `financialStatement` e `statementIssues` (`packages/calc/src/statement.ts`, 11 prove).

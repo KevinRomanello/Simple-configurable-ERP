@@ -1,11 +1,11 @@
 import { computeLines, toPayLines, type CalcLine } from "@erp/calc";
-import { and, desc, eq, gte, inArray, isNotNull, lt, lte, notExists, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, lte, notExists, or, sql } from "drizzle-orm";
 import { invalid, notFound } from "../../core/errors";
 import { fromCents, toCents } from "../../core/money";
 import { today } from "../../core/today";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { budgetLine, cashEntry, cashEntryLine, category, project } from "../../db/schema";
+import { budgetLine, cashCategory, cashEntry, cashEntryLine, category, project } from "../../db/schema";
 import { loadSnapshot } from "../../snapshot";
 import { allSeasons, assertSeasonOpen, getCurrentSeason, getSeasonById } from "../seasons/seasons.service";
 import type { PayInput } from "./cash.schema";
@@ -202,6 +202,8 @@ export async function listToLink() {
         gte(cashEntry.entryOn, season.startsOn),
         lte(cashEntry.entryOn, season.endsOn),
         notExists(db.select({ one: sql`1` }).from(cashEntryLine).where(eq(cashEntryLine.entryId, cashEntry.id))),
+        // a payment of a Voce outside the budget is in the derived area, and one the budget ignores is nobody's: neither is for a line
+        or(isNull(cashEntry.categoryId), inArray(cashEntry.categoryId, db.select({ id: cashCategory.id }).from(cashCategory).where(eq(cashCategory.scope, "project")))),
       ),
     )
     .orderBy(desc(cashEntry.entryOn), desc(cashEntry.id))

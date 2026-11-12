@@ -170,7 +170,7 @@ export async function resetData() {
   // takes the categories along (truncate ... cascade); the settings are put back right after
   await ownerPool.query("truncate table cash_entry, cash_opening, cash_category, cash_method restart identity cascade");
   for (const [index, c] of CASH_CATEGORIES.entries()) {
-    await ownerPool.query("insert into cash_category (name, position, sponsorship) values ($1, $2, $3)", [c.name, index + 1, c.sponsorship]);
+    await ownerPool.query("insert into cash_category (name, position, sponsorship, scope) values ($1, $2, $3, $4)", [c.name, index + 1, c.sponsorship, c.scope]);
   }
   for (const [index, name] of CASH_METHODS.entries()) await ownerPool.query("insert into cash_method (name, position) values ($1, $2)", [name, index + 1]);
   await restoreSettings(); // its history rows go with the truncate below

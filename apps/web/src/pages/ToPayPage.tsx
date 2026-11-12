@@ -159,7 +159,8 @@ function ToLink() {
     <Panel title={`Payments to tie to a line (${rows.length})`}>
       <p className="muted">
         Payments of the register that do not pay any line of the budget yet: the ones made by hand or loaded from the sheet. Tie each one to the lines it
-        paid, and they are no longer owed here.
+        paid, and they are no longer owed here. Only the Voci that are spent on a project are here: the ones outside the budget (a stamp duty) are in the
+        area ADMINISTRATION, and the ones the budget ignores (VAT) are nobody&apos;s.
       </p>
       <Button small variant="ghost" onClick={() => setOpen(!open)}>{open ? "Hide the list" : "Show the list"}</Button>
       {open && linkingRow && (

@@ -30,7 +30,8 @@ export interface SheetProject {
 }
 
 export interface AreaSheet {
-  area: { id: number; code: string; name: string };
+  /** `derived`: calculated from the register, read-only. */
+  area: { id: number; code: string; name: string; derived: boolean };
   projects: SheetProject[];
   /** The TOTAL row of the old sheet. */
   total: PhaseTotals;
@@ -67,5 +68,5 @@ export function areaSheet(snapshot: Snapshot, areaCode: string): AreaSheet {
     actual: sumPhase(projects.map((p) => p.subtotal.actual)),
   };
 
-  return { area: { id: area.id, code: area.code, name: area.name }, projects, total };
+  return { area: { id: area.id, code: area.code, name: area.name, derived: area.derived === true }, projects, total };
 }

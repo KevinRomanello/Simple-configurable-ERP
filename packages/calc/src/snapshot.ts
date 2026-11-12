@@ -33,6 +33,8 @@ export interface AreaInput {
   code: string;
   name: string;
   position: number;
+  /** Calculated from the register (what is outside the budget): nothing in it can be typed. */
+  derived?: boolean;
 }
 
 export interface ProjectInput {
@@ -98,6 +100,14 @@ export interface ReceiptInput {
   quantityMilli: number;
 }
 
+/** Money that came in outside the budget (a membership fee), in one month and on one Voce of the register. */
+export interface RegisterIncome {
+  voce: string;
+  /** The day of the last movement of the month. */
+  on: string;
+  cents: number;
+}
+
 export interface BankInput {
   amountCents: number;
   asOfDate: string | null;
@@ -136,6 +146,8 @@ export interface Snapshot {
    * register (otherwise the payments are not in it): then a line counts only what is still to pay.
    */
   payments?: LinePayment[];
+  /** What came in outside the budget, from the register: money in on the Voci that are outside it and tied to nothing. Only MONEY IN reads it. */
+  registerIncome?: RegisterIncome[];
   /** Set only when the BANK comes from the register: the day after the BANK day, when a late line leaves the team fund. */
   lateFrom?: string;
 }

@@ -48,7 +48,7 @@ export function UsersPage() {
       cell: (u) =>
         u.role === "pm" ? (
           <div className="area-boxes">
-            {areas.data?.map((area) => (
+            {areas.data?.filter((area) => !area.derived).map((area) => (
               <label key={area.id} className="checkbox">
                 <input type="checkbox" checked={u.areaIds.includes(area.id)} onChange={(e) => toggleArea(u, area.id, e.target.checked)} />
                 {area.name}

@@ -1,4 +1,4 @@
-import { CASH_ACCOUNTS } from "@erp/calc";
+import { CASH_ACCOUNTS, CASH_SCOPES } from "@erp/calc";
 import { z } from "zod";
 import { decimal, id, isoDate, LIMITS, longText, shortText } from "../../core/validation";
 
@@ -89,8 +89,8 @@ export const categoryDefaultInput = z.object({ voceId: id.nullable() });
 export const registerQuery = z.object({ year: z.coerce.number().int().min(2000).max(2100).optional() });
 
 export const entryParam = z.object({ id });
-export const listInput = z.object({ name: shortText(100), sponsorship: z.boolean().optional() });
-export const updateListInput = z.object({ name: shortText(100), sponsorship: z.boolean() }).partial();
+export const listInput = z.object({ name: shortText(100), sponsorship: z.boolean().optional(), scope: z.enum(CASH_SCOPES).optional() });
+export const updateListInput = z.object({ name: shortText(100), sponsorship: z.boolean(), scope: z.enum(CASH_SCOPES) }).partial();
 export const orderInput = z.object({ ids: z.array(id).max(500) });
 
 // --- the import of the sheet of the treasury ----------------------------------------------------------

@@ -37,7 +37,8 @@ export function ItemTypesPanel() {
   const areas = useQuery({ queryKey: ["areas"], queryFn: api.areas });
   const [open, setOpen] = useState<number | null>(null);
   if (!types.data || !areas.data) return <Panel title="Item types"><Loading /></Panel>;
-  const allAreas = areas.data;
+  // the derived area has no items and nobody is assigned to it
+  const allAreas = areas.data.filter((a) => !a.derived);
   const areaName = (areaId: number | null) => allAreas.find((a) => a.id === areaId)?.name ?? "Every area";
 
   const columns: Column<ItemType>[] = [

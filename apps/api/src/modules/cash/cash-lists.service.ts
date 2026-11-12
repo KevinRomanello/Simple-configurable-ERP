@@ -1,3 +1,4 @@
+import type { CashScope } from "@erp/calc";
 import { asc, eq, sql } from "drizzle-orm";
 import { conflict, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
@@ -11,7 +12,7 @@ import { assertCanManageCash, assertListed } from "./cash.service";
 /** The Voci in their order, with how many movements use each. */
 export async function listCashCategories(reader: Pick<Tx, "select"> = db) {
   const rows = await reader
-    .select({ id: cashCategory.id, name: cashCategory.name, sponsorship: cashCategory.sponsorship, usedBy: sql<number>`count(${cashEntry.id})::int` })
+    .select({ id: cashCategory.id, name: cashCategory.name, sponsorship: cashCategory.sponsorship, scope: cashCategory.scope, usedBy: sql<number>`count(${cashEntry.id})::int` })
     .from(cashCategory)
     .leftJoin(cashEntry, eq(cashEntry.categoryId, cashCategory.id))
     .groupBy(cashCategory.id)
@@ -28,16 +29,16 @@ export async function listCashMethods(reader: Pick<Tx, "select"> = db) {
     .orderBy(asc(cashMethod.position));
 }
 
-export async function createCashCategory(input: { name: string; sponsorship?: boolean }) {
+export async function createCashCategory(input: { name: string; sponsorship?: boolean; scope?: CashScope }) {
   const actor = await assertCanManageCash();
   return runWrite(actor, async (tx) => {
     const [last] = await tx.select({ position: sql<number>`coalesce(max(${cashCategory.position}), 0)::int` }).from(cashCategory);
-    const [created] = await tx.insert(cashCategory).values({ name: input.name, sponsorship: input.sponsorship ?? false, position: (last?.position ?? 0) + 1 }).returning();
+    const [created] = await tx.insert(cashCategory).values({ name: input.name, sponsorship: input.sponsorship ?? false, scope: input.scope ?? "project", position: (last?.position ?? 0) + 1 }).returning();
     return created!;
   });
 }
 
-export async function updateCashCategory(categoryId: number, input: { name?: string; sponsorship?: boolean }) {
+export async function updateCashCategory(categoryId: number, input: { name?: string; sponsorship?: boolean; scope?: CashScope }) {
   const actor = await assertCanManageCash();
   await runWrite(actor, async (tx) => {
     if (Object.keys(input).length === 0) return;

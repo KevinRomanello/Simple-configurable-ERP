@@ -224,7 +224,7 @@ function Compared({ rows, total, header, a, b, labels, byProject, block }: {
 }
 
 type MoneyRow = MoneyIn["rows"][number];
-const KIND: Record<MoneyRow["kind"], string> = { bank: "the account", sponsor: "sponsor", inflow: "inflow" };
+const KIND: Record<MoneyRow["kind"], string> = { bank: "the account", sponsor: "sponsor", inflow: "inflow", register: "outside the budget" };
 
 /** What came in, source by source, and against what went out. */
 function MoneyInPanel({ money: moneyIn, outflow, name }: { money: MoneyIn; outflow: TotalsFigures; name: string }) {
@@ -248,8 +248,9 @@ function MoneyInPanel({ money: moneyIn, outflow, name }: { money: MoneyIn; outfl
   return (
     <Panel title="Money in">
       <p className="muted">
-        The money of the sponsors, the inflows of CASH FLOW and, for a season, the BANK, against the outflow of every line (block ALL). The
-        VAT the team owes on its inflows is not here: CASH FLOW has it.
+        The money of the sponsors, the inflows of CASH FLOW and, for a season, the BANK, against the outflow of every line (block ALL). What came
+        in outside the budget (a membership fee, from the register) is a row of its own; a season shows only what came after the day of the BANK,
+        the rest is in the BANK. The VAT the team owes on its inflows is not here: CASH FLOW has it.
       </p>
       <DataTable title={`Money in and out ${name}`} columns={balanceColumns} rows={balance} rowKey={(r) => r.label} rowClass={(r) => (r.label === "MONEY IN - OUTFLOW" ? "total" : undefined)} />
       <DataTable

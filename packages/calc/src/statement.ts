@@ -92,6 +92,19 @@ export function financialStatement(entries: StatementEntry[], layout: StatementS
   });
 }
 
+/**
+ * For every Voce a row of the layout reads, the section it is in: the nearest sum above it that is not a total (the
+ * Voce "8.2 Imposta di bollo" is in "8. IMPOSTE E TASSE"). A Voce that no section adds up is its own section. The keys
+ * are `voceKey`s, in the order of the layout.
+ */
+export function sectionsOfVoci(layout: StatementSpec[]): Map<string, string> {
+  const inSection = new Map<number, string>();
+  for (const spec of layout) {
+    if (spec.kind === "sum" && !spec.total) for (const row of spec.of) inSection.set(row, spec.label);
+  }
+  return new Map(layout.flatMap((spec) => (spec.kind === "voce" ? [[voceKey(spec.label), inSection.get(spec.row) ?? spec.label] as const] : [])));
+}
+
 export type StatementIssueKind =
   /** Movements with no Voce: no row counts them. */
   | "noVoce"

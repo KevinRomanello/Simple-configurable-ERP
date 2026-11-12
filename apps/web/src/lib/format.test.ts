@@ -34,8 +34,8 @@ describe("format", () => {
   it("formats dates and months like the old sheet", () => {
     expect(date("2026-11-20")).toBe("20/11/26");
     expect(date(null)).toBe("");
-    expect(month("2026-11")).toBe("nov 26");
-    expect(monthOfDate("2026-10-15")).toBe("oct 26");
+    expect(month("2026-11")).toBe("nov 2026");
+    expect(monthOfDate("2026-10-15")).toBe("oct 2026");
   });
 
   it("formats an instant as local date and time", () => {

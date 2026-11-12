@@ -1,5 +1,5 @@
 import type {
-  Analysis, Area, AreaSheet, Bank, ApplyBody, CategoryDefault, ToLinkRow, ToPay, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, SponsorBody, Statement, StatsResult, Supplier, TotalsView, TypeParam, UserRow, VatReport,
+  Analysis, Area, AreaSheet, Bank, ApplyBody, CategoryDefault, ToLinkRow, ToPay, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, CashScope, SponsorBody, Statement, StatsResult, Supplier, TotalsView, TypeParam, UserRow, VatReport,
 } from "./types";
 import type { NewLineBody } from "../lib/newLine";
 import { chosenSeasonId } from "../lib/seasonChoice";
@@ -296,8 +296,8 @@ export const api = {
   previewCashImport: (body: ImportBody) => post<ImportPreview>("/cash/import/preview", body),
   applyCashImport: (body: ApplyBody) => post<ImportResult>("/cash/import", body),
   cashCategories: () => get<CashListItem[]>("/cash/categories"),
-  createCashCategory: (body: { name: string; sponsorship?: boolean }) => post("/cash/categories", body),
-  updateCashCategory: (id: number, body: { name?: string; sponsorship?: boolean }) => patch(`/cash/categories/${id}`, body),
+  createCashCategory: (body: { name: string; sponsorship?: boolean; scope?: CashScope }) => post("/cash/categories", body),
+  updateCashCategory: (id: number, body: { name?: string; sponsorship?: boolean; scope?: CashScope }) => patch(`/cash/categories/${id}`, body),
   deleteCashCategory: (id: number) => del(`/cash/categories/${id}`),
   orderCashCategories: (ids: number[]) => put("/cash/categories/order", { ids }),
   cashMethods: () => get<CashListItem[]>("/cash/methods"),

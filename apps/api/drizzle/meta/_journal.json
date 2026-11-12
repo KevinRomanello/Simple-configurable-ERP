@@ -169,6 +169,13 @@
       "when": 1794426667386,
       "tag": "0023_category_default_voce",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794491552842,
+      "tag": "0024_outside_budget",
+      "breakpoints": true
     }
   ]
 }
