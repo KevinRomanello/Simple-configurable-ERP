@@ -114,7 +114,7 @@ describe("making a made item", () => {
     const { plate, screw, pedal } = await workshop();
     const refused = await build(pedal.id, "11"); // 22 plates and 44 screws: 20 and 100 are there
     expect(refused.status).toBe(409);
-    expect(refused.body.error).toMatch(/Not enough at Site 1 \/ Room 1/);
+    expect(refused.body.error).toMatch(/Not enough at Site 1 - Room 1/);
     expect(refused.body.error).toContain('22.000 pcs of "Plate" (20.000 there)');
     expect(refused.body.error).not.toContain("Screw");
     expect(await stockOf(plate.id)).toEqual([["s1-r1", "", 20]]);

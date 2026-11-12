@@ -30,7 +30,7 @@ Erano le righe 1, 2, 4, 6, 7 e 8: ora stanno nel database e li cambia l'admin da
 | Categorie (e il loro ordine) | `listCategories` | `category` |
 | Aliquote IVA | `listVatRates` | `vat_rate` |
 | Impostazioni di calcolo: soglia di TOTAL, IVA sugli inflow, IVA con sponsor totale (Q1), confronti con BANK (Q2) | `getSettings` | `setting` |
-| Sedi e stanze | `listLocations` | `location` |
+| Posti (stanza, scaffale, ripiano) | `listLocations` | `location` |
 | Unità di misura | `listUnits` | `unit` |
 | Campi facoltativi per categoria | `getCategoryFields` | `category_field` |
 

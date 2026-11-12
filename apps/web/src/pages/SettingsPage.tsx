@@ -269,21 +269,33 @@ function UnitsPanel({ units }: { units: SettingsView["units"] }) {
 
 type LocationRow = SettingsView["locations"][number];
 
-/** The form of a new place: a site and a room. */
+/** The form of a new place: a room and, if it has them, a shelf and its levels (several levels, with a comma, are several places). */
 function NewPlace({ onDone }: { onDone: () => void }) {
   const act = useAction();
-  const [site, setSite] = useState("");
   const [room, setRoom] = useState("");
+  const [shelf, setShelf] = useState("");
+  const [level, setLevel] = useState("");
+  const levels = level.split(",").map((l) => l.trim()).filter((l) => l !== "");
   const submit = async () => {
-    if (await act(() => api.createLocation({ site: site.trim(), room: room.trim() }))) onDone();
+    if (await act(() => api.createLocation({ room: room.trim(), ...(shelf.trim() ? { shelf: shelf.trim() } : {}), ...(levels.length > 0 ? { levels } : {}) }))) onDone();
   };
   return (
-    <FormPanel title="New place" submitLabel="Add place" canSubmit={site.trim() !== "" && room.trim() !== ""} onSubmit={submit} onCancel={onDone}>
-      <Field label="Site" htmlFor="new-site">
-        <input id="new-site" className="input small" autoFocus value={site} onChange={(e) => setSite(e.target.value)} />
-      </Field>
+    <FormPanel
+      title="New place"
+      description="A room, and on it a shelf and a level, all plain text; the shelf and the level are optional. Several levels separated by a comma (1, 2, 3, 4) make one place each."
+      submitLabel={levels.length > 1 ? `Add ${levels.length} places` : "Add place"}
+      canSubmit={room.trim() !== "" && (levels.length === 0 || shelf.trim() !== "")}
+      onSubmit={submit}
+      onCancel={onDone}
+    >
       <Field label="Room" htmlFor="new-room">
-        <input id="new-room" className="input small" value={room} onChange={(e) => setRoom(e.target.value)} />
+        <input id="new-room" className="input small" autoFocus value={room} onChange={(e) => setRoom(e.target.value)} />
+      </Field>
+      <Field label="Shelf" htmlFor="new-shelf">
+        <input id="new-shelf" className="input small" value={shelf} onChange={(e) => setShelf(e.target.value)} />
+      </Field>
+      <Field label="Level" htmlFor="new-level">
+        <input id="new-level" className="input small" value={level} placeholder="1, 2, 3" onChange={(e) => setLevel(e.target.value)} />
       </Field>
     </FormPanel>
   );
@@ -294,19 +306,21 @@ function LocationsPanel({ locations }: { locations: SettingsView["locations"] })
   const ids = locations.map((l) => l.id);
 
   const columns: Column<LocationRow>[] = [
-    { key: "site", header: "SITE", cell: (l) => <CommitInput value={l.site} label={`Site of ${l.code}`} onCommit={(text) => text !== "" && act(() => api.updateLocation(l.id, { site: text }))} /> },
-    { key: "room", header: "ROOM", cell: (l) => <CommitInput value={l.room} label={`Room of ${l.code}`} onCommit={(text) => text !== "" && act(() => api.updateLocation(l.id, { room: text }))} /> },
+    { key: "room", header: "ROOM", cell: (l) => <CommitInput wide value={l.room} label={`Room of ${l.code}`} onCommit={(text) => text !== "" && act(() => api.updateLocation(l.id, { room: text }))} /> },
+    { key: "shelf", header: "SHELF", cell: (l) => <CommitInput value={l.shelf} label={`Shelf of ${l.code}`} onCommit={(text) => act(() => api.updateLocation(l.id, { shelf: text }))} /> },
+    { key: "level", header: "LEVEL", cell: (l) => <CommitInput value={l.level} label={`Level of ${l.code}`} onCommit={(text) => act(() => api.updateLocation(l.id, { level: text }))} /> },
     { key: "code", header: "CODE", cellClass: () => "muted", cell: (l) => l.code },
     usedBy<LocationRow>(),
-    { key: "order", header: "ORDER", cell: (l) => <OrderButtons ids={ids} index={ids.indexOf(l.id)} label={`${l.site} / ${l.room}`} onOrder={(order) => act(() => api.orderLocations(order))} /> },
-    { key: "delete", header: "", num: true, cell: (l) => <DeleteButton label={`${l.site} / ${l.room}`} usedBy={l.usedBy} onDelete={() => act(() => api.deleteLocation(l.id))} /> },
+    { key: "order", header: "ORDER", cell: (l) => <OrderButtons ids={ids} index={ids.indexOf(l.id)} label={l.label} onOrder={(order) => act(() => api.orderLocations(order))} /> },
+    { key: "delete", header: "", num: true, cell: (l) => <DeleteButton label={l.label} usedBy={l.usedBy} onDelete={() => act(() => api.deleteLocation(l.id))} /> },
   ];
 
   return (
     <Panel title="Places">
       <p className="muted">
-        Where things are kept: a site and a room (the exact spot, "shelf 2, red box", is written with each arrival). The code is what the
-        movements of the inventory store: it never changes, so renaming a place keeps its history right. Used by: movements of the inventory.
+        Where things are kept: a room, and on it a shelf and a level (plain text; the shelf and the level are optional, a level needs a shelf).
+        The exact spot, "red box", is written with each arrival. The code is what the movements of the inventory store: it never changes, so
+        renaming a place keeps its history right. Used by: movements of the inventory.
       </p>
       <DataTable title="Places" columns={columns} rows={locations} rowKey={(l) => l.id} empty="No places" />
       <AddSection label="New place" form={(close) => <NewPlace onDone={close} />} />

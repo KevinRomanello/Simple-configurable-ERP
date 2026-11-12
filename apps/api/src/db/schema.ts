@@ -384,17 +384,21 @@ export const unit = pgTable(
   (t) => [uniqueIndex("unit_name_uq").on(sql`lower(${t.name})`)],
 );
 
-/** Where things are kept: a site and a room. The code is what movements store, and never changes. */
+/**
+ * Where things are kept: a room, and on it a shelf and a level of the shelf (both optional, plain text). The code is what
+ * movements store, and never changes.
+ */
 export const location = pgTable(
   "location",
   {
     id: id(),
     code: text().notNull().unique(),
-    site: text().notNull(),
     room: text().notNull(),
+    shelf: text().notNull().default(""),
+    level: text().notNull().default(""),
     position: integer().notNull(),
   },
-  (t) => [uniqueIndex("location_site_room_uq").on(sql`lower(${t.site})`, sql`lower(${t.room})`)],
+  (t) => [uniqueIndex("location_room_shelf_level_uq").on(sql`lower(${t.room})`, sql`lower(${t.shelf})`, sql`lower(${t.level})`)],
 );
 
 /** The switches of the calculation: one row. */

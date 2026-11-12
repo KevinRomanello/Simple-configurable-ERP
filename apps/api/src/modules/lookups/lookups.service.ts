@@ -205,15 +205,22 @@ export async function loadLookups(): Promise<Lookups> {
 export interface Location {
   /** What is stored with a movement. */
   code: string;
-  site: string;
   room: string;
+  /** Empty when the place is the room itself. */
+  shelf: string;
+  /** A level of the shelf; empty when the place is the shelf itself. */
+  level: string;
   label: string;
 }
 
-/** Where things can be kept, in their order. The precise place inside a room ("shelf 2, red box") is free text. */
+/** "Room 1 / Shelf A / 2": the parts a place has, in order. */
+export const placeLabel = (place: { room: string; shelf: string; level: string }) =>
+  [place.room, place.shelf, place.level].filter((part) => part !== "").join(" / ");
+
+/** Where things can be kept, in their order. The precise spot inside a place ("red box") is free text. */
 export async function listLocations(): Promise<Location[]> {
   const rows = await db.select().from(location).orderBy(asc(location.position), asc(location.id));
-  return rows.map((r) => ({ code: r.code, site: r.site, room: r.room, label: `${r.site} / ${r.room}` }));
+  return rows.map((r) => ({ code: r.code, room: r.room, shelf: r.shelf, level: r.level, label: placeLabel(r) }));
 }
 
 /** How an item is counted. */

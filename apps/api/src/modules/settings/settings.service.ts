@@ -6,7 +6,7 @@ import { db } from "../../db/client";
 import { budgetLine, category, categoryField, fund, inventoryItem, lineFigures, location, setting, stockMovement, unit, vatRate } from "../../db/schema";
 import { canManageInventory, getCurrentUser, requireAdmin } from "../auth/auth.service";
 import { ITEM_FIELDS, type ItemField } from "../lookups/defaults";
-import { getSettings } from "../lookups/lookups.service";
+import { getSettings, placeLabel } from "../lookups/lookups.service";
 
 // The Settings page (docs/impostazioni.md). The switches of the calculation, the VAT rates and the
 // seasons are the admin's; the lists the inventory is written with (categories, units, places) are also
@@ -76,8 +76,10 @@ export async function readSettings() {
       locations.map(async (l) => ({
         id: l.id,
         code: l.code,
-        site: l.site,
         room: l.room,
+        shelf: l.shelf,
+        level: l.level,
+        label: placeLabel(l),
         usedBy: await usage(db, stockMovement, or(eq(stockMovement.location, l.code), eq(stockMovement.toLocation, l.code))),
       })),
     ),
@@ -225,33 +227,56 @@ export async function deleteUnit(unitId: number) {
 
 const slug = (text: string) => text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "x";
 
-/** A new place, last in the order. Its code (what the movements store) is made from its names and never changes. */
-export async function createLocation(input: { site: string; room: string }) {
+type Place = { room: string; shelf: string; level: string };
+
+/** A level is a level of a shelf: it cannot be there without one. */
+function assertPlace(place: Place) {
+  if (place.level !== "" && place.shelf === "") throw invalid("A level needs a shelf");
+}
+
+const samePlace = (p: Place) =>
+  sql`lower(${location.room}) = lower(${p.room}) and lower(${location.shelf}) = lower(${p.shelf}) and lower(${location.level}) = lower(${p.level})`;
+
+/** One new place, last in the order. Its code (what the movements store) is made from its names and never changes. */
+async function insertPlace(tx: Tx, place: Place) {
+  const [twin] = await tx.select().from(location).where(samePlace(place));
+  if (twin) throw conflict(`"${placeLabel(twin)}" already exists`);
+  const base = [place.room, place.shelf, place.level].filter((part) => part !== "").map(slug).join("--");
+  const taken = new Set((await tx.select({ code: location.code }).from(location)).map((r) => r.code));
+  let code = base;
+  for (let n = 2; taken.has(code); n += 1) code = `${base}-${n}`;
+  const [last] = await tx.select({ position: max(location.position) }).from(location);
+  const [created] = await tx.insert(location).values({ code, ...place, position: (last?.position ?? 0) + 1 }).returning();
+  return { id: created!.id, code };
+}
+
+/**
+ * New places: a room, optionally with a shelf, optionally with one place for each level named (so a shelf with four levels is
+ * one request). All or none: a name that is already there stops the lot. The result is the first place and how many were made.
+ */
+export async function createLocation(input: { room: string; shelf?: string; levels?: string[] }) {
   const actor = await asInventoryKeeper();
+  const shelf = input.shelf ?? "";
+  const levels = input.levels?.length ? input.levels : [""];
+  levels.forEach((level) => assertPlace({ room: input.room, shelf, level }));
   return runWrite(actor, async (tx) => {
-    const [twin] = await tx.select().from(location).where(sql`lower(${location.site}) = lower(${input.site}) and lower(${location.room}) = lower(${input.room})`);
-    if (twin) throw conflict(`"${twin.site} / ${twin.room}" already exists`);
-    const base = `${slug(input.site)}--${slug(input.room)}`;
-    const taken = new Set((await tx.select({ code: location.code }).from(location)).map((r) => r.code));
-    let code = base;
-    for (let n = 2; taken.has(code); n += 1) code = `${base}-${n}`;
-    const [last] = await tx.select({ position: max(location.position) }).from(location);
-    const [created] = await tx.insert(location).values({ code, site: input.site, room: input.room, position: (last?.position ?? 0) + 1 }).returning();
-    return { id: created!.id, code };
+    const made = [];
+    for (const level of levels) made.push(await insertPlace(tx, { room: input.room, shelf, level }));
+    return { ...made[0]!, created: made.length };
   });
 }
 
-/** Renames the site or the room of a place; its code stays, so the movements stay right. */
-export async function updateLocation(locationId: number, input: { site?: string; room?: string }) {
+/** Renames the room, the shelf or the level of a place; its code stays, so the movements stay right. */
+export async function updateLocation(locationId: number, input: { room?: string; shelf?: string; level?: string }) {
   const actor = await asInventoryKeeper();
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(location).where(eq(location.id, locationId)).for("update");
     if (!target) throw notFound("Place");
-    const site = input.site ?? target.site;
-    const room = input.room ?? target.room;
-    const [twin] = await tx.select().from(location).where(sql`lower(${location.site}) = lower(${site}) and lower(${location.room}) = lower(${room})`);
-    if (twin && twin.id !== locationId) throw conflict(`"${twin.site} / ${twin.room}" already exists`);
-    await tx.update(location).set({ site, room }).where(eq(location.id, locationId));
+    const place = { room: input.room ?? target.room, shelf: input.shelf ?? target.shelf, level: input.level ?? target.level };
+    assertPlace(place);
+    const [twin] = await tx.select().from(location).where(samePlace(place));
+    if (twin && twin.id !== locationId) throw conflict(`"${placeLabel(twin)}" already exists`);
+    await tx.update(location).set(place).where(eq(location.id, locationId));
   });
 }
 
@@ -260,7 +285,7 @@ export async function deleteLocation(locationId: number) {
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(location).where(eq(location.id, locationId));
     if (!target) throw notFound("Place");
-    refuseIfUsed(`${target.site} / ${target.room}`, [
+    refuseIfUsed(placeLabel(target), [
       [await usage(tx, stockMovement, or(eq(stockMovement.location, target.code), eq(stockMovement.toLocation, target.code))), "movements of the inventory"],
     ]);
     await tx.delete(location).where(eq(location.id, locationId));

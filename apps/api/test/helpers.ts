@@ -156,8 +156,8 @@ async function restoreSettings() {
   await ownerPool.query(`insert into vat_rate (rate) values ${rates.text}`, rates.params);
   const units = values(d.units.map((u) => [u]));
   await ownerPool.query(`insert into unit (name) values ${units.text}`, units.params);
-  const places = values(d.locations.map((l, i) => [l.code, l.site, l.room, i + 1]));
-  await ownerPool.query(`insert into location (code, site, room, position) values ${places.text}`, places.params);
+  const places = values(d.locations.map((l, i) => [l.code, l.room, l.shelf, l.level, i + 1]));
+  await ownerPool.query(`insert into location (code, room, shelf, level, position) values ${places.text}`, places.params);
   const s = d.settings;
   await ownerPool.query(
     "insert into setting (id, variance_threshold, vat_base_when_total_sponsor, inflow_vat_rate, bank_compare_summary, bank_compare_timeline) values (1, $1, $2, $3, $4, $5)",

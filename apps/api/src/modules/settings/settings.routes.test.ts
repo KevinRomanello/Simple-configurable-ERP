@@ -28,12 +28,12 @@ describe("who", () => {
     expect((await user.get("/api/settings")).status).toBe(200);
     const category = await user.post("/api/settings/categories", { name: "Tools" });
     const unit = await user.post("/api/settings/units", { name: "drum" });
-    const place = await user.post("/api/settings/locations", { site: "Lab", room: "Shelf" });
+    const place = await user.post("/api/settings/locations", { room: "Lab", shelf: "Shelf" });
     expect([category.status, unit.status, place.status]).toEqual([201, 201, 201]);
     expect((await user.patch(`/api/settings/categories/${category.body.id}`, { name: "Tools 2" })).status).toBe(204);
     expect((await user.put("/api/settings/uncategorized-fields", { fields: ["purpose"] })).status).toBe(204);
     expect((await user.patch(`/api/settings/units/${unit.body.id}`, { name: "drum 2" })).status).toBe(204);
-    expect((await user.patch(`/api/settings/locations/${place.body.id}`, { room: "Shelf 2" })).status).toBe(204);
+    expect((await user.patch(`/api/settings/locations/${place.body.id}`, { shelf: "Shelf 2" })).status).toBe(204);
     expect((await user.del(`/api/settings/locations/${place.body.id}`)).status).toBe(204);
     expect((await user.del(`/api/settings/units/${unit.body.id}`)).status).toBe(204);
     expect((await user.del(`/api/settings/categories/${category.body.id}`)).status).toBe(204);
@@ -51,7 +51,7 @@ describe("who", () => {
       await viewing.get("/api/settings"),
       await viewing.post("/api/settings/categories", { name: "Tools" }),
       await viewing.post("/api/settings/units", { name: "drum" }),
-      await viewing.post("/api/settings/locations", { site: "Lab", room: "Shelf" }),
+      await viewing.post("/api/settings/locations", { room: "Lab", shelf: "Shelf" }),
       await viewing.post("/api/settings/vat-rates", { rate: 5 }),
       await viewing.patch("/api/settings/calculation", { inflowVatRate: 10 }),
     ];
@@ -157,13 +157,56 @@ describe("units", () => {
 
 describe("places", () => {
   it("a new place gets a code that never changes, even when it is renamed", async () => {
-    const created = await api.post("/api/settings/locations", { site: "Workshop", room: "Back room" });
+    const created = await api.post("/api/settings/locations", { room: "Workshop", shelf: "Back shelf" });
     expect(created.status).toBe(201);
-    expect(created.body.code).toBe("workshop--back-room");
-    expect((await api.post("/api/settings/locations", { site: "workshop", room: "back room" })).status).toBe(409);
-    expect((await api.patch(`/api/settings/locations/${created.body.id}`, { room: "Store" })).status).toBe(204);
-    const place = (await api.get("/api/lookups/locations")).body.find((l: { code: string }) => l.code === "workshop--back-room");
-    expect(place).toMatchObject({ site: "Workshop", room: "Store", label: "Workshop / Store" });
+    expect(created.body.code).toBe("workshop--back-shelf");
+    expect((await api.post("/api/settings/locations", { room: "workshop", shelf: "back SHELF" })).status).toBe(409);
+    expect((await api.patch(`/api/settings/locations/${created.body.id}`, { shelf: "Store" })).status).toBe(204);
+    const place = (await api.get("/api/lookups/locations")).body.find((l: { code: string }) => l.code === "workshop--back-shelf");
+    expect(place).toEqual({ code: "workshop--back-shelf", room: "Workshop", shelf: "Store", level: "", label: "Workshop / Store" });
+  });
+
+  it("is a room, and on it a shelf and a level, all plain text; the label has the parts there are", async () => {
+    await api.post("/api/settings/locations", { room: "Lab" });
+    await api.post("/api/settings/locations", { room: "Lab", shelf: "A" });
+    await api.post("/api/settings/locations", { room: "Lab", shelf: "A", levels: ["Top"] });
+    const places = (await api.get("/api/lookups/locations")).body as { code: string; label: string }[];
+    expect(places.slice(-3).map((p) => [p.code, p.label])).toEqual([["lab", "Lab"], ["lab--a", "Lab / A"], ["lab--a--top", "Lab / A / Top"]]);
+    // a room with the same name is another place only if its shelf or level is different
+    expect((await api.post("/api/settings/locations", { room: "LAB" })).status).toBe(409);
+  });
+
+  it("makes one place for each level named, all or none, and a level needs a shelf", async () => {
+    const count = async () => ((await settings()).locations as unknown[]).length;
+    const before = await count();
+    const made = await api.post("/api/settings/locations", { room: "Lab", shelf: "A", levels: ["1", "2", "3", "4"] });
+    expect(made.status).toBe(201);
+    expect(made.body).toMatchObject({ code: "lab--a--1", created: 4 });
+    expect(await count()).toBe(before + 4);
+    expect((await api.get("/api/lookups/locations")).body.slice(-4).map((p: { label: string }) => p.label)).toEqual(["Lab / A / 1", "Lab / A / 2", "Lab / A / 3", "Lab / A / 4"]);
+
+    // one that is there already (or named twice) stops the lot: nothing is made
+    expect((await api.post("/api/settings/locations", { room: "Lab", shelf: "A", levels: ["5", "6", "2"] })).status).toBe(409);
+    expect((await api.post("/api/settings/locations", { room: "Lab", shelf: "B", levels: ["1", "1"] })).status).toBe(409);
+    expect(await count()).toBe(before + 4);
+
+    // a level is a level of a shelf
+    expect((await api.post("/api/settings/locations", { room: "Lab", levels: ["1"] })).status).toBe(400);
+    const room = await api.post("/api/settings/locations", { room: "Cellar" });
+    expect((await api.patch(`/api/settings/locations/${room.body.id}`, { level: "2" })).status).toBe(400);
+    expect((await api.patch(`/api/settings/locations/${room.body.id}`, { shelf: "C", level: "2" })).status).toBe(204);
+    // and a shelf can be taken away only with its level
+    expect((await api.patch(`/api/settings/locations/${room.body.id}`, { shelf: "" })).status).toBe(400);
+    expect((await api.post("/api/settings/locations", { room: "" })).status).toBe(400);
+  });
+
+  it("holds the stock: an arrival on a level shows its whole name, and the place cannot be deleted while it is used", async () => {
+    const made = await api.post("/api/settings/locations", { room: "Lab", shelf: "A", levels: ["2"] });
+    const received = await api.post("/api/inventory/receive", { newItem: { name: "Washer" }, quantity: "10", receivedOn: "2026-10-01", location: made.body.code, spot: "red box", unitNet: "1", vatRate: 22 });
+    expect(received.status).toBe(201);
+    const item = (await api.get(`/api/inventory/items/${received.body.itemId ?? received.body.item?.id}`)).body;
+    expect(item.stock[0]).toMatchObject({ location: "lab--a--2", label: "Lab / A / 2", spot: "red box" });
+    expect((await api.del(`/api/settings/locations/${made.body.id}`)).status).toBe(409);
   });
 
   it("a place with movements cannot be deleted; the order is kept", async () => {

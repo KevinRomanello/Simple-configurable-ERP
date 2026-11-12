@@ -421,8 +421,9 @@ erDiagram
   location {
     integer id PK
     text code "non cambia mai"
-    text site
-    text room
+    text room "stanza"
+    text shelf "scaffale, facoltativo"
+    text level "ripiano, facoltativo"
   }
   setting {
     integer id PK "sempre 1"

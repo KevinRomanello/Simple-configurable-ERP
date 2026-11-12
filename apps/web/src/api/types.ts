@@ -240,8 +240,12 @@ export interface HistoryPage {
 
 export interface Location {
   code: string;
-  site: string;
   room: string;
+  /** Empty when the place is the room itself. */
+  shelf: string;
+  /** A level of the shelf; empty when the place is the shelf itself. */
+  level: string;
+  /** "Room / Shelf / Level", the parts that are there. */
   label: string;
 }
 
@@ -451,7 +455,7 @@ export interface SettingsView {
   uncategorizedFields: ItemField[];
   vatRates: { id: number; rate: number; usedBy: number }[];
   units: { id: number; name: string; usedBy: number }[];
-  locations: { id: number; code: string; site: string; room: string; usedBy: number }[];
+  locations: { id: number; code: string; room: string; shelf: string; level: string; label: string; usedBy: number }[];
   calculation: Calculation;
 }
 

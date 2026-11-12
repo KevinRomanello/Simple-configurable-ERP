@@ -65,7 +65,7 @@ I movimenti: **receipt** (arrivo, +), **use** (uso, −, con progetto facoltativ
 | quantità | somma dei movimenti, per luogo |
 | quantità comprate | somma degli arrivi (`boughtMilli`) |
 | costo | prezzo di ogni arrivo; prezzo oggi, medio, in un giorno; valore sullo scaffale |
-| dove si trova | luogo (sede / stanza, dall'elenco) + "dove esattamente" in testo libero ("scaffale 2, scatola rossa") |
+| dove si trova | luogo (stanza / scaffale / ripiano, dall'elenco) + "dove esattamente" in testo libero ("scatola rossa") |
 | come smaltirlo | `disposal` |
 | codici di sicurezza | `safetyCodes`: frasi H/P e numero UN dei materiali pericolosi, come sulla scheda di sicurezza |
 | infiammabile, tossico, cancerogeno | tre caselle sull'articolo, visibili qualunque sia la categoria (tranne per i tipi che non le chiedono, §19) e filtrabili (§15) |
@@ -83,9 +83,9 @@ I movimenti: **receipt** (arrivo, +), **use** (uso, −, con progetto facoltativ
 
 Cambiando categoria i campi nascosti **non si cancellano**: restano nel database e ricompaiono tornando alla categoria. Il modulo manda solo i campi che mostra. Nella pagina dell'articolo i codici di sicurezza sono evidenziati.
 
-## 6. Sedi e stanze
+## 6. Posti: stanza, scaffale, ripiano
 
-`listLocations()` ([lookups.service.ts](../apps/api/src/modules/lookups/lookups.service.ts)) legge la tabella `location`: all'inizio due sedi con cinque stanze ciascuna ("Site 1 / Room 1"…), solo per avere qualcosa da scegliere; l'admin le aggiunge, rinomina, ordina e cancella dalla pagina **Settings** ([impostazioni.md](impostazioni.md)). Nel database del magazzino si salva il **codice** del posto (`s1-r2`), che non cambia mai, e a parte un testo libero per il punto preciso. Un posto usato da un movimento non si può cancellare.
+`listLocations()` ([lookups.service.ts](../apps/api/src/modules/lookups/lookups.service.ts)) legge la tabella `location`. Un posto è una **stanza** e, se serve, uno **scaffale** e un **ripiano** (13 novembre 2026: prima era «sede e stanza»; la sede non c'è più): tre testi liberi, senza gerarchia, di cui scaffale e ripiano facoltativi (un ripiano vuole uno scaffale). Si può restare alla stanza («è nella stanza») o allo scaffale. L'etichetta che si vede ovunque è «Stanza / Scaffale / Ripiano», con le parti che ci sono. All'inizio ci sono dieci stanze («Site 1 - Room 1»…), solo per avere qualcosa da scegliere; si aggiungono, rinominano, ordinano e cancellano dalla pagina **Settings** ([impostazioni.md](impostazioni.md)): chi tiene le liste dell'inventario, come per le categorie, **non** al volo mentre si riceve la merce. Più ripiani si aggiungono insieme scrivendoli con la virgola (`1, 2, 3, 4`). Nel database del magazzino si salva il **codice** del posto (`s1-r2`, o `lab--a--2` per i nuovi: dai nomi), che non cambia mai, e a parte un testo libero per il punto preciso («scatola rossa»). Un posto usato da un movimento non si può cancellare. Due posti non possono avere la stessa stanza, lo stesso scaffale e lo stesso ripiano (senza badare alle maiuscole); «Scaffale A» e «Scaff. A» sono invece due posti diversi, perciò i posti li crea solo chi tiene Settings. Le statistiche «per posto» e il filtro `location` contano ogni posto per sé (quindi per ripiano).
 
 ## 7. Immagini
 
@@ -155,7 +155,7 @@ Schermate (menu **Inventory**): **INVENTORY** (elenco con miniature, filtri per 
 - **Parametri obbligatori**: per ora nessun parametro lo è, come gli altri campi.
 - **Modificare un movimento**: un movimento non si cambia, si **annulla** (§18) e si registra giusto (un prezzo sbagliato, una quantità, un luogo).
 - **Scorta minima** e avviso di riordino: da fare.
-- Un disegno Figma per queste schermate; sedi e stanze vere.
+- Un disegno Figma per queste schermate; i posti veri (stanze, scaffali e ripiani).
 
 ## 13. Dati dimostrativi
 

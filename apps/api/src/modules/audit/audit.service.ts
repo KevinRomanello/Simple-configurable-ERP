@@ -74,7 +74,8 @@ function labelOf(table: string, row: Json): string {
     case "vat_rate":
       return `${String(row.rate ?? "")}%`;
     case "location":
-      return `${pick("site")} / ${pick("room")}`;
+      // a place was a site and a room before it was a room, a shelf and a level: the older rows have the site
+      return [pick("site"), pick("room"), pick("shelf"), pick("level")].filter((part) => part !== "").join(" / ");
     case "setting":
       return "settings";
     case "component_part":

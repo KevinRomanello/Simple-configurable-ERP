@@ -40,7 +40,7 @@ const arrivalOf = async (areaCode: string) => (await api.get(`/api/areas/${areaC
 describe("the lists the forms are built from", () => {
   it("offers the locations, the units and which fields each category shows", async () => {
     const locations = (await api.get("/api/inventory/../lookups/locations")).body;
-    expect(locations[0]).toEqual({ code: "s1-r1", site: "Site 1", room: "Room 1", label: "Site 1 / Room 1" });
+    expect(locations[0]).toEqual({ code: "s1-r1", room: "Site 1 - Room 1", shelf: "", level: "", label: "Site 1 - Room 1" });
     expect(locations).toHaveLength(10);
     expect((await api.get("/api/lookups/units")).body).toContain("pcs");
     const fields = (await api.get("/api/lookups/category-fields")).body;
@@ -111,7 +111,7 @@ describe("items", () => {
     await receiveFree({ newItem: newItem("Epoxy", { category: "Manufacturing", purpose: "laminating carbon" }), quantity: "2", unitNet: "40", location: "s1-r2" });
     const all = (await api.get("/api/inventory/items")).body;
     expect(all.map((i: { name: string }) => i.name)).toEqual(["Epoxy", "M3 screw"]);
-    expect(all[1]).toMatchObject({ onHandMilli: 100_000, boughtMilli: 100_000, unitE4: 850, valueCents: 850, places: ["Site 1 / Room 1"], hasImage: false, complete: true });
+    expect(all[1]).toMatchObject({ onHandMilli: 100_000, boughtMilli: 100_000, unitE4: 850, valueCents: 850, places: ["Site 1 - Room 1"], hasImage: false, complete: true });
 
     const names = async (query: string) => (await api.get(`/api/inventory/items?${query}`)).body.map((i: { name: string }) => i.name);
     expect(await names("category=Manufacturing")).toEqual(["Epoxy"]);
@@ -138,7 +138,7 @@ describe("goods that arrive from outside the budget", () => {
   it("keeps where it was put, down to the spot", async () => {
     const item = await itemWithStock("Screw", "10", { spot: "Shelf 2, red box" });
     const detail = (await api.get(`/api/inventory/items/${item.id}`)).body;
-    expect(detail.stock).toEqual([{ itemId: item.id, location: "s1-r1", spot: "Shelf 2, red box", quantityMilli: 10_000, label: "Site 1 / Room 1" }]);
+    expect(detail.stock).toEqual([{ itemId: item.id, location: "s1-r1", spot: "Shelf 2, red box", quantityMilli: 10_000, label: "Site 1 - Room 1" }]);
   });
 
   it("refuses what makes no sense", async () => {

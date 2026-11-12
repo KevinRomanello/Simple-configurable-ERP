@@ -24,8 +24,8 @@ export const LOOKUP_DEFAULTS = {
   uncategorizedFields: ["purpose", "storageNotes"] satisfies ItemField[],
   vatRates: [0, 11, 22],
   units: ["pcs", "set", "box", "m", "kg", "g", "l", "ml"],
-  /** Two sites with five rooms each, only to have something to choose from. */
-  locations: [1, 2].flatMap((site) => [1, 2, 3, 4, 5].map((room) => ({ code: `s${site}-r${room}`, site: `Site ${site}`, room: `Room ${room}` }))),
+  /** Ten rooms, only to have something to choose from (the codes are the ones the first version, with sites, gave them). */
+  locations: [1, 2].flatMap((site) => [1, 2, 3, 4, 5].map((room) => ({ code: `s${site}-r${room}`, room: `Site ${site} - Room ${room}`, shelf: "", level: "" }))),
   settings: {
     varianceThreshold: 0.15,
     vatBaseWhenTotalSponsor: "net",

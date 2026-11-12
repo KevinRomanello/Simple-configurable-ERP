@@ -24,6 +24,8 @@ import {
 // The Settings page (the service checks who: docs/impostazioni.md).
 const idParam = z.object({ id });
 const name = shortText(60);
+/** The shelf or the level of a place: a name, or nothing. */
+const part = z.union([z.literal(""), name]);
 const fields = z.array(z.enum(ITEM_FIELDS)).max(ITEM_FIELDS.length);
 const order = z.object({ ids: z.array(id).max(500) });
 const percent = z.number().min(0).max(100).refine((n) => Math.abs(n * 100 - Math.round(n * 100)) < 1e-9, "At most two decimals");
@@ -73,10 +75,10 @@ export async function settingsRoutes(app: FastifyInstance) {
   });
 
   app.post("/settings/locations", async (request, reply) =>
-    reply.code(201).send(await createLocation(z.object({ site: name, room: name }).parse(request.body))),
+    reply.code(201).send(await createLocation(z.object({ room: name, shelf: part.optional(), levels: z.array(name).min(1).max(40).optional() }).parse(request.body))),
   );
   app.patch("/settings/locations/:id", async (request, reply) => {
-    await updateLocation(idParam.parse(request.params).id, z.object({ site: name.optional(), room: name.optional() }).parse(request.body));
+    await updateLocation(idParam.parse(request.params).id, z.object({ room: name.optional(), shelf: part.optional(), level: part.optional() }).parse(request.body));
     return reply.code(204).send();
   });
   app.delete("/settings/locations/:id", async (request, reply) => {

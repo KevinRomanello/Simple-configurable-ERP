@@ -216,8 +216,9 @@ export const api = {
   createUnit: (name: string) => post<{ id: number }>("/settings/units", { name }),
   renameUnit: (id: number, name: string) => patch<void>(`/settings/units/${id}`, { name }),
   deleteUnit: (id: number) => del(`/settings/units/${id}`),
-  createLocation: (body: { site: string; room: string }) => post<{ id: number; code: string }>("/settings/locations", body),
-  updateLocation: (id: number, body: { site?: string; room?: string }) => patch<void>(`/settings/locations/${id}`, body),
+  /** One place, or one for each level named (all or none). */
+  createLocation: (body: { room: string; shelf?: string; levels?: string[] }) => post<{ id: number; code: string; created: number }>("/settings/locations", body),
+  updateLocation: (id: number, body: { room?: string; shelf?: string; level?: string }) => patch<void>(`/settings/locations/${id}`, body),
   deleteLocation: (id: number) => del(`/settings/locations/${id}`),
   orderLocations: (ids: number[]) => put<void>("/settings/locations/order", { ids }),
   updateCalculation: (body: Partial<Omit<Calculation, "bankCompare">> & { bankCompare?: Partial<Calculation["bankCompare"]> }) =>

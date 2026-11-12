@@ -225,8 +225,8 @@ describe("statistics", () => {
     expect(byCategory["Components"]).toMatchObject({ boughtCents: 2_000, pendingCents: 3_000, usedCents: 500, stockCents: 1_500 });
     expect(byCategory["Consumable"]).toMatchObject({ boughtCents: 2_000, stockCents: 2_000 });
     const byLocation = await rows("by=location");
-    expect(byLocation["Site 1 / Room 2"]).toMatchObject({ stockCents: 1_500, items: 1 });
-    expect(byLocation["Site 1 / Room 1"]).toMatchObject({ stockCents: 2_000 });
+    expect(byLocation["Site 1 - Room 2"]).toMatchObject({ stockCents: 1_500, items: 1 });
+    expect(byLocation["Site 1 - Room 1"]).toMatchObject({ stockCents: 2_000 });
   });
 
   it("at the price asked for", async () => {
