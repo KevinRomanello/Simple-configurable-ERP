@@ -50,7 +50,7 @@ export function SettingsPage() {
         />
         <AppearancePanel />
         <CategoriesPanel data={data} />
-        <ItemTypesPanel />
+        <ItemTypesPanel categories={data.categories} />
         {canManageCash && <CashListsPanel />}
         <UnitsPanel units={data.units} />
         <LocationsPanel locations={data.locations} />
@@ -70,7 +70,7 @@ export function SettingsPage() {
       <SeasonsPanel />
       <CalculationPanel calculation={data.calculation} />
       <CategoriesPanel data={data} />
-      <ItemTypesPanel />
+      <ItemTypesPanel categories={data.categories} />
       <CashListsPanel />
       <div className="two-columns">
         <VatRatesPanel rates={data.vatRates} />

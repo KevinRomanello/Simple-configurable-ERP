@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CategoryFields, InventoryItem, ItemType } from "../api/types";
-import { draftBody, draftOf, emptyDraft, paramErrors, visibleFields } from "./inventory";
+import { categoryOf, draftBody, draftOf, emptyDraft, paramErrors, visibleFields } from "./inventory";
 
 const fields: CategoryFields = {
   fallback: ["purpose", "storageNotes"],
@@ -17,9 +17,9 @@ describe("visibleFields", () => {
   });
 });
 
-const param = { typeId: 7, unit: null, prefixes: false, choices: [], filledIn: 0 };
+const param = { typeId: 7, unit: null, prefixes: false, choices: [], filledIn: 0, inherited: false };
 const resistor: ItemType = {
-  id: 7, name: "Resistor", areaId: 3, hazards: false, items: 0,
+  id: 7, name: "Resistor", parentId: null, depth: 0, path: "Resistor", areaId: 3, hazards: false, categoryId: 2, category: "Asset", items: 0,
   params: [
     { ...param, id: 1, name: "Resistance", kind: "number", unit: "Ω", prefixes: true, position: 1 },
     { ...param, id: 2, name: "Package", kind: "list", choices: ["0603", "0805"], position: 2 },
@@ -83,5 +83,42 @@ describe("draftOf", () => {
     const draft = draftOf({ ...item, areaId: 3, typeId: 7 }, { 1: "4700", 2: "0603", 4: true }, [resistor]);
     expect(draft).toMatchObject({ areaId: "3", typeId: "7", values: { 1: "4.7k", 2: "0603", 4: true } });
     expect(draftBody(draft, lookups).params).toContainEqual({ paramId: 1, value: "4700" });
+  });
+});
+
+describe("categoryOf", () => {
+  const unlinked: ItemType = { ...resistor, id: 8, category: null, categoryId: null };
+  const types = [resistor, unlinked];
+
+  it("is the category of the type of the item: the form does not ask it", () => {
+    expect(categoryOf({ ...emptyDraft(), typeId: "7", category: "Consumable" }, types)).toBe("Asset");
+    expect(draftBody({ ...emptyDraft(), name: "R", typeId: "7", category: "Consumable" }, { fields, types })).toMatchObject({ category: "Asset" });
+  });
+
+  it("is the item's own for one without a type, or of a type that has none yet", () => {
+    expect(categoryOf({ ...emptyDraft(), category: "Logistic" }, types)).toBe("Logistic");
+    expect(categoryOf({ ...emptyDraft(), typeId: "8", category: "Logistic" }, types)).toBe("Logistic");
+    expect(categoryOf(emptyDraft(), types)).toBeNull();
+  });
+
+  it("decides the optional fields of the form: the ones of the category of the type", () => {
+    const draft = { ...emptyDraft(), name: "R", typeId: "7", maintenanceNotes: " yearly ", safetyCodes: "H315" };
+    // Asset shows maintenance, not safety codes
+    expect(draftBody(draft, { fields, types })).toMatchObject({ maintenanceNotes: "yearly" });
+    expect(draftBody(draft, { fields, types })).not.toHaveProperty("safetyCodes");
+  });
+});
+
+describe("a type under another", () => {
+  // IC has Package; Op-amp is under it and adds Gain; the form of an op-amp writes both
+  const ic = { ...param, typeId: 20, id: 20, name: "Package", kind: "text" as const, position: 1, inherited: true };
+  const gain = { ...param, typeId: 21, id: 21, name: "Gain", kind: "text" as const, position: 1 };
+  const opamp: ItemType = { ...resistor, id: 21, name: "Op-amp", parentId: 20, depth: 1, path: "IC › Op-amp", hazards: true, params: [ic, gain] };
+
+  it("sends the parameters of the parents too, and the draft reads them back", () => {
+    const draft = { ...emptyDraft(), name: "LM358", typeId: "21", values: { 20: "SOIC-8", 21: "wide" } };
+    expect(draftBody(draft, { fields, types: [opamp] }).params).toEqual([{ paramId: 20, value: "SOIC-8" }, { paramId: 21, value: "wide" }]);
+    const item = { id: 1, name: "LM358", code: null, category: null, areaId: null, typeId: 21, unit: "pcs", purpose: null, safetyCodes: null, disposal: null, storageNotes: null, maintenanceNotes: null, flammable: false, toxic: false, carcinogenic: false, origin: "bought" } as unknown as InventoryItem;
+    expect(draftOf(item, { 20: "SOIC-8", 21: "wide" }, [opamp]).values).toEqual({ 20: "SOIC-8", 21: "wide" });
   });
 });

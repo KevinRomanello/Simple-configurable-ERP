@@ -2,7 +2,7 @@ import { and, asc, count, eq, inArray, max, sql } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { area, inventoryItem, itemParamValue, itemType, itemTypeParam } from "../../db/schema";
+import { area, category, inventoryItem, itemParamValue, itemType, itemTypeParam } from "../../db/schema";
 import { canManageInventory, getCurrentUser } from "../auth/auth.service";
 import { paramNumber, type CreateParamInput, type ParamFilter, type UpdateParamInput } from "./inventory.schema";
 
@@ -21,34 +21,92 @@ async function asManager() {
 
 const count0 = (rows: { n: number }[]) => rows[0]?.n ?? 0;
 
+// --- the tree --------------------------------------------------------------------------------------
+// A type can be a kind of another (IC > Op-amp) and has the parameters of all its parents. The types are few, so the tree is
+// read whole and walked here.
+
+type TypeRow = typeof itemType.$inferSelect;
+
+async function typeRows(reader: Reader): Promise<Map<number, TypeRow>> {
+  return new Map((await reader.select().from(itemType)).map((t) => [t.id, t]));
+}
+
+/** The types from the root down to this one, which is last. */
+function chainOf(types: Map<number, TypeRow>, typeId: number): TypeRow[] {
+  const chain: TypeRow[] = [];
+  for (let t = types.get(typeId); t && !chain.includes(t); t = t.parentId === null ? undefined : types.get(t.parentId)) chain.unshift(t);
+  return chain;
+}
+
+/** The type and every type under it, at any depth. */
+export function subtreeOf(types: Map<number, Pick<TypeRow, "id" | "parentId">>, typeId: number): number[] {
+  const found = [typeId];
+  for (let i = 0; i < found.length; i += 1) for (const t of types.values()) if (t.parentId === found[i] && !found.includes(t.id)) found.push(t.id);
+  return found;
+}
+
+/** The ids of a type and of the types under it: an item of any of them is "of" the type. */
+export async function subtreeIds(reader: Reader, typeId: number): Promise<number[]> {
+  return subtreeOf(await typeRows(reader), typeId);
+}
+
 // --- reading -------------------------------------------------------------------------------------
 
 export interface TypeView {
   id: number;
   name: string;
+  /** The type this one is a kind of; null for one that is not under another. */
+  parentId: number | null;
+  /** How many types it is under: 0 for a root. */
+  depth: number;
+  /** "IC › Op-amp": the names from the root. */
+  path: string;
   areaId: number | null;
   hazards: boolean;
+  /** The category of the budget its items belong to (they take it from here); null for a type made before this was asked. */
+  categoryId: number | null;
+  category: string | null;
   /** How many items are of this type. */
   items: number;
-  /** In their order, each with how many items have something written in it. */
-  params: (Param & { filledIn: number })[];
+  /**
+   * What is written about its items, in the order of the tree: the parameters of its parents first, then its own. Each says
+   * how many items have something written in it, and whether it comes from a parent (`inherited`; `typeId` is where it is).
+   */
+  params: (Param & { filledIn: number; inherited: boolean })[];
 }
 
-/** Every type with its parameters (GET /api/inventory/types: everybody may read them). */
+/** Every type with its parameters, in the order of the tree: a type, then the types under it (GET /api/inventory/types: everybody may read them). */
 export async function listTypes(): Promise<TypeView[]> {
-  const [types, params, items, values] = await Promise.all([
-    db.select().from(itemType).orderBy(sql`lower(${itemType.name})`),
+  const [rows, params, items, values, categories] = await Promise.all([
+    db.select().from(itemType),
     db.select().from(itemTypeParam).orderBy(asc(itemTypeParam.position), asc(itemTypeParam.id)),
     db.select({ typeId: inventoryItem.typeId, n: count() }).from(inventoryItem).groupBy(inventoryItem.typeId),
     db.select({ paramId: itemParamValue.paramId, n: count() }).from(itemParamValue).groupBy(itemParamValue.paramId),
+    db.select({ id: category.id, name: category.name }).from(category),
   ]);
+  const byId = new Map(rows.map((t) => [t.id, t]));
+  const categoryName = new Map(categories.map((c) => [c.id, c.name]));
   const itemsOf = new Map(items.map((r) => [r.typeId, r.n]));
   const filled = new Map(values.map((r) => [r.paramId, r.n]));
-  return types.map((t) => ({
-    ...t,
-    items: itemsOf.get(t.id) ?? 0,
-    params: params.filter((p) => p.typeId === t.id).map((p) => ({ ...p, filledIn: filled.get(p.id) ?? 0 })),
-  }));
+
+  const view = (t: TypeRow): TypeView => {
+    const chain = chainOf(byId, t.id);
+    return {
+      ...t,
+      depth: chain.length - 1,
+      path: chain.map((c) => c.name).join(" › "),
+      category: t.categoryId === null ? null : (categoryName.get(t.categoryId) ?? null),
+      items: itemsOf.get(t.id) ?? 0,
+      params: chain.flatMap((c) =>
+        params.filter((p) => p.typeId === c.id).map((p) => ({ ...p, filledIn: filled.get(p.id) ?? 0, inherited: c.id !== t.id })),
+      ),
+    };
+  };
+  // a type, then the types under it, each level by name
+  const underOf = (parentId: number | null) =>
+    rows.filter((t) => t.parentId === parentId).sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  const walk = (parentId: number | null): TypeRow[] => underOf(parentId).flatMap((t) => [t, ...walk(t.id)]);
+  return walk(null).map(view);
 }
 
 // --- types ---------------------------------------------------------------------------------------
@@ -63,40 +121,103 @@ export async function checkAreaAndType(reader: Reader, input: { areaId?: number 
   }
 }
 
-async function refuseTwinType(tx: Tx, name: string, exceptId?: number) {
-  const [twin] = await tx.select().from(itemType).where(sql`lower(${itemType.name}) = lower(${name})`);
-  if (twin && twin.id !== exceptId) throw conflict(`There is already a type "${twin.name}"`);
+/** Refuses a category of the budget that does not exist. */
+async function checkCategoryId(reader: Reader, categoryId: number | undefined) {
+  if (categoryId !== undefined && (await reader.select({ id: category.id }).from(category).where(eq(category.id, categoryId))).length === 0) {
+    throw invalid(`Unknown category ${categoryId}`);
+  }
 }
 
-export async function createType(input: { name: string; areaId: number | null; hazards: boolean }) {
+/** The name of the category of the budget a type is linked to; null when it has none yet (or there is no type). */
+export async function categoryOfType(reader: Reader, typeId: number | null | undefined): Promise<string | null> {
+  if (typeId == null) return null;
+  const [row] = await reader
+    .select({ name: category.name })
+    .from(itemType)
+    .innerJoin(category, eq(category.id, itemType.categoryId))
+    .where(eq(itemType.id, typeId));
+  return row?.name ?? null;
+}
+
+/** The names of the types under one parent are unique (any case): "Other" can be under IC and under Passives. */
+async function refuseTwinType(tx: Tx, name: string, parentId: number | null, exceptId?: number) {
+  const [twin] = await tx
+    .select()
+    .from(itemType)
+    .where(and(sql`lower(${itemType.name}) = lower(${name})`, sql`coalesce(${itemType.parentId}, 0) = ${parentId ?? 0}`));
+  if (twin && twin.id !== exceptId) throw conflict(`There is already a type "${twin.name}"${parentId === null ? "" : " under it"}`);
+}
+
+/**
+ * A type and its sub-types must not write the same parameter twice: along every line from a root down, the names are unique.
+ * `parentOf` says where a type would be (when one is moved).
+ */
+function refuseTwinParamsAlong(types: Map<number, TypeRow>, params: Param[], rootOfCheck: number, parentOf: (id: number) => number | null) {
+  for (const id of subtreeOf(types, rootOfCheck)) {
+    const names = new Map<string, string>();
+    for (let t: number | null = id; t !== null; t = parentOf(t)) {
+      for (const p of params.filter((x) => x.typeId === t)) {
+        const key = p.name.toLowerCase();
+        if (names.has(key)) throw conflict(`"${names.get(key)}" would be written twice for "${types.get(id)!.name}"`);
+        names.set(key, p.name);
+      }
+    }
+  }
+}
+
+/** A new type: a type of its own, or a kind of the `parentId` one, which gives it its category when none is given. */
+export async function createType(input: { name: string; areaId: number | null; hazards: boolean; categoryId?: number; parentId?: number | null }) {
   const actor = await asManager();
   return runWrite(actor, async (tx) => {
+    const parent = input.parentId == null ? null : (await typeRows(tx)).get(input.parentId);
+    if (input.parentId != null && !parent) throw invalid(`Unknown type ${input.parentId}`);
+    const categoryId = input.categoryId ?? parent?.categoryId ?? undefined;
+    if (categoryId === undefined) throw invalid("A type needs a category of the budget");
     await checkAreaAndType(tx, input);
-    await refuseTwinType(tx, input.name);
-    const [created] = await tx.insert(itemType).values(input).returning();
+    await checkCategoryId(tx, categoryId);
+    await refuseTwinType(tx, input.name, parent?.id ?? null);
+    const { parentId: _ignored, ...columns } = input;
+    const [created] = await tx.insert(itemType).values({ ...columns, categoryId, parentId: parent?.id ?? null }).returning();
     return created!;
   });
 }
 
-export async function updateType(typeId: number, input: { name?: string; areaId?: number | null; hazards?: boolean }) {
+export async function updateType(typeId: number, input: { name?: string; areaId?: number | null; hazards?: boolean; categoryId?: number; parentId?: number | null }) {
   const actor = await asManager();
   return runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(itemType).where(eq(itemType.id, typeId)).for("update");
     if (!target) throw notFound("Type");
     await checkAreaAndType(tx, input);
-    if (input.name !== undefined) await refuseTwinType(tx, input.name, typeId);
+    await checkCategoryId(tx, input.categoryId);
+    const parentId = input.parentId === undefined ? target.parentId : input.parentId;
+    if (input.name !== undefined || parentId !== target.parentId) await refuseTwinType(tx, input.name ?? target.name, parentId, typeId);
+    if (parentId !== target.parentId) {
+      // the tree is locked while a type is moved: two moves at once could make a loop
+      const types = await typeRows(tx);
+      if (parentId !== null && !types.has(parentId)) throw invalid(`Unknown type ${parentId}`);
+      if (parentId !== null && subtreeOf(types, typeId).includes(parentId)) throw invalid("A type cannot go under itself or under one of its own sub-types");
+      const params = await tx.select().from(itemTypeParam);
+      refuseTwinParamsAlong(types, params, typeId, (id) => (id === typeId ? parentId : (types.get(id)?.parentId ?? null)));
+    }
     if (Object.keys(input).length === 0) return target;
     const [updated] = await tx.update(itemType).set(input).where(eq(itemType.id, typeId)).returning();
+    // the items of a type take its category: a new one reaches them all (and the history shows each)
+    if (input.categoryId !== undefined && input.categoryId !== target.categoryId) {
+      const name = await categoryOfType(tx, typeId);
+      await tx.update(inventoryItem).set({ category: name }).where(eq(inventoryItem.typeId, typeId));
+    }
     return updated!;
   });
 }
 
-/** Deletes a type no item is of; its parameters go with it. */
+/** Deletes a type with no sub-types and no item; its parameters go with it. */
 export async function deleteType(typeId: number) {
   const actor = await asManager();
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(itemType).where(eq(itemType.id, typeId)).for("update");
     if (!target) throw notFound("Type");
+    const under = count0(await tx.select({ n: count() }).from(itemType).where(eq(itemType.parentId, typeId)));
+    if (under > 0) throw conflict(`"${target.name}" has ${under} sub-types: delete or move them first`);
     const items = count0(await tx.select({ n: count() }).from(inventoryItem).where(eq(inventoryItem.typeId, typeId)));
     if (items > 0) throw conflict(`"${target.name}" is the type of ${items} items: give them another type first`);
     await tx.delete(itemType).where(eq(itemType.id, typeId));
@@ -112,12 +233,13 @@ function checkShape(kind: Kind, unit: string | null, prefixes: boolean, choices:
   if (new Set(choices.map((c) => c.toLowerCase())).size !== choices.length) throw invalid("The same choice is written twice");
 }
 
+/** The same name cannot be written twice along a line of the tree: not by the type, a parent or a sub-type of it. */
 async function refuseTwinParam(tx: Tx, typeId: number, name: string, exceptId?: number) {
-  const [twin] = await tx
-    .select()
-    .from(itemTypeParam)
-    .where(and(eq(itemTypeParam.typeId, typeId), sql`lower(${itemTypeParam.name}) = lower(${name})`));
-  if (twin && twin.id !== exceptId) throw conflict(`The type already has "${twin.name}"`);
+  const types = await typeRows(tx);
+  const near = new Set([...chainOf(types, typeId).map((t) => t.id), ...subtreeOf(types, typeId)]);
+  const twins = await tx.select().from(itemTypeParam).where(and(inArray(itemTypeParam.typeId, [...near]), sql`lower(${itemTypeParam.name}) = lower(${name})`));
+  const twin = twins.find((p) => p.id !== exceptId);
+  if (twin) throw conflict(twin.typeId === typeId ? `The type already has "${twin.name}"` : `"${twin.name}" is already written by "${types.get(twin.typeId)?.name}", above or under this type`);
 }
 
 const filledIn = async (tx: Tx, paramId: number, where = sql`true`) =>
@@ -255,8 +377,9 @@ function stored(param: Param, value: string | boolean): Stored {
 export async function writeValues(tx: Tx, itemId: number, typeId: number | null, values: { paramId: number; value: string | boolean | null }[]) {
   if (values.length === 0) return;
   if (typeId === null) throw invalid("An item without a type has no parameters");
-  // shared lock: a parameter cannot be deleted or changed while it is being written
-  const params = await tx.select().from(itemTypeParam).where(eq(itemTypeParam.typeId, typeId)).for("share");
+  // the parameters of the type and of its parents; shared lock: a parameter cannot be deleted or changed while it is being written
+  const chain = chainOf(await typeRows(tx), typeId).map((t) => t.id);
+  const params = await tx.select().from(itemTypeParam).where(inArray(itemTypeParam.typeId, chain)).for("share");
   const before = await tx.select().from(itemParamValue).where(eq(itemParamValue.itemId, itemId));
   for (const { paramId, value } of values) {
     const param = params.find((p) => p.id === paramId);
@@ -274,16 +397,23 @@ export async function writeValues(tx: Tx, itemId: number, typeId: number | null,
   }
 }
 
-/** What is written about each item for the parameters of its type (the values kept from a type it had before are left out). */
+/** What is written about each item for the parameters of its type and of its parents (the values kept from a type it had before are left out). */
 export async function valuesByItem(reader: Reader = db, itemId?: number): Promise<Map<number, ParamValues>> {
   const rows = await reader
-    .select({ itemId: itemParamValue.itemId, paramId: itemParamValue.paramId, number: itemParamValue.number, text: itemParamValue.text, flag: itemParamValue.flag })
+    .select({
+      itemId: itemParamValue.itemId, paramId: itemParamValue.paramId, owner: itemTypeParam.typeId, itemType: inventoryItem.typeId,
+      number: itemParamValue.number, text: itemParamValue.text, flag: itemParamValue.flag,
+    })
     .from(itemParamValue)
     .innerJoin(itemTypeParam, eq(itemTypeParam.id, itemParamValue.paramId))
-    .innerJoin(inventoryItem, and(eq(inventoryItem.id, itemParamValue.itemId), eq(inventoryItem.typeId, itemTypeParam.typeId)))
+    .innerJoin(inventoryItem, eq(inventoryItem.id, itemParamValue.itemId))
     .where(itemId === undefined ? undefined : eq(itemParamValue.itemId, itemId));
+  const types = await typeRows(reader);
+  const chains = new Map<number, Set<number>>();
+  const chainIds = (typeId: number) => chains.get(typeId) ?? chains.set(typeId, new Set(chainOf(types, typeId).map((t) => t.id))).get(typeId)!;
   const byItem = new Map<number, ParamValues>();
   for (const r of rows) {
+    if (r.itemType === null || !chainIds(r.itemType).has(r.owner)) continue;
     const values = byItem.get(r.itemId) ?? {};
     values[r.paramId] = r.number ?? r.text ?? r.flag ?? false;
     byItem.set(r.itemId, values);
@@ -301,17 +431,19 @@ const likeText = (text: string) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}
 export async function itemsMatching(filters: ParamFilter[]): Promise<Set<number> | null> {
   if (filters.length === 0) return null;
   const params = await db.select().from(itemTypeParam).where(inArray(itemTypeParam.id, filters.map((f) => f.paramId)));
+  const types = await typeRows(db);
   const found: Set<number>[] = [];
   for (const filter of filters) {
     const param = params.find((p) => p.id === filter.paramId);
     if (!param) throw invalid(`Unknown parameter ${filter.paramId}`);
-    found.push(new Set(await matchingOne(param, filter)));
+    found.push(new Set(await matchingOne(param, filter, subtreeOf(types, param.typeId))));
   }
   return found.reduce((all, one) => new Set([...all].filter((itemId) => one.has(itemId))));
 }
 
-async function matchingOne(param: Param, filter: ParamFilter): Promise<number[]> {
-  const ofType = eq(inventoryItem.typeId, param.typeId);
+/** `typeIds`: the type of the parameter and the types under it: the items of any of them have it. */
+async function matchingOne(param: Param, filter: ParamFilter, typeIds: number[]): Promise<number[]> {
+  const ofType = inArray(inventoryItem.typeId, typeIds);
   if (param.kind === "yesno") {
     if (filter.op !== "is" || !["yes", "no"].includes(filter.value)) throw invalid(`${param.name}: filter with yes or no`);
     const yes = sql`exists (select 1 from ${itemParamValue} where ${itemParamValue.itemId} = ${inventoryItem.id} and ${itemParamValue.paramId} = ${param.id} and ${itemParamValue.flag})`;

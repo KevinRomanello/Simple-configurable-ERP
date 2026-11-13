@@ -36,6 +36,13 @@ export const emptyDraft = (): ItemDraft => ({
 /** The type chosen in a draft, if any. */
 export const typeOf = (draft: Pick<ItemDraft, "typeId">, types: ItemType[]) => types.find((t) => String(t.id) === draft.typeId);
 
+/**
+ * The category of the budget an item belongs to: the one of its type. The form does not ask it any more; an item without a
+ * type (or of a type that has none yet) keeps the one it has.
+ */
+export const categoryOf = (draft: Pick<ItemDraft, "typeId" | "category">, types: ItemType[]): string | null =>
+  typeOf(draft, types)?.category ?? (draft.category === "" ? null : draft.category);
+
 /** Whether the form asks flammable, toxic, carcinogenic: always, unless the type says it does not. */
 export const asksHazards = (draft: Pick<ItemDraft, "typeId">, types: ItemType[]) => typeOf(draft, types)?.hazards ?? true;
 
@@ -85,13 +92,13 @@ export function draftBody(draft: ItemDraft, lookups: { fields: CategoryFields; t
   const body: ItemBody = {
     name: draft.name.trim(),
     code: draft.code.trim() === "" ? null : draft.code.trim(),
-    category: draft.category === "" ? null : draft.category,
+    category: categoryOf(draft, lookups.types),
     areaId: draft.areaId === "" ? null : Number(draft.areaId),
     typeId: type ? type.id : null,
     unit: draft.unit,
   };
   if (asksHazards(draft, lookups.types)) Object.assign(body, { flammable: draft.flammable, toxic: draft.toxic, carcinogenic: draft.carcinogenic });
-  for (const field of visibleFields(draft.category, lookups.fields)) {
+  for (const field of visibleFields(categoryOf(draft, lookups.types), lookups.fields)) {
     body[field] = draft[field].trim() === "" ? null : draft[field].trim();
   }
   if (type && type.params.length > 0) {

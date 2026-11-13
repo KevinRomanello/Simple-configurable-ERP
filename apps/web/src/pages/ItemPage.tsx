@@ -137,7 +137,7 @@ export function ItemPage() {
         title={item.name}
         subtitle={
           <>
-            {area?.name ?? "Every area"} · {type ? `${type.name} · ` : ""}{item.category ?? "No category"} · counted in {item.unit}{item.code ? ` · code ${item.code}` : ""}
+            {area?.name ?? "Every area"} · {type ? `${type.path} · ` : ""}counted in {item.unit}{item.code ? ` · code ${item.code}` : ""}
             {item.origin === "made" && <> · <span className="pill teal">made by the team</span></>}
             <HazardPills item={item} />
           </>

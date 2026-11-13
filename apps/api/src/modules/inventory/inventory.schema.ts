@@ -116,8 +116,15 @@ export function paramFilters(query: Record<string, unknown>): ParamFilter[] {
 
 // --- item types (Settings page) ----------------------------------------------------------------
 
-const typeFields = { name: shortText(100), areaId: id.nullable(), hazards: z.boolean() };
-export const createTypeInput = z.object({ ...typeFields, areaId: typeFields.areaId.default(null), hazards: typeFields.hazards.default(true) });
+const typeFields = { name: shortText(100), areaId: id.nullable(), hazards: z.boolean(), categoryId: id, parentId: id.nullable() };
+/** A new type: of its own (no `parentId`) or a kind of another, which gives it its category when none is given. */
+export const createTypeInput = z.object({
+  ...typeFields,
+  areaId: typeFields.areaId.default(null),
+  hazards: typeFields.hazards.default(true),
+  categoryId: typeFields.categoryId.optional(),
+  parentId: typeFields.parentId.optional(),
+});
 export const updateTypeInput = z.object(typeFields).partial();
 
 const choice = shortText(100);

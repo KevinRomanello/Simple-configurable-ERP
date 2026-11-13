@@ -555,12 +555,27 @@ export const itemType = pgTable(
   {
     id: id(),
     name: text().notNull(),
+    /**
+     * The type this one is a kind of (IC > Op-amp); null: a type of its own. A type has the parameters of all its parents and
+     * adds its own. The names are unique among the types under the same parent.
+     */
+    parentId: integer().references((): AnyPgColumn => itemType.id),
     /** The area it belongs to; null: every area. */
     areaId: integer().references(() => area.id),
     /** Whether the form of its items asks flammable, toxic and carcinogenic. */
     hazards: boolean().notNull().default(true),
+    /**
+     * The category of the budget its items belong to: the items take it from here (their own `category` follows it), so
+     * the statistics and the optional fields of the form follow it. Asked when a type is made; the types made before
+     * have none until somebody chooses (their items keep the category they have).
+     */
+    categoryId: integer().references(() => category.id),
   },
-  (t) => [uniqueIndex("item_type_name_uq").on(sql`lower(${t.name})`), index("item_type_area").on(t.areaId)],
+  (t) => [
+    uniqueIndex("item_type_name_uq").on(sql`coalesce(${t.parentId}, 0)`, sql`lower(${t.name})`),
+    index("item_type_area").on(t.areaId),
+    index("item_type_parent").on(t.parentId),
+  ],
 );
 
 /** What is written about each item of a type: "Resistance" in Ω, "Package" from a list… */

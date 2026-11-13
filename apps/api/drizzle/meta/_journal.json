@@ -183,6 +183,20 @@
       "when": 1794491612842,
       "tag": "0025_places_shelf_level",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794585116328,
+      "tag": "0026_type_budget_category",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1794585401161,
+      "tag": "0027_type_tree",
+      "breakpoints": true
     }
   ]
 }

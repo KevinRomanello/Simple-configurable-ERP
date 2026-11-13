@@ -477,6 +477,10 @@
 }
 /* controls inside a table cell keep a readable width: the table scrolls sideways when it must */
 /* controls in a table cell are as wide as their content needs, with a floor for the ones that are typed in */
+/* a type that has no category of the budget yet: the box asks to be chosen */
+.input.needs-choice {
+  border-color: var(--warning-default);
+}
 .data-table td .input {
   width: auto;
   min-width: 0;

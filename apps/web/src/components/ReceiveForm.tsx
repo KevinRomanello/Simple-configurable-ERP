@@ -54,7 +54,8 @@ export function ReceiveForm({
 
   const ready =
     amount !== "" && location !== "" && (line !== undefined || unitNet !== "") &&
-    (mode === "existing" ? itemId !== "" : draft.name.trim() !== "" && Object.keys(paramErrors(draft, lookups.types)).length === 0);
+    // a new item needs its type: that is where its category comes from
+    (mode === "existing" ? itemId !== "" : draft.name.trim() !== "" && draft.typeId !== "" && Object.keys(paramErrors(draft, lookups.types)).length === 0);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -100,7 +101,7 @@ export function ReceiveForm({
           />
         </Field>
       ) : (
-        <ItemEditor draft={draft} onChange={(change) => setDraft({ ...draft, ...change })} lookups={lookups} idPrefix="receive-new" />
+        <ItemEditor draft={draft} onChange={(change) => setDraft({ ...draft, ...change })} lookups={lookups} idPrefix="receive-new" suggestCategory={line?.category} />
       )}
 
       <div className="form-grid">

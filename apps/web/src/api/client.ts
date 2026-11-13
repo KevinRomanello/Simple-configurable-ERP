@@ -122,6 +122,9 @@ export interface TypeBody {
   name?: string;
   areaId?: number | null;
   hazards?: boolean;
+  categoryId?: number;
+  /** The type it is a kind of; null makes it a type of its own. */
+  parentId?: number | null;
 }
 export interface ParamBody {
   name: string;

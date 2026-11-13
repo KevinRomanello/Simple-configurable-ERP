@@ -1,5 +1,5 @@
 import type { ItemDraft, TypeParam } from "../api/types";
-import { asksHazards, FIELD_HINTS, FIELD_LABELS, paramErrors, typeOf, visibleFields, type InventoryLookups } from "../lib/inventory";
+import { asksHazards, categoryOf, FIELD_HINTS, FIELD_LABELS, paramErrors, typeOf, visibleFields, type InventoryLookups } from "../lib/inventory";
 import { parseNumber, showNumber } from "../lib/params";
 import { SearchSelect } from "./SearchSelect";
 import { HazardChecks } from "./HazardPills";
@@ -9,24 +9,28 @@ import { Field } from "./ui";
 const SHORT_LIST = 8;
 
 /**
- * The fields that describe an item: name, code, area, type, category, unit, what is written in
- * the parameters of its type, and the optional ones the category calls for. Used to create an
- * item and to edit it.
+ * The fields that describe an item: name, code, area, type, unit, what is written in the parameters of its type, and the
+ * optional ones its category calls for. The category is not asked: it is the one of the type (docs/inventario.md, §20).
+ * Used to create an item and to edit it. `suggestCategory`: the types of that category of the budget come first.
  */
 export function ItemEditor({
-  draft, onChange, lookups, idPrefix = "item",
+  draft, onChange, lookups, idPrefix = "item", suggestCategory,
 }: {
   draft: ItemDraft;
   onChange: (change: Partial<ItemDraft>) => void;
   lookups: InventoryLookups;
   idPrefix?: string;
+  suggestCategory?: string | null;
 }) {
-  const shown = visibleFields(draft.category, lookups.fields);
+  const shown = visibleFields(categoryOf(draft, lookups.types), lookups.fields);
   const type = typeOf(draft, lookups.types);
   const errors = paramErrors(draft, lookups.types);
   const areaName = (areaId: number | null) => lookups.areas.find((a) => a.id === areaId)?.name ?? "every area";
   // the types of the chosen area and those of every area; all of them while no area is chosen
-  const types = lookups.types.filter((t) => draft.areaId === "" || t.areaId === null || String(t.areaId) === draft.areaId || t.id === type?.id);
+  const types = lookups.types
+    .filter((t) => draft.areaId === "" || t.areaId === null || String(t.areaId) === draft.areaId || t.id === type?.id)
+    // the ones of the category of the purchase first (an arrival from the budget); the rest in the order of the tree
+    .sort((a, b) => Number(b.category === suggestCategory) - Number(a.category === suggestCategory));
   const chooseType = (typeId: string) => {
     const chosen = lookups.types.find((t) => String(t.id) === typeId);
     onChange({ typeId, ...(draft.areaId === "" && chosen?.areaId != null ? { areaId: String(chosen.areaId) } : {}) });
@@ -53,16 +57,7 @@ export function ItemEditor({
           id={`${idPrefix}-type`}
           value={draft.typeId}
           onChange={chooseType}
-          choices={[{ value: "", label: "(none)" }, ...types.map((t) => ({ value: String(t.id), label: draft.areaId === "" ? `${t.name} (${areaName(t.areaId)})` : t.name }))]}
-        />
-      </Field>
-      <Field>
-        <label htmlFor={`${idPrefix}-category`}>Category</label>
-        <SearchSelect
-          id={`${idPrefix}-category`}
-          value={draft.category}
-          onChange={(category) => onChange({ category })}
-          choices={[{ value: "", label: "(none)" }, ...lookups.categories.map((c) => ({ value: c, label: c }))]}
+          choices={[{ value: "", label: "(none)" }, ...types.map((t) => ({ value: String(t.id), label: `${draft.areaId === "" ? `${t.path} (${areaName(t.areaId)})` : t.path}${t.category ? ` · ${t.category}` : ""}` }))]}
         />
       </Field>
       <Field>
@@ -73,7 +68,7 @@ export function ItemEditor({
       </Field>
       {type && type.params.length > 0 && (
         <>
-          <div className="wide filter-title">{type.name}</div>
+          <div className="wide filter-title">{type.path}</div>
           {type.params.map((param) => (
             <ParamField key={param.id} param={param} id={`${idPrefix}-p${param.id}`} value={draft.values[param.id]} error={errors[param.id]}
               onChange={(value) => onChange({ values: { ...draft.values, [param.id]: value } })} />

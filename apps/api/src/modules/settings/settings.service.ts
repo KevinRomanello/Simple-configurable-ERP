@@ -3,7 +3,7 @@ import type { PgTable } from "drizzle-orm/pg-core";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { budgetLine, category, categoryField, fund, inventoryItem, lineFigures, location, setting, stockMovement, unit, vatRate } from "../../db/schema";
+import { budgetLine, category, categoryField, fund, inventoryItem, itemType, lineFigures, location, setting, stockMovement, unit, vatRate } from "../../db/schema";
 import { canManageInventory, getCurrentUser, requireAdmin } from "../auth/auth.service";
 import { ITEM_FIELDS, type ItemField } from "../lookups/defaults";
 import { getSettings, placeLabel } from "../lookups/lookups.service";
@@ -60,7 +60,10 @@ export async function readSettings() {
         id: c.id,
         name: c.name,
         fields: fieldsOf(c.id),
-        usedBy: (await usage(db, budgetLine, eq(budgetLine.category, c.name))) + (await usage(db, inventoryItem, eq(inventoryItem.category, c.name))),
+        usedBy:
+          (await usage(db, budgetLine, eq(budgetLine.category, c.name))) +
+          (await usage(db, inventoryItem, eq(inventoryItem.category, c.name))) +
+          (await usage(db, itemType, eq(itemType.categoryId, c.id))),
       })),
     ),
     uncategorizedFields: fieldsOf(null),
@@ -138,6 +141,7 @@ export async function deleteCategory(categoryId: number) {
     refuseIfUsed(target.name, [
       [await usage(tx, budgetLine, eq(budgetLine.category, target.name)), "budget lines"],
       [await usage(tx, inventoryItem, eq(inventoryItem.category, target.name)), "items"],
+      [await usage(tx, itemType, eq(itemType.categoryId, categoryId)), "item types"],
     ]);
     await tx.delete(category).where(eq(category.id, categoryId)); // its fields go with it
   });

@@ -271,6 +271,8 @@ export interface TypeParam {
   /** A list: what can be chosen. */
   choices: string[];
   position: number;
+  /** It comes from a type above (the parameters of a parent are the ones of its sub-types too): `typeId` is where it is written. */
+  inherited: boolean;
   /** How many items have something written in it. */
   filledIn: number;
 }
@@ -279,10 +281,19 @@ export interface TypeParam {
 export interface ItemType {
   id: number;
   name: string;
+  /** The type this one is a kind of (IC for Op-amp); null for a type that is not under another. */
+  parentId: number | null;
+  /** How many types it is under: 0 for a root. The list is in the order of the tree. */
+  depth: number;
+  /** "IC › Op-amp": the names from the root. */
+  path: string;
   /** null: every area. */
   areaId: number | null;
   /** Whether its items are asked flammable, toxic, carcinogenic. */
   hazards: boolean;
+  /** The category of the budget its items belong to (they take it from here); null for a type made before this was asked. */
+  categoryId: number | null;
+  category: string | null;
   items: number;
   params: TypeParam[];
 }

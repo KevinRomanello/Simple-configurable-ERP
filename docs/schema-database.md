@@ -269,9 +269,11 @@ erDiagram
   }
   item_type {
     integer id PK
-    text name "Resistor, Screw..."
+    text name "Resistor, Op-amp..."
+    integer parent_id FK "il tipo di cui è una specie"
     integer area_id FK
     boolean hazards
+    integer category_id FK "categoria del budget"
   }
   item_type_param {
     integer id PK
@@ -344,6 +346,8 @@ erDiagram
   area |o--o{ item_type : "di quale area"
   item_type |o--o{ inventory_item : "di che tipo"
   item_type ||--o{ item_type_param : "parametri"
+  item_type |o--o{ item_type : "sotto-tipi"
+  category |o--o{ item_type : "categoria del budget"
   inventory_item ||--o{ item_param_value : "valori"
   item_type_param ||--o{ item_param_value : "di quale parametro"
   inventory_item ||--o| item_image : "immagine"

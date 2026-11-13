@@ -38,7 +38,6 @@ const ITEM: Column<ItemRow> = {
 };
 // on a phone a card leaves out what is empty (see .none in components.css)
 const none = <span className="muted none">—</span>;
-const CATEGORY: Column<ItemRow> = { key: "category", header: "CATEGORY", sort: (r) => r.category, cell: (r) => r.category ?? none };
 const HAZARD_COLUMN: Column<ItemRow> = {
     key: "hazards",
     header: "HAZARDS",
@@ -88,14 +87,14 @@ const paramColumn = (param: TypeParam): Column<ItemRow> => ({
 });
 
 /**
- * With a type chosen the list shows its parameters instead of area, type and category (they are
+ * With a type chosen the list shows its parameters instead of area and type (they are
  * the same on every row), and the hazards only if the type asks them.
  */
 function columnsFor(type: ItemType | undefined, areas: Area[], types: ItemType[]): Column<ItemRow>[] {
   if (type) return [PICTURE, ITEM, ...type.params.map(paramColumn), ...(type.hazards ? [HAZARD_COLUMN] : []), ...STOCK];
   const area: Column<ItemRow> = { key: "area", header: "AREA", sort: (r) => areas.find((a) => a.id === r.areaId)?.name ?? null, cell: (r) => areas.find((a) => a.id === r.areaId)?.name ?? none };
   const kind: Column<ItemRow> = { key: "type", header: "TYPE", sort: (r) => types.find((t) => t.id === r.typeId)?.name ?? null, cell: (r) => types.find((t) => t.id === r.typeId)?.name ?? none };
-  return [PICTURE, ITEM, area, kind, CATEGORY, HAZARD_COLUMN, ...STOCK];
+  return [PICTURE, ITEM, area, kind, HAZARD_COLUMN, ...STOCK];
 }
 
 /** INVENTORY: everything the team keeps, how much of it, where, and what it is worth. */
@@ -104,7 +103,6 @@ export function InventoryPage() {
   const [price, setPrice] = usePrice();
   const lookups = useInventoryLookups();
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("");
   const [origin, setOrigin] = useState("");
   const [location, setLocation] = useState("");
   const [hazards, setHazards] = useState({ flammable: false, toxic: false, carcinogenic: false });
@@ -133,7 +131,7 @@ export function InventoryPage() {
   const paramQuery = paramFilterQuery(type, params);
 
   const filters = {
-    search: search.trim() || undefined, category: category || undefined, origin: origin || undefined, location: location || undefined,
+    search: search.trim() || undefined, origin: origin || undefined, location: location || undefined,
     area: areaCode || undefined, type: type ? String(type.id) : undefined, ...paramQuery.query,
     // each one ticked narrows the list to the items that are so
     ...(type?.hazards === false ? {} : Object.fromEntries(HAZARDS.filter((h) => hazards[h.key]).map((h) => [h.key, "true"]))),
@@ -186,9 +184,6 @@ export function InventoryPage() {
             </div>
             {showFilters && (
               <>
-                <Field label="Category" htmlFor="inventory-category">
-                  <SearchSelect id="inventory-category" value={category} onChange={setCategory} choices={[{ value: "", label: "All" }, ...(lookups?.categories ?? []).map((c) => ({ value: c, label: c }))]} />
-                </Field>
                 <Field label="Kind" htmlFor="inventory-origin">
                   <select id="inventory-origin" className="input small" value={origin} onChange={(e) => setOrigin(e.target.value)}>
                     <option value="">Bought and made</option>
@@ -209,14 +204,14 @@ export function InventoryPage() {
                 <Chips label="Area" value={areaCode} onChange={chooseArea} options={[{ value: "", label: "All" }, ...areas.map((a) => ({ value: a.code, label: a.name }))]} />
               </Field>
               <Field label="Type" htmlFor="inventory-type">
-                <SearchSelect id="inventory-type" value={type ? typeId : ""} onChange={chooseType} choices={[{ value: "", label: "All types" }, ...types.map((t) => ({ value: String(t.id), label: t.name }))]} />
+                <SearchSelect id="inventory-type" value={type ? typeId : ""} onChange={chooseType} choices={[{ value: "", label: "All types" }, ...types.map((t) => ({ value: String(t.id), label: t.path }))]} />
               </Field>
             </div>
           )}
         </section>
         {showFilters && type && type.params.length > 0 && (
           <section className="filter-group" aria-label={`What is written about each ${type.name}`}>
-            <div className="filter-title">{type.name}</div>
+            <div className="filter-title">{type.path}</div>
             <div className="inline-form">
               {type.params.map((param) => (
                 <ParamFilter key={param.id} param={param} params={params} errors={paramQuery.errors} onChange={(key, text) => setParams({ ...params, [key]: text })} />

@@ -12,7 +12,7 @@ import { canManageInventory, getCurrentUser } from "../auth/auth.service";
 import { listCategories, listLocations, listUnits } from "../lookups/lookups.service";
 import { IMAGE_LIMITS, type CreateItemInput, type ParamFilter, type PriceQuery, type UpdateItemInput } from "./inventory.schema";
 import { loadInventory } from "./inventory.data";
-import { checkAreaAndType, itemsMatching, valuesByItem, writeValues, type ParamValues } from "./types.service";
+import { categoryOfType, checkAreaAndType, itemsMatching, subtreeIds, valuesByItem, writeValues, type ParamValues } from "./types.service";
 
 export async function assertCanManageInventory() {
   const actor = await getCurrentUser();
@@ -49,7 +49,9 @@ export async function insertItem(tx: Tx, input: CreateItemInput) {
   const { params, ...columns } = input;
   await checkItemFields(columns);
   await findDuplicate(tx, columns.name, columns.code);
-  const [created] = await tx.insert(inventoryItem).values(columns).returning();
+  // an item takes the category of its type: what is sent is only for an item without a type (or of a type with none yet)
+  const category = (await categoryOfType(tx, columns.typeId)) ?? columns.category;
+  const [created] = await tx.insert(inventoryItem).values({ ...columns, category }).returning();
   await writeValues(tx, created!.id, created!.typeId, params);
   return created!;
 }
@@ -67,9 +69,12 @@ export async function updateItem(itemId: number, input: UpdateItemInput) {
     const [target] = await tx.select().from(inventoryItem).where(eq(inventoryItem.id, itemId)).for("update");
     if (!target) throw notFound("Item");
     let updated = target;
-    if (Object.keys(columns).length > 0) {
-      await findDuplicate(tx, columns.name, columns.code, itemId);
-      const [row] = await tx.update(inventoryItem).set(columns).where(eq(inventoryItem.id, itemId)).returning();
+    // the category follows the type (the one the item has now, or the one it is given): see insertItem
+    const typeCategory = columns.typeId !== undefined || columns.category !== undefined ? await categoryOfType(tx, columns.typeId === undefined ? target.typeId : columns.typeId) : null;
+    const changes = typeCategory === null ? columns : { ...columns, category: typeCategory };
+    if (Object.keys(changes).length > 0) {
+      await findDuplicate(tx, changes.name, changes.code, itemId);
+      const [row] = await tx.update(inventoryItem).set(changes).where(eq(inventoryItem.id, itemId)).returning();
       updated = row!;
     }
     // checked against the type the item has now: a type and its parameters can change together
@@ -141,12 +146,14 @@ export async function listItems(
   const needle = query.search?.toLowerCase();
   const values = await valuesByItem();
   const matching = await itemsMatching(query.params ?? []);
+  // the items of a type are those of the types under it too (IC: the op-amps and the microcontrollers)
+  const ofTypes = query.type ? new Set(await subtreeIds(db, query.type)) : null;
   // an unknown area code finds nothing, like an unknown category
   const areaId = query.area ? ((await db.select({ id: area.id }).from(area).where(eq(area.code, query.area)))[0]?.id ?? 0) : null;
 
   return rows
     .filter((r) => (areaId !== null ? r.areaId === areaId : true))
-    .filter((r) => (query.type ? r.typeId === query.type : true))
+    .filter((r) => (ofTypes ? r.typeId !== null && ofTypes.has(r.typeId) : true))
     .filter((r) => (matching ? matching.has(r.id) : true))
     .filter((r) => (query.category ? r.category === query.category : true))
     .filter((r) => (query.origin ? r.origin === query.origin : true))
