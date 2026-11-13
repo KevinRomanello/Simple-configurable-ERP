@@ -86,6 +86,13 @@ export function SearchSelect({ id, value, choices, onChange, disabled, label, cl
     setQuery("");
   };
   const onKey = useKeys(shown, active, setActive, pick);
+  // The box keeps the focus after a choice, so a click on it does not focus it again: it opens the list by itself.
+  const openList = () => {
+    if (open) return;
+    setOpen(true);
+    setQuery("");
+    setActive(0);
+  };
 
   return (
     <div className="search-select">
@@ -100,11 +107,8 @@ export function SearchSelect({ id, value, choices, onChange, disabled, label, cl
         autoComplete="off"
         value={open ? query : (current?.label ?? "")}
         placeholder={open ? (current?.label ?? "Search…") : ""}
-        onFocus={() => {
-          setOpen(true);
-          setQuery("");
-          setActive(0);
-        }}
+        onFocus={openList}
+        onClick={openList}
         onBlur={() => setOpen(false)}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -113,7 +117,11 @@ export function SearchSelect({ id, value, choices, onChange, disabled, label, cl
         }}
         onKeyDown={(e) => {
           if (e.key === "Escape") e.currentTarget.blur();
-          else onKey(e);
+          // the arrows open a closed list (the box has the focus after a choice)
+          else if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+            e.preventDefault();
+            openList();
+          } else onKey(e);
         }}
       />
       {open && <Options shown={shown} active={active} value={value} onPick={pick} onHover={setActive} listId={listId} />}
