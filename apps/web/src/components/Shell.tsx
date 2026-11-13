@@ -238,14 +238,12 @@ export function Shell() {
           <Item to="/inventory/stats" icon={faChartPie}>INVENTORY STATS</Item>
         </NavGroup>
 
-        {(me.permissions.canManageUsers || me.permissions.canViewHistory || me.permissions.canManageSettings || me.permissions.canManageInventory || me.permissions.canManageCash) && (
-          <NavGroup id="admin" title="Admin" closed={groups.closed} onToggle={groups.toggle}>
-            {me.permissions.canManageUsers && <Item to="/users" icon={faUsers}>Users</Item>}
-            {/* a user keeps the lists of the inventory there, and the treasury those of the register */}
-            {(me.permissions.canManageSettings || me.permissions.canManageInventory || me.permissions.canManageCash) && <Item to="/settings" icon={faSliders}>Settings</Item>}
-            {me.permissions.canViewHistory && <Item to="/history" icon={faClockRotateLeft}>History</Item>}
-          </NavGroup>
-        )}
+        <NavGroup id="admin" title="Admin" closed={groups.closed} onToggle={groups.toggle}>
+          {me.permissions.canManageUsers && <Item to="/users" icon={faUsers}>Users</Item>}
+          {/* everyone: the look of the site is chosen there; a user keeps the lists of the inventory, and the treasury those of the register */}
+          <Item to="/settings" icon={faSliders}>Settings</Item>
+          {me.permissions.canViewHistory && <Item to="/history" icon={faClockRotateLeft}>History</Item>}
+        </NavGroup>
 
         <div className="sidebar-footer">
           <div className="who">

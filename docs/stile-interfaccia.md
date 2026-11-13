@@ -15,7 +15,7 @@ Lettura fatta il 20 ottobre 2026 con `get_design_context` e `get_screenshot` (`g
 
 ## Token
 
-Tutto vive in `apps/web/src/theme/tokens.css` come variabili CSS con i nomi Figma (`color/background/bg-weak` → `--bg-weak`). Nessun altro file scrive colori o misure. Modalità scura quando il sistema è in scuro; chiara altrimenti.
+Tutto vive in `apps/web/src/theme/tokens.css` come variabili CSS con i nomi Figma (`color/background/bg-weak` → `--bg-weak`). Nessun altro file scrive colori o misure. **Due temi, chiaro e scuro, e Figma li ha tutti e due** (controllato il 13 novembre 2026 nel file «Telemetry App – Redesign ITA», pagina Design System: i frame **«TEST - Light Mode»** `376:767` e **«TEST - Dark Mode»** `376:645` con gli stessi componenti, e la palette delle serie in due varianti, «- light» e «- dark»). Le due colonne della tabella sono quelle. **Il tema si sceglie in Settings, riquadro «Appearance», da chiunque** (anche il viewer): **Light**, **Dark** o **Like my device**; senza scelta il sito segue il sistema, quindi il tema scuro che si vedeva prima (quello del sistema scuro) è lo stesso di adesso. La scelta resta nel browser (`erp.theme`), non nel database: su un altro computer si sceglie di nuovo.
 
 | Gruppo | Chiaro | Scuro |
 | --- | --- | --- |
@@ -132,3 +132,5 @@ Pezzi comuni fuori da `ui/`, già condivisi: `SortTh` e `SortButton` (l'intestaz
     Provato nel browser a 375 px (telefono) e 768 px (tablet): nessuna pagina più larga dello schermo, e sul computer nulla di diverso.
 
 13. **I mesi si scrivono con l'anno intero** (12 novembre 2026): «nov 2026», non «nov 26», che si legge come il 26 novembre (`month()` in `lib/format.ts`: le tabelle e i grafici per mese di CASH FLOW, CASH FROM e Gantt). I giorni restano «12/11/26».
+
+14. **Il tema** (13 novembre 2026): `data-theme` sulla pagina (`light` o `dark`; niente attributo = segue il sistema) lo mette `lib/theme.ts` (`useTheme`, e `main.tsx` prima di disegnare); `theme/tokens.css` lo legge. **I colori scuri sono scritti due volte** in `tokens.css`, una per il sistema scuro (la `@media`) e una per chi sceglie «Dark»: CSS non può condividere una regola fra una media query e un attributo, e `theme/tokens.test.ts` controlla che le due copie siano uguali (e che ogni colore del chiaro, tranne il giallo del marchio e il testo sopra, ne abbia uno scuro). Un colore nuovo si scrive in **tutti e tre** i punti. La griglia (AG Grid) segue da sola (`color-scheme` della pagina). Il riquadro **Appearance** (tre `Chips`) è il primo di Settings, e **Settings è nel menù per ogni ruolo**.

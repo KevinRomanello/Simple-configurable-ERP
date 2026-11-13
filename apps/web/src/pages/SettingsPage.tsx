@@ -3,12 +3,14 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api } from "../api/client";
 import type { BankCompare, Calculation, ItemField, SettingsView } from "../api/types";
 import { Button } from "../components/Button";
+import { Chips } from "../components/Chips";
 import { CommitInput } from "../components/CommitInput";
 import { DeleteButton, OrderButtons } from "../components/ListButtons";
 import { QuickAdd, usedBy } from "../components/QuickAdd";
 import { AddSection, DataTable, Field, FormPanel, Loading, Message, PageHeader, Panel, type Column } from "../components/ui";
 import { useMe } from "../lib/auth";
 import { FIELD_LABELS } from "../lib/inventory";
+import { useTheme, type ThemeChoice } from "../lib/theme";
 import { useAction } from "../lib/useAction";
 import { CashListsPanel } from "./CashListsPanel";
 import { ItemTypesPanel } from "./ItemTypesPanel";
@@ -27,7 +29,15 @@ export function SettingsPage() {
   const { canManageSettings, canManageInventory, canManageCash } = useMe().permissions;
   const view = useQuery({ queryKey: ["settings"], queryFn: api.settings, enabled: canManageSettings || canManageInventory });
 
-  if (!canManageSettings && !canManageInventory && !canManageCash) return <Message>Only an admin, a user or the treasury can change the settings.</Message>;
+  // anyone can choose how the site looks; the lists are for the ones who keep them
+  if (!canManageSettings && !canManageInventory && !canManageCash) {
+    return (
+      <>
+        <PageHeader title="Settings" description="How the site looks for you. The other settings are kept by an admin, a user or the treasury." />
+        <AppearancePanel />
+      </>
+    );
+  }
   if (!view.data && canManageInventory) return <Loading />;
   if (!canManageSettings) {
     // a user: the lists the inventory is written with (and, with the treasury box, those of the register)
@@ -36,8 +46,9 @@ export function SettingsPage() {
       <>
         <PageHeader
           title="Settings"
-          description={`The categories, units, places and types of the inventory${canManageCash ? ", and the Voci and the payment methods of the register" : ""}. The other settings are kept by an admin.`}
+          description={`How the site looks for you, and the categories, units, places and types of the inventory${canManageCash ? ", and the Voci and the payment methods of the register" : ""}. The other settings are kept by an admin.`}
         />
+        <AppearancePanel />
         <CategoriesPanel data={data} />
         <ItemTypesPanel />
         {canManageCash && <CashListsPanel />}
@@ -53,8 +64,9 @@ export function SettingsPage() {
     <>
       <PageHeader
         title="Settings"
-        description="The lists the other pages choose from and the switches of the calculation. A change applies at once to every page and goes into the History. Something in use cannot be deleted."
+        description="How the site looks for you, the lists the other pages choose from and the switches of the calculation. A change of the lists applies at once to every page and goes into the History. Something in use cannot be deleted."
       />
+      <AppearancePanel />
       <SeasonsPanel />
       <CalculationPanel calculation={data.calculation} />
       <CategoriesPanel data={data} />
@@ -66,6 +78,28 @@ export function SettingsPage() {
       </div>
       <LocationsPanel locations={data.locations} />
     </>
+  );
+}
+
+// --- how the site looks: for everyone ----------------------------------------------------------
+
+const THEMES: { value: ThemeChoice; label: string }[] = [
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+  { value: "system", label: "Like my device" },
+];
+
+/** Light or dark, for whoever is signed in (a viewer too): kept in this browser, not in the database, and not in the History. */
+function AppearancePanel() {
+  const [theme, setTheme] = useTheme();
+  return (
+    <Panel title="Appearance">
+      <p className="muted">
+        The colours of the site: light or dark. «Like my device» follows the light or dark of your computer or phone. The choice is for this browser only:
+        on another computer or phone you choose again.
+      </p>
+      <Chips label="Theme" options={THEMES} value={theme} onChange={setTheme} />
+    </Panel>
   );
 }
 

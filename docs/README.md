@@ -27,6 +27,7 @@
 | [controllo-bug-e-prestazioni.md](controllo-bug-e-prestazioni.md) | **Controllo di bug e prestazioni** (26/10/2026): cosa è stato provato e misurato, i problemi trovati (P1–P11) con gravità, causa e soluzione proposta, e il loro stato |
 | [da-decidere.md](da-decidere.md) | **Da decidere**: l'elenco unico delle decisioni aperte (a partire da quella **urgente** sul GRAND TOTAL con l'IVA coperta da un fondo), chi deve rispondere e cosa cambia |
 | [ci.md](ci.md) | La CI su GitHub: cosa controlla, come leggerla, come provarla in locale |
+| [ruolo-database-setup.md](ruolo-database-setup.md) | **Problema: `setup` si ferma su `db:roles`** (13 novembre 2026): quando l'utente dell'API esiste già e il proprietario del database non è un superutente, il comando `alter role` fallisce; perché, cosa resta non fatto (permessi, dati di base, riavvio dell'API), come finire a mano, come cambiare la password dell'utente dell'API, e la correzione proposta nel codice (non ancora fatta) |
 | [rilascio.md](rilascio.md) | **Rilascio**: il workflow che costruisce le immagini Docker di produzione su GitHub, come fare un rilascio (tag), come metterle su un server e aggiornarle, il file `.env` del server, cosa è stato provato e cosa no |
 
 Materiale di partenza, in `fonti/` (locale, ignorata da git): `script attuale`, `Budget 26-27.xlsx`, `Piano d'azione — Budget e Inventario custom.md` (visione completa in 8 fasi e sette domande per il tesoriere).

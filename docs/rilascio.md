@@ -144,7 +144,7 @@ docker compose pull
 docker compose up -d
 ```
 
-   `setup` applica le migrazioni nuove **prima** che l'API riparta. Controlla `/api/health` e due pagine.
+   `setup` applica le migrazioni nuove **prima** che l'API riparta. Controlla `/api/health` e due pagine. **Se `setup` si ferma** (`exited (1)`, e l'API non riparte) vedi [ruolo-database-setup.md](ruolo-database-setup.md): è il caso dell'utente dell'API già esistente con un proprietario non superutente.
 
 **Tornare indietro.** Rimetti la `ERP_VERSION` di prima e rilancia i due comandi. Le migrazioni vanno **solo avanti**: se una ha cambiato i dati in modo sbagliato, si ripristina la copia del punto 1 (come al §3, punto 3, dopo aver tolto il volume del database).
 

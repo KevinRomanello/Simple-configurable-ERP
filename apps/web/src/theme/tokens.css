@@ -83,9 +83,13 @@
   --font: "Fira Code Variable", ui-monospace, monospace;
 }
 
-/* Dark mode: follows the system unless the page sets data-theme explicitly. */
+/*
+ * Dark mode. The person chooses it in Settings (Appearance), which sets data-theme on the page: "dark" here, "light" keeps the
+ * values above, and without a choice the page follows the system (the media query). CSS cannot share one rule between a media
+ * query and an attribute, so the two blocks hold the same declarations: tokens.test.ts checks that they stay the same.
+ */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
     color-scheme: dark;
     --primary-strong: #fbffb2;
     --primary-soft: #919900;
@@ -129,4 +133,49 @@
     --button-bg: #f3ff17;
     --button-fg: #1a1a1a;
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --primary-strong: #fbffb2;
+  --primary-soft: #919900;
+  --secondary-strong: #99b2ff;
+  --secondary-default: #3366ff;
+  --secondary-soft: #0033cc;
+  --bg-full: #e6e6e6;
+  --bg-strong: #b3b3b3;
+  --bg-sub: #4d4d4d;
+  --bg-soft: #333;
+  --bg-weak: #1a1a1a;
+  --bg-null: #0d0d0d;
+  --text-strong: #fff;
+  --text-sub: #ccc;
+  --text-soft: #999;
+  --text-disabled: #4d4d4d;
+  --text-null: #1a1a1a;
+  --stroke-full: #fff;
+  --stroke-strong: #808080;
+  --stroke-sub: #4d4d4d;
+  --stroke-soft: #333;
+  --stroke-null: #1a1a1a;
+  --error-strong: #fcc;
+  --error-default: #ff4d4d;
+  --error-soft: #900;
+  --warning-strong: #ffe4b2;
+  --warning-default: #ffae17;
+  --warning-soft: #996300;
+  --success-strong: #bbf7d1;
+  --success-default: #1bde63;
+  --success-soft: #0e7133;
+  --info-strong: #b6d9fc;
+  --info-default: #238ef6;
+  --info-soft: #064e93;
+  --utility-1: #00f5f1;
+  --utility-2: #ff40d9;
+  --utility-3: #2fff00;
+  --utility-4: #f80;
+  --utility-5: #ffe500;
+  --utility-6: #fc0d0d;
+  --button-bg: #f3ff17;
+  --button-fg: #1a1a1a;
 }

@@ -2,7 +2,7 @@
 
 L'elenco **unico** delle decisioni ancora aperte, con chi deve rispondere, cosa cambia e dove è descritto il dettaglio. Quando una decisione si chiude si sposta nel documento che la riguarda (e si toglie da qui); quando ne nasce una nuova si aggiunge qui.
 
-Ultimo aggiornamento: **12 novembre 2026** (aggiunta D11: i difetti del rendiconto uguale al foglio; D10 chiusa, aggiunta D12: l'area ADMINISTRATION; D13: il preventivo per Voce, rimandato). Il 10 novembre: D7, le domande per la tesoriera sul registro di cassa. Prima: 29 ottobre 2026. Chiuse il 29/10: annullare i movimenti e il progetto delle parti di una produzione ([inventario.md](inventario.md), §16 e §18).
+Ultimo aggiornamento: **13 novembre 2026** (aggiunta D14: il `setup` che si ferma su `db:roles`). Il 12 novembre: D11, i difetti del rendiconto uguale al foglio; D10 chiusa, aggiunta D12: l'area ADMINISTRATION; D13: il preventivo per Voce, rimandato). Il 10 novembre: D7, le domande per la tesoriera sul registro di cassa. Prima: 29 ottobre 2026. Chiuse il 29/10: annullare i movimenti e il progetto delle parti di una produzione ([inventario.md](inventario.md), §16 e §18).
 
 ## Urgente
 
@@ -112,3 +112,8 @@ Da decidere:
 ### D6. Nome del rilascio su GitHub
 
 Il tag `0.1` non ha fatto partire il workflow, che aspetta tag che iniziano con `v`. O si pubblica `v0.1.0` (vedi [rilascio.md](rilascio.md)) o si fa partire il workflow **alla pubblicazione di una Release** qualunque sia il nome (modifica piccola, da fare solo su richiesta).
+
+### D14. `setup` non deve fermarsi quando il proprietario del database non è un superutente
+
+Il 13 novembre 2026, sul server, `setup` si è fermato su `db:roles` perché l'utente dell'API esisteva già e il proprietario delle tabelle non è un superutente ([ruolo-database-setup.md](ruolo-database-setup.md)). A mano si risolve (§4 del documento), ma a ogni aggiornamento tornerebbe. La correzione proposta è in §6 dello stesso documento: `ensureAppRole` non ripete gli attributi se l'utente li ha già, prova a rimettere la password senza fermarsi se non può, e tiene permessi e `REVOKE` su `audit_log` come oggi. **Aspetta il via**: tocca il codice che dà i permessi al database, quindi non l'ho fatta da solo.
+
