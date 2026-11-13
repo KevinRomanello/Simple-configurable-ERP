@@ -478,6 +478,110 @@
 /* controls inside a table cell keep a readable width: the table scrolls sideways when it must */
 /* controls in a table cell are as wide as their content needs, with a floor for the ones that are typed in */
 /* a type that has no category of the budget yet: the box asks to be chosen */
+/* the types of the inventory drawn as a tree (components/TypeTree.tsx): from left to right, each type with its sub-types to the right */
+.type-tree {
+  --node-height: 36px;
+  overflow-x: auto;
+  padding-bottom: var(--space-s);
+}
+.type-tree ul {
+  margin: 0;
+  padding: 0 0 0 var(--space-xl);
+  list-style: none;
+}
+.type-tree > ul {
+  padding-left: 0;
+}
+.type-tree li {
+  position: relative;
+  padding: var(--space-3xs) 0;
+}
+/* the elbow that joins a type to the line down the side of its brothers, and the line going on to the next brother */
+.type-tree ul ul > li::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: calc(var(--space-xl) * -1);
+  width: var(--space-xl);
+  height: calc(var(--space-3xs) + var(--node-height) / 2);
+  border-bottom: 1px solid var(--stroke-strong);
+  border-left: 1px solid var(--stroke-strong);
+}
+.type-tree ul ul > li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--space-3xs) + var(--node-height) / 2);
+  bottom: 0;
+  left: calc(var(--space-xl) * -1);
+  border-left: 1px solid var(--stroke-strong);
+}
+.type-node {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: var(--node-height);
+  padding: 0 var(--space-xs);
+  border: 1px solid var(--stroke-strong);
+  border-radius: var(--radius-3xs);
+  background: var(--bg-soft);
+  color: var(--text-strong);
+  cursor: grab;
+  user-select: none;
+}
+.type-node:hover {
+  border-color: var(--stroke-full);
+}
+.type-node.open {
+  border-color: var(--primary-default);
+  box-shadow: 0 0 0 1px var(--primary-default);
+}
+.type-node.picked {
+  opacity: 0.5;
+}
+/* what the picked type can go under */
+.type-node.can-drop {
+  border-style: dashed;
+  border-color: var(--secondary-default);
+}
+.type-node.drop-here,
+.type-tree-root.drop-here {
+  background: var(--primary-default);
+  border-color: var(--primary-default);
+  color: var(--on-primary);
+}
+.type-node-name {
+  font-weight: 700;
+}
+.type-node-meta {
+  color: var(--text-soft);
+  font-size: 11px;
+}
+.type-node.drop-here .type-node-meta {
+  color: var(--on-primary);
+}
+.type-node-actions {
+  display: inline-flex;
+  gap: var(--space-3xs);
+  margin-left: var(--space-xs);
+}
+/* the strip that makes a type a type of its own, and the line that says what is being moved */
+.type-tree-root,
+.type-tree-carrying {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-s);
+  margin-bottom: var(--space-s);
+  padding: var(--space-xs) var(--space-s);
+  border: 1px dashed var(--stroke-strong);
+  border-radius: var(--radius-3xs);
+}
+.type-tree-root.can-drop {
+  border-color: var(--secondary-default);
+}
+.type-tree-root:not(.can-drop) {
+  color: var(--text-soft);
+}
 .input.needs-choice {
   border-color: var(--warning-default);
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ItemType } from "../api/types";
-import { buildTree, canMove, withDescendants } from "./typeTree";
+import { buildTree, canMove, typeLevels, withDescendants } from "./typeTree";
 
 const type = (id: number, name: string, parentId: number | null): ItemType => ({
   id, name, parentId, depth: 0, path: name, areaId: null, hazards: true, categoryId: 1, category: "Components", items: 0, params: [],
@@ -48,5 +48,44 @@ describe("canMove", () => {
     expect(canMove(types, 2, 1)).toBe(false);
     expect(canMove(types, 5, null)).toBe(false);
     expect(canMove(types, 99, 1)).toBe(false);
+  });
+});
+
+describe("typeLevels", () => {
+  const names = (list: ItemType[]) => list.map((t) => t.name);
+
+  it("is one menu with the types of no parent while nothing is chosen", () => {
+    const levels = typeLevels(types, types, null);
+    expect(levels).toHaveLength(1);
+    expect(names(levels[0]!.options)).toEqual(["IC", "Resistor"]);
+    expect(levels[0]!.parent).toBeNull();
+    expect(levels[0]!.selected).toBeNull();
+  });
+
+  it("adds a menu with only the types under what is chosen, and so on down", () => {
+    const [first, second] = typeLevels(types, types, 1);
+    expect(first!.selected?.name).toBe("IC");
+    expect(second!.parent?.name).toBe("IC");
+    expect(names(second!.options)).toEqual(["Microcontroller", "Op-amp"]);
+    expect(second!.selected).toBeNull();
+
+    const levels = typeLevels(types, types, 4); // ARM, under Microcontroller, under IC
+    expect(levels.map((l) => l.selected?.name ?? null)).toEqual(["IC", "Microcontroller", "ARM"]);
+    expect(names(levels[1]!.options)).toEqual(["Microcontroller", "Op-amp"]); // the brothers of the one chosen stay to choose from
+    expect(levels).toHaveLength(3); // nothing under ARM: no menu for a next level
+  });
+
+  it("has no menu for a next level when what is chosen has nothing under it", () => {
+    expect(typeLevels(types, types, 5)).toHaveLength(1); // Resistor
+    expect(typeLevels(types, types, 2)).toHaveLength(2); // Op-amp, under IC
+  });
+
+  it("offers only the visible types (those of the area), and keeps the chosen one in its menu", () => {
+    const visible = types.filter((t) => t.name !== "Op-amp");
+    expect(names(typeLevels(types, visible, 1)[1]!.options)).toEqual(["Microcontroller"]);
+    // an Op-amp chosen before the area changed still shows in its menu
+    expect(names(typeLevels(types, visible, 2)[1]!.options)).toEqual(["Microcontroller", "Op-amp"]);
+    // a level whose types are all hidden has no menu
+    expect(typeLevels(types, types.filter((t) => t.parentId === null), 1)).toHaveLength(1);
   });
 });

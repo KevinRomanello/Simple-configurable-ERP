@@ -4,7 +4,7 @@ import { fromScaled } from "../core/money";
 import { placeholderPng, type Shape } from "./demo-image";
 import { ownerDb, ownerPool } from "./owner";
 import {
-  area, componentPart, inventoryItem, itemDatasheet, itemDatasheetFile, itemImage, itemParamValue, itemType, itemTypeParam, project, stockMovement,
+  area, category, componentPart, inventoryItem, itemDatasheet, itemDatasheetFile, itemImage, itemParamValue, itemType, itemTypeParam, project, stockMovement,
 } from "./schema";
 
 // Made-up inventory, only to have something to look at and try. Nothing here is real: names,
@@ -16,8 +16,11 @@ import {
 // The types are made if they are missing (a type with the same name is reused) and stay after
 // `--remove`: they are useful as a start, and a type the team made by hand is never deleted.
 //
-//   pnpm db:seed-demo             add it (does nothing if it is already there)
-//   pnpm db:seed-demo -- --remove take it away again
+// It only adds what is missing (an item is found by its code) and never changes or deletes what is there, so it can be run again
+// on an inventory that is being worked on: new demonstration items and types appear, the ones already there stay as they are.
+//
+//   pnpm db:seed-demo             add what is missing
+//   pnpm db:seed-demo -- --remove take every demonstration item away (their types stay)
 
 const remove = process.argv.includes("--remove");
 
@@ -27,6 +30,10 @@ type Use = { on: string; qty: number; at: string; spot?: string; for?: string; n
 type Kind = (typeof itemTypeParam.$inferSelect)["kind"];
 interface DemoType {
   name: string;
+  /** The name of the type it is a kind of: it must come before this one in the list, and its parameters are this one's too. */
+  parent?: string;
+  /** The category of the budget its items belong to. */
+  category: string;
   /** The code of its area; none: every area. */
   area?: string;
   hazards: boolean;
@@ -35,21 +42,21 @@ interface DemoType {
 
 const TYPES: DemoType[] = [
   {
-    name: "Fastener", area: "mt-dmt", hazards: false,
+    name: "Fastener", category: "Components", area: "mt-dmt", hazards: false,
     params: [
       { name: "Kind", kind: "list", choices: ["Screw", "Nut", "Washer"] },
       { name: "Thread", kind: "list", choices: ["M3", "M4", "M5", "M6"] },
       { name: "Length", kind: "number", unit: "m", prefixes: true },
     ],
   },
-  { name: "Cable", area: "hw", hazards: false, params: [{ name: "Section", kind: "number", unit: "mm²" }, { name: "Colour", kind: "text" }] },
-  { name: "Connector", area: "hw", hazards: false, params: [{ name: "Pins", kind: "number" }, { name: "Sealed", kind: "yesno" }] },
+  { name: "Cable", category: "Components", area: "hw", hazards: false, params: [{ name: "Section", kind: "number", unit: "mm²" }, { name: "Colour", kind: "text" }] },
+  { name: "Connector", category: "Components", area: "hw", hazards: false, params: [{ name: "Pins", kind: "number" }, { name: "Sealed", kind: "yesno" }] },
   {
-    name: "Battery", area: "hw", hazards: true,
+    name: "Battery", category: "Consumable", area: "hw", hazards: true,
     params: [{ name: "Voltage", kind: "number", unit: "V", prefixes: true }, { name: "Capacity", kind: "number", unit: "Ah", prefixes: true }, { name: "Cells", kind: "number" }],
   },
   {
-    name: "Resistor", area: "hw", hazards: false,
+    name: "Resistor", category: "Components", area: "hw", hazards: false,
     params: [
       { name: "Resistance", kind: "number", unit: "Ω", prefixes: true },
       { name: "Power", kind: "number", unit: "W", prefixes: true },
@@ -58,12 +65,49 @@ const TYPES: DemoType[] = [
     ],
   },
   {
-    name: "Capacitor", area: "hw", hazards: false,
+    name: "Capacitor", category: "Components", area: "hw", hazards: false,
     params: [
       { name: "Capacitance", kind: "number", unit: "F", prefixes: true },
       { name: "Voltage", kind: "number", unit: "V", prefixes: true },
       { name: "Dielectric", kind: "list", choices: ["C0G", "X5R", "X7R"] },
       { name: "Package", kind: "list", choices: ["0402", "0603", "0805"] },
+    ],
+  },
+  // a family with kinds under it, to try the tree of types (docs/inventario.md, §20): IC, and under it the Op-amp, the
+  // Microcontroller (with its own kinds) and the Voltage regulator, each with what is written about it on top of what IC has
+  {
+    name: "IC", category: "Components", area: "hw", hazards: false,
+    params: [
+      { name: "Package", kind: "list", choices: ["SOT-223", "TO-220", "TO-263", "SOIC-8", "SOIC-16", "TSSOP-20", "QFN-32", "TQFP-32", "LQFP-48"] },
+      { name: "Pins", kind: "number" },
+      { name: "Max supply", kind: "number", unit: "V", prefixes: true },
+    ],
+  },
+  {
+    name: "Op-amp", parent: "IC", category: "Components", area: "hw", hazards: false,
+    params: [
+      { name: "Gain bandwidth", kind: "number", unit: "Hz", prefixes: true },
+      { name: "Channels", kind: "number" },
+      { name: "Rail-to-rail", kind: "yesno" },
+    ],
+  },
+  {
+    name: "Microcontroller", parent: "IC", category: "Components", area: "hw", hazards: false,
+    params: [
+      { name: "Core", kind: "list", choices: ["Cortex-M0", "Cortex-M3", "Cortex-M4", "AVR 8-bit"] },
+      { name: "Flash", kind: "number", unit: "B", prefixes: true },
+      { name: "RAM", kind: "number", unit: "B", prefixes: true },
+      { name: "Max clock", kind: "number", unit: "Hz", prefixes: true },
+    ],
+  },
+  { name: "ARM Cortex-M", parent: "Microcontroller", category: "Components", area: "hw", hazards: false, params: [{ name: "Series", kind: "list", choices: ["F1", "F4", "G0", "G4"] }] },
+  { name: "AVR", parent: "Microcontroller", category: "Components", area: "hw", hazards: false, params: [] },
+  {
+    name: "Voltage regulator", parent: "IC", category: "Components", area: "hw", hazards: false,
+    params: [
+      { name: "Output voltage", kind: "number", unit: "V", prefixes: true },
+      { name: "Max current", kind: "number", unit: "A", prefixes: true },
+      { name: "Topology", kind: "list", choices: ["Linear", "LDO", "Buck", "Boost"] },
     ],
   },
 ];
@@ -213,6 +257,17 @@ const BOUGHT: Demo[] = [
   smd("DEMO-032", "Resistor 10k 0805 5%", "Resistor", { Resistance: "10000", Power: "0.125", Tolerance: "5 %", Package: "0805" }, 100, 0.0031),
   smd("DEMO-033", "Capacitor 100n 50V X7R 0603", "Capacitor", { Capacitance: "0.0000001", Voltage: "50", Dielectric: "X7R", Package: "0603" }, 300, 0.006),
   smd("DEMO-034", "Capacitor 10u 25V X5R 0805", "Capacitor", { Capacitance: "0.00001", Voltage: "25", Dielectric: "X5R", Package: "0805" }, 50, 0.038),
+  // integrated circuits: the generic IC has what every IC has; the others have more on top (the tree of types)
+  ic("DEMO-100", "74HC595 shift register", "IC", { Package: "SOIC-16", Pins: "16", "Max supply": "6" }, 50, 0.18),
+  ic("DEMO-101", "LM358 dual op-amp", "Op-amp", { Package: "SOIC-8", Pins: "8", "Max supply": "32", "Gain bandwidth": "1000000", Channels: "2", "Rail-to-rail": false }, 40, 0.22, [{ on: "2026-10-05", qty: 10, at: "s1-r3", spot: "Electronics drawer, IC box", for: "hw" }]),
+  ic("DEMO-102", "TL072 dual op-amp", "Op-amp", { Package: "SOIC-8", Pins: "8", "Max supply": "36", "Gain bandwidth": "3000000", Channels: "2", "Rail-to-rail": false }, 20, 0.41),
+  ic("DEMO-103", "MCP6002 rail-to-rail op-amp", "Op-amp", { Package: "SOIC-8", Pins: "8", "Max supply": "6", "Gain bandwidth": "1000000", Channels: "2", "Rail-to-rail": true }, 25, 0.38),
+  ic("DEMO-104", "STM32F103C8T6", "ARM Cortex-M", { Package: "LQFP-48", Pins: "48", "Max supply": "3.6", Core: "Cortex-M3", Flash: "65536", RAM: "20480", "Max clock": "72000000", Series: "F1" }, 10, 3.9),
+  ic("DEMO-105", "STM32G031K8", "ARM Cortex-M", { Package: "QFN-32", Pins: "32", "Max supply": "3.6", Core: "Cortex-M0", Flash: "65536", RAM: "8192", "Max clock": "64000000", Series: "G0" }, 10, 1.6),
+  ic("DEMO-106", "ATmega328P-AU", "AVR", { Package: "TQFP-32", Pins: "32", "Max supply": "5.5", Core: "AVR 8-bit", Flash: "32768", RAM: "2048", "Max clock": "20000000" }, 10, 2.3),
+  ic("DEMO-107", "LM7805 regulator 5 V 1.5 A", "Voltage regulator", { Package: "TO-220", Pins: "3", "Max supply": "35", "Output voltage": "5", "Max current": "1.5", Topology: "Linear" }, 30, 0.35),
+  ic("DEMO-108", "AMS1117-3.3 LDO", "Voltage regulator", { Package: "SOT-223", Pins: "3", "Max supply": "15", "Output voltage": "3.3", "Max current": "1", Topology: "LDO" }, 40, 0.19),
+  ic("DEMO-109", "LM2596 buck regulator 5 V 3 A", "Voltage regulator", { Package: "TO-263", Pins: "5", "Max supply": "40", "Output voltage": "5", "Max current": "3", Topology: "Buck" }, 12, 1.1),
 ];
 
 /** A small surface-mount part of HW, bought once for a project of the area. */
@@ -221,6 +276,16 @@ function smd(code: string, name: string, type: string, params: Record<string, st
     code, name, category: "Components", unit: "pcs", area: "hw", type, params, color: [60, 60, 70], shape: "square", picture: false,
     purpose: "Boards of the low-voltage system.", storageNotes: "SMD box, one bag per value.",
     receipts: [{ on: "2026-09-22", qty, net, at: "s1-r3", spot: "Electronics drawer, SMD box", for: "hw" }],
+  };
+}
+
+/** An integrated circuit of HW, bought once for a project of the area. */
+function ic(code: string, name: string, type: string, params: Record<string, string | boolean>, qty: number, net: number, uses?: Use[]): Demo {
+  return {
+    code, name, category: "Components", unit: "pcs", area: "hw", type, params, color: [50, 50, 60], shape: "square", picture: false,
+    purpose: "Boards of the low-voltage system and of the data logger.", storageNotes: "Electronics drawer, anti-static box of the ICs.",
+    receipts: [{ on: "2026-09-22", qty, net, at: "s1-r3", spot: "Electronics drawer, IC box", for: "hw" }],
+    ...(uses ? { uses } : {}),
   };
 }
 
@@ -257,20 +322,20 @@ async function main() {
     // not for the history: this is made-up data (needs the owner, which the tool runs as)
     await tx.execute(sql`set local session_replication_role = replica`);
 
-    const existing = await tx.select({ id: inventoryItem.id }).from(inventoryItem).where(like(inventoryItem.code, "DEMO-%"));
-    if (existing.length > 0) {
+    const existing = await tx.select({ id: inventoryItem.id, code: inventoryItem.code }).from(inventoryItem).where(like(inventoryItem.code, "DEMO-%"));
+    if (remove) {
       // with the triggers off the database does not cascade either: everything hanging from the items goes first
       const ids = existing.map((e) => e.id);
-      const sheets = (await tx.select({ id: itemDatasheet.id }).from(itemDatasheet).where(inArray(itemDatasheet.itemId, ids))).map((r) => r.id);
-      if (sheets.length > 0) await tx.delete(itemDatasheetFile).where(inArray(itemDatasheetFile.datasheetId, sheets));
-      await tx.delete(itemDatasheet).where(inArray(itemDatasheet.itemId, ids));
-      await tx.delete(itemImage).where(inArray(itemImage.itemId, ids));
-      await tx.delete(itemParamValue).where(inArray(itemParamValue.itemId, ids));
-      await tx.delete(stockMovement).where(inArray(stockMovement.itemId, ids));
-      await tx.delete(componentPart).where(inArray(componentPart.componentId, ids));
-      await tx.delete(inventoryItem).where(like(inventoryItem.code, "DEMO-%"));
-    }
-    if (remove) {
+      if (ids.length > 0) {
+        const sheets = (await tx.select({ id: itemDatasheet.id }).from(itemDatasheet).where(inArray(itemDatasheet.itemId, ids))).map((r) => r.id);
+        if (sheets.length > 0) await tx.delete(itemDatasheetFile).where(inArray(itemDatasheetFile.datasheetId, sheets));
+        await tx.delete(itemDatasheet).where(inArray(itemDatasheet.itemId, ids));
+        await tx.delete(itemImage).where(inArray(itemImage.itemId, ids));
+        await tx.delete(itemParamValue).where(inArray(itemParamValue.itemId, ids));
+        await tx.delete(stockMovement).where(inArray(stockMovement.itemId, ids));
+        await tx.delete(componentPart).where(inArray(componentPart.componentId, ids));
+        await tx.delete(inventoryItem).where(like(inventoryItem.code, "DEMO-%"));
+      }
       console.log(`Removed ${existing.length} demonstration items (their types stay).`);
       return;
     }
@@ -286,13 +351,16 @@ async function main() {
     const e4 = (euros: number) => Math.round(euros * 10_000);
     const milli = (qty: number) => Math.round(qty * 1000);
 
-    const ids = new Map<string, number>();
+    // what is there already stays as it is; only what is missing is made
+    const ids = new Map<string, number>(existing.map((e) => [e.code!, e.id]));
+    const created = new Set<string>();
     const makeItem = async (d: { code: string; name: string; purpose: string; category?: string; unit?: string; origin?: "bought" | "made" } & Partial<Demo>) => {
       const type = d.type === undefined ? undefined : types.get(d.type)!;
       const [row] = await tx
         .insert(inventoryItem)
         .values({
-          code: d.code, name: d.name, purpose: d.purpose, category: d.category ?? (d.origin === "made" ? "Components" : null), unit: d.unit ?? "pcs",
+          // an item takes the category of its type, as the site does
+          code: d.code, name: d.name, purpose: d.purpose, category: type?.category ?? d.category ?? (d.origin === "made" ? "Components" : null), unit: d.unit ?? "pcs",
           origin: d.origin ?? "bought", safetyCodes: d.safetyCodes ?? null, disposal: d.disposal ?? null,
           storageNotes: d.storageNotes ?? null, maintenanceNotes: d.maintenanceNotes ?? null, flammable: d.flammable ?? false,
           areaId: d.area === undefined ? null : areaIds.get(d.area)!, typeId: type?.id ?? null,
@@ -309,6 +377,7 @@ async function main() {
         });
       }
       ids.set(d.code, row!.id);
+      created.add(d.code);
       return row!.id;
     };
     const picture = async (itemId: number, color: [number, number, number], shape: Shape) => {
@@ -317,6 +386,7 @@ async function main() {
     };
 
     for (const d of BOUGHT) {
+      if (ids.has(d.code)) continue;
       const itemId = await makeItem(d);
       if (d.picture !== false) await picture(itemId, d.color, d.shape);
       for (const r of d.receipts) {
@@ -335,25 +405,31 @@ async function main() {
       }
     }
 
-    // a few other things that happen on a shelf: a move, a count, a disposal
-    const screw = ids.get("DEMO-001")!;
-    await tx.insert(stockMovement).values({ itemId: screw, kind: "transfer", occurredOn: "2026-10-16", quantity: fromScaled(milli(100), 3), location: "s1-r1", spot: "Drawer 4, box M3", toLocation: "s2-r1", toSpot: "Workshop box", note: "For the second site" });
-    await tx.insert(stockMovement).values({ itemId: ids.get("DEMO-002")!, kind: "adjustment", occurredOn: "2026-10-17", quantity: fromScaled(milli(-3), 3), location: "s1-r1", spot: "Drawer 4, box M5", note: "Count: three missing" });
-    await tx.insert(stockMovement).values({ itemId: ids.get("DEMO-006")!, kind: "disposal", occurredOn: "2026-10-18", quantity: fromScaled(milli(0.5), 3), location: "s2-r1", spot: "Flammables cabinet", note: "Opened bottle, expired" });
+    // a few other things that happen on a shelf: a move, a count, a disposal (only for the items made now)
+    if (created.has("DEMO-001")) {
+      await tx.insert(stockMovement).values({ itemId: ids.get("DEMO-001")!, kind: "transfer", occurredOn: "2026-10-16", quantity: fromScaled(milli(100), 3), location: "s1-r1", spot: "Drawer 4, box M3", toLocation: "s2-r1", toSpot: "Workshop box", note: "For the second site" });
+    }
+    if (created.has("DEMO-002")) {
+      await tx.insert(stockMovement).values({ itemId: ids.get("DEMO-002")!, kind: "adjustment", occurredOn: "2026-10-17", quantity: fromScaled(milli(-3), 3), location: "s1-r1", spot: "Drawer 4, box M5", note: "Count: three missing" });
+    }
+    if (created.has("DEMO-006")) {
+      await tx.insert(stockMovement).values({ itemId: ids.get("DEMO-006")!, kind: "disposal", occurredOn: "2026-10-18", quantity: fromScaled(milli(0.5), 3), location: "s2-r1", spot: "Flammables cabinet", note: "Opened bottle, expired" });
+    }
 
     for (const m of MADE) {
+      if (ids.has(m.code)) continue;
       const itemId = await makeItem({ ...m, origin: "made" });
       await picture(itemId, m.color, m.shape);
       if (m.counted) {
         await tx.insert(stockMovement).values({ itemId, kind: "adjustment", occurredOn: "2026-10-14", quantity: fromScaled(milli(m.counted.qty), 3), location: m.counted.at, spot: m.counted.spot, note: "Counted when the inventory was started" });
       }
     }
-    for (const m of MADE) {
+    for (const m of MADE.filter((made) => created.has(made.code))) {
       for (const [partCode, qty] of m.parts) {
         await tx.insert(componentPart).values({ componentId: ids.get(m.code)!, partId: ids.get(partCode)!, quantity: fromScaled(milli(qty), 3) });
       }
     }
-    console.log(`Added ${BOUGHT.length} bought items and ${MADE.length} made ones (prefix DEMO-), of ${TYPES.length} types. Take them away with: pnpm db:seed-demo -- --remove`);
+    console.log(`Added ${created.size} demonstration items (prefix DEMO-); ${existing.length} were there already and stay as they are. Types: ${TYPES.length}. Take the items away with: pnpm db:seed-demo -- --remove`);
   });
   await ownerPool.end();
 }
@@ -361,16 +437,29 @@ async function main() {
 type Tx = Parameters<Parameters<typeof ownerDb.transaction>[0]>[0];
 
 /**
- * The demonstration types and their parameters, made where they are missing. A type or a parameter
- * with the same name is reused as it is; one of another kind stops everything, rather than writing
- * a value it cannot hold.
+ * The demonstration types and their parameters, made where they are missing. A type or a parameter with the same name (under the
+ * same parent) is reused as it is, its category and everything else untouched; one of another kind stops everything, rather than
+ * writing a value it cannot hold. A type under another has the parameters of its parents too.
  */
 async function ensureTypes(tx: Tx, areaIds: Map<string, number>) {
-  const types = new Map<string, { id: number; params: Map<string, { id: number; kind: Kind; choices: string[] }> }>();
+  type Params = Map<string, { id: number; kind: Kind; choices: string[] }>;
+  const types = new Map<string, { id: number; params: Params; category: string | null }>();
+  const categories = new Map((await tx.select().from(category)).map((c) => [c.id, c.name]));
+  const categoryIds = new Map([...categories].map(([id, name]) => [name, id]));
   for (const t of TYPES) {
-    let [type] = await tx.select().from(itemType).where(sql`lower(${itemType.name}) = lower(${t.name})`);
-    type ??= (await tx.insert(itemType).values({ name: t.name, areaId: t.area === undefined ? null : areaIds.get(t.area)!, hazards: t.hazards }).returning())[0]!;
-    const params = new Map<string, { id: number; kind: Kind; choices: string[] }>();
+    const parent = t.parent === undefined ? null : types.get(t.parent);
+    if (t.parent !== undefined && !parent) throw new Error(`The type "${t.name}" is under "${t.parent}", which must come before it in the list`);
+    const parentId = parent?.id ?? null;
+    let [type] = await tx
+      .select()
+      .from(itemType)
+      .where(and(sql`lower(${itemType.name}) = lower(${t.name})`, sql`coalesce(${itemType.parentId}, 0) = ${parentId ?? 0}`));
+    if (!type) {
+      const categoryId = categoryIds.get(t.category);
+      if (categoryId === undefined) throw new Error(`The category "${t.category}" of the type "${t.name}" does not exist: add it in Settings`);
+      type = (await tx.insert(itemType).values({ name: t.name, parentId, categoryId, areaId: t.area === undefined ? null : areaIds.get(t.area)!, hazards: t.hazards }).returning())[0]!;
+    }
+    const params: Params = new Map(parent?.params);
     for (const p of t.params) {
       let [param] = await tx.select().from(itemTypeParam).where(and(eq(itemTypeParam.typeId, type.id), sql`lower(${itemTypeParam.name}) = lower(${p.name})`));
       if (!param) {
@@ -383,7 +472,7 @@ async function ensureTypes(tx: Tx, areaIds: Map<string, number>) {
       if (param!.kind !== p.kind) throw new Error(`The type "${type.name}" already has "${param!.name}" as ${param!.kind}, not ${p.kind}: rename one of them`);
       params.set(p.name, { id: param!.id, kind: param!.kind, choices: param!.choices });
     }
-    types.set(t.name, { id: type.id, params });
+    types.set(t.name, { id: type.id, params, category: type.categoryId === null ? null : (categories.get(type.categoryId) ?? null) });
   }
   return types;
 }

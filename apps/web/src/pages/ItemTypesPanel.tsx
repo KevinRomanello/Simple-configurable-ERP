@@ -1,9 +1,10 @@
-import { faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faSitemap, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { api } from "../api/client";
 import type { Area, ItemType, ParamKind, TypeParam } from "../api/types";
 import { Button, IconButton } from "../components/Button";
+import { TypeTree } from "../components/TypeTree";
 import { CommitInput } from "../components/CommitInput";
 import { DeleteButton, OrderButtons } from "../components/ListButtons";
 import { AddSection, DataTable, Field, FormPanel, Loading, Panel, type Column } from "../components/ui";
@@ -51,6 +52,8 @@ export function ItemTypesPanel({ categories }: { categories: BudgetCategory[] })
   const [open, setOpen] = useState<number | null>(null);
   /** The type a new sub-type is being made under. */
   const [under, setUnder] = useState<number | null>(null);
+  /** Whether the types are drawn as a tree above the table. */
+  const [tree, setTree] = useState(false);
   if (!types.data || !areas.data) return <Panel title="Item types"><Loading /></Panel>;
   // the derived area has no items and nobody is assigned to it
   const allAreas = areas.data.filter((a) => !a.derived);
@@ -125,6 +128,18 @@ export function ItemTypesPanel({ categories }: { categories: BudgetCategory[] })
         statistics by category and the optional fields of the form follow it. Changing it changes it for all the items of the type.
         {unlinked > 0 && <> <strong>{unlinked} {unlinked === 1 ? "type has" : "types have"} none yet</strong>: their items keep the category they have until you choose.</>}
       </p>
+      <div className="icon-row">
+        <Button variant="ghost" icon={faSitemap} aria-pressed={tree} onClick={() => setTree(!tree)}>{tree ? "Hide the tree" : "Show as a tree"}</Button>
+      </div>
+      {tree && (
+        <TypeTree
+          types={types.data}
+          openId={open}
+          onOpen={(id) => setOpen(open === id ? null : id)}
+          onAdd={(id) => setUnder(id)}
+          onMove={(id, parentId) => void act(() => api.updateType(id, { parentId }))}
+        />
+      )}
       {parentOfNew && <NewType key={parentOfNew.id} parent={parentOfNew} areas={allAreas} categories={categories} onDone={(id) => { setUnder(null); if (id !== null) setOpen(id); }} />}
       <DataTable title="Item types" columns={columns} rows={types.data} rowKey={(t) => t.id} empty="No types yet" />
       {opened && <ParamsPanel type={opened} types={types.data} />}

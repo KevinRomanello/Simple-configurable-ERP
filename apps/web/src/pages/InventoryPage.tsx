@@ -16,6 +16,7 @@ import { money, moneyE4, quantity } from "../lib/format";
 import { HAZARDS, useInventoryLookups } from "../lib/inventory";
 import { parseNumber, showValue, sortValue } from "../lib/params";
 import { usePrice } from "../lib/price";
+import { typeLevels } from "../lib/typeTree";
 import { SCREEN, useMaxWidth } from "../lib/screen";
 
 const PICTURE: Column<ItemRow> = { key: "picture", header: "", mobile: "hidden", cell: (r) => <ItemThumb id={r.id} hasImage={r.hasImage} name={r.name} /> };
@@ -129,6 +130,8 @@ export function InventoryPage() {
     if (type && next !== undefined && type.areaId !== null && type.areaId !== next) chooseType("");
   };
   const paramQuery = paramFilterQuery(type, params);
+  // the search by type is a menu for each level: the next one has only the types under what is chosen in the one before
+  const levels = typeLevels(lookups?.types ?? [], types, type ? type.id : null);
 
   const filters = {
     search: search.trim() || undefined, origin: origin || undefined, location: location || undefined,
@@ -203,9 +206,17 @@ export function InventoryPage() {
               <Field label="Area" className="fit">
                 <Chips label="Area" value={areaCode} onChange={chooseArea} options={[{ value: "", label: "All" }, ...areas.map((a) => ({ value: a.code, label: a.name }))]} />
               </Field>
-              <Field label="Type" htmlFor="inventory-type">
-                <SearchSelect id="inventory-type" value={type ? typeId : ""} onChange={chooseType} choices={[{ value: "", label: "All types" }, ...types.map((t) => ({ value: String(t.id), label: t.path }))]} />
-              </Field>
+              {levels.map((level, i) => (
+                <Field key={`${i}-${level.parent?.id ?? 0}`} label={level.parent ? `Kind of ${level.parent.name}` : "Type"} htmlFor={`inventory-type-${i}`}>
+                  <SearchSelect
+                    id={`inventory-type-${i}`}
+                    value={level.selected ? String(level.selected.id) : ""}
+                    // clearing a menu goes back to the type of the menu before it
+                    onChange={(id) => chooseType(id !== "" ? id : level.parent ? String(level.parent.id) : "")}
+                    choices={[{ value: "", label: level.parent ? `Any ${level.parent.name}` : "All types" }, ...level.options.map((t) => ({ value: String(t.id), label: t.name }))]}
+                  />
+                </Field>
+              ))}
             </div>
           )}
         </section>
