@@ -62,7 +62,7 @@ export function App() {
                 <Route path="inventory/components/:id" element={<ComponentPage />} />
                 <Route path="inventory/stats" element={<InventoryStatsPage />} />
                 <Route path="users" element={<UsersPage />} />
-                <Route path="settings" element={<SettingsPage />} />
+                <Route path="settings/:section?" element={<SettingsPage />} />
                 <Route path="history" element={<HistoryPage />} />
                 <Route path="*" element={<p className="empty">This page does not exist.</p>} />
               </Route>

@@ -2,18 +2,34 @@
 
 **Stato: fatto** (26 ottobre 2026; tipi dell'inventario il 4 novembre). Gli elenchi da cui le altre pagine scelgono e gli interruttori del calcolo erano scritti nel codice (gli «hardcode» della regola 4, [hardcoded-registry.md](hardcoded-registry.md)). Ora stanno nel database e li cambia l'**admin** dalla pagina **Admin → Settings**; gli elenchi con cui si scrive l'**inventario** (**categorie, unità, posti, tipi**) li cambiano anche i **pm** (nel sito «User»), perché senza non si può usare l'inventario (10 novembre 2026). Un cambiamento vale subito per tutte le pagine e finisce nella cronologia (History), come il resto.
 
-## 1. Cosa si imposta
+## 1. Come è ordinata la pagina (16 novembre 2026)
+
+La pagina non è più una colonna di undici riquadri: ha **quattro sezioni**, una alla volta, con le schede in cima e un **indirizzo** per ciascuna (`/settings/budget`, `/settings/inventory`, `/settings/register`, `/settings/appearance`). Ognuno vede **solo le schede che può usare**; `/settings` (o un indirizzo che non è suo) porta alla **prima sezione sua**.
+
+| Sezione | Riquadri, in ordine | Chi la vede |
+| --- | --- | --- |
+| **Budget** | Seasons and cars, Calculation, VAT rates | admin |
+| **Inventory** | Categories, Item types, Units, Places | admin e pm («User») |
+| **Register** | Register: Voci, Register: payment methods, Voce of a payment by budget category | admin e pm con la spunta **Treasury** |
+| **Appearance** | il tema chiaro o scuro; per gli **admin**, anche «Editing on a phone» (§2) | il tema a tutti, anche al viewer; l'interruttore agli admin |
+
+- Un **pm** vede Inventory (e Register con Treasury) più Appearance; un **viewer** vede solo Appearance, senza schede.
+- **Categories** sta in Inventory (ci lavorano i pm e i tipi ne dipendono) ma vale **anche per il budget**: i blocchi di TOTAL e del Gantt seguono il suo ordine, e il riquadro lo dice.
+- Le schede sono i pulsanti a pillola delle altre pagine, fatti come link (`NavLink` con la classe `chip`): su Figma non c'è un riferimento per Settings. Sul telefono vanno a capo, la pagina non scorre di lato.
+- Il codice: `lib/settingsSections.ts` (`settingsSections`, `currentSection`: puri, con le prove in `settingsSections.test.ts`) e `pages/SettingsPage.tsx`; l'indirizzo è la rotta `settings/:section?` di `App.tsx`. L'API e i permessi non cambiano.
+
+## 2. Cosa si imposta
 
 | Riquadro | Cosa | Regole |
 | --- | --- | --- |
-| **Register: Voci** e **Register: payment methods** (dopo Item types; gli admin e i pm con la spunta **Treasury**) | le Voci e i metodi di pagamento del registro di cassa, con il loro ordine; per ogni Voce «Sponsorship by default» | USED BY, ordine, nomi unici e niente cancellazione di ciò che è usato, come le categorie; rinominare non rovina niente (i movimenti tengono l'id). Tutto in [registro-di-cassa.md](registro-di-cassa.md) |
-| **Seasons and cars** (il primo) | le stagioni (1/9 – 31/8): date, la **macchina** di ognuna (si rinomina sul posto), **READ-ONLY**, quante righe ha il budget; **New season** con l'anno di settembre in cui parte e la macchina | una nuova stagione parte dalla più recente (stessi progetti vuoti, stessi sponsor senza soldi, un Team's fund suo); una stagione in sola lettura si guarda ma il suo budget non si cambia; le stagioni non si cancellano. Tutto in [stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md) |
+| **Register: Voci** e **Register: payment methods** (sezione **Register**; gli admin e i pm con la spunta **Treasury**) | le Voci e i metodi di pagamento del registro di cassa, con il loro ordine; per ogni Voce «Sponsorship by default» | USED BY, ordine, nomi unici e niente cancellazione di ciò che è usato, come le categorie; rinominare non rovina niente (i movimenti tengono l'id). Tutto in [registro-di-cassa.md](registro-di-cassa.md) |
+| **Seasons and cars** (sezione **Budget**, il primo) | le stagioni (1/9 – 31/8): date, la **macchina** di ognuna (si rinomina sul posto), **READ-ONLY**, quante righe ha il budget; **New season** con l'anno di settembre in cui parte e la macchina | una nuova stagione parte dalla più recente (stessi progetti vuoti, stessi sponsor senza soldi, un Team's fund suo); una stagione in sola lettura si guarda ma il suo budget non si cambia; le stagioni non si cancellano. Tutto in [stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md) |
 | **Calculation** | soglia degli scostamenti evidenziati in TOTAL (15%); IVA sugli inflow (11%); su cosa si calcola l'IVA quando uno sponsor copre tutta la riga (Q1); confronto con la data del BANK nel riepilogo di CASH FLOW e nel Gantt (Q2) | ogni voce ha accanto la sua **spiegazione** con un esempio; si salva con **Save** (Undo torna ai valori salvati) |
 | **Categories** | le categorie del budget e dell'inventario, il loro **ordine** (è quello dei blocchi di TOTAL e del Gantt: frecce ↑↓) e, per ognuna, quali campi facoltativi mostra un articolo (a cosa serve, codici di sicurezza, smaltimento, stoccaggio, manutenzione); in fondo, i campi degli articoli **senza categoria** | rinominare una categoria la rinomina su **tutte** le righe e gli articoli che la usano; una nuova categoria va in fondo e parte con i campi degli articoli senza categoria |
 | **VAT rates** | le aliquote che una riga, uno sponsor o un arrivo possono usare | al massimo due decimali, tra 0 e 100. **Non** decidono l'aliquota degli sponsor di merce: lo 0% della merce senza IVA e l'**11%** della merce con controfattura sono fissi ([sponsor-e-fondi.md](sponsor-e-fondi.md)) e valgono anche se quei valori non sono nell'elenco |
 | **Units** | come si conta un articolo (pcs, m, kg…) | rinominare un'unità la rinomina su tutti gli articoli contati con quella |
 | **Places** | dove si tengono le cose: una **stanza** e, se serve, uno **scaffale** e un **ripiano**, tutto testo libero (scaffale e ripiano sono facoltativi; un ripiano vuole uno scaffale), in un ordine. Nel modulo «New place», più ripiani separati da una virgola (`1, 2, 3, 4`) fanno un posto ciascuno, tutti o nessuno | ogni posto ha un **codice** che i movimenti del magazzino salvano: si fa dai nomi quando lo si crea e **non cambia più**, così rinominare un posto non rovina la sua storia |
-| **Item types** (dopo Categories) | i tipi dell'inventario (Resistor, Screw…), **in albero** (Add sub-type, UNDER per spostare; i parametri dei padri si vedono in sola lettura): nome, area, **categoria del budget** (obbligatoria; i tipi fatti prima la chiedono con «Choose…»), se chiedono infiammabile/tossico/cancerogeno; con **Parameters** si apre sotto la tabella il riquadro dei loro parametri (nome, genere, unità, prefissi k/M/µ, scelte di una lista, ordine); **New type** e **Add parameter** come gli altri inserimenti | tutte le regole in [inventario.md](inventario.md#19-aree-tipi-e-parametri): rinomina sempre, genere che non cambia se c'è qualcosa scritto, scelte usate che non si tolgono, tipo cancellabile solo senza articoli |
+| **Item types** (sezione **Inventory**, dopo Categories) | i tipi dell'inventario (Resistor, Screw…), **in albero** (Add sub-type, UNDER per spostare; i parametri dei padri si vedono in sola lettura): nome, area, **categoria del budget** (obbligatoria; i tipi fatti prima la chiedono con «Choose…»), se chiedono infiammabile/tossico/cancerogeno; con **Parameters** si apre sotto la tabella il riquadro dei loro parametri (nome, genere, unità, prefissi k/M/µ, scelte di una lista, ordine); **New type** e **Add parameter** come gli altri inserimenti | tutte le regole in [inventario.md](inventario.md#19-aree-tipi-e-parametri): rinomina sempre, genere che non cambia se c'è qualcosa scritto, scelte usate che non si tolgono, tipo cancellabile solo senza articoli |
 
 Regole comuni:
 
@@ -21,6 +37,16 @@ Regole comuni:
 - **Nomi unici** senza badare alle maiuscole (`409` se esiste già).
 - **L'admin** legge e scrive tutta la pagina. **I pm** (`canManageInventory`, come il resto dell'inventario) leggono `GET /api/settings` e cambiano **Categories** (con i loro campi e l'ordine), **Units**, **Places** e **Item types**; restano **solo dell'admin** i **switch del calcolo** (Calculation), le **aliquote IVA** (VAT rates) e le **stagioni** (Seasons and cars): per loro il server risponde `403`. Una categoria serve anche al budget (i blocchi di TOTAL e del Gantt): chi la aggiunge o la rinomina cambia anche quelle pagine, e una categoria in uso non si cancella. **Le liste del registro**, che sono anche dei **pm con la spunta Treasury** (`canManageCash`). Il menù mostra Settings **a ogni ruolo**; ognuno vede solo i suoi riquadri. **Il riquadro «Appearance» (tema chiaro, scuro o come il dispositivo) è di tutti, anche del viewer**, che per il resto vede la pagina vuota: non passa dall'API e la scelta resta nel browser ([stile-interfaccia.md](stile-interfaccia.md), punto 14).
 - Le priorità (High, Medium, Low) **non** sono qui: sono fisse per scelta (i colori del foglio).
+
+### Modificare dal telefono: «Editing on a phone» (16 novembre 2026)
+
+Dal telefono è facile toccare qualcosa per sbaglio. Un **interruttore degli admin, uguale per tutta la squadra** (Settings › Appearance, riquadro «Editing on a phone», **On** / **Off**), decide se dal telefono si può modificare il sito.
+
+- **On** (di partenza): non cambia niente. **Off**: su uno **schermo fino a 767 px** (la soglia del layout «telefono») il sito è **di sola lettura per tutti, admin compresi**. Spariscono i pulsanti «Add…», le caselle modificabili, i cestini, Undo, «Make new», arrivi, usi, pagamenti e i comandi di Settings e Users; restano la ricerca, i filtri, le schede, i download, la cronologia e il tema. Su computer e tablet non cambia niente.
+- **Come:** il valore è `setting.edit_on_phone` (migrazione `0030_edit_on_phone.sql`, di partenza vero), lo cambia `PATCH /api/settings/site` `{ editOnPhone }` (solo admin: `403` a pm, tesoriere e viewer; nello storico come gli altri interruttori) e arriva a tutti dentro `GET /api/me` (`editOnPhone`: il viewer non può leggere `/api/settings`). Nel sito `useMe()` (`lib/auth.tsx`), con l'interruttore spento e un telefono, restituisce la persona **senza i permessi di scrittura** (`lockEditing`, `lib/permissions.ts`): le pagine non sanno niente, perché decidono già cosa mostrare da lì, e `canEditArea` dice no. Sul telefono compare l'etichetta **«Read only»** nella barra in alto, e Users e Settings dicono perché sono chiuse.
+- **Non è una protezione:** il server non sa che schermo hai, e ciò che il tuo ruolo permette resta com'è. È una guardia contro i tocchi sbagliati, non contro chi vuole scrivere.
+- **Un admin che lo spegne e apre il sito dal telefono non può riaccenderlo da lì** (per lui il telefono è in sola lettura): lo riaccende da un computer.
+- **Prove:** API (`settings.routes.test.ts`: di partenza acceso, tutti lo sanno anche il viewer, solo l'admin lo cambia, valori che non sono sì o no rifiutati, nello storico) e sito (`permissions.test.ts`: solo su un telefono e solo se spento, tolti tutti i permessi di scrittura anche all'admin e lasciata la lettura, la persona originale non cambia).
 
 ### La scelta «IVA quando uno sponsor copre tutta la riga»
 
@@ -33,7 +59,7 @@ Regole comuni:
 
 Cambiarla cambia subito tutte le righe pagate da uno sponsor così. La pagina lo spiega accanto alla tendina.
 
-## 2. Come è fatto
+## 3. Come è fatto
 
 | Cosa | Dove |
 | --- | --- |
@@ -41,7 +67,7 @@ Cambiarla cambia subito tutte le righe pagate da uno sponsor così. La pagina lo
 | valori di partenza | `apps/api/src/modules/lookups/defaults.ts` (`LOOKUP_DEFAULTS`): gli stessi della migrazione. Li usano i test (ogni test riparte da lì) e la riconciliazione col foglio |
 | lettura | le stesse funzioni di prima (`listCategories`, `listVatRates`, `getSettings`, `listLocations`, `listUnits`, `getCategoryFields` in `lookups.service.ts`): è cambiato **solo il loro corpo**, che ora legge il database (regola 4). Chi le chiamava non è cambiato |
 | scrittura | `apps/api/src/modules/settings/` (servizio e rotte), solo admin |
-| pagina | `apps/web/src/pages/SettingsPage.tsx`, fatta con i modelli dell'interfaccia ([stile-interfaccia.md](stile-interfaccia.md)); non c'è un riferimento Figma, come per Users e History |
+| pagina | `apps/web/src/pages/SettingsPage.tsx` (una sezione alla volta, §1), fatta con i modelli dell'interfaccia ([stile-interfaccia.md](stile-interfaccia.md)); non c'è un riferimento Figma, come per Users e History |
 | permesso | `canManageSettings` in `permissionsOf` (`auth.service.ts`) |
 
 **API** (con login; admin, e i pm per le liste dell'inventario: categorie, unità, posti; il calcolo e le aliquote IVA solo admin):

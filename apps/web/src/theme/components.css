@@ -813,6 +813,10 @@
   cursor: pointer;
   font-size: 13px;
 }
+/* a pill that is a link (the tabs of Settings) looks like the pills that are buttons */
+a.chip {
+  text-decoration: none;
+}
 .chip.on {
   background: var(--primary-default);
   border-color: var(--primary-default);

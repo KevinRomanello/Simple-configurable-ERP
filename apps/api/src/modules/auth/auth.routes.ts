@@ -5,6 +5,7 @@ import type { AuthConfig } from "../../core/auth-config";
 import { AppError, notFound } from "../../core/errors";
 import { loadUser, loginWithIdentity } from "../users/users.service";
 import { userStorage } from "./auth.context";
+import { getEditOnPhone } from "../lookups/lookups.service";
 import { getCurrentUser, permissionsOf, type User } from "./auth.service";
 import { newLoginAttempt, type GoogleClient } from "./google";
 import { emailFromHeader, nameFromEmail } from "./proxy";
@@ -162,6 +163,6 @@ export async function authRoutes(app: FastifyInstance, { config, google }: AuthO
 
   app.get("/me", async () => {
     const user = await getCurrentUser();
-    return { ...user, permissions: permissionsOf(user) };
+    return { ...user, permissions: permissionsOf(user), editOnPhone: await getEditOnPhone() };
   });
 }

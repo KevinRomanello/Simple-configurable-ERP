@@ -19,6 +19,7 @@ import {
   updateCalculation,
   updateCategory,
   updateLocation,
+  updateSite,
 } from "./settings.service";
 
 // The Settings page (the service checks who: docs/impostazioni.md).
@@ -87,6 +88,11 @@ export async function settingsRoutes(app: FastifyInstance) {
   });
   app.put("/settings/locations/order", async (request, reply) => {
     await orderLocations(order.parse(request.body).ids);
+    return reply.code(204).send();
+  });
+
+  app.patch("/settings/site", async (request, reply) => {
+    await updateSite(z.object({ editOnPhone: z.boolean() }).parse(request.body));
     return reply.code(204).send();
   });
 

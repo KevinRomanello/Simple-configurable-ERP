@@ -440,6 +440,7 @@ erDiagram
     numeric inflow_vat_rate
     text bank_compare_summary
     text bank_compare_timeline
+    boolean edit_on_phone "se dal telefono si può modificare"
   }
 
   app_user ||--o{ user_area : "aree del pm"

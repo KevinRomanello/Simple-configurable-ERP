@@ -401,7 +401,7 @@ export const location = pgTable(
   (t) => [uniqueIndex("location_room_shelf_level_uq").on(sql`lower(${t.room})`, sql`lower(${t.shelf})`, sql`lower(${t.level})`)],
 );
 
-/** The switches of the calculation: one row. */
+/** The switches of the calculation and of the site: one row. */
 export const setting = pgTable(
   "setting",
   {
@@ -415,6 +415,8 @@ export const setting = pgTable(
     /** How dates are compared with the BANK date: in the CASH FLOW summary and in the Gantt (question Q2). */
     bankCompareSummary: text().notNull(),
     bankCompareTimeline: text().notNull(),
+    /** Whether the site can be changed from a phone. Off: on a phone everybody sees it read-only (a guard against stray taps, not a permission). */
+    editOnPhone: boolean().notNull().default(true),
   },
   (t) => [
     check("setting_one_row", sql`${t.id} = 1`),

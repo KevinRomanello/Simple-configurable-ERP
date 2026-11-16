@@ -229,6 +229,8 @@ export const api = {
   updateLocation: (id: number, body: { room?: string; shelf?: string; level?: string }) => patch<void>(`/settings/locations/${id}`, body),
   deleteLocation: (id: number) => del(`/settings/locations/${id}`),
   orderLocations: (ids: number[]) => put<void>("/settings/locations/order", { ids }),
+  /** The admin's switch: whether the site can be changed from a phone. */
+  updateSite: (body: { editOnPhone: boolean }) => patch<void>("/settings/site", body),
   updateCalculation: (body: Partial<Omit<Calculation, "bankCompare">> & { bankCompare?: Partial<Calculation["bankCompare"]> }) =>
     patch<void>("/settings/calculation", body),
 

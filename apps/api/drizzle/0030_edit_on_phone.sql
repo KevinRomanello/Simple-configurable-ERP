@@ -1,0 +1,1 @@
+ALTER TABLE "setting" ADD COLUMN "edit_on_phone" boolean DEFAULT true NOT NULL;

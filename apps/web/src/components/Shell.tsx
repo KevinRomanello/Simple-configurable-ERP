@@ -165,6 +165,7 @@ export function Shell() {
       {compact && (
         <header className="topbar">
           {brand(false)}
+          {me.readOnly && <span className="pill teal" title="An admin turned editing off on phones: the site can be looked at, not changed. Use a computer to change it.">Read only</span>}
           <button type="button" className="icon-btn burger" aria-label="Show the menu" aria-expanded={menuShown} aria-controls="sidebar" onClick={() => setMenuShown(true)}>
             <FontAwesomeIcon icon={faBars} />
           </button>

@@ -69,7 +69,7 @@ Ruolo, aree e stato "attivo" si **rileggono dal database a ogni richiesta** (una
 - **Intestazioni di sicurezza e niente cache** (`core/security.ts`, `@fastify/helmet`): CSP `default-src 'none'` e `frame-ancestors 'none'` (l'API risponde solo JSON o redirect), `nosniff`, `X-Frame-Options`, `Referrer-Policy`, HSTS; `Cache-Control: no-store` su ogni risposta.
 - **Limite di richieste** per indirizzo (`@fastify/rate-limit`, in memoria): 1.200 al minuto su tutta l'API e **10 al minuto** sulle rotte di accesso (`login`, `callback`, `dev-login`, con contatore a parte); `/api/health` escluso. Superato: **429**. Dietro un proxy tutti arrivano con l'indirizzo del proxy: con `TRUST_PROXY=true` si usa `X-Forwarded-For`, **solo se l'API è raggiungibile unicamente dal proxy** (altrimenti l'intestazione si può inventare e il limite si aggira; un test lo prova).
 - **Utente del database dell'API limitato** (vedi §8.2): chi ruba le credenziali dell'API non può cambiare la struttura né riscrivere lo storico.
-- Il sito: `GET /api/me` dice chi sei e cosa puoi fare (`permissions`); se risponde 401 mostra la pagina di accesso. Un 401 in qualunque momento (token scaduto, persona disattivata) riporta lì.
+- Il sito: `GET /api/me` dice chi sei e cosa puoi fare (`permissions`) e se dal telefono si può modificare (`editOnPhone`, l'interruttore degli admin: [impostazioni.md](impostazioni.md), §2); se risponde 401 mostra la pagina di accesso. Un 401 in qualunque momento (token scaduto, persona disattivata) riporta lì.
 
 ## 4. Sviluppo senza Google
 

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Navigate, NavLink, useParams } from "react-router";
 import { api } from "../api/client";
 import type { BankCompare, Calculation, ItemField, SettingsView } from "../api/types";
 import { Button } from "../components/Button";
@@ -10,6 +11,7 @@ import { QuickAdd, usedBy } from "../components/QuickAdd";
 import { AddSection, DataTable, Field, FormPanel, Loading, Message, PageHeader, Panel, type Column } from "../components/ui";
 import { useMe } from "../lib/auth";
 import { FIELD_LABELS } from "../lib/inventory";
+import { currentSection, SECTION_LABELS, settingsSections } from "../lib/settingsSections";
 import { useTheme, type ThemeChoice } from "../lib/theme";
 import { useAction } from "../lib/useAction";
 import { CashListsPanel } from "./CashListsPanel";
@@ -19,64 +21,66 @@ import { SeasonsPanel } from "./SeasonsPanel";
 const FIELDS: ItemField[] = ["purpose", "safetyCodes", "disposal", "storageNotes", "maintenanceNotes"];
 
 /**
- * Settings: the switches of the calculation, the VAT rates and the seasons (admins), and the lists the
- * inventory is written with: categories, units, places and the types of the items (admins and users, who
- * see only those; the treasury also sees the lists of the register). They used to be written in the
- * code. A change applies at once to every page and goes into the history.
- * Not designed in Figma: built from the models of the interface. docs/impostazioni.md
+ * Settings, a section at a time (docs/impostazioni.md): the budget (seasons, the switches of the calculation, VAT rates; admins),
+ * the inventory (categories, types, units, places; admins and users), the register of the treasury (the Voci and the payment
+ * methods; admins and users with the treasury box) and how the site looks (everyone). Each section has its address
+ * (`/settings/budget`…), and a person sees only the sections they can use. A change applies at once to every page and goes
+ * into the history. Not designed in Figma: built from the models of the interface (the pills of the other pages as tabs).
  */
 export function SettingsPage() {
-  const { canManageSettings, canManageInventory, canManageCash } = useMe().permissions;
+  const me = useMe();
+  const { canManageSettings, canManageInventory, canManageCash } = me.permissions;
   const view = useQuery({ queryKey: ["settings"], queryFn: api.settings, enabled: canManageSettings || canManageInventory });
+  const allowed = settingsSections({ canManageSettings, canManageInventory, canManageCash });
+  const asked = useParams().section;
+  const section = currentSection(allowed, asked);
 
-  // anyone can choose how the site looks; the lists are for the ones who keep them
-  if (!canManageSettings && !canManageInventory && !canManageCash) {
-    return (
-      <>
-        <PageHeader title="Settings" description="How the site looks for you. The other settings are kept by an admin, a user or the treasury." />
-        <AppearancePanel />
-      </>
-    );
-  }
-  if (!view.data && canManageInventory) return <Loading />;
-  if (!canManageSettings) {
-    // a user: the lists the inventory is written with (and, with the treasury box, those of the register)
-    const data = view.data!;
-    return (
-      <>
-        <PageHeader
-          title="Settings"
-          description={`How the site looks for you, and the categories, units, places and types of the inventory${canManageCash ? ", and the Voci and the payment methods of the register" : ""}. The other settings are kept by an admin.`}
-        />
-        <AppearancePanel />
-        <CategoriesPanel data={data} />
-        <ItemTypesPanel categories={data.categories} />
-        {canManageCash && <CashListsPanel />}
-        <UnitsPanel units={data.units} />
-        <LocationsPanel locations={data.locations} />
-      </>
-    );
-  }
-  if (!view.data) return <Loading />;
-  const data = view.data;
+  // an address that is not one of the person's sections goes to the first of them (a viewer has one only: no tabs, no redirect)
+  if (allowed.length > 1 && asked !== section) return <Navigate to={`/settings/${section}`} replace />;
+  const needsLists = section === "budget" || section === "inventory";
+  if (needsLists && !view.data) return <Loading />;
 
   return (
     <>
       <PageHeader
         title="Settings"
-        description="How the site looks for you, the lists the other pages choose from and the switches of the calculation. A change of the lists applies at once to every page and goes into the History. Something in use cannot be deleted."
+        description={
+          allowed.length === 1
+            ? me.readOnly
+              ? "How the site looks for you. Editing is turned off on phones: use a computer for the other settings."
+              : "How the site looks for you. The other settings are kept by an admin, a user or the treasury."
+            : "How the site looks, and the lists and switches the other pages work from. A change applies at once to every page and goes into the History. Something in use cannot be deleted."
+        }
       />
-      <AppearancePanel />
-      <SeasonsPanel />
-      <CalculationPanel calculation={data.calculation} />
-      <CategoriesPanel data={data} />
-      <ItemTypesPanel categories={data.categories} />
-      <CashListsPanel />
-      <div className="two-columns">
-        <VatRatesPanel rates={data.vatRates} />
-        <UnitsPanel units={data.units} />
-      </div>
-      <LocationsPanel locations={data.locations} />
+      {allowed.length > 1 && (
+        <nav className="toggle-row" aria-label="Sections of the settings">
+          {allowed.map((key) => (
+            <NavLink key={key} to={`/settings/${key}`} className={({ isActive }) => `chip${isActive ? " on" : ""}`}>{SECTION_LABELS[key]}</NavLink>
+          ))}
+        </nav>
+      )}
+      {section === "budget" && view.data && (
+        <>
+          <SeasonsPanel />
+          <CalculationPanel calculation={view.data.calculation} />
+          <VatRatesPanel rates={view.data.vatRates} />
+        </>
+      )}
+      {section === "inventory" && view.data && (
+        <>
+          <CategoriesPanel data={view.data} />
+          <ItemTypesPanel categories={view.data.categories} />
+          <UnitsPanel units={view.data.units} />
+          <LocationsPanel locations={view.data.locations} />
+        </>
+      )}
+      {section === "register" && <CashListsPanel />}
+      {section === "appearance" && (
+        <>
+          <AppearancePanel />
+          {canManageSettings && <PhonePanel />}
+        </>
+      )}
     </>
   );
 }
@@ -99,6 +103,27 @@ function AppearancePanel() {
         on another computer or phone you choose again.
       </p>
       <Chips label="Theme" options={THEMES} value={theme} onChange={setTheme} />
+    </Panel>
+  );
+}
+
+/** Whether the site can be changed from a phone: the admins' switch for everybody (on a phone it is read-only when off). */
+function PhonePanel() {
+  const act = useAction();
+  const { editOnPhone } = useMe();
+  return (
+    <Panel title="Editing on a phone">
+      <p className="muted">
+        On a phone it is easy to touch something by mistake. When this is <strong>Off</strong>, the site is read-only for everybody on a phone (a screen up to 767 px wide): they can look, search
+        and download, but there are no buttons to add, change or delete. Computers and tablets are not affected. It is not a lock: it only hides the commands, and what someone is
+        allowed to do stays as it is. To turn it on again, use a computer.
+      </p>
+      <Chips
+        label="Editing on a phone"
+        options={[{ value: "on", label: "On" }, { value: "off", label: "Off" }]}
+        value={editOnPhone ? "on" : "off"}
+        onChange={(value) => void act(() => api.updateSite({ editOnPhone: value === "on" }))}
+      />
     </Panel>
   );
 }

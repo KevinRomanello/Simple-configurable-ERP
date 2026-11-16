@@ -23,7 +23,7 @@ export function UsersPage() {
   const users = useQuery({ queryKey: ["users"], queryFn: api.users, enabled: allowed });
   const areas = useQuery({ queryKey: ["areas"], queryFn: api.areas });
 
-  if (!allowed) return <Message>Only an admin can manage users.</Message>;
+  if (!allowed) return <Message>{me.readOnly ? "Editing is turned off on phones: use a computer to manage users." : "Only an admin can manage users."}</Message>;
 
   const change = (user: UserRow, body: Parameters<typeof api.updateUser>[1]) => act(() => api.updateUser(user.id, body));
   const toggleArea = (user: UserRow, areaId: number, on: boolean) =>

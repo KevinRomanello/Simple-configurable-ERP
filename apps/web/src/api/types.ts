@@ -196,6 +196,10 @@ export interface Me {
   /** The areas a `pm` may change. */
   areaIds: number[];
   permissions: Permissions;
+  /** The switch of the admins: whether the site can be changed from a phone. */
+  editOnPhone: boolean;
+  /** Set by the interface, not the server: this screen shows the site read-only (`lockEditing`). */
+  readOnly?: boolean;
 }
 
 /** GET /api/auth/config: which ways of signing in this server offers. */

@@ -1,16 +1,22 @@
 import { useQuery, type QueryClient } from "@tanstack/react-query";
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { api, ApiError } from "../api/client";
 import type { Me } from "../api/types";
 import { LoginPage } from "../pages/LoginPage";
+import { isReadOnlyHere, lockEditing } from "./permissions";
+import { SCREEN, useMaxWidth } from "./screen";
 
 const MeContext = createContext<Me | null>(null);
 
-/** The signed-in person. Only usable inside <AuthGate>, which shows the sign-in page otherwise. */
+/**
+ * The signed-in person. Only usable inside <AuthGate>, which shows the sign-in page otherwise. On a phone, when an admin turned
+ * editing off, it is the person without the right to change anything: every page shows the site read-only (docs/impostazioni.md).
+ */
 export function useMe(): Me {
   const me = useContext(MeContext);
   if (!me) throw new Error("useMe() outside of <AuthGate>");
-  return me;
+  const locked = isReadOnlyHere(me, useMaxWidth(SCREEN.phone));
+  return useMemo(() => (locked ? lockEditing(me) : me), [me, locked]);
 }
 
 /** Forgets the signed-in person: the gate then shows the sign-in page. */

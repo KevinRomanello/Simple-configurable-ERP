@@ -254,6 +254,35 @@ describe("the switches of the calculation", () => {
   });
 });
 
+describe("editing from a phone", () => {
+  const asked = async (person?: Person) => (await (person ? api.as(person) : api).get("/api/me")).body.editOnPhone;
+
+  it("is allowed until an admin says it is not, and everybody is told, whoever they are", async () => {
+    expect(await asked()).toBe(true);
+    expect((await api.patch("/api/settings/site", { editOnPhone: false })).status).toBe(204);
+    expect(await asked()).toBe(false);
+    expect(await asked(pm)).toBe(false);
+    expect(await asked(viewer)).toBe(false); // a viewer cannot read /api/settings: the answer comes with who they are
+    expect((await api.patch("/api/settings/site", { editOnPhone: true })).status).toBe(204);
+    expect(await asked(viewer)).toBe(true);
+  });
+
+  it("is the admin's alone: a user, a viewer and the treasury get 403 and nothing changes", async () => {
+    for (const person of [pm, viewer, { email: "treasury@team.test", role: "pm" as const, treasury: true }]) {
+      expect((await api.as(person).patch("/api/settings/site", { editOnPhone: false })).status).toBe(403);
+    }
+    expect(await asked()).toBe(true);
+  });
+
+  it("refuses what is not a yes or a no, and is in the history like the other switches", async () => {
+    expect((await api.patch("/api/settings/site", { editOnPhone: "no" })).status).toBe(400);
+    expect((await api.patch("/api/settings/site", {})).status).toBe(400);
+    await api.patch("/api/settings/site", { editOnPhone: false });
+    const entries = (await api.get("/api/audit")).body.entries as { table: string; action: string; label: string }[];
+    expect(entries.some((e) => e.table === "setting" && e.action === "update" && e.label === "settings")).toBe(true);
+  });
+});
+
 describe("history", () => {
   it("records every change with who made it", async () => {
     await api.post("/api/settings/categories", { name: "Tools" });

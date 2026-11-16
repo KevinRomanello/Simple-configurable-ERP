@@ -310,6 +310,14 @@ export interface CalculationInput {
   bankCompare?: { summary?: "day" | "month"; timeline?: "day" | "month" };
 }
 
+/** Lets the site be changed from a phone, or not (on a phone everybody sees it read-only): admins only. */
+export async function updateSite(input: { editOnPhone: boolean }) {
+  const actor = await asAdmin();
+  await runWrite(actor, async (tx) => {
+    await tx.update(setting).set({ editOnPhone: input.editOnPhone }).where(eq(setting.id, 1));
+  });
+}
+
 /** Changes the switches of the calculation; what is left out stays as it is. Every page uses them at once. */
 export async function updateCalculation(input: CalculationInput) {
   const actor = await asAdmin();

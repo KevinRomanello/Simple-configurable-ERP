@@ -211,6 +211,13 @@
       "when": 1794836663941,
       "tag": "0029_drop_make_from",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794838400838,
+      "tag": "0030_edit_on_phone",
+      "breakpoints": true
     }
   ]
 }

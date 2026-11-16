@@ -174,6 +174,13 @@ export async function getSettings(): Promise<Settings> {
   };
 }
 
+/** Whether the site can be changed from a phone: an admin switch of the Settings page (everybody reads it, with who they are). */
+export async function getEditOnPhone(): Promise<boolean> {
+  const [row] = await db.select({ editOnPhone: setting.editOnPhone }).from(setting);
+  if (!row) throw new Error("The settings are missing: run the migrations (pnpm db:migrate)");
+  return row.editOnPhone;
+}
+
 /**
  * The lookups of the old sheet, whatever an admin changed since: what the reconciliation with the
  * sheet compares with. No database needed.
