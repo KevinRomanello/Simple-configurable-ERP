@@ -1,4 +1,4 @@
-import { buildNeeds, builtPricesE4, computeLines, costContext, linePricesE4, pendingLines, roundDiv, stockRows, type UnitPricesE4 } from "@erp/calc";
+import { buildNeeds, builtPricesE4, computeLines, costContext, linePricesE4, pendingLines, roundDiv, stockRows, takeFromShelf, type Take, type UnitPricesE4 } from "@erp/calc";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { z } from "zod";
 import { conflict, invalid, notFound } from "../../core/errors";
@@ -177,15 +177,16 @@ export async function addMovement(input: z.infer<typeof movementInput>) {
 // --- what the team makes ---------------------------------------------------------------------------
 
 /**
- * Records that the team made `quantity` pieces of a made item: the parts leave the shelf (as uses, from
- * the place given, spot by spot) and the pieces arrive with their cost frozen. The cost is that of
+ * Records that the team made `quantity` pieces of a made item: the parts leave the shelf (as uses: from every place, the
+ * one with the most first, or from the place `takeFrom` names for a part; spot by spot) and the pieces arrive with their cost frozen. The cost is that of
  * the parts as they are worth on the shelf that day (what they were bought or built for), so the
  * pieces already made keep theirs when a part gets dearer: only the next build uses the new price.
  */
 export async function build(input: z.infer<typeof buildInput>) {
   const actor = await assertCanManageInventory();
-  await assertLocation(input.fromLocation);
   await assertLocation(input.toLocation);
+  const sources = new Map(Object.entries(input.takeFrom).map(([partId, code]) => [Number(partId), code]));
+  for (const code of new Set(sources.values())) await assertLocation(code);
   const quantityMilli = toScaled(input.quantity, 3);
   if (quantityMilli <= 0) throw invalid("The quantity must be above zero");
 
@@ -208,25 +209,20 @@ export async function build(input: z.infer<typeof buildInput>) {
     const data = await loadInventory(tx);
     const names = new Map(data.items.map((i) => [i.id, i]));
     const stock = stockRows(data.movements);
-    const takes: { itemId: number; spot: string; quantityMilli: number }[] = [];
+    const takes: (Take & { itemId: number })[] = [];
     const short: string[] = [];
+    const places = await listLocations();
     for (const need of buildNeeds(data.parts.filter((p) => p.componentId === made.id), quantityMilli)) {
-      let left = need.quantityMilli;
-      for (const row of stock.filter((r) => r.itemId === need.partId && r.location === input.fromLocation && r.quantityMilli > 0)) {
-        const take = Math.min(left, row.quantityMilli);
-        takes.push({ itemId: need.partId, spot: row.spot, quantityMilli: take });
-        left -= take;
-        if (left === 0) break;
-      }
-      if (left > 0) {
+      const place = sources.get(need.partId);
+      const taken = takeFromShelf(stock.filter((r) => r.itemId === need.partId), need.quantityMilli, place);
+      takes.push(...taken.takes.map((t) => ({ itemId: need.partId, ...t })));
+      if (taken.missingMilli > 0) {
         const part = names.get(need.partId)!;
-        short.push(`${fromScaled(need.quantityMilli, 3)} ${part.unit} of "${part.name}" (${fromScaled(need.quantityMilli - left, 3)} there)`);
+        const where = place ? ` at ${places.find((l) => l.code === place)?.label ?? place}` : "";
+        short.push(`${fromScaled(need.quantityMilli, 3)} ${part.unit} of "${part.name}" (${fromScaled(need.quantityMilli - taken.missingMilli, 3)} there${where})`);
       }
     }
-    if (short.length > 0) {
-      const place = (await listLocations()).find((l) => l.code === input.fromLocation)?.label ?? input.fromLocation;
-      throw conflict(`Not enough at ${place}: it takes ${short.join(", ")}`);
-    }
+    if (short.length > 0) throw conflict(`Not enough on the shelf: it takes ${short.join(", ")}`);
 
     const contexts = { net: costContext(data, "net"), gross: costContext(data, "gross"), team: costContext(data, "team") };
     const { prices, unpriced } = builtPricesE4(made.id, contexts, input.method, input.builtOn);
@@ -256,7 +252,7 @@ export async function build(input: z.infer<typeof buildInput>) {
       await tx.insert(stockMovement).values(
         takes.map((t) => ({
           itemId: t.itemId, kind: "use" as const, occurredOn: input.builtOn, quantity: fromScaled(t.quantityMilli, 3),
-          location: input.fromLocation, spot: t.spot, projectId: input.projectId, builtBy: movement!.id, note,
+          location: t.location, spot: t.spot, projectId: input.projectId, builtBy: movement!.id, note,
         })),
       );
     }

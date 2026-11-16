@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CategoryFields, InventoryItem, ItemType } from "../api/types";
-import { categoryOf, draftBody, draftOf, emptyDraft, paramErrors, visibleFields } from "./inventory";
+import { categoryOf, draftBody, draftOf, emptyDraft, emptyMakeDefaults, makeDefaultsBody, makeDefaultsOf, missingText, paramErrors, takesText, visibleFields } from "./inventory";
 
 const fields: CategoryFields = {
   fallback: ["purpose", "storageNotes"],
@@ -73,6 +73,7 @@ describe("draftOf", () => {
   const item = {
     id: 1, code: null, name: "Gloves", purpose: null, category: "Consumable", areaId: null, typeId: null, unit: "pcs", origin: "bought",
     safetyCodes: null, disposal: "General waste", storageNotes: null, maintenanceNotes: null, imageUpdatedAt: null, flammable: false, toxic: false, carcinogenic: false,
+    makeProjectId: null, makeTo: null, makeToSpot: "",
   } satisfies InventoryItem;
 
   it("makes a draft from an item, with empty texts for what is not there", () => {
@@ -120,5 +121,30 @@ describe("a type under another", () => {
     expect(draftBody(draft, { fields, types: [opamp] }).params).toEqual([{ paramId: 20, value: "SOIC-8" }, { paramId: 21, value: "wide" }]);
     const item = { id: 1, name: "LM358", code: null, category: null, areaId: null, typeId: 21, unit: "pcs", purpose: null, safetyCodes: null, disposal: null, storageNotes: null, maintenanceNotes: null, flammable: false, toxic: false, carcinogenic: false, origin: "bought" } as unknown as InventoryItem;
     expect(draftOf(item, { 20: "SOIC-8", 21: "wide" }, [opamp]).values).toEqual({ 20: "SOIC-8", 21: "wide" });
+  });
+});
+
+describe("what «Make new» starts from", () => {
+  it("reads it from the item as typed, and sends nothing for an empty choice", () => {
+    const item = { makeProjectId: 4, makeTo: null, makeToSpot: "Box 1" };
+    expect(makeDefaultsOf(item)).toEqual({ projectId: "4", to: "", spot: "Box 1" });
+    expect(makeDefaultsBody(makeDefaultsOf(item))).toEqual({ makeProjectId: 4, makeTo: null, makeToSpot: "Box 1" });
+    expect(makeDefaultsBody({ ...emptyMakeDefaults(), spot: "  " })).toEqual({ makeProjectId: null, makeTo: null, makeToSpot: "" });
+  });
+});
+
+describe("missingText", () => {
+  it("says what is short with its unit, decimals as they are", () => {
+    expect(missingText([{ name: "Plate", unit: "pcs", missingMilli: 5000 }, { name: "Foam", unit: "m", missingMilli: 1 }])).toBe("Plate 5, Foam 0,001 m");
+    expect(missingText([])).toBe("");
+  });
+});
+
+describe("takesText", () => {
+  const name = (code: string) => `Room ${code}`;
+  it("says where a part comes from, a place once with the spots added up, in the order given", () => {
+    const takes = [{ location: "3", spot: "A", quantityMilli: 100_000 }, { location: "3", spot: "B", quantityMilli: 5_500 }, { location: "2", spot: "", quantityMilli: 31_500 }];
+    expect(takesText(takes, "m", name)).toBe("Room 3 105,5 m · Room 2 31,5 m");
+    expect(takesText([], "m", name)).toBe("");
   });
 });

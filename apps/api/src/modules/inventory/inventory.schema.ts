@@ -38,6 +38,10 @@ const itemFields = {
   flammable: z.boolean(),
   toxic: z.boolean(),
   carcinogenic: z.boolean(),
+  /** Only an item made by the team: what «Make new» starts from (the project, the place the parts come from, where the pieces go). */
+  makeProjectId: id.nullable(),
+  makeTo: lookupCode.nullable(),
+  makeToSpot: shortText(100).or(z.literal("")),
 };
 
 export const createItemInput = z.object({
@@ -56,6 +60,9 @@ export const createItemInput = z.object({
   flammable: itemFields.flammable.default(false),
   toxic: itemFields.toxic.default(false),
   carcinogenic: itemFields.carcinogenic.default(false),
+  makeProjectId: itemFields.makeProjectId.default(null),
+  makeTo: itemFields.makeTo.default(null),
+  makeToSpot: itemFields.makeToSpot.default(""),
   /** "made" items have a bill of materials; the origin cannot be changed afterwards. */
   origin: z.enum(["bought", "made"]).default("bought"),
 });
@@ -79,6 +86,24 @@ export const priceQuery = z.object({
   on: isoDate.optional(),
 });
 export type PriceQuery = z.infer<typeof priceQuery>;
+
+/** The components: found by name, by area (its code), by type (and the types under it) or by the project they are made for. */
+export const componentsQuery = priceQuery.extend({
+  search: shortText().optional(),
+  area: lookupCode.optional(),
+  type: id.optional(),
+  project: id.optional(),
+});
+export type ComponentsQuery = z.infer<typeof componentsQuery>;
+
+/** What it takes to make `quantity` of one (1 when not given): against the shelf of every place, a part taken from one only when `from` says so. */
+export const planQuery = z.object({
+  quantity: quantity.default("1"),
+  /** `from=12:s1-r3`, once for each part that is taken from one place only (the part id, then the place). */
+  from: z
+    .preprocess((v) => (v === undefined ? [] : Array.isArray(v) ? v : [v]), z.array(z.string().max(120).regex(/^\d+:.+$/, "Write the part and the place as 12:code")).max(200))
+    .transform((list) => Object.fromEntries(list.map((s) => [s.slice(0, s.indexOf(":")), s.slice(s.indexOf(":") + 1)]))),
+});
 
 export const itemsQuery = priceQuery.extend({
   search: shortText().optional(),
@@ -200,8 +225,9 @@ export const movementInput = z
   .refine((v) => (v.kind === "transfer") === (v.toLocation !== undefined), "A transfer needs a destination, and only a transfer");
 
 /**
- * A build: `quantity` pieces of the made item `componentId`, taking the parts from one place and putting
- * the pieces in another. Their cost is frozen with the prices of the day, read the way `method` says.
+ * A build: `quantity` pieces of the made item `componentId`, taking the parts from the shelf (from every place, the one
+ * with the most first; a part named in `takeFrom` from that place only) and putting the pieces in a place. Their cost is
+ * frozen with the prices of the day, read the way `method` says.
  */
 export const buildInput = z.object({
   componentId: id,
@@ -209,7 +235,8 @@ export const buildInput = z.object({
   projectId: id,
   quantity,
   builtOn: isoDate,
-  fromLocation: lookupCode,
+  /** The parts that are taken from one place only: part id -> code of the place. The others come from wherever they are. */
+  takeFrom: z.record(z.string().max(12).regex(/^\d+$/), lookupCode).default({}),
   toLocation: lookupCode,
   toSpot: spot,
   method: z.enum(PRICE_METHODS).default("average"),

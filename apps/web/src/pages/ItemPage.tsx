@@ -9,6 +9,7 @@ import { Button, IconButton } from "../components/Button";
 import { Datasheets } from "../components/Datasheets";
 import { HazardPills } from "../components/HazardPills";
 import { ItemEditor } from "../components/ItemEditor";
+import { MakeDefaultsFields } from "../components/MakeDefaultsFields";
 import { ItemThumb } from "../components/ItemThumb";
 import { LineChart } from "../components/LineChart";
 import { MovementForm } from "../components/MovementForm";
@@ -18,7 +19,7 @@ import { ReceiveForm } from "../components/ReceiveForm";
 import { useMe } from "../lib/auth";
 import { date, money, moneyE4, quantity } from "../lib/format";
 import { prepareImage } from "../lib/image";
-import { draftBody, draftOf, FIELD_LABELS, paramErrors, useInventoryLookups } from "../lib/inventory";
+import { draftBody, draftOf, emptyMakeDefaults, FIELD_LABELS, makeDefaultsBody, makeDefaultsOf, paramErrors, useInventoryLookups } from "../lib/inventory";
 import { showValue } from "../lib/params";
 import { usePrice } from "../lib/price";
 import { SCREEN, useMaxWidth } from "../lib/screen";
@@ -91,6 +92,8 @@ export function ItemPage() {
   const detail = useQuery({ queryKey: ["inventory-item", itemId, price], queryFn: () => api.inventoryItem(itemId, price) });
   const items = useQuery({ queryKey: ["inventory-items", price, {}], queryFn: () => api.inventoryItems(price) });
   const [draft, setDraft] = useState<ItemDraft | null>(null);
+  // what «Make new» starts from, edited with the item when the team makes it
+  const [make, setMake] = useState(emptyMakeDefaults());
   /** The place whose form is open, and what the form starts on. */
   const [placeOpen, setPlaceOpen] = useState<{ key: string; kind: MovementBody["kind"] } | null>(null);
   // on a phone, where the shelf is, each thing to do has its own big button
@@ -105,7 +108,7 @@ export function ItemPage() {
   const placeKey = (p: StockPlace) => `${p.location}\u0000${p.spot}`;
 
   const save = async () => {
-    if (draft && (await act(() => api.updateItem(itemId, draftBody(draft, lookups))))) setDraft(null);
+    if (draft && (await act(() => api.updateItem(itemId, { ...draftBody(draft, lookups), ...(item.origin === "made" ? makeDefaultsBody(make) : {}) })))) setDraft(null);
   };
   const remove = async () => {
     if (window.confirm(`Delete "${item.name}"?`) && (await act(() => api.deleteItem(itemId)))) navigate("/inventory");
@@ -145,7 +148,7 @@ export function ItemPage() {
       >
         {canEdit && (
           <div className="inline-form">
-            <Button small variant="ghost" icon={faPen} onClick={() => setDraft(draft ? null : draftOf(item, values, lookups.types))}>{draft ? "Close" : "Edit"}</Button>
+            <Button small variant="ghost" icon={faPen} onClick={() => { setMake(makeDefaultsOf(item)); setDraft(draft ? null : draftOf(item, values, lookups.types)); }}>{draft ? "Close" : "Edit"}</Button>
             <Button small variant="ghost" icon={faImage} onClick={() => picker.current?.click()}>{detail.data.hasImage ? "Change picture" : "Add picture"}</Button>
             {detail.data.hasImage && <Button small variant="ghost" onClick={() => act(() => api.removeImage(itemId))}>Remove picture</Button>}
             <IconButton icon={faTrash} label="Delete item" danger onClick={remove} />
@@ -157,6 +160,7 @@ export function ItemPage() {
       {draft && (
         <Panel>
           <ItemEditor draft={draft} onChange={(change) => setDraft({ ...draft, ...change })} lookups={lookups} idPrefix="edit" />
+          {item.origin === "made" && <MakeDefaultsFields value={make} onChange={(change) => setMake({ ...make, ...change })} lookups={lookups} idPrefix="edit-make" />}
           <div className="inline-form">
             <Button small onClick={save} disabled={draft.name.trim() === "" || Object.keys(paramErrors(draft, lookups.types)).length > 0}>Save</Button>
             <Button small variant="ghost" onClick={() => setDraft(null)}>Cancel</Button>

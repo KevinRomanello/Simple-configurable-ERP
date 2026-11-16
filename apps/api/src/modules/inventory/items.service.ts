@@ -20,6 +20,19 @@ export async function assertCanManageInventory() {
   return actor;
 }
 
+type MakeDefaults = { makeProjectId?: number | null; makeTo?: string | null; makeToSpot?: string };
+
+/** The project and the place «Make new» starts from must exist, and only an item made by the team has them. */
+async function checkMakeDefaults(origin: "bought" | "made", input: MakeDefaults) {
+  const set = input.makeProjectId != null || input.makeTo != null || (input.makeToSpot ?? "") !== "";
+  if (set && origin !== "made") throw invalid("Only an item made by the team has what it takes to make some");
+  if (input.makeProjectId != null && (await db.select({ id: project.id }).from(project).where(eq(project.id, input.makeProjectId))).length === 0) {
+    throw invalid(`Unknown project ${input.makeProjectId}`);
+  }
+  const places = (await listLocations()).map((l) => l.code);
+  if (input.makeTo != null && !places.includes(input.makeTo)) throw invalid(`Unknown location "${input.makeTo}"`);
+}
+
 async function checkItemFields(input: { category?: string | null; unit?: string; areaId?: number | null; typeId?: number | null }) {
   await checkAreaAndType(db, input);
   if (input.category != null && !(await listCategories()).includes(input.category)) {
@@ -48,6 +61,7 @@ export async function findDuplicate(tx: Pick<Tx, "select">, name: string | undef
 export async function insertItem(tx: Tx, input: CreateItemInput) {
   const { params, ...columns } = input;
   await checkItemFields(columns);
+  await checkMakeDefaults(columns.origin, columns);
   await findDuplicate(tx, columns.name, columns.code);
   // an item takes the category of its type: what is sent is only for an item without a type (or of a type with none yet)
   const category = (await categoryOfType(tx, columns.typeId)) ?? columns.category;
@@ -68,6 +82,7 @@ export async function updateItem(itemId: number, input: UpdateItemInput) {
   return runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(inventoryItem).where(eq(inventoryItem.id, itemId)).for("update");
     if (!target) throw notFound("Item");
+    await checkMakeDefaults(target.origin, columns);
     let updated = target;
     // the category follows the type (the one the item has now, or the one it is given): see insertItem
     const typeCategory = columns.typeId !== undefined || columns.category !== undefined ? await categoryOfType(tx, columns.typeId === undefined ? target.typeId : columns.typeId) : null;

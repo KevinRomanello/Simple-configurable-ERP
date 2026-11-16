@@ -1,0 +1,1 @@
+ALTER TABLE "inventory_item" DROP COLUMN "make_from";

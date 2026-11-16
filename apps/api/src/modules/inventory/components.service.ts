@@ -1,6 +1,6 @@
 import {
-  bom, costContext, costSeries, monthEnds, onHandMilli, receiptsOf, stockRows, unitCost,
-  type Bom, type CostPoint, type InventoryData, type PartInput,
+  bom, costContext, costSeries, makePlan, maxMakeable, monthEnds, onHandMilli, placesOf, receiptsOf, stockRows, takeFromShelf, unitCost,
+  type Bom, type CostPoint, type InventoryData, type MakePlan, type PartInput, type PlanLine, type StockRow, type Take,
 } from "@erp/calc";
 import { and, eq, sql } from "drizzle-orm";
 import { conflict, invalid, notFound } from "../../core/errors";
@@ -8,10 +8,11 @@ import { fromScaled, toScaled } from "../../core/money";
 import { today } from "../../core/today";
 import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
-import { componentPart, inventoryItem } from "../../db/schema";
+import { area, componentPart, inventoryItem } from "../../db/schema";
 import { loadInventory, partInput } from "./inventory.data";
-import type { PriceQuery } from "./inventory.schema";
+import type { ComponentsQuery, PriceQuery } from "./inventory.schema";
 import { assertCanManageInventory } from "./items.service";
+import { subtreeIds } from "./types.service";
 
 /** Whether going down the bills of materials from `from` reaches `target`. */
 export function reaches(parts: PartInput[], from: number, target: number, seen = new Set<number>()): boolean {
@@ -37,6 +38,16 @@ function closure(parts: PartInput[], componentId: number): Set<number> {
   return found;
 }
 
+/** What is on the shelf of each item, in every place; for an item in `sources`, only in the place named. */
+function availableFor(stock: StockRow[], sources: Map<number, string> = new Map()): Map<number, number> {
+  const available = new Map<number, number>();
+  for (const row of stock) {
+    const only = sources.get(row.itemId);
+    if (row.quantityMilli > 0 && (only === undefined || row.location === only)) available.set(row.itemId, (available.get(row.itemId) ?? 0) + row.quantityMilli);
+  }
+  return available;
+}
+
 export interface ComponentRow {
   id: number;
   name: string;
@@ -45,17 +56,40 @@ export interface ComponentRow {
   unitE4: number | null;
   complete: boolean;
   onHandMilli: number;
+  /** How many can be made with what is on the shelf of every place (to the thousandth); the sub-assemblies short are counted as made from their parts. */
+  canMakeMilli: number;
+  /** The parts that stop the next piece, the one missing most first (none when nothing stops it, or it has no parts). */
+  limitedBy: string[];
 }
 
-/** The things the team makes, with what one costs on the day asked for. */
-export async function listComponents(query: PriceQuery): Promise<ComponentRow[]> {
+/**
+ * The things the team makes, with what one costs on the day asked for, and how many can be made now. Found by name (or
+ * code, or what it is for), by area, by type (the types under it count too) and by the project they are usually made for.
+ */
+export async function listComponents(query: ComponentsQuery): Promise<ComponentRow[]> {
   const data = await loadInventory();
+  const rows = new Map((await db.select().from(inventoryItem).where(eq(inventoryItem.origin, "made"))).map((r) => [r.id, r]));
+  const needle = query.search?.toLowerCase();
+  const ofTypes = query.type ? new Set(await subtreeIds(db, query.type)) : null;
+  // an unknown area code finds nothing
+  const areaId = query.area ? ((await db.select({ id: area.id }).from(area).where(eq(area.code, query.area)))[0]?.id ?? 0) : null;
   const ctx = costContext(data, query.basis);
   const stock = stockRows(data.movements);
+  const available = availableFor(stock);
+  const names = new Map(data.items.map((i) => [i.id, i.name]));
   return data.items
     .filter((i) => i.origin === "made")
+    .filter((i) => {
+      const r = rows.get(i.id);
+      if (!r) return false;
+      if (areaId !== null && r.areaId !== areaId) return false;
+      if (ofTypes && (r.typeId === null || !ofTypes.has(r.typeId))) return false;
+      if (query.project !== undefined && r.makeProjectId !== query.project) return false;
+      return needle ? [r.name, r.code, r.purpose].some((v) => v?.toLowerCase().includes(needle)) : true;
+    })
     .map((i) => {
       const cost = unitCost(i.id, ctx, query.method, query.on ?? today());
+      const most = maxMakeable(i.id, data, available);
       return {
         id: i.id,
         name: i.name,
@@ -64,9 +98,65 @@ export async function listComponents(query: PriceQuery): Promise<ComponentRow[]>
         unitE4: cost.unitE4,
         complete: cost.complete,
         onHandMilli: onHandMilli(stock, i.id),
+        canMakeMilli: most.maxMilli,
+        limitedBy: most.limitedBy.map((id) => names.get(id) ?? `#${id}`),
       };
     })
     .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+}
+
+export interface PlanLineView extends PlanLine {
+  /** Where it would be taken from, spot by spot. */
+  takes: Take[];
+  /** Every place that holds some, the one with the most first: what the choice of where to take it from offers. */
+  places: { location: string; quantityMilli: number }[];
+  /** The only place it is taken from, when it was asked; null: wherever it is. */
+  takeFrom: string | null;
+}
+
+export interface PlanView extends Omit<MakePlan, "lines"> {
+  lines: PlanLineView[];
+  unit: string;
+  /** The most that can be made now (with the choices of the places made), and what stops one thousandth more. */
+  maxMilli: number;
+  limitedBy: { partId: number; name: string }[];
+}
+
+/**
+ * What it takes to make `quantity` of a component against the shelf, part by part and where each is taken from: every
+ * place, the one with the most first, or the place `from` names for a part (part id -> code). The preview of «Make new»:
+ * the build takes exactly this.
+ */
+export async function getPlan(componentId: number, query: { quantity: string; from: Record<string, string> }): Promise<PlanView> {
+  const [item] = await db.select().from(inventoryItem).where(eq(inventoryItem.id, componentId));
+  if (!item) throw notFound("Item");
+  if (item.origin !== "made") throw invalid(`"${item.name}" is not something the team makes`);
+  const quantityMilli = toScaled(query.quantity, 3);
+  if (quantityMilli <= 0) throw invalid("The quantity must be above zero");
+
+  const data = await loadInventory();
+  const stock = stockRows(data.movements);
+  const sources = new Map(Object.entries(query.from).map(([partId, code]) => [Number(partId), code]));
+  const available = availableFor(stock, sources);
+  const plan = makePlan(componentId, quantityMilli, data, available);
+  const most = maxMakeable(componentId, data, available);
+  const names = new Map(data.items.map((i) => [i.id, i.name]));
+  const lines = plan.lines.map((line): PlanLineView => {
+    const rows = stock.filter((r) => r.itemId === line.partId);
+    // what the shelf gives: all of it unless some is missing, or a sub-assembly is to be made first for the rest
+    const taken = line.neededMilli - line.missingMilli - line.makeFirstMilli;
+    const only = sources.get(line.partId);
+    return { ...line, takes: takeFromShelf(rows, taken, only).takes, places: placesOf(rows), takeFrom: only ?? null };
+  });
+  return {
+    ...plan,
+    lines,
+    // nothing to make it from is nothing that can be made
+    enough: plan.enough && plan.lines.length > 0,
+    unit: item.unit,
+    maxMilli: most.maxMilli,
+    limitedBy: most.limitedBy.map((partId) => ({ partId, name: names.get(partId) ?? `#${partId}` })),
+  };
 }
 
 export interface ComponentDetail {
@@ -76,6 +166,11 @@ export interface ComponentDetail {
   series: CostPoint[];
   /** The note written next to each part, by part id. */
   notes: Record<number, string>;
+  /** What is on the shelf of each part (all the places), by part id, in thousandths. */
+  available: Record<number, number>;
+  /** How many can be made with what is on the shelf, and the parts that stop the next one (see the list). */
+  canMakeMilli: number;
+  limitedBy: string[];
 }
 
 export async function getComponent(componentId: number, query: PriceQuery): Promise<ComponentDetail> {
@@ -95,7 +190,15 @@ export async function getComponent(componentId: number, query: PriceQuery): Prom
   const rows = await db.select().from(componentPart).where(eq(componentPart.componentId, componentId));
   const notes = Object.fromEntries(rows.filter((r) => r.note).map((r) => [r.partId, r.note!]));
 
-  return { item, bom: bom(componentId, ctx, query.method, on), series: costSeries(componentId, ctx, query.method, days), notes };
+  const shelf = availableFor(stockRows(data.movements));
+  const available = Object.fromEntries(rows.map((r) => [r.partId, shelf.get(r.partId) ?? 0]));
+  const most = maxMakeable(componentId, data, shelf);
+  const names = new Map(data.items.map((i) => [i.id, i.name]));
+  return {
+    item, bom: bom(componentId, ctx, query.method, on), series: costSeries(componentId, ctx, query.method, days), notes, available,
+    canMakeMilli: most.maxMilli,
+    limitedBy: most.limitedBy.map((id) => names.get(id) ?? `#${id}`),
+  };
 }
 
 // --- editing the bill of materials ----------------------------------------------------------------

@@ -5,7 +5,7 @@ export type {
   Gantt, ItemOrigin, ItemsView, MoneyIn, MonthlyInflow, PendingLine, Phase, PhaseCalc, PriceBasis, PriceMethod, PricePoint,
   CashScope, Priority, SponsorType, StatementIssue, StatementIssueKind, StatementRow, StatsRow, ToPayLine, ToPayStatus, Totals, TotalsBlock, TotalsFigures, VatReport,
 } from "@erp/calc";
-import type { CashScope, ItemOrigin, MoneyIn, PendingLine, Phase, PriceBasis, PriceMethod, PricePoint, Bom, CostPoint, StatementIssue, StatementRow, StatsRow, ToPayLine, Totals } from "@erp/calc";
+import type { CashScope, ItemOrigin, MakePlan, PlanLine, Take, MoneyIn, PendingLine, Phase, PriceBasis, PriceMethod, PricePoint, Bom, CostPoint, StatementIssue, StatementRow, StatsRow, ToPayLine, Totals } from "@erp/calc";
 
 /** GET /api/views/totals(/year, /car): TOTAL of a season, a calendar year or a car, and what came in (none for a car). */
 export type TotalsView = Totals & {
@@ -340,6 +340,10 @@ export interface InventoryItem {
   toxic: boolean;
   carcinogenic: boolean;
   imageUpdatedAt: string | null;
+  /** Only for what the team makes: what «Make new» starts from. */
+  makeProjectId: number | null;
+  makeTo: string | null;
+  makeToSpot: string;
 }
 
 export interface ItemRow {
@@ -429,6 +433,9 @@ export interface ComponentRow {
   unitE4: number | null;
   complete: boolean;
   onHandMilli: number;
+  /** How many can be made with what is on the shelf, and the parts that stop the next one (the one missing most first). */
+  canMakeMilli: number;
+  limitedBy: string[];
 }
 
 export interface ComponentDetail {
@@ -436,7 +443,28 @@ export interface ComponentDetail {
   bom: Bom;
   series: CostPoint[];
   notes: Record<number, string>;
+  /** What is on the shelf of each part (all the places), by part id, in thousandths. */
+  available: Record<number, number>;
+  /** How many can be made with what is on the shelf (every place), and the parts that stop the next one. */
+  canMakeMilli: number;
+  limitedBy: string[];
 }
+
+/** One part of a plan: what it takes, where it would be taken from, and the places that hold some (the choices). */
+export type PlanLineView = PlanLine & {
+  takes: Take[];
+  places: { location: string; quantityMilli: number }[];
+  /** The only place it is taken from, when it was chosen; null: wherever it is. */
+  takeFrom: string | null;
+};
+
+/** GET /api/inventory/components/:id/plan: what it takes to make some, against the shelf of every place. */
+export type PlanView = Omit<MakePlan, "lines"> & {
+  lines: PlanLineView[];
+  unit: string;
+  maxMilli: number;
+  limitedBy: { partId: number; name: string }[];
+};
 
 export interface StatsResult {
   by: "project" | "area" | "category" | "location" | "car";

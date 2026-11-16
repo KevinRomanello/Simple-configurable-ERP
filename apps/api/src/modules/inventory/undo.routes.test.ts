@@ -142,7 +142,7 @@ describe("undoing a build", () => {
     await api.post(`/api/inventory/components/${pedal.id}/parts`, { partId: plate.id, quantity: "2" });
     await api.post(`/api/inventory/components/${pedal.id}/parts`, { partId: screw.id, quantity: "4" });
     const projectId = await projectOf();
-    const made = await api.post("/api/inventory/builds", { componentId: pedal.id, projectId, quantity: "3", builtOn: "2026-10-10", fromLocation: "s1-r1", toLocation: "s2-r1", toSpot: "" });
+    const made = await api.post("/api/inventory/builds", { componentId: pedal.id, projectId, quantity: "3", builtOn: "2026-10-10", toLocation: "s2-r1", toSpot: "" });
     return { plate, screw, pedal, build: made.body.movement.id as number };
   }
 

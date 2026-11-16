@@ -528,6 +528,14 @@ export const inventoryItem = pgTable(
     disposal: text(),
     storageNotes: text(),
     maintenanceNotes: text(),
+    /**
+     * Only a made item: what «Make new» starts from, set when the item is made or later, so that making some asks for the
+     * quantity and little else. The project is one of a season (it is not offered when it is of another).
+     */
+    makeProjectId: integer().references(() => project.id, { onDelete: "set null" }),
+    /** The place (and exact spot) the pieces made are put in: a code of the places. The parts come from wherever they are. */
+    makeTo: text(),
+    makeToSpot: text().notNull().default(""),
     /** What the item is: always asked (unlike the optional texts above), because the team filters on it. */
     flammable: boolean().notNull().default(false),
     toxic: boolean().notNull().default(false),

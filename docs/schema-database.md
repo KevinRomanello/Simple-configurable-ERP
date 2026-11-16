@@ -266,6 +266,9 @@ erDiagram
     boolean flammable
     boolean toxic
     boolean carcinogenic
+    integer make_project_id FK "solo fatti da noi: progetto di Make new"
+    text make_to "luogo dei pezzi"
+    text make_to_spot "punto preciso"
   }
   item_type {
     integer id PK
@@ -355,6 +358,7 @@ erDiagram
   item_datasheet ||--|| item_datasheet_file : "il file"
   app_user |o--o{ item_datasheet : "caricata da"
   inventory_item ||--o{ stock_movement : "movimenti"
+  project |o--o{ inventory_item : "progetto di Make new (make_project_id)"
   project |o--o{ stock_movement : "per quale progetto"
   budget_line |o--o{ stock_movement : "completa l'acquisto"
   season |o--o{ stock_movement : "macchina di un'altra stagione"

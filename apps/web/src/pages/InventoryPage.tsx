@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { api } from "../api/client";
 import type { Area, ItemRow, ItemType, TypeParam } from "../api/types";
-import { Chips } from "../components/Chips";
+import { AreaTypeFields, useAreaTypeFilter } from "../components/AreaTypeFilter";
 import { HazardChecks, HazardPills } from "../components/HazardPills";
 import { ItemThumb } from "../components/ItemThumb";
 import { PriceSelector } from "../components/PriceSelector";
@@ -16,7 +16,6 @@ import { money, moneyE4, quantity } from "../lib/format";
 import { HAZARDS, useInventoryLookups } from "../lib/inventory";
 import { parseNumber, showValue, sortValue } from "../lib/params";
 import { usePrice } from "../lib/price";
-import { typeLevels } from "../lib/typeTree";
 import { SCREEN, useMaxWidth } from "../lib/screen";
 
 const PICTURE: Column<ItemRow> = { key: "picture", header: "", mobile: "hidden", cell: (r) => <ItemThumb id={r.id} hasImage={r.hasImage} name={r.name} /> };
@@ -107,31 +106,17 @@ export function InventoryPage() {
   const [origin, setOrigin] = useState("");
   const [location, setLocation] = useState("");
   const [hazards, setHazards] = useState({ flammable: false, toxic: false, carcinogenic: false });
-  const [areaCode, setAreaCode] = useState("");
-  const [typeId, setTypeId] = useState("");
   /** What is typed in the filters of the parameters, by the name the API takes (`p12`, `p12min`, `p12max`). */
   const [params, setParams] = useState<Record<string, string>>({});
+  // the filters of one type mean nothing for another: they start again when the type changes
+  const areaType = useAreaTypeFilter(lookups, () => setParams({}));
+  const { areaCode, areas, type } = areaType;
   // on a phone the filters other than the search are behind a button that says how many are on
   const phone = useMaxWidth(SCREEN.phone);
   const [filtersShown, setFiltersShown] = useState(false);
   const showFilters = !phone || filtersShown;
 
-  const areas = lookups?.areas ?? [];
-  const areaId = areas.find((a) => a.code === areaCode)?.id;
-  const types = (lookups?.types ?? []).filter((t) => areaId === undefined || t.areaId === null || t.areaId === areaId);
-  const type = types.find((t) => String(t.id) === typeId);
-  const chooseType = (id: string) => {
-    setTypeId(id);
-    setParams({}); // the filters of one type mean nothing for another
-  };
-  const chooseArea = (code: string) => {
-    setAreaCode(code);
-    const next = areas.find((a) => a.code === code)?.id;
-    if (type && next !== undefined && type.areaId !== null && type.areaId !== next) chooseType("");
-  };
   const paramQuery = paramFilterQuery(type, params);
-  // the search by type is a menu for each level: the next one has only the types under what is chosen in the one before
-  const levels = typeLevels(lookups?.types ?? [], types, type ? type.id : null);
 
   const filters = {
     search: search.trim() || undefined, origin: origin || undefined, location: location || undefined,
@@ -203,20 +188,7 @@ export function InventoryPage() {
           </div>
           {showFilters && (
             <div className="inline-form">
-              <Field label="Area" className="fit">
-                <Chips label="Area" value={areaCode} onChange={chooseArea} options={[{ value: "", label: "All" }, ...areas.map((a) => ({ value: a.code, label: a.name }))]} />
-              </Field>
-              {levels.map((level, i) => (
-                <Field key={`${i}-${level.parent?.id ?? 0}`} label={level.parent ? `Kind of ${level.parent.name}` : "Type"} htmlFor={`inventory-type-${i}`}>
-                  <SearchSelect
-                    id={`inventory-type-${i}`}
-                    value={level.selected ? String(level.selected.id) : ""}
-                    // clearing a menu goes back to the type of the menu before it
-                    onChange={(id) => chooseType(id !== "" ? id : level.parent ? String(level.parent.id) : "")}
-                    choices={[{ value: "", label: level.parent ? `Any ${level.parent.name}` : "All types" }, ...level.options.map((t) => ({ value: String(t.id), label: t.name }))]}
-                  />
-                </Field>
-              ))}
+              <AreaTypeFields filter={areaType} idPrefix="inventory" />
             </div>
           )}
         </section>

@@ -37,7 +37,7 @@ Il calcolo è **puro** (`outsideBudget` in `packages/calc/src/outside.ts`) e lo 
 - **Nessun fondo paga la riga**: i soldi sono già usciti dalla cassa, quindi **CASH FLOW e la tabella del Team's fund non cambiano**.
 - **Già arrivata** (una ricevuta per tutta la quantità): non è mai in PENDING dell'inventario; e non è in TO PAY (non c'è niente da pagare).
 - **Un mese in cui su una Voce è entrato più di quanto è uscito** (le quote associative; un rimborso più grande della spesa) **non è una riga**: è una voce di **«Money in»**, con il nome della Voce, di tipo «outside the budget».
-- **Gli id sono negativi** e le righe non esistono nel database: nessuno può scriverci (il server risponde `400`/`404` su `PATCH`/`DELETE` e `403` se si prova ad aggiungere un progetto, anche l'admin). Non è nel menù, e l'indirizzo `/budget/administration` dà «Area not found» (l'API la dà ancora, `GET /api/areas/administration/sheet`, ed è come la leggono le prove).
+- **Gli id sono negativi** e le righe non esistono nel database: nessuno può scriverci (il server risponde `400`/`404` su `PATCH`/`DELETE` e `403` se si prova ad aggiungere un progetto, anche l'admin); i suoi progetti **non si offrono** nelle scelte del progetto dell'inventario (`GET /api/inventory/projects`). Non è nel menù, e l'indirizzo `/budget/administration` dà «Area not found» (l'API la dà ancora, `GET /api/areas/administration/sheet`, ed è come la leggono le prove).
 
 ## 4. Cosa si vede nelle viste
 

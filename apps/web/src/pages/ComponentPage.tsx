@@ -61,7 +61,7 @@ export function ComponentPage() {
 
   if (detail.isError) return <Message>This is not something the team makes, or it does not exist.</Message>;
   if (!detail.data) return <Loading />;
-  const { item, bom, series, notes } = detail.data;
+  const { item, bom, series, notes, available, canMakeMilli, limitedBy } = detail.data;
   const taken = new Set(bom.lines.map((l) => l.partId));
   const candidates = (items.data ?? []).filter((i) => i.id !== componentId && !taken.has(i.id));
   const row = (items.data ?? []).find((i) => i.id === componentId);
@@ -96,6 +96,15 @@ export function ComponentPage() {
       ),
     },
     {
+      key: "available",
+      header: "AVAILABLE (ALL PLACES)",
+      num: true,
+      sort: (l) => available[l.partId] ?? 0,
+      // red when the shelf has less than one piece takes
+      cellClass: (l) => ((available[l.partId] ?? 0) < l.quantityMilli ? "cell-negative" : undefined),
+      cell: (l) => `${quantity(available[l.partId] ?? 0)} ${l.unit}`,
+    },
+    {
       key: "unit",
       header: "UNIT PRICE",
       num: true,
@@ -123,6 +132,9 @@ export function ComponentPage() {
       <PriceSelector value={price} onChange={setPrice} date />
       <Cards>
         {row && <Card caption="On the shelf">{quantity(row.onHandMilli)} {item.unit}</Card>}
+        <Card caption="Can make" negative={bom.lines.length > 0 && canMakeMilli === 0} hint={limitedBy.length > 0 && <span className="hint">Limited by {limitedBy.join(", ")}</span>}>
+          {bom.lines.length === 0 ? "—" : `${quantity(canMakeMilli)} ${item.unit}`}
+        </Card>
         <Card caption="Cost to make one now" hint={!bom.complete && <span className="hint error">Some parts have never been bought: the cost is missing them</span>}>
           {bom.unitE4 === null ? "—" : moneyE4(bom.unitE4)}
         </Card>
@@ -147,7 +159,7 @@ export function ComponentPage() {
 
       {canEdit && lookups && bom.lines.length > 0 && (
         <Panel>
-          <AddSection label="We made some" form={(close) => <BuildForm componentId={componentId} unit={item.unit} lookups={lookups} onDone={close} />} />
+          <AddSection label="Make new" form={(close) => <BuildForm item={item} lookups={lookups} onDone={close} />} />
         </Panel>
       )}
 
@@ -158,7 +170,7 @@ export function ComponentPage() {
           rows={bom.lines}
           rowKey={(l) => l.partId}
           empty="No parts yet"
-          footer={bom.totalCents !== null && <tr className="total"><td colSpan={3}>Total</td><td className="num">{money(bom.totalCents)}</td><td colSpan={2} /></tr>}
+          footer={bom.totalCents !== null && <tr className="total"><td colSpan={4}>Total</td><td className="num">{money(bom.totalCents)}</td><td colSpan={2} /></tr>}
         />
         {canEdit && <AddSection label="Add part" form={(close) => <AddPart componentId={componentId} candidates={candidates} onDone={close} />} />}
       </Panel>

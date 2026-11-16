@@ -13,6 +13,7 @@ export * from "./inventory";
 export * from "./items";
 export * from "./line";
 export * from "./lines";
+export * from "./makePlan";
 export * from "./money";
 export * from "./outside";
 export * from "./register";

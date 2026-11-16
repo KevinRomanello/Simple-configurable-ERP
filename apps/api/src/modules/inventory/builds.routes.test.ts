@@ -22,7 +22,7 @@ const projectOf = async () => {
 };
 const build = async (componentId: number, quantity: string, extra: object = {}) =>
   api.post("/api/inventory/builds", {
-    componentId, quantity, projectId: await projectOf(), builtOn: "2026-10-10", fromLocation: "s1-r1", toLocation: "s2-r1", toSpot: "Box 1", ...extra,
+    componentId, quantity, projectId: await projectOf(), builtOn: "2026-10-10", toLocation: "s2-r1", toSpot: "Box 1", ...extra,
   });
 const stockOf = async (itemId: number) => (await api.get(`/api/inventory/items/${itemId}`)).body.stock.map((s: { location: string; spot: string; quantityMilli: number }) => [s.location, s.spot, s.quantityMilli / 1000]);
 const detail = async (itemId: number, query = "") => (await api.get(`/api/inventory/items/${itemId}?${query}`)).body;
@@ -96,7 +96,7 @@ describe("making a made item", () => {
     expect((await priceOf(pedal.id, "basis=net&method=last&on=2026-10-05")).valueCents).toBe(0); // none on the shelf
   });
 
-  it("takes the parts from several spots of the place when one does not hold enough, and leaves the other places alone", async () => {
+  it("takes the parts from several spots of the place asked for when one does not hold enough, and leaves the other places alone", async () => {
     const plate = await makeItem("Plate");
     const screw = await makeItem("Screw");
     const pedal = await makeItem("Pedal", "made");
@@ -106,21 +106,69 @@ describe("making a made item", () => {
     await buy(plate.id, "5", "10", "2026-09-01", "s1-r1", "Shelf B");
     await buy(plate.id, "50", "10", "2026-09-01", "s1-r2", "Far away");
     await buy(screw.id, "100", "1", "2026-09-01");
-    await build(pedal.id, "3"); // needs 6 plates: 3 on Shelf A and 3 on Shelf B
+    await build(pedal.id, "3", { takeFrom: { [plate.id]: "s1-r1" } }); // needs 6 plates: 3 on Shelf A and 3 on Shelf B
     expect(await stockOf(plate.id)).toEqual([["s1-r1", "Shelf B", 2], ["s1-r2", "Far away", 50]]);
   });
 
-  it("is refused when the place does not hold enough, naming what is short, and records nothing", async () => {
+  it("is refused when the shelf does not hold enough, naming what is short, and records nothing", async () => {
     const { plate, screw, pedal } = await workshop();
     const refused = await build(pedal.id, "11"); // 22 plates and 44 screws: 20 and 100 are there
     expect(refused.status).toBe(409);
-    expect(refused.body.error).toMatch(/Not enough at Site 1 - Room 1/);
+    expect(refused.body.error).toMatch(/Not enough on the shelf/);
     expect(refused.body.error).toContain('22.000 pcs of "Plate" (20.000 there)');
     expect(refused.body.error).not.toContain("Screw");
     expect(await stockOf(plate.id)).toEqual([["s1-r1", "", 20]]);
     expect(await stockOf(screw.id)).toEqual([["s1-r1", "", 100]]);
     expect(await stockOf(pedal.id)).toEqual([]);
-    expect((await build(pedal.id, "3", { fromLocation: "s1-r2" })).status).toBe(409); // the parts are in another place
+    const there = await build(pedal.id, "3", { takeFrom: { [plate.id]: "s1-r2" } }); // the plates are in another place
+    expect(there.status).toBe(409);
+    expect(there.body.error).toContain('"Plate" (0.000 there at Site 1 - Room 2)');
+  });
+
+  it("takes from every place, the one with the most first, and leaves one part to a single place when told", async () => {
+    const plate = await makeItem("Plate");
+    const screw = await makeItem("Screw");
+    const pedal = await makeItem("Pedal", "made");
+    await addPart(pedal.id, plate.id, "2");
+    await addPart(pedal.id, screw.id, "4");
+    await buy(plate.id, "6", "10", "2026-09-01", "s1-r1", "Shelf A");
+    await buy(plate.id, "40", "10", "2026-09-01", "s1-r2", "Far away");
+    await buy(plate.id, "10", "10", "2026-09-01", "s1-r3");
+    await buy(screw.id, "100", "1", "2026-09-01", "s1-r1");
+
+    // 25 pedals need 50 plates: 40 from Far away (the most), then 10 from the next place with the most (s1-r3), none from Shelf A
+    const made = await build(pedal.id, "25");
+    expect(made.status).toBe(201);
+    expect(await stockOf(plate.id)).toEqual([["s1-r1", "Shelf A", 6]]);
+    expect(await stockOf(screw.id)).toEqual([]); // 100 screws needed, 100 there
+    expect(made.body.used).toBe(3); // the plates of two places and the screws of one
+    const uses = (await detail(plate.id)).movements.filter((m: { kind: string }) => m.kind === "use");
+    expect(uses.map((m: { location: string; quantity: string }) => [m.location, m.quantity]).sort()).toEqual([["Site 1 - Room 2", "40.000"], ["Site 1 - Room 3", "10.000"]]); // movements show the label of the place
+
+    // and the parts go back to the places they came from
+    expect((await api.del(`/api/inventory/movements/${made.body.movement.id}`)).status).toBe(204);
+    expect(await stockOf(plate.id)).toEqual([["s1-r1", "Shelf A", 6], ["s1-r2", "Far away", 40], ["s1-r3", "", 10]]);
+  });
+
+  it("takes a part from the one place asked for, and the others from wherever they are", async () => {
+    const plate = await makeItem("Plate");
+    const screw = await makeItem("Screw");
+    const pedal = await makeItem("Pedal", "made");
+    await addPart(pedal.id, plate.id, "2");
+    await addPart(pedal.id, screw.id, "4");
+    await buy(plate.id, "6", "10", "2026-09-01", "s1-r1");
+    await buy(plate.id, "40", "10", "2026-09-01", "s1-r2");
+    await buy(screw.id, "100", "1", "2026-09-01", "s1-r1");
+    await build(pedal.id, "2", { takeFrom: { [plate.id]: "s1-r1" } }); // 4 plates from the small place, 8 screws from where they are
+    expect(await stockOf(plate.id)).toEqual([["s1-r1", "", 2], ["s1-r2", "", 40]]);
+    expect(await stockOf(screw.id)).toEqual([["s1-r1", "", 92]]);
+  });
+
+  it("is refused when the place named for a part does not exist", async () => {
+    const { plate, pedal } = await workshop();
+    expect((await build(pedal.id, "1", { takeFrom: { [plate.id]: "nowhere" } })).status).toBe(400);
+    expect((await build(pedal.id, "1", { takeFrom: { plate: "s1-r1" } })).status).toBe(400); // the key is a part id
+    expect(await stockOf(plate.id)).toEqual([["s1-r1", "", 20]]);
   });
 
   it("does not let two builds take the same parts at the same moment", async () => {
@@ -178,13 +226,13 @@ describe("making a made item", () => {
   it("is for those who keep the inventory", async () => {
     const { pedal } = await workshop();
     const projectId = await projectOf();
-    expect((await api.as(viewer).post("/api/inventory/builds", { componentId: pedal.id, projectId, quantity: "1", builtOn: "2026-10-10", fromLocation: "s1-r1", toLocation: "s1-r1" })).status).toBe(403);
+    expect((await api.as(viewer).post("/api/inventory/builds", { componentId: pedal.id, projectId, quantity: "1", builtOn: "2026-10-10", toLocation: "s1-r1" })).status).toBe(403);
   });
 
   it("is made for a project, always: the parts are used for it and the build is linked to them", async () => {
     const { plate, pedal } = await workshop();
     const projectId = await projectOf();
-    const without = await api.post("/api/inventory/builds", { componentId: pedal.id, quantity: "1", builtOn: "2026-10-10", fromLocation: "s1-r1", toLocation: "s1-r1" });
+    const without = await api.post("/api/inventory/builds", { componentId: pedal.id, quantity: "1", builtOn: "2026-10-10", toLocation: "s1-r1" });
     expect(without.status).toBe(400);
     expect((await build(pedal.id, "1", { projectId: 99_999 })).status).toBe(404);
     expect(await stockOf(plate.id)).toEqual([["s1-r1", "", 20]]); // nothing was taken by the refused ones

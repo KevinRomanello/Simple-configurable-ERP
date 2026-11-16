@@ -215,3 +215,13 @@ describe("the payments to tie to a line", () => {
     expect(toLink.map((e) => e.id).sort()).toEqual([onProject.id, noVoce.id].sort());
   });
 });
+
+describe("the projects stock can be used for", () => {
+  it("are those of the budget: the area derived from the register has none, they are not rows of the database", async () => {
+    await move("8.2 Imposta di bollo", -1_600);
+    expect((await sheet()).projects.length).toBeGreaterThan(0); // the area has its project
+    const id = (await api.post("/api/projects", { areaCode: "sw", name: "Brakes" })).body.id as number;
+    const offered = (await api.get("/api/inventory/projects")).body as { id: number; areaCode: string }[];
+    expect(offered.map((p) => p.id)).toEqual([id]);
+  });
+});

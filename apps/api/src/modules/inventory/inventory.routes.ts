@@ -1,11 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { id } from "../../core/validation";
-import { addPart, getComponent, listComponents, removePart, updatePart } from "./components.service";
+import { addPart, getComponent, getPlan, listComponents, removePart, updatePart } from "./components.service";
 import { addDatasheet, getDatasheet, removeDatasheet } from "./datasheets.service";
 import {
-  buildInput, createItemInput, createParamInput, createTypeInput, DATASHEET_LIMITS, datasheetQuery, imageInput, itemsQuery, movementInput,
-  orderInput, paramFilters, partInput, priceQuery, receiveInput, statsQuery, updateItemInput, updateParamInput, updatePartInput, updateTypeInput,
+  buildInput, componentsQuery, createItemInput, createParamInput, createTypeInput, DATASHEET_LIMITS, datasheetQuery, imageInput, itemsQuery, movementInput,
+  orderInput, paramFilters, partInput, planQuery, priceQuery, receiveInput, statsQuery, updateItemInput, updateParamInput, updatePartInput, updateTypeInput,
 } from "./inventory.schema";
 import { createItem, deleteItem, getImage, getItem, listItems, removeImage, setImage, updateItem } from "./items.service";
 import { addMovement, build, listPending, receive, undoMovement } from "./movements.service";
@@ -85,7 +85,8 @@ export async function inventoryRoutes(app: FastifyInstance) {
 
   // things we make
   app.post("/inventory/builds", async (request, reply) => reply.code(201).send(await build(buildInput.parse(request.body))));
-  app.get("/inventory/components", (request) => listComponents(priceQuery.parse(request.query)));
+  app.get("/inventory/components", (request) => listComponents(componentsQuery.parse(request.query)));
+  app.get("/inventory/components/:id/plan", (request) => getPlan(itemParam.parse(request.params).id, planQuery.parse(request.query)));
   app.get("/inventory/components/:id", (request) => getComponent(itemParam.parse(request.params).id, priceQuery.parse(request.query)));
   app.post("/inventory/components/:id/parts", async (request, reply) =>
     reply.code(201).send(await addPart(itemParam.parse(request.params).id, partInput.parse(request.body))),

@@ -48,10 +48,12 @@ export async function getStats(by: StatsDimension, basis: PriceBasis) {
 }
 
 /** The projects of the season chosen in the menu, to say which project a purchase or a use was for. */
+/** The projects stock can be used for: those of the budget (the derived area's have negative ids and are not rows of the database). */
 export async function listProjects() {
   const snapshot = await loadSnapshot();
   const areas = new Map(snapshot.areas.map((a) => [a.id, a]));
   return snapshot.projects
+    .filter((p) => p.id > 0)
     .map((p) => ({ id: p.id, name: p.name, areaCode: areas.get(p.areaId)?.code ?? "", areaName: areas.get(p.areaId)?.name ?? "" }))
     .sort((a, b) => a.areaName.localeCompare(b.areaName) || a.name.localeCompare(b.name));
 }

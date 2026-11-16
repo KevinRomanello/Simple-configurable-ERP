@@ -1,5 +1,5 @@
 import type {
-  Analysis, Area, AreaSheet, Bank, ApplyBody, CategoryDefault, ToLinkRow, ToPay, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, CashScope, SponsorBody, Statement, StatsResult, Supplier, TotalsView, TypeParam, UserRow, VatReport,
+  Analysis, Area, AreaSheet, Bank, ApplyBody, CategoryDefault, ToLinkRow, ToPay, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, PlanView, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, CashScope, SponsorBody, Statement, StatsResult, Supplier, TotalsView, TypeParam, UserRow, VatReport,
 } from "./types";
 import type { NewLineBody } from "../lib/newLine";
 import { chosenSeasonId } from "../lib/seasonChoice";
@@ -115,6 +115,10 @@ export interface ItemBody {
   toxic?: boolean;
   carcinogenic?: boolean;
   origin?: "bought" | "made";
+  /** Only for what the team makes: the project, and where the pieces go. */
+  makeProjectId?: number | null;
+  makeTo?: string | null;
+  makeToSpot?: string;
 }
 
 /** What makes a type, and a parameter of it (the choices of a list, when changed, say which old one each is). */
@@ -135,13 +139,14 @@ export interface ParamBody {
 }
 export type ParamPatch = Partial<Omit<ParamBody, "choices">> & { choices?: { was?: string; name: string }[] };
 
-/** What the form of a build sends: the parts come from one place, the pieces go to another. */
+/** What the form of a build sends: the parts come from the shelf (a part only from the place chosen for it), the pieces go to a place. */
 export interface BuildBody {
   componentId: number;
   projectId: number;
   quantity: string;
   builtOn: string;
-  fromLocation: string;
+  /** Part id -> place, for the parts that are taken from one place only. */
+  takeFrom: Record<number, string>;
   toLocation: string;
   toSpot: string;
   method: "average" | "last";
@@ -257,7 +262,14 @@ export const api = {
     return payload as { id: number };
   },
   removeDatasheet: (id: number) => del(`/inventory/datasheets/${id}`),
-  components: (price: PriceChoice) => get<ComponentRow[]>(`/inventory/components?${priceQuery(price)}`),
+  /** `filters`: search, area (a code), type and project (ids). */
+  components: (price: PriceChoice, filters: Record<string, string | undefined> = {}) => get<ComponentRow[]>(`/inventory/components?${priceQuery(price, filters)}`),
+  /** `from`: part id -> place, for the parts taken from one place only (the others come from wherever they are). */
+  componentPlan: (id: number, ask: { quantity: string; from: Record<number, string> }) => {
+    const query = new URLSearchParams({ quantity: ask.quantity });
+    for (const [partId, place] of Object.entries(ask.from)) query.append("from", `${partId}:${place}`);
+    return get<PlanView>(`/inventory/components/${id}/plan?${query}`);
+  },
   component: (id: number, price: PriceChoice) => get<ComponentDetail>(`/inventory/components/${id}?${priceQuery(price)}`),
   addPart: (componentId: number, body: { partId: number; quantity: string; note?: string }) =>
     post(`/inventory/components/${componentId}/parts`, body),

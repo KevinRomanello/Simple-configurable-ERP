@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, type ItemBody } from "../api/client";
 import type { CategoryFields, InventoryItem, ItemDraft, ItemField, ItemType, ParamValues } from "../api/types";
+import { quantity } from "./format";
 import { editNumber, parseNumber } from "./params";
 
 export const FIELD_LABELS: Record<ItemField, string> = {
@@ -32,6 +33,39 @@ export const emptyDraft = (): ItemDraft => ({
   purpose: "", safetyCodes: "", disposal: "", storageNotes: "", maintenanceNotes: "",
   flammable: false, toxic: false, carcinogenic: false,
 });
+
+/** What «Make new» starts from, as typed: "" for none. */
+export interface MakeDefaults {
+  projectId: string;
+  to: string;
+  spot: string;
+}
+
+export const emptyMakeDefaults = (): MakeDefaults => ({ projectId: "", to: "", spot: "" });
+
+export const makeDefaultsOf = (item: Pick<InventoryItem, "makeProjectId" | "makeTo" | "makeToSpot">): MakeDefaults => ({
+  projectId: item.makeProjectId === null ? "" : String(item.makeProjectId),
+  to: item.makeTo ?? "",
+  spot: item.makeToSpot,
+});
+
+/** What to send for them: an empty choice clears it. */
+export const makeDefaultsBody = (d: MakeDefaults) => ({
+  makeProjectId: d.projectId === "" ? null : Number(d.projectId),
+  makeTo: d.to === "" ? null : d.to,
+  makeToSpot: d.spot.trim(),
+});
+
+/** What is short, as a line to read: "Plate 5, Foam 0,001 kg". */
+export const missingText = (missing: { name: string; unit: string; missingMilli: number }[]) =>
+  missing.map((m) => `${m.name} ${quantity(m.missingMilli)}${m.unit === "pcs" ? "" : ` ${m.unit}`}`).join(", ");
+
+/** Where a part is taken from, as a line: "Room 3 100 m · Room 2 31,5 m" (the spots of a place are added up). */
+export function takesText(takes: { location: string; quantityMilli: number }[], unit: string, placeName: (code: string) => string): string {
+  const byPlace = new Map<string, number>();
+  for (const take of takes) byPlace.set(take.location, (byPlace.get(take.location) ?? 0) + take.quantityMilli);
+  return [...byPlace].map(([code, milli]) => `${placeName(code)} ${quantity(milli)} ${unit}`).join(" · ");
+}
 
 /** The type chosen in a draft, if any. */
 export const typeOf = (draft: Pick<ItemDraft, "typeId">, types: ItemType[]) => types.find((t) => String(t.id) === draft.typeId);
