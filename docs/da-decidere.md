@@ -53,14 +53,16 @@ Descritto in [registro-di-cassa.md](registro-di-cassa.md) (§2 e §6). Non blocc
 
 ### D11. Il rendiconto uguale al foglio: i suoi difetti, per la tesoreria e il commercialista
 
-FINANCIAL STATEMENT ([registro-di-cassa.md](registro-di-cassa.md), §5.5) è **uguale al foglio «voci di ricavocosto»**, difetti compresi, perché serve per motivi legali; il pulsante **Things to check** li spiega e dice quanti soldi dell'anno toccano. Se si vogliono **correggere** è una scelta della tesoreria e del commercialista, una per una (cambia solo `getStatementLayout`, riga 9 del registro degli hardcode):
+FINANCIAL STATEMENT ([registro-di-cassa.md](registro-di-cassa.md), §5.5) è **uguale al foglio «voci di ricavocosto»**, difetti compresi, perché serve per motivi legali; il pulsante **Things to check** li spiega e dice quanti soldi dell'anno toccano. Se si vogliono **correggere** è una scelta della tesoreria e del commercialista, una per una (cambia solo `getStatementLayout`, riga 9 del registro degli hardcode).
 
-1. **Il Paypal** non è letto dalle righe QUOTE ASSOCIATIVE, 1.2 Cancelleria e 1.3 Materiale sportivo: voluto? Oggi non c'è Paypal su quelle Voci.
-2. **«4.4 da università»** non entra nella sezione 4 «Contributi da enti pubblici» (che somma solo 4.1, 4.2 e 4.3) né in nessun totale: i suoi soldi non sono in TOTALE RICAVI. Un errore di formula, o l'università non è un ente pubblico per il rendiconto?
-3. **«PRODUTTIVE MARGINALI (Eventi di raccolta fondi)»** non è in nessun totale e non è una Voce del registro: è una riga di intestazione andata a capo della riga 5, o una riga vera da avere fra le Voci?
-4. **«9. IVA»** è dentro «8. IMPOSTE E TASSE»: l'IVA va in quella sezione o è una sezione a sé (e allora il totale dei costi deve sommarla come nona)?
-5. **Le Voci 9.4 Pec aruba e 9.5 saldo fattura** non hanno riga nel rendiconto, e i movimenti senza Voce non compaiono: in quale riga vanno? Con i dati veri del 2026 sono una quarantina di movimenti, e i soldi mancano dai totali.
-6. **Il segno**: la colonna «importi parziali» è senza segno. Un rimborso su un costo (per esempio un noleggio restituito) va a ridurre il costo: la riga 4.2 Noleggi, oggi, ha un saldo positivo. È giusto così?
+**Chiusi il 17 novembre 2026** (la tesoreria ha risposto):
+- **Il Paypal** ora conta in ogni riga (nel foglio mancava da QUOTE ASSOCIATIVE, 1.2 e 1.3): su quelle Voci non ci sono movimenti e non ci saranno, è per non perdere soldi in futuro.
+- **«4.4 da università»** è nella sezione 4 e nei totali; **«PRODUTTIVE MARGINALI»** (non è una Voce del registro) è nel TOTALE RICAVI DA ATTIVITA' ISTITUZIONALE.
+- **«9. IVA»** dentro «8. IMPOSTE E TASSE» è **giusto così**: il totale dei costi la conta una volta sola.
+
+**Ancora aperti:**
+1. **Le Voci 9.4 Pec aruba e 9.5 saldo fattura** non hanno riga nel rendiconto, e i movimenti senza Voce non compaiono: in quale riga vanno? Con i dati veri del 2026 sono una quarantina di movimenti, e i soldi mancano dai totali.
+2. **Il segno**: la colonna «importi parziali» è senza segno. Un rimborso su un costo (per esempio un noleggio restituito) va a ridurre il costo: la riga 4.2 Noleggi, oggi, ha un saldo positivo. È giusto così?
 
 ### D8. CASH FLOW dopo il registro: tenerlo, e dove si scrivono gli inflow
 

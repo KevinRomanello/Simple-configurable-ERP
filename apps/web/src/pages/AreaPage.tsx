@@ -30,6 +30,9 @@ import { gridCompare } from "../lib/sort";
 
 type SheetProject = AreaSheet["projects"][number];
 
+/** How long the pointer rests on a heading or a cell before its popup shows, in milliseconds. */
+const TOOLTIP_DELAY = 1000;
+
 /** One of the six area sheets: projects with their lines, subtotals and the VAT report. */
 export function AreaPage() {
   const { code = "" } = useParams();
@@ -265,7 +268,9 @@ function ProjectPanel({ project, buildColumns, canEdit, lookups, cards, closed, 
           getRowId={(p) => ("isSubtotal" in p.data ? "subtotal" : String(p.data.id))}
           suppressCellFocus={false}
           suppressNoRowsOverlay
-          tooltipShowDelay={150}
+          // a popup waits 1 s, also when the pointer comes from another cell that has one (the library's own wait for that is 200 ms)
+          tooltipShowDelay={TOOLTIP_DELAY}
+          tooltipSwitchShowDelay={TOOLTIP_DELAY}
           stopEditingWhenCellsLoseFocus
           singleClickEdit
         />

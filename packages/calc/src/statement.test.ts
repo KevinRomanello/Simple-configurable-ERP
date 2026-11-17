@@ -2,21 +2,21 @@ import { describe, expect, it } from "vitest";
 import type { CashAccount } from "./register";
 import { financialStatement, statementIssues, voceKey, type StatementEntry, type StatementSpec } from "./statement";
 
-// A small statement with the same defects as the real one: a row without Paypal, a row in no sum, a section inside a section.
+// A small statement with what the real one has: a row that no sum adds up (the engine does not invent one), a section inside a section.
 const LAYOUT: StatementSpec[] = [
   { row: 1, kind: "title", label: "IN", side: "in" },
-  { row: 2, kind: "voce", label: "A. Fees", bold: true, paypal: false },
+  { row: 2, kind: "voce", label: "A. Fees", bold: true },
   { row: 3, kind: "sum", label: "B. Gifts", of: [4, 5], total: false },
-  { row: 4, kind: "voce", label: "B.1 Members", bold: false, paypal: true },
-  { row: 5, kind: "voce", label: "B.2 Others", bold: false, paypal: true },
-  { row: 6, kind: "voce", label: "B.3 Left alone", bold: false, paypal: true },
+  { row: 4, kind: "voce", label: "B.1 Members", bold: false },
+  { row: 5, kind: "voce", label: "B.2 Others", bold: false },
+  { row: 6, kind: "voce", label: "B.3 Left alone", bold: false },
   { row: 7, kind: "sum", label: "TOTAL IN", of: [2, 3], total: true },
   { row: 8, kind: "blank" },
   { row: 9, kind: "title", label: "OUT", side: "out" },
   { row: 10, kind: "sum", label: "C. Taxes", of: [11, 12], total: false },
-  { row: 11, kind: "voce", label: "C.1 Stamp", bold: false, paypal: true },
+  { row: 11, kind: "voce", label: "C.1 Stamp", bold: false },
   { row: 12, kind: "sum", label: "D. VAT", of: [13], total: false },
-  { row: 13, kind: "voce", label: "D.1 Credit", bold: false, paypal: true },
+  { row: 13, kind: "voce", label: "D.1 Credit", bold: false },
   { row: 14, kind: "sum", label: "TOTAL OUT", of: [10], total: true },
   { row: 15, kind: "blank" },
   { row: 16, kind: "result", label: "RESULT", plus: 7, minus: 14 },
@@ -44,9 +44,9 @@ describe("financialStatement", () => {
     expect(rowOf(rows, 4).cents).toBe(300);
   });
 
-  it("leaves the Paypal movements out of the rows that do not read them", () => {
-    const rows = financialStatement([move("A. Fees", 1_000, "paypal"), move("A. Fees", 200, "cash"), move("B.1 Members", 40, "paypal")], LAYOUT);
-    expect(rowOf(rows, 2)).toMatchObject({ cents: 200, count: 1 });
+  it("counts the movements of every account in every row, the Paypal ones too", () => {
+    const rows = financialStatement([move("A. Fees", 1_000, "paypal"), move("A. Fees", 200, "cash"), move("A. Fees", 50, "bank"), move("B.1 Members", 40, "paypal")], LAYOUT);
+    expect(rowOf(rows, 2)).toMatchObject({ cents: 1_250, count: 3 });
     expect(rowOf(rows, 4).cents).toBe(40);
   });
 
@@ -73,19 +73,15 @@ describe("financialStatement", () => {
 describe("statementIssues", () => {
   const issuesOf = (entries: StatementEntry[]) => statementIssues(entries, LAYOUT, financialStatement(entries, LAYOUT));
 
-  it("always lists the rules of the table itself, with 0 movements when they touch nothing", () => {
-    expect(issuesOf([])).toEqual([
-      { kind: "paypalLeftOut", row: 2, label: "A. Fees", count: 0, cents: 0 },
-      { kind: "outsideTotals", row: 6, label: "B.3 Left alone", count: 0, cents: 0 },
-      { kind: "sectionInSection", row: 12, label: "D. VAT", count: 0, cents: 0 },
-    ]);
+  it("always lists the rule of the table itself, with 0 movements when it touches nothing", () => {
+    expect(issuesOf([])).toEqual([{ kind: "sectionInSection", row: 12, label: "D. VAT", count: 0, cents: 0 }]);
   });
 
-  it("says how much money those rules leave out or hide", () => {
-    const issues = issuesOf([move("A. Fees", 700, "paypal"), move("A. Fees", -200, "paypal"), move("B.3 Left alone", 900), move("D.1 Credit", -50)]);
-    expect(issues).toContainEqual({ kind: "paypalLeftOut", row: 2, label: "A. Fees", count: 2, cents: 500 });
-    expect(issues).toContainEqual({ kind: "outsideTotals", row: 6, label: "B.3 Left alone", count: 1, cents: 900 });
+  it("says how much money that rule hides", () => {
+    const issues = issuesOf([move("A. Fees", 700, "paypal"), move("B.3 Left alone", 900), move("D.1 Credit", -50)]);
     expect(issues).toContainEqual({ kind: "sectionInSection", row: 12, label: "D. VAT", count: 1, cents: -50 });
+    // a Paypal movement, or a row nothing adds up, is no longer something to check in the table itself
+    expect(issues.map((i) => i.kind).sort()).toEqual(["sectionInSection"]);
   });
 
   it("lists the movements with no Voce, together, and each Voce no row reads", () => {

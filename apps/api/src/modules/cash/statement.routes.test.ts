@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { resetData, testApp } from "../../../test/helpers";
+import { getStatementLayout } from "../lookups/lookups.service";
 
 const api = testApp();
 afterAll(() => api.close());
@@ -76,27 +77,38 @@ describe("the financial statement of a year", () => {
   });
 });
 
-describe("the defects of the sheet, copied on purpose", () => {
-  it("leaves the Paypal movements out of QUOTE ASSOCIATIVE, 1.2 and 1.3, and counts them everywhere else", async () => {
+describe("what the statement counts, and what it still copies from the sheet", () => {
+  it("counts the Paypal movements in every row, QUOTE ASSOCIATIVE, 1.2 and 1.3 too (the sheet leaves them out there)", async () => {
     await move("1. QUOTE ASSOCIATIVE", 4_000, { account: "paypal" });
     await move("1.2 Cancelleria e materiali da ufficio", -300, { account: "paypal" });
+    await move("1.3 Materiale sportivo (per le ASD)", -80, { account: "paypal" });
     await move("1.4 Altro", -500, { account: "paypal" });
-    const { rows, issues } = await statement();
-    expect(rowOf(rows, 2).cents).toBe(0);
-    expect(rowOf(rows, 32).cents).toBe(0);
+    const { rows } = await statement();
+    expect(rowOf(rows, 2)).toMatchObject({ cents: 4_000, count: 1 });
+    expect(rowOf(rows, 32).cents).toBe(-300);
+    expect(rowOf(rows, 33).cents).toBe(-80);
     expect(rowOf(rows, 34).cents).toBe(-500);
-    expect(issues.filter((i) => i.kind === "paypalLeftOut").map((i) => [i.row, i.count, i.cents])).toEqual([[2, 1, 4_000], [32, 1, -300], [33, 0, 0]]);
+    expect(rowOf(rows, 27).cents).toBe(4_000);
+    expect(rowOf(rows, 68).cents).toBe(-880);
   });
 
-  it("does not add 4.4 da università to the contributions of public bodies, nor to any total", async () => {
+  it("adds 4.4 da università to the contributions of public bodies and so to the total revenues (the sheet leaves it out)", async () => {
     await move("4.1 da comune, provincia, regione, stato", 1_000);
     await move("4.4 da università", 700);
-    const { rows, issues } = await statement();
+    const { rows } = await statement();
     expect(rowOf(rows, 14).cents).toBe(700);
-    expect(rowOf(rows, 10).cents).toBe(1_000);
-    expect(rowOf(rows, 27).cents).toBe(1_000);
-    expect(issues).toContainEqual({ kind: "outsideTotals", row: 14, label: "4.4 da università", count: 1, cents: 700 });
-    expect(issues.filter((i) => i.kind === "outsideTotals").map((i) => i.row)).toEqual([14, 16]);
+    expect(rowOf(rows, 10)).toMatchObject({ cents: 1_700, count: 2 });
+    expect(rowOf(rows, 17).cents).toBe(1_700);
+    expect(rowOf(rows, 27).cents).toBe(1_700);
+  });
+
+  it("has every Voce row added by some sum: no money of a row can be missing from the totals", async () => {
+    const layout = await getStatementLayout();
+    const added = new Set(layout.flatMap((s) => (s.kind === "sum" ? s.of : [])));
+    expect(layout.filter((s) => s.kind === "voce" && !added.has(s.row)).map((s) => s.label)).toEqual([]);
+    // the production row without a Voce of its own is in the total of the institutional revenues
+    const total = layout.find((s) => s.row === 17);
+    expect(total && "of" in total ? total.of : []).toContain(16);
   });
 
   it("counts the VAT inside IMPOSTE E TASSE and once in the total of the costs", async () => {

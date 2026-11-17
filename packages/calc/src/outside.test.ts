@@ -12,12 +12,12 @@ const AREA: AreaInput = { id: 7, code: "administration", name: "ADMINISTRATION",
 
 // a small statement: two sections of costs, and the income of a fee that no section holds
 const LAYOUT: StatementSpec[] = [
-  { row: 1, kind: "voce", label: "1. FEES", bold: true, paypal: true },
+  { row: 1, kind: "voce", label: "1. FEES", bold: true },
   { row: 2, kind: "sum", label: "8. TAXES", of: [3, 4], total: false },
-  { row: 3, kind: "voce", label: "8.1 Stamp", bold: false, paypal: true },
-  { row: 4, kind: "voce", label: "8.2 Duty", bold: false, paypal: true },
+  { row: 3, kind: "voce", label: "8.1 Stamp", bold: false },
+  { row: 4, kind: "voce", label: "8.2 Duty", bold: false },
   { row: 5, kind: "sum", label: "2. SERVICES", of: [6], total: false },
-  { row: 6, kind: "voce", label: "2.1 Insurance", bold: false, paypal: true },
+  { row: 6, kind: "voce", label: "2.1 Insurance", bold: false },
   { row: 7, kind: "sum", label: "TOTAL", of: [2, 5], total: true },
 ];
 const SECTIONS = sectionsOfVoci(LAYOUT);

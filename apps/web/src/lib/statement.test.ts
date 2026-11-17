@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { StatementIssue } from "../api/types";
 import { issueText } from "./statement";
 
-const issue = (over: Partial<StatementIssue>): StatementIssue => ({ kind: "paypalLeftOut", row: 2, label: "1. QUOTE", count: 2, cents: -123_456, ...over });
+const issue = (over: Partial<StatementIssue>): StatementIssue => ({ kind: "sectionInSection", row: 2, label: "1. QUOTE", count: 2, cents: -123_456, ...over });
 
 describe("issueText", () => {
   it("names the Voce the statement has no row for, and says how many movements and how much money are not counted", () => {
@@ -18,7 +18,7 @@ describe("issueText", () => {
   });
 
   it("says what each rule of the table is, with the label of its row as the title", () => {
-    for (const kind of ["paypalLeftOut", "outsideTotals", "sectionInSection", "wrongSign"] as const) {
+    for (const kind of ["sectionInSection", "wrongSign"] as const) {
       const text = issueText(issue({ kind }));
       expect(text.title).toBe("1. QUOTE");
       expect(text.what.length).toBeGreaterThan(20);

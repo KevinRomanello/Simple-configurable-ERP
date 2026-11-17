@@ -28,18 +28,6 @@ export function issueText({ kind, label, count, cents }: StatementIssue): IssueT
         what: "The register has this Voce, but the statement has no row for it, so it is counted nowhere.",
         now: `Not counted: ${sum}. Give them a Voce of the statement, or ask an admin for a row.`,
       };
-    case "paypalLeftOut":
-      return {
-        title: label,
-        what: "The sheet does not count the Paypal movements of this row, only Cassa and Banca.",
-        now: `Left out: ${sum}.`,
-      };
-    case "outsideTotals":
-      return {
-        title: label,
-        what: "No sum adds up this row: the sheet leaves it out of its section and of the total.",
-        now: `Missing from the totals: ${sum}.`,
-      };
     case "sectionInSection":
       return {
         title: label,

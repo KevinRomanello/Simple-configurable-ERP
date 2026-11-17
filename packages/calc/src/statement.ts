@@ -9,8 +9,8 @@ export type StatementSpec =
   | { row: number; kind: "blank" }
   /** RICAVI or COSTI: what the rows below it are (money in or money out) until the next title. */
   | { row: number; kind: "title"; label: string; side: "in" | "out" }
-  /** The movements of the Voce with this name. The sheet leaves the Paypal ones out of some rows. */
-  | { row: number; kind: "voce"; label: string; bold: boolean; paypal: boolean }
+  /** The movements of the Voce with this name, in Cassa, Banca and Paypal. */
+  | { row: number; kind: "voce"; label: string; bold: boolean }
   /** The rows added up; `total` marks the ones that add up whole sections. */
   | { row: number; kind: "sum"; label: string; of: number[]; total: boolean }
   /** What is left: the revenues minus the costs, both without sign. */
@@ -77,7 +77,7 @@ export function financialStatement(entries: StatementEntry[], layout: StatementS
     return figure;
   };
   const voceFigure = (spec: Extract<StatementSpec, { kind: "voce" }>): Figure => {
-    const counted = (groups.get(voceKey(spec.label)) ?? []).filter((e) => spec.paypal || e.account !== "paypal");
+    const counted = groups.get(voceKey(spec.label)) ?? [];
     return { cents: counted.reduce((sum, e) => sum + e.cents, 0), count: counted.length };
   };
   const sumFigure = (rows: number[]): Figure =>
@@ -110,10 +110,6 @@ export type StatementIssueKind =
   | "noVoce"
   /** A Voce of the register that no row of the statement reads. */
   | "unknownVoce"
-  /** A row that leaves out the Paypal movements. */
-  | "paypalLeftOut"
-  /** A row that no sum adds up, so no total has it. */
-  | "outsideTotals"
   /** A section that is a part of another section, so it is not one of the sections of the total. */
   | "sectionInSection"
   /** A row whose sign is the wrong one for its side; the column without sign hides it. */
@@ -135,9 +131,9 @@ const parentsOf = (layout: StatementSpec[]) =>
   layout.flatMap((spec) => (spec.kind === "sum" ? spec.of.map((row) => ({ row, parent: spec })) : []));
 
 /**
- * What to check in the statement of these movements. Some are rules of the table itself (a row without Paypal, a row
- * in no total): they are always listed, with `count` 0 when they touch nothing. The others exist only if the
- * movements have them (no Voce, a Voce no row reads, a wrong sign).
+ * What to check in the statement of these movements. One is a rule of the table itself (a section inside another
+ * one): it is always listed, with `count` 0 when it touches nothing. The others exist only if the movements have them
+ * (no Voce, a Voce no row reads, a wrong sign).
  */
 export function statementIssues(entries: StatementEntry[], layout: StatementSpec[], rows: StatementRow[]): StatementIssue[] {
   const rowOf = new Map(rows.map((r) => [r.row, r]));
@@ -155,12 +151,6 @@ export function statementIssues(entries: StatementEntry[], layout: StatementSpec
   }
   const none = entries.filter((e) => e.voce === null);
 
-  const paypalLeftOut = layout.flatMap((s) => (s.kind === "voce" && !s.paypal ? [s] : [])).map((s) => {
-    const left = entries.filter((e) => e.account === "paypal" && e.voce !== null && voceKey(e.voce) === voceKey(s.label));
-    return issue("paypalLeftOut", rowOf.get(s.row)!, { count: left.length, cents: left.reduce((sum, e) => sum + e.cents, 0) });
-  });
-  const added = new Set(parentsOf(layout).map((p) => p.row));
-  const outside = layout.flatMap((s) => (s.kind === "voce" && !added.has(s.row) ? [issue("outsideTotals", rowOf.get(s.row)!)] : []));
   const sections = parentsOf(layout)
     .filter(({ row, parent }) => !parent.total && specOf(layout, row).kind === "sum")
     .map(({ row }) => issue("sectionInSection", rowOf.get(row)!));
@@ -173,7 +163,7 @@ export function statementIssues(entries: StatementEntry[], layout: StatementSpec
   return [
     ...(none.length > 0 ? [{ kind: "noVoce" as const, row: null, label: "", count: none.length, cents: none.reduce((s, e) => s + e.cents, 0) }] : []),
     ...unread.values(),
-    ...paypalLeftOut, ...outside, ...sections,
+    ...sections,
     ...wrongSign,
   ];
 }
