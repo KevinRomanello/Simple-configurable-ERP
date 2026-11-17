@@ -49,6 +49,8 @@ Scrivi `http://localhost:5173/budget/hw` e premi invio.
 
 **Cosa dice ogni colonna, e GRAND TOTAL (17 novembre 2026).** Passando il mouse sull'**intestazione** di una colonna della griglia compare un popup che la spiega (i testi sono in `apps/web/src/pages/columnHelp.ts`, scritti dalla guida al budget del team: [stile-interfaccia.md](stile-interfaccia.md), punto 19). Nelle pagine del budget la colonna **GRAND TOTAL non c'è più**, né nella griglia (EXPECTED e ACTUAL) né nella tabella «Area total» né nelle schede del telefono: era uguale a OUTFLOW in quasi tutte le righe, e il lordo si legge da NET COST + VAT. Resta **OUTFLOW**, che è ciò che esce dal registro di cassa: il costo con l'IVA meno ciò che uno sponsor dà gratis. Dove uno sponsor regala qualcosa lo dice il suggerimento della cella OUTFLOW («1.000,00 € with VAT - 400,00 € given for free by the sponsor») e, sul telefono, la riga «sponsor». Le pagine **TOTAL**, **YEAR**, **CAR** e le analisi hanno ancora il «GRAND TOTAL COST» (decisione U1 in [da-decidere.md](da-decidere.md)); il motore di calcolo e l'API continuano a calcolare il lordo (`grossCents`).
 
+**Marca e modello (17 novembre 2026).** Per sapere che tipo di item è stato comprato, ogni voce ha due campi facoltativi, **BRAND** e **MODEL** (testo libero, fino a 200 caratteri, spazi ai lati tolti; vuoto = niente), colonne della griglia subito dopo ITEM (si scrivono nella cella, si ordinano, vanno nel Download e hanno il loro popup). Il modulo **Add item** ha le due caselle accanto al nome; sul telefono la scheda li mostra in grigio sotto il nome e il modulo di modifica li ha. Il server li salva nella voce (`budget_line.brand` e `model`) e li dà nella risposta del budget (`brand`, `model` di `CalcLine`): non entrano in nessun calcolo. Per ora li mostra solo il budget; TO PAY, PENDING, CATEGORY ANALYSES e i pagamenti del registro elencano ancora le voci per il solo nome.
+
 La transazione di sola lettura del punto 7 serve a una cosa precisa: se mentre leggiamo qualcuno salva una modifica, le nove letture non possono vedere metà del vecchio e metà del nuovo.
 
 ## 3. Percorso B: modificare una cella
@@ -141,7 +143,7 @@ erDiagram
   season ||--o| bank_snapshot : "saldo BANK"
 ```
 
-- **`budget_line`** è la voce (nome, categoria, priorità, nota, `version`). Le **cifre** stanno in `line_figures`, **una riga per fase** (`estimate` e `actual`): è il modo di non avere le colonne duplicate del foglio. Una fase senza riga vale "tutto zero".
+- **`budget_line`** è la voce (nome, **marca e modello** facoltativi, categoria, priorità, nota, `version`). Le **cifre** stanno in `line_figures`, **una riga per fase** (`estimate` e `actual`): è il modo di non avere le colonne duplicate del foglio. Una fase senza riga vale "tutto zero".
 - **`fund`** unisce due cose del foglio: l'elenco dei fondi e il "Team's fund". Un fondo esterno è uno **sponsor**: ha aliquota (0% se non paga IVA), gruppo e tipo, e decide da solo IVA e copertura delle righe che paga ([sponsor-e-fondi.md](sponsor-e-fondi.md)). I fondi di una riga stanno in **`line_fund`**, in ordine.
 - **`fund_contract`** sono le righe delle tabelle CASH FROM; **`team_inflow`** quelle di CASH FLOW; **`bank_snapshot`** il riquadro BANK (un importo a una data).
 - **`project.owner_name`** è la persona scritta nella riga gialla del foglio.

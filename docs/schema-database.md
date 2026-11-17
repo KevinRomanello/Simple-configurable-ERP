@@ -79,6 +79,8 @@ erDiagram
     integer project_id FK
     integer car_season_id FK "macchina di un'altra stagione"
     text item
+    text brand "marca di ciò che si compra, facoltativa"
+    text model "modello, facoltativo"
     text category "per nome (sezione 7)"
     text priority
     integer version "blocco ottimistico"
