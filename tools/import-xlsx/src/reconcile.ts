@@ -83,6 +83,8 @@ for (const w of warnings) report.skip("import warnings", w);
       const row = mine.get(name.toLowerCase());
       const own = countIn((l) => l[phase].fundName?.toLowerCase() === name.toLowerCase());
       if (!row) report.fail("fund balances", `${phase} ${name}: missing in the engine`);
+      // the sheet has no fund without a ceiling: one in the engine under the same name is a difference
+      else if (row.leftCents === null) report.fail("fund balances", `${phase} ${name}: the engine has it with no limit`);
       else report.money("fund balances", `${phase} ${name}`, left, row.leftCents, tolerance(own));
     }
     report.equal("fund balances", `${phase} fund list`, [...sheetBalances.keys()].map((n) => n.toLowerCase()).sort(), [...mine.keys()].sort());

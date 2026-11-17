@@ -171,3 +171,50 @@ describe("lines without funds", () => {
     expect(p!.amounts.vatCents).toBe(0);
   });
 });
+
+describe("a fund with no ceiling", () => {
+  // ACTUAL only: there is no sum of money behind it, the team buys with it and the CASH FROM page says how much was spent
+  const free = sponsorFund(2, { name: "Free", vatRate: 22, unlimited: true });
+  const actuals = (lines: Figures[]) =>
+    computeLines(
+      snapshot({
+        projects: [{ id: 1, areaId: 1, name: "P", ownerName: null, position: 1 }],
+        funds: [teamFund, free],
+        contracts: [],
+        lines: lines.map((f, index) => line(index + 1, 1, null, f)),
+      }),
+    ).map((l) => l.actual);
+
+  it("pays any line, with the VAT at its own rate, and the team pays nothing", () => {
+    const [p] = actuals([figures(1, 1_000_000, { fundIds: [2] })]);
+    expect(p!.amounts).toMatchObject({ netCents: 100_000_000, vatCents: 22_000_000, outflowCents: 122_000_000, complete: true });
+    expect(p!.teamVatCents).toBe(0);
+    expect(p!.shortCents).toBe(0);
+  });
+
+  it("is never short, however many lines it pays", () => {
+    const paid = actuals([figures(1, 5000, { fundIds: [2] }), figures(1, 7000, { fundIds: [2] }), figures(3, 900, { fundIds: [2] })]);
+    expect(paid.map((p) => p.shortCents)).toEqual([0, 0, 0]);
+    expect(paid.map((p) => p.shares[0]!.drawnCents)).toEqual([610_000, 854_000, 329_400]);
+  });
+
+  it("pays a price typed with the VAT in it, VAT included", () => {
+    const [p] = actuals([figures(1, 0, { fundIds: [2], unitGrossE4: 12_200_000 })]); // 1 220,00 with VAT
+    expect(p!.amounts).toMatchObject({ netCents: 100_000, vatCents: 22_000, grossCents: 122_000, outflowCents: 122_000 });
+    expect(p!.shortCents).toBe(0);
+  });
+
+  it("pays what a fund of its group cannot cover, when it comes after it", () => {
+    const small = sponsorFund(3, { name: "Small", group: "g", vatRate: 22 });
+    const rest = sponsorFund(2, { name: "Free", group: "g", vatRate: 22, unlimited: true });
+    const s = snapshot({
+      projects: [{ id: 1, areaId: 1, name: "P", ownerName: null, position: 1 }],
+      funds: [teamFund, rest, small],
+      contracts: [{ id: 1, fundId: 3, phase: "actual", amountCents: 61_000, inflowDate: null }], // covers 500,00 net with VAT
+      lines: [line(1, 1, null, figures(1, 1000, { fundIds: [3, 2] }))],
+    });
+    const [p] = computeLines(s).map((l) => l.actual);
+    expect(p!.shares.map((x) => [x.fundName, x.netCents])).toEqual([["Small", 50_000], ["Free", 50_000]]);
+    expect(p!.shortCents).toBe(0);
+  });
+});

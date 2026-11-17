@@ -37,6 +37,10 @@ export type FundBalances = Map<number, number>;
 
 const isGift = (fund: FundInput) => fund.kind === "external" && fund.type !== "fund";
 
+/** What a fund can still pay: the team's own money and a fund with no ceiling never run out. */
+const freeIn = (fund: FundInput, balances: FundBalances) =>
+  fund.kind === "team" || fund.unlimited ? Infinity : Math.max(0, balances.get(fund.id) ?? 0);
+
 /** The VAT rate of a gift: none for a plain gift, the counter-invoice rate otherwise. */
 const giftRate = (fund: FundInput) => (fund.type === "gift" ? 0 : (fund.vatRate ?? 0));
 
@@ -149,7 +153,7 @@ function settleSharesGross(figures: Figures, gross: number, funds: FundInput[], 
     const rate = team ? figures.vatRate : fund.vatRate;
     if (rate === null) complete = false;
 
-    const before = team ? Infinity : Math.max(0, balances.get(fund.id) ?? 0);
+    const before = freeIn(fund, balances);
     const last = index === funds.length - 1;
     const part = last ? remaining : Math.min(remaining, before);
     const { net, vat } = rate === null ? { net: part, vat: 0 } : splitGross(part, rate, null, settings);
@@ -197,7 +201,7 @@ function settleShares(
     if (rate === null) complete = false;
     const coversVat = !team; // a sponsor's fund covers the VAT at its own rate (0% = no VAT)
 
-    const before = team ? Infinity : Math.max(0, balances.get(fund.id) ?? 0);
+    const before = freeIn(fund, balances);
     const last = index === funds.length - 1;
     const part = last ? remaining : Math.min(remaining, netThatFits(before, coversVat ? (rate ?? 0) : 0));
     const vat = percentOf(part, rate ?? 0);

@@ -2,6 +2,8 @@
 
 **Stato: implementato e provato** (21 ottobre 2026). Nasce dalle risposte del tesoriere del 21 ottobre. Questo documento è la specifica: come si definisce uno sponsor, cosa fa il sito quando lo scegli in una riga del budget, come si pagano più fondi insieme, cosa succede con i soldi che entrano in cassa.
 
+**Cambiato il 17 novembre 2026**: c'è un quarto modo di dare, il **fondo senza limite** (§10): niente soldi dietro, si compra e basta, solo in ACTUAL; a fine anno la pagina CASH FROM dice quanto si è speso.
+
 **Cambiato il 27 ottobre 2026 (2)**: uno sponsor che dà **merce** (tipo B o C) è anche un **fornitore** (BOUGHT FROM) con lo stesso nome, e nella riga del budget fondo e fornitore si completano a vicenda (§3bis).
 
 **Cambiato il 27 ottobre 2026**: l'aliquota di uno sponsor che dà **merce con controfattura** (tipo C, «Goods + VAT») è **sempre 11%** e non si sceglie: come per la merce senza IVA (tipo B), che è sempre 0%. Nel form del nuovo sponsor il campo VAT % mostra il valore bloccato; nella tabella SPONSORS la cella è solo testo; l'API ignora qualunque altra aliquota.
@@ -19,7 +21,7 @@ Pagina **CASH FROM**: il bottone giallo **New sponsor** in alto apre il form in 
 | Campo | Valori | Cosa decide |
 | --- | --- | --- |
 | Nome | testo, unico senza distinguere le maiuscole | come compare nelle tendine |
-| Gives (`type`) | **Gives a fund** (A) · **Gives goods, no VAT** (B) · **Gives goods, VAT on the counter-invoice** (C) | come si copre la riga e chi paga l'IVA (§3) |
+| Gives (`type`, `unlimited`) | **Gives a fund** (A) · **Gives a fund, no limit** (D, §10) · **Gives goods, no VAT** (B) · **Gives goods, VAT on the counter-invoice** (C) | come si copre la riga e chi paga l'IVA (§3). Il fondo senza limite è, nel database, un fondo di tipo A con `unlimited` vero |
 | VAT % (`vat_rate`) | 0, 11, 22 (le aliquote dell'elenco di Settings) | l'aliquota di *tutti* gli acquisti pagati con quello sponsor, che il fondo copre. **Uno sponsor che non paga IVA si definisce con 0%**: non c'è una casella apposta. **Si sceglie solo per un fondo (A)**: per un regalo senza IVA (B) è sempre **0**, per un regalo con controfattura (C) sempre **11**. Il valore fisso lo dice `GET /api/lookups/sponsor-rates` (`getFixedSponsorRates`), da cui lo leggono sia l'API sia il form; non dipende dall'elenco delle aliquote scelte dall'admin |
 | Group (`group_name`) | testo facoltativo | i fondi dello stesso gruppo possono pagare insieme una riga (§4) |
 | I soldi (`contracts`) | **un valore e una data per fase**, nelle colonne EXPECTED e ACTUAL della riga dello sponsor (VALUE e ARRIVES) | quanto vale il fondo e quando arriva. Si cambiano sul posto; il valore vuoto toglie i soldi di quella fase, e la data si può mettere solo dopo il valore. Nel form del nuovo sponsor si inseriscono subito (per EXPECTED, ACTUAL o tutte e due: sponsor e soldi si salvano insieme o per niente). Uno sponsor che dà merce (B, C) non ha soldi: non è una somma. Prima i contratti erano righe da aggiungere una a una; la migrazione `0008` ha unito quelle doppie (somma e data più vecchia) |
@@ -103,7 +105,7 @@ La migrazione `0009_one_kind_of_sponsor.sql` ha trasformato gli sponsor in cassa
 | consumo dei fondi in ordine di foglio | `computeLines` in `packages/calc/src/lines.ts` |
 | inflow e IVA dell'11% sugli inflow | `packages/calc/src/cash.ts` (`bankInflows`, `inflowVat`), con `firstDayOfNextQuarter` in `vat.ts`; usato da `cashflow.ts` e `gantt.ts` |
 | saldi e analisi per fondo con le quote | `funds.ts`, `analysis.ts` |
-| tabelle | `fund` (con `type`, `vat_rate`, `group_name`), `fund_contract`, `line_fund` (i fondi di una riga: `figures_id`, `position`, `fund_id`): migrazioni `0006_sponsors.sql` e `0009_one_kind_of_sponsor.sql`, con il trigger dello storico; gli inflow sono `team_inflow` |
+| tabelle | `fund` (con `type`, `vat_rate`, `group_name`, `unlimited`), `fund_contract`, `line_fund` (i fondi di una riga: `figures_id`, `position`, `fund_id`): migrazioni `0006_sponsors.sql` e `0009_one_kind_of_sponsor.sql`, con il trigger dello storico; gli inflow sono `team_inflow` |
 | controlli di compatibilità | `saveFunds` in `apps/api/src/modules/budget/budget.service.ts`; la definizione dello sponsor in `funds.service.ts` |
 | 11% | `getSettings().inflowVatRate`: si cambia dalla pagina Settings ([impostazioni.md](impostazioni.md)) |
 | schermate | `FundsPage.tsx` (bottone New sponsor e suo form, tabella SPONSORS con i soldi, riquadri dei risultati), `areaColumns.tsx` (CASH FROM, ALSO FROM, icona di avviso) |
@@ -112,8 +114,8 @@ La migrazione `0009_one_kind_of_sponsor.sql` ha trasformato gli sponsor in cassa
 
 | Metodo | Percorso | Cosa fa |
 | --- | --- | --- |
-| `GET` | `/api/funds?phase=` | i fondi, ognuno con i suoi soldi (`contracts.estimate` / `contracts.actual`: valore e data, oppure `null`); con la fase solo quelli che una riga può usare: team, regali, sponsor con soldi nella fase |
-| `POST` | `/api/funds` | nuovo sponsor (`name`, `vatRate` obbligatoria tranne per il regalo senza IVA, il resto facoltativo) e, se si vuole, i suoi `contracts` (`phase`, `amount`, `inflowDate`: massimo uno per fase; solo per chi dà un fondo): tutto o niente |
+| `GET` | `/api/funds?phase=` | i fondi, ognuno con i suoi soldi (`contracts.estimate` / `contracts.actual`: valore e data, oppure `null`); con la fase solo quelli che una riga può usare: team, regali, sponsor con soldi nella fase e, in ACTUAL, i fondi senza limite |
+| `POST` | `/api/funds` | nuovo sponsor (`name`, `vatRate` obbligatoria tranne per il regalo senza IVA, `unlimited` per un fondo senza limite, il resto facoltativo) e, se si vuole, i suoi `contracts` (`phase`, `amount`, `inflowDate`: massimo uno per fase; solo per chi dà un fondo): tutto o niente |
 | `PATCH` | `/api/funds/:id` | cambia qualunque parametro; il risultato è ricontrollato per intero |
 | `DELETE` | `/api/funds/:id` | se nessuna riga è pagata da lui; si porta via anche i suoi soldi |
 | `PUT` | `/api/funds/:id/contracts/:phase` | `{ amount, inflowDate }`: mette (o sostituisce) i soldi dello sponsor in quella fase; solo per chi dà un fondo. Due richieste insieme non lasciano mai due righe |
@@ -158,6 +160,26 @@ Da confermare (le ho assunte così): l'11% si calcola sul valore dell'inflow; il
 
 **Limite noto**: cambiare il gruppo o il tipo di uno sponsor **non ricontrolla** le righe che lo usano già insieme ad altri (il motore regge, ma una combinazione che oggi non sarebbe ammessa resta com'è finché non si modifica la riga).
 
+## 10. Il fondo senza limite (17 novembre 2026)
+
+Un fondo che **non ha un tetto**: chi lo dà dice di comprare con lui e basta, quindi non c'è una somma che entra e non ha senso un «residuo». A fine anno si vuole solo sapere **quanto si è speso con quel fondo**.
+
+| | |
+| --- | --- |
+| Come si crea | **New sponsor**, scelta **Gives a fund, no limit**. Stessi campi degli altri (nome, VAT %, gruppo); niente valore, data né «Counts in». Nella tabella SPONSORS è «Fund, no limit» e le celle dei soldi sono vuote |
+| IVA | come per un fondo (A): copre netto e IVA **all'aliquota che gli si dà** e il team non paga niente |
+| Dove esiste | **solo in ACTUAL**: nelle tendine CASH FROM e ALSO FROM di una riga compare per la fase ACTUAL e mai per EXPECTED, e il server rifiuta una riga EXPECTED che lo usa (`400`) |
+| Mai in rosso | il suo saldo è illimitato, come i soldi del team: la riga non risulta mai «corta» e non serve ALSO FROM |
+| Con un gruppo | come per gli altri: in ACTUAL può pagare quello che un fondo dello stesso gruppo non copre, se viene dopo di lui |
+| Cosa si vede a fine anno | pagina **CASH FROM**, riquadro **ACTUAL**: una riga con il suo nome, **TOTAL CONTRACT «no limit»**, **SPENT** (netto + IVA di ciò che ha pagato, come per gli altri fondi) e LEFT VALUE vuoto. Non c'è nel riquadro EXPECTED. Compare anche nelle CASH FROM ANALYSES, per quote delle righe, come ogni fondo |
+| Cosa non ha | contratti (la richiesta `PUT /api/funds/:id/contracts/:phase` e un contratto nel `POST` sono rifiutati), inflow, scadenza di un incasso: non entra in «inflow per mese» né in CASH FLOW come soldi che arrivano. Non conta come buco (shortfall) del CASH FLOW |
+
+**Regole del server** (`funds.service.ts`, `budget.service.ts`): solo un fondo (tipo A) può essere senza limite; un fondo che ha dei soldi non diventa senza limite finché i soldi non si tolgono (e un fondo senza limite non può riceverne); non diventa senza limite se una riga lo usa già in EXPECTED (`409`); il tipo di uno senza limite non si cambia in merce senza togliere prima il flag. Il resto è come per ogni sponsor (nome unico, non si cancella se paga delle righe).
+
+**Nel motore**: `FundInput.unlimited` (`packages/calc/src/snapshot.ts`); `freeIn` in `settle.ts` dà ai fondi senza limite, come ai soldi del team, un saldo `Infinity`, e per questo `shortCents` è sempre 0; `fundSummary` (`funds.ts`) ha una riga per ogni fondo senza limite in ACTUAL, con `totalContractCents` e `leftCents` a `null`.
+
+**Differenze di cui tenere conto**: non esiste nel foglio né nello script (la riconciliazione col foglio non lo conosce: su un database che ne ha uno segnala «the engine has it with no limit»). La migrazione `0031_unlimited_fund.sql` aggiunge la colonna `fund.unlimited` (falso di base: nessun dato cambia) e un vincolo (`fund_unlimited_is_a_sponsor_fund`: solo uno sponsor di tipo «fund»). Una **nuova stagione** copia i suoi fondi, anche senza limite.
+
 ## 9. Prove
 
 - `packages/calc/src/settle.test.ts` (17): regali B e C, aliquota dello sponsor, il fondo che copre l'IVA (anche a 0%), sponsor parziale importato, più fondi (resto, ordine del foglio, ultimo fondo in negativo, netto che ci sta con l'IVA, fino a sei fondi uno dopo l'altro), righe senza fondo. I numeri dei casi con più fondi sono calcolati a mano prima di lanciare il test.
@@ -166,5 +188,6 @@ Da confermare (le ho assunte così): l'11% si calcola sul valore dell'inflow; il
 - Riconciliazione col foglio (`pnpm reconcile`, anche `-- --db` dopo `load --replace`): **1.995 controlli uguali**, con le aliquote ora prese dallo sponsor e anche dopo il 26/10/2026 (il foglio non ha inflow e tutti i suoi sponsor coprono l'IVA).
 - **L'11% fisso del tipo C** (`funds.routes.test.ts`, `lookups.routes.test.ts`): un tipo C creato con 22% o 0% o senza aliquota è salvato a 11; passando da «Fund 22%» a tipo C diventa 11 e tornando a «Fund» resta 11 ma si può cambiare; cambiarne l'aliquota è ignorato; un fondo deve ancora sceglierla; il valore fisso non dipende dall'elenco delle aliquote (anche togliendo 0 e 11 da Settings). Nel browser: il form mostra 0% o 11% bloccato, la cella della tabella è solo testo. La migrazione `0012` porta a 11 gli sponsor di quel tipo che avessero un'altra aliquota (nei dati di sviluppo non ce n'è nessuno).
 - **Sponsor di merce e fornitori** (`funds.routes.test.ts`, 5; `budget.routes.test.ts`, 6): creazione (con e senza IVA, non per un fondo di soldi), fornitore già presente in un'altra grafia, passaggio da soldi a merce, rinomina (anche solo delle maiuscole, e con un nome già preso), cancellazione che lascia il fornitore; nella riga: il fondo completa il fornitore (al posto di Amazon, e solo nella sua fase), una riga fatta già pagata dallo sponsor, il fornitore completa il fondo, nessun effetto per ciò che non è merce da sponsor, entrambi scelti insieme, togliere uno non tocca l'altro, un capo area. Togliendo le due regole i test falliscono (7 su 11). Nel browser: lo sponsor creato dal form compare in BOUGHT FROM, e le celle CASH FROM e BOUGHT FROM della griglia si completano in entrambe le direzioni.
+- **Fondo senza limite** (§10): `settle.test.ts` (4: paga con l'IVA all'aliquota del fondo, mai corto, prezzo scritto con l'IVA, paga il resto di un fondo dello stesso gruppo), `funds.test.ts` (3: la riga in ACTUAL con lo speso e i `null`, niente in EXPECTED, c'è anche senza acquisti), `funds.routes.test.ts` (8: creazione, solo un fondo, niente soldi, da fondo con soldi, offerto solo in ACTUAL, `409` con righe EXPECTED, cancellazione), `budget.routes.test.ts` (3: paga in ACTUAL, rifiutato in EXPECTED, paga il resto di un fondo del gruppo), `views.routes.test.ts` e `seasons.routes.test.ts` (1 ciascuno). Tolta la regola `freeIn` dal motore, quattro prove cadono; tolti il rifiuto in EXPECTED e l'offerta in ACTUAL, cadono le due prove dell'API.
 - Migrazione `0009` provata su una copia dei dati reali che aveva ancora uno sponsor in cassa: è diventato un inflow Expected, senza data, dello stesso valore.
 - Controllo di mutazione: togliere il tetto dei fondi, la divisione per `1 + aliquota` o la regola «il team paga sempre l'IVA di un regalo» fa fallire i test.

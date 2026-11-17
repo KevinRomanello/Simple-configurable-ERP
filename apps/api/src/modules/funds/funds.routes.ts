@@ -13,6 +13,7 @@ const sponsor = {
   type: z.enum(FUND_TYPES),
   vatRate: z.number().min(0).max(100).nullable(),
   group: optionalText(60),
+  unlimited: z.boolean(),
 };
 const contractFields = {
   phase,
@@ -22,7 +23,7 @@ const contractFields = {
 // the money a new sponsor brings, up to one contract per phase
 const createFundInput = z
   .object(sponsor)
-  .partial({ type: true, vatRate: true, group: true })
+  .partial({ type: true, vatRate: true, group: true, unlimited: true })
   .extend({ contracts: z.array(z.object(contractFields)).max(PHASES.length).optional() });
 
 export async function fundsRoutes(app: FastifyInstance) {
@@ -33,7 +34,7 @@ export async function fundsRoutes(app: FastifyInstance) {
     const { contracts = [], ...body } = createFundInput.parse(request.body);
     return reply.code(201).send(
       await createFund(
-        { type: "fund", vatRate: null, group: null, ...body },
+        { type: "fund", vatRate: null, group: null, unlimited: false, ...body },
         contracts.map((c) => ({ ...c, inflowDate: c.inflowDate ?? null })),
       ),
     );

@@ -1,0 +1,2 @@
+ALTER TABLE "fund" ADD COLUMN "unlimited" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "fund" ADD CONSTRAINT "fund_unlimited_is_a_sponsor_fund" CHECK (not "fund"."unlimited" or ("fund"."kind" = 'external' and "fund"."type" = 'fund'));

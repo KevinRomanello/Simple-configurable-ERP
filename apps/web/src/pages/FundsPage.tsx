@@ -2,7 +2,7 @@ import { faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { Fund, FundSummaryRow, FundType, NewContract, Phase } from "../api/types";
+import type { Fund, FundSummaryRow, NewContract, Phase } from "../api/types";
 import { IconButton } from "../components/Button";
 import { CommitInput } from "../components/CommitInput";
 import { TableBox } from "../components/ExportBlocks";
@@ -10,20 +10,22 @@ import { MonthlyInflows } from "../components/MonthlyInflows";
 import { SortTh } from "../components/SortTh";
 import { DataTable, EmptyRow, Field, FormPanel, PageHeader, Panel, type Column } from "../components/ui";
 import { date, money, moneyFromDecimal } from "../lib/format";
+import { givesBody, givesOf, hasMoney, type Gives } from "../lib/gives";
 import { useSort, type SortAccessors } from "../lib/sort";
 import { useCanEditShared } from "../lib/season";
 import { useAction } from "../lib/useAction";
 
 const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
 
-const TYPE_LABEL: Record<FundType, string> = {
+const TYPE_LABEL: Record<Gives, string> = {
   fund: "Gives a fund",
+  unlimited: "Gives a fund, no limit",
   gift: "Gives goods, no VAT",
   gift_vat: "Gives goods, VAT on the counter-invoice",
 };
 
 /** The same, shorter, for the table of sponsors. */
-const TYPE_SHORT: Record<FundType, string> = { fund: "Fund", gift: "Goods, no VAT", gift_vat: "Goods + VAT" };
+const TYPE_SHORT: Record<Gives, string> = { fund: "Fund", unlimited: "Fund, no limit", gift: "Goods, no VAT", gift_vat: "Goods + VAT" };
 
 /** CASH FROM: the sponsors, their contracts, what is left of them, and who pays the VAT. */
 export function FundsPage() {
@@ -68,7 +70,7 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
   const fixedRates = useQuery({ queryKey: ["fixed-sponsor-rates"], queryFn: api.fixedSponsorRates });
 
   const [name, setName] = useState("");
-  const [type, setType] = useState<FundType>("fund");
+  const [gives, setGives] = useState<Gives>("fund");
   const [rate, setRate] = useState("");
   const [group, setGroup] = useState("");
   const [amount, setAmount] = useState("");
@@ -76,15 +78,15 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
   const [counts, setCounts] = useState<keyof typeof PHASES_CHOICE>("both");
 
   // goods have a VAT rate that is not chosen (none, or the one of the counter-invoice): the server's
-  const fixed = fixedRates.data?.[type];
-  const isMoney = type === "fund"; // only a fund is a sum of money; goods have no contract
+  const fixed = fixedRates.data?.[givesBody(gives).type];
+  const isMoney = hasMoney(gives); // only a fund with a limit is a sum of money; goods and a fund with no limit have no contract
   const ready = name.trim() !== "" && (fixed !== undefined || rate !== "");
 
   const submit = async () => {
     const contracts: NewContract[] =
       isMoney && amount !== "" ? PHASES_CHOICE[counts].map((phase) => ({ phase, amount, inflowDate: day || null })) : [];
     const ok = await act(() =>
-      api.createFund({ name: name.trim(), type, vatRate: fixed ?? Number(rate), group: group.trim() || null, contracts }),
+      api.createFund({ name: name.trim(), ...givesBody(gives), vatRate: fixed ?? Number(rate), group: group.trim() || null, contracts }),
     );
     if (ok) onDone();
   };
@@ -104,8 +106,8 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
           <input id="sponsor-name" className="input small" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field label="Gives" htmlFor="sponsor-type">
-          <select id="sponsor-type" className="input small" value={type} onChange={(e) => setType(e.target.value as FundType)}>
-            {(Object.keys(TYPE_LABEL) as FundType[]).map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
+          <select id="sponsor-type" className="input small" value={gives} onChange={(e) => setGives(e.target.value as Gives)}>
+            {(Object.keys(TYPE_LABEL) as Gives[]).map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
           </select>
         </Field>
         <Field label="VAT %" htmlFor="sponsor-rate">
@@ -140,7 +142,11 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
           <p className="muted">Value and date can be changed later in the SPONSORS table.</p>
         </div>
       ) : (
-        <p className="muted">A sponsor that gives goods has no sum of money: nothing to add here.</p>
+        <p className="muted">
+          {gives === "unlimited"
+            ? "A fund with no limit has no sum of money: you buy with it in ACTUAL only, and CASH FROM shows how much was spent."
+            : "A sponsor that gives goods has no sum of money: nothing to add here."}
+        </p>
       )}
       <GroupSuggestions funds={funds.data ?? []} />
     </FormPanel>
@@ -177,7 +183,7 @@ function AmountInput({ value, label, onCommit }: { value: string; label: string;
 function MoneyCells({ fund, phase, canEdit }: { fund: Fund; phase: Phase; canEdit: boolean }) {
   const act = useAction();
   const money_ = fund.contracts[phase];
-  if (fund.type !== "fund") return <><td className="group-start" /><td /></>; // goods are not a sum of money
+  if (!hasMoney(givesOf(fund))) return <><td className="group-start" /><td /></>; // goods and a fund with no limit are not a sum of money
 
   const save = (amount: string, inflowDate: string | null) =>
     act(() => (amount === "" ? (money_ ? api.clearContract(fund.id, phase) : Promise.resolve()) : api.setContract(fund.id, phase, { amount, inflowDate })));
@@ -217,7 +223,7 @@ const SPONSOR_SORT: SortAccessors<Fund> = {
   actualValue: (f) => (f.contracts.actual ? Number(f.contracts.actual.amount) : null),
   estimateDate: (f) => f.contracts.estimate?.inflowDate ?? null,
   actualDate: (f) => f.contracts.actual?.inflowDate ?? null,
-  type: (f) => TYPE_SHORT[f.type],
+  type: (f) => TYPE_SHORT[givesOf(f)],
   vat: (f) => f.vatRate,
   group: (f) => f.group || null,
 };
@@ -267,10 +273,10 @@ function SponsorsPanel() {
                 <MoneyCells fund={f} phase="actual" canEdit={canEdit} />
                 <td className="group-start">
                   {canEdit ? (
-                    <select className="input small" aria-label={`What ${f.name} gives`} value={f.type} onChange={(e) => change(f, { type: e.target.value as FundType })}>
-                      {(Object.keys(TYPE_SHORT) as FundType[]).map((t) => <option key={t} value={t}>{TYPE_SHORT[t]}</option>)}
+                    <select className="input small" aria-label={`What ${f.name} gives`} value={givesOf(f)} onChange={(e) => change(f, givesBody(e.target.value as Gives))}>
+                      {(Object.keys(TYPE_SHORT) as Gives[]).map((t) => <option key={t} value={t}>{TYPE_SHORT[t]}</option>)}
                     </select>
-                  ) : TYPE_SHORT[f.type]}
+                  ) : TYPE_SHORT[givesOf(f)]}
                 </td>
                 <td>
                   {canEdit && fixedRates.data && fixedRates.data[f.type] === undefined ? (
@@ -292,17 +298,19 @@ function SponsorsPanel() {
   );
 }
 
+// A fund with no limit has no sum behind it (a null total and left): it says so, and only what was spent counts.
 const SUMMARY_COLUMNS: Column<FundSummaryRow>[] = [
   { key: "name", header: "CASH SOURCE", sort: (r) => r.name, cell: (r) => r.name },
-  { key: "contract", header: "TOTAL CONTRACT", num: true, sort: (r) => r.totalContractCents, cell: (r) => money(r.totalContractCents) },
+  { key: "contract", header: "TOTAL CONTRACT", num: true, sort: (r) => r.totalContractCents, cell: (r) => (r.totalContractCents === null ? "no limit" : money(r.totalContractCents)) },
+  { key: "spent", header: "SPENT", num: true, sort: (r) => r.outflowCents, cell: (r) => money(r.outflowCents) },
   {
     key: "left",
     header: "LEFT VALUE",
     num: true,
     className: "sum",
     sort: (r) => r.leftCents,
-    cellClass: (r) => (r.leftCents < 0 ? "cell-negative" : undefined),
-    cell: (r) => money(r.leftCents),
+    cellClass: (r) => (r.leftCents !== null && r.leftCents < 0 ? "cell-negative" : undefined),
+    cell: (r) => (r.leftCents === null ? "" : money(r.leftCents)),
   },
 ];
 

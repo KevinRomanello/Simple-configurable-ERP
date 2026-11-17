@@ -69,6 +69,13 @@ describe("a new season", () => {
     expect((await api.get("/api/areas/mt-dmt/sheet")).body.projects[0].lines).toHaveLength(1);
   });
 
+  it("carries a fund with no limit over as it is", async () => {
+    await api.post("/api/funds", { name: "Free", vatRate: 22, unlimited: true });
+    const next = await newSeason(2027, "EG-28");
+    const funds = (await api.get("/api/funds", inSeason(next))).body;
+    expect(funds.filter((f: any) => f.kind === "external").map((f: any) => [f.name, f.unlimited])).toEqual([["Free", true]]);
+  });
+
   it("refuses a season that exists, and anyone but an admin", async () => {
     expect((await api.post("/api/seasons", { startYear: 2026, car: "Again" })).status).toBe(409);
     expect((await api.as(PM).post("/api/seasons", { startYear: 2027, car: "X" })).status).toBe(403);

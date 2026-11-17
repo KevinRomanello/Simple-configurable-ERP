@@ -124,6 +124,7 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
           type: f.type,
           vatRate: f.vatRate === null ? null : Number(f.vatRate),
           group: f.groupName,
+          unlimited: f.unlimited,
         })),
         contracts: contracts.map(({ contract: c }) => ({
           id: c.id, fundId: c.fundId, phase: c.phase, amountCents: toCents(c.amount), inflowDate: c.inflowDate,

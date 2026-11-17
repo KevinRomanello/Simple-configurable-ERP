@@ -141,6 +141,7 @@ erDiagram
     fund_type type "fund, gift, gift_vat"
     numeric vat_rate "aliquota dello sponsor"
     text group_name "fondi dello stesso gruppo"
+    boolean unlimited "fondo senza limite: solo ACTUAL, niente contratti"
   }
   fund_contract {
     integer id PK
@@ -476,7 +477,7 @@ Oltre alle chiavi esterne, il database dice no a:
 
 | Regola | Tabella |
 | --- | --- |
-| un fondo del team per stagione; il fondo del team è semplice; uno sponsor ha un'aliquota | `fund` |
+| un fondo del team per stagione; il fondo del team è semplice; uno sponsor ha un'aliquota; solo uno sponsor di tipo `fund` può essere senza limite (`unlimited`) | `fund` |
 | un contratto per fondo e fase; importo non negativo | `fund_contract` |
 | una riga di cifre per voce e fase; quantità e costo non negativi; il prezzo scritto con IVA non è negativo e allora il netto salvato è 0 (un solo prezzo) | `line_figures` |
 | un fondo una volta sola per riga di cifre, e una sola posizione | `line_fund` |

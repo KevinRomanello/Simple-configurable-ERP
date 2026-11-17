@@ -15,7 +15,8 @@ export type SponsorType = (typeof SPONSOR_TYPES)[number];
 
 /**
  * What a sponsor gives, in the words of the treasurer:
- *  - `fund`:     a sum to pay purchases from; the VAT of those purchases is added at the sponsor's rate;
+ *  - `fund`:     a sum to pay purchases from; the VAT of those purchases is added at the sponsor's rate (with no
+ *                ceiling when the fund is `unlimited`: ACTUAL only, no sum behind it);
  *  - `gift`:     goods for free and no VAT at all;
  *  - `gift_vat`: goods for free, but the team pays the VAT of the counter-invoice (advertising).
  */

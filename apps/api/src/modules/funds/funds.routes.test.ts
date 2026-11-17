@@ -277,3 +277,69 @@ describe("sponsors that give goods are suppliers too", () => {
     expect(await suppliers()).toEqual(["Gift", "Money"]); // it may be on lines already bought
   });
 });
+
+describe("a fund with no limit", () => {
+  const make = async (name = "Free", extra: object = {}) =>
+    (await api.post("/api/funds", { name, type: "fund", vatRate: 22, unlimited: true, ...extra })).body;
+  const idsIn = async (phase: string) => ((await api.get(`/api/funds?phase=${phase}`)).body as { name: string }[]).map((f) => f.name);
+
+  it("is created like any other fund, with a VAT rate and a group, and no money", async () => {
+    const created = await api.post("/api/funds", { name: "Free", vatRate: 11, group: "g", unlimited: true });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({ name: "Free", kind: "external", type: "fund", vatRate: 11, group: "g", unlimited: true, contracts: { estimate: null, actual: null } });
+    expect((await api.post("/api/funds", { name: "No rate", unlimited: true })).status).toBe(400); // it still has to choose its VAT rate
+  });
+
+  it("is not unlimited unless it says so", async () => {
+    expect((await api.post("/api/funds", { name: "Plain", vatRate: 22 })).body.unlimited).toBe(false);
+  });
+
+  it("only a sponsor that gives a fund can have no limit", async () => {
+    expect((await api.post("/api/funds", { name: "Gift", type: "gift", unlimited: true })).status).toBe(400);
+    expect((await api.post("/api/funds", { name: "Barter", type: "gift_vat", unlimited: true })).status).toBe(400);
+    const free = await make();
+    expect((await api.patch(`/api/funds/${free.id}`, { type: "gift" })).status).toBe(400); // the flag has to go first
+    expect((await api.patch(`/api/funds/${free.id}`, { type: "gift", unlimited: false })).status).toBe(200);
+  });
+
+  it("has no money: no contract at creation, none put in it later", async () => {
+    const withMoney = await api.post("/api/funds", { name: "Both", vatRate: 22, unlimited: true, contracts: [{ phase: "actual", amount: "100" }] });
+    expect(withMoney.status).toBe(400);
+    const free = await make();
+    expect((await api.put(`/api/funds/${free.id}/contracts/actual`, { amount: "100" })).status).toBe(400);
+  });
+
+  it("a fund with money cannot become one with no limit until the money is taken away", async () => {
+    const id = (await contract({ fundName: "Money" })).body.fundId;
+    expect((await api.patch(`/api/funds/${id}`, { unlimited: true })).status).toBe(400);
+    await api.del(`/api/funds/${id}/contracts/estimate`);
+    expect((await api.patch(`/api/funds/${id}`, { unlimited: true })).body.unlimited).toBe(true);
+    expect((await api.patch(`/api/funds/${id}`, { unlimited: false })).body.unlimited).toBe(false); // and back
+  });
+
+  it("can be bought with in ACTUAL only: it is offered there and not in EXPECTED", async () => {
+    await make("Free");
+    expect(await idsIn("actual")).toContain("Free");
+    expect(await idsIn("estimate")).not.toContain("Free");
+    expect((await api.get("/api/funds")).body.map((f: any) => f.name)).toContain("Free"); // the list of sponsors has it
+  });
+
+  it("cannot become unlimited while a line pays from it in EXPECTED", async () => {
+    const id = (await contract({ fundName: "Money" })).body.fundId;
+    const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
+    await api.post(`/api/projects/${project.id}/lines`, { item: "A", figures: { estimate: { quantity: 1, unitNetCost: "10", fundIds: [id] } } });
+    await api.del(`/api/funds/${id}/contracts/estimate`);
+    const refused = await api.patch(`/api/funds/${id}`, { unlimited: true });
+    expect(refused.status).toBe(409);
+    expect(refused.body.error).toContain("EXPECTED");
+  });
+
+  it("is deleted like any sponsor, unless a line pays from it", async () => {
+    const free = await make();
+    const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
+    await api.post(`/api/projects/${project.id}/lines`, { item: "A", figures: { actual: { quantity: 1, unitNetCost: "10", fundIds: [free.id] } } });
+    expect((await api.del(`/api/funds/${free.id}`)).status).toBe(409);
+    const other = await make("Other");
+    expect((await api.del(`/api/funds/${other.id}`)).status).toBe(204);
+  });
+});

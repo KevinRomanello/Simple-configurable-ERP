@@ -213,6 +213,7 @@ L'app usa date vere (selettore di data, selettore di mese). Il parser flessibile
 | 4 righe vuote per ogni nuovo progetto | si aggiungono le righe che servono |
 | Valore sponsor "totale" copiato una volta (§3) | sempre derivato |
 | Eliminazione di fondi e fornitori in uso | bloccata |
+| Tutti i fondi hanno un tetto (i soldi del contratto) | c'è anche un **fondo senza limite** (richiesta del 17/11/2026): solo ACTUAL, niente soldi, copre l'IVA come un fondo e a fine anno si legge quanto si è speso ([sponsor-e-fondi.md](sponsor-e-fondi.md), §10). Il foglio non ce l'ha: la riconciliazione lo segnala come differenza |
 | La colonna GRAND TOTAL in ogni riga e nel totale dell'area | **non c'è nelle pagine del budget** (richiesta del 17/11/2026): c'è OUTFLOW (il lordo meno ciò che uno sponsor dà gratis), uguale al grand total salvo uno sponsor che regala. Il lordo si legge da NET COST + VAT; TOTAL e le analisi lo hanno ancora (U1 in [da-decidere.md](da-decidere.md)) |
 | La colonna VAT dei subtotali dei progetti e del totale dell'area è la somma dell'IVA di **tutte** le righe | **solo l'IVA a carico del team** (richiesta del 29/10/2026): quella delle righe pagate con il fondo del team e la controfattura della merce di uno sponsor; l'IVA che copre un fondo non si conta. Il totale di tutta l'IVA resta nei dati (`vatCents`; la riconciliazione col foglio lo confronta ancora), e la nuova somma è `teamVatCents`. GRAND TOTAL e OUTFLOW non cambiano |
 | Esecuzione lenta/timeout dei trigger | non esiste |

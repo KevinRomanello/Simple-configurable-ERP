@@ -153,6 +153,11 @@ export const fund = pgTable(
     vatRate: numeric({ precision: 5, scale: 2 }),
     /** Funds with the same group (any spelling) can pay one line together. */
     groupName: text(),
+    /**
+     * A fund with no ceiling: there is no sum of money behind it, the team just buys with it (ACTUAL only) and the
+     * CASH FROM page says how much was spent. Only for a sponsor that gives a fund (docs/sponsor-e-fondi.md, §10).
+     */
+    unlimited: boolean().notNull().default(false),
   },
   (t) => [
     uniqueIndex("fund_season_name_uq").on(t.seasonId, sql`lower(${t.name})`),
@@ -164,6 +169,7 @@ export const fund = pgTable(
       sql`${t.kind} <> 'team' or (${t.type} = 'fund' and ${t.vatRate} is null and ${t.groupName} is null)`,
     ),
     check("fund_sponsor_has_rate", sql`${t.kind} = 'team' or ${t.vatRate} is not null`),
+    check("fund_unlimited_is_a_sponsor_fund", sql`not ${t.unlimited} or (${t.kind} = 'external' and ${t.type} = 'fund')`),
   ],
 );
 

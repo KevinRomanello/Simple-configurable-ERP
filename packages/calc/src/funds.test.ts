@@ -52,6 +52,38 @@ describe("fundSummary", () => {
   });
 });
 
+describe("a fund with no ceiling in the summary", () => {
+  const free = sponsorFund(3, { name: "Free", vatRate: 22, unlimited: true });
+  function withFree() {
+    return snapshot({
+      projects: [{ id: 1, areaId: 1, name: "P", ownerName: null, position: 1 }],
+      funds: [teamFund, free],
+      contracts: [],
+      lines: [
+        line(1, 1, null, figures(1, 4000, { fundIds: [3] })), // 4 880.00 with VAT
+        line(2, 1, null, figures(2, 500, { fundIds: [3] })), // 1 220.00 with VAT
+        line(3, 1, null, figures(1, 999, { fundIds: [1] })), // the team's own: not this fund's business
+      ],
+    });
+  }
+
+  it("has a row in ACTUAL with what was spent, VAT included, and no sum behind it", () => {
+    expect(fundSummary(withFree(), "actual")).toEqual([
+      { fundId: 3, name: "Free", totalContractCents: null, outflowCents: 610_000, vatCents: 110_000, leftCents: null },
+    ]);
+  });
+
+  it("has no row in EXPECTED: it never exists there", () => {
+    expect(fundSummary(withFree(), "estimate")).toEqual([]);
+  });
+
+  it("has a row even when nothing was bought with it yet", () => {
+    const s = withFree();
+    s.lines = [];
+    expect(fundSummary(s, "actual")[0]).toMatchObject({ name: "Free", outflowCents: 0, leftCents: null });
+  });
+});
+
 describe("inflowsByMonth", () => {
   const rows = [
     { name: "B", amountCents: 100, date: "2026-03-10" },

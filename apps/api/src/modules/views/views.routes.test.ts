@@ -70,6 +70,23 @@ describe("views over data written through the API", () => {
     expect(analysis.names).toEqual([{ estimate: "Sponsor", actual: null }]);
   });
 
+  it("a fund with no limit has a row in ACTUAL with what was spent, and none in EXPECTED", async () => {
+    const free = (await api.post("/api/funds", { name: "Free", vatRate: 22, unlimited: true })).body;
+    const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
+    await api.post(`/api/projects/${project.id}/lines`, {
+      item: "A",
+      figures: { actual: { quantity: 1, unitNetCost: "100", fundIds: [free.id] } },
+    });
+    const actual = (await api.get("/api/views/funds-summary?phase=actual")).body;
+    expect(actual.rows).toEqual([{ fundId: free.id, name: "Free", totalContractCents: null, outflowCents: 12_200, vatCents: 2_200, leftCents: null }]);
+    expect(actual.monthly).toEqual([]); // no money comes in
+    expect((await api.get("/api/views/funds-summary?phase=estimate")).body.rows).toEqual([]);
+    // the analyses by fund list it as well: it is a fund like the others
+    expect((await api.get("/api/views/analysis/funds")).body.names).toEqual([{ estimate: null, actual: "Free" }]);
+    // and it is not a shortfall for the cash flow
+    expect((await api.get("/api/views/cashflow")).body.actual.summary).toMatchObject({ shortfallCents: 0 });
+  });
+
   it("answers 404 for an unknown area and 400 for a bad filter", async () => {
     expect((await api.get("/api/views/vat-report?area=nope")).status).toBe(404);
     expect((await api.get("/api/views/vat-report")).status).toBe(400);

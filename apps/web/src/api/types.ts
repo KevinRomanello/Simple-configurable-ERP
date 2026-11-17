@@ -48,6 +48,8 @@ export interface Fund {
   /** The sponsor's VAT rate in percent; null for the team fund. */
   vatRate: number | null;
   group: string | null;
+  /** A fund with no ceiling: no sum of money behind it, ACTUAL only (the CASH FROM page says how much was spent). */
+  unlimited: boolean;
   /** What the sponsor brings in each phase: one value and the day it arrives (null: nothing). */
   contracts: Record<Phase, Money | null>;
 }
@@ -63,6 +65,7 @@ export interface SponsorBody {
   type: FundType;
   vatRate: number | null;
   group: string | null;
+  unlimited: boolean;
 }
 
 /** The money a new sponsor brings: a contract per phase it counts in. */

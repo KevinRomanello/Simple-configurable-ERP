@@ -189,16 +189,16 @@ async function saveFigures(tx: Tx, lineId: number, phase: Phase, change: Figures
     .values({ lineId, phase, ...values })
     .onConflictDoUpdate({ target: [lineFigures.lineId, lineFigures.phase], set: values })
     .returning({ id: lineFigures.id });
-  if (patch.fundIds !== undefined) await saveFunds(tx, saved!.id, patch.fundIds);
+  if (patch.fundIds !== undefined) await saveFunds(tx, saved!.id, patch.fundIds, phase);
 }
 
 /**
  * Replaces the funds that pay a line. They must work together: several funds only if they are in
  * the same group, never the team fund together with others (the team's own money cannot make up
  * for a fund that is not enough), a gift only alone (it covers everything) and never a sponsor
- * whose money goes into the bank.
+ * whose money goes into the bank. A fund with no ceiling only pays ACTUAL.
  */
-async function saveFunds(tx: Tx, figuresId: number, ids: number[]) {
+async function saveFunds(tx: Tx, figuresId: number, ids: number[], phase: Phase) {
   const found = ids.length > 0 ? await tx.select().from(fund).where(inArray(fund.id, ids)) : [];
   if (new Set(ids).size !== ids.length) throw invalid("The same fund is chosen twice");
   const chosen = ids.map((id) => {
@@ -208,6 +208,9 @@ async function saveFunds(tx: Tx, figuresId: number, ids: number[]) {
   });
 
   for (const [index, f] of chosen.entries()) {
+    if (f.unlimited && phase === "estimate") {
+      throw invalid(`"${f.name}" has no limit: it exists only in ACTUAL, not in EXPECTED`);
+    }
     if (f.kind === "external" && f.type !== "fund" && chosen.length > 1) {
       throw invalid(`"${f.name}" covers the whole line: it cannot be combined with other funds`);
     }

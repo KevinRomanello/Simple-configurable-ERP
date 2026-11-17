@@ -6,20 +6,22 @@ import type { Phase } from "./types";
 export interface FundSummaryRow {
   fundId: number;
   name: string;
-  totalContractCents: number;
+  /** What the fund is worth in the phase; null for a fund with no ceiling, which has no sum of money. */
+  totalContractCents: number | null;
   /** Outflow of the lines paid from this fund, in this phase. */
   outflowCents: number;
   vatCents: number;
-  /** What is left of the contracts. Negative means the fund is overspent. */
-  leftCents: number;
+  /** What is left of the contracts. Negative means the fund is overspent. Null for a fund with no ceiling. */
+  leftCents: number | null;
 }
 
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name.toLowerCase().localeCompare(b.name.toLowerCase());
 
 /**
- * The CASH FROM summary: one row per sponsor that has a contract in the phase. A line paid by
- * several funds counts for each of them only with its part.
+ * The CASH FROM summary: one row per sponsor that has a contract in the phase, and one per fund with no ceiling in
+ * ACTUAL (it has no contract: the row says how much was spent). A line paid by several funds counts for each of
+ * them only with its part.
  * left = contracts - outflow (the fund covers the VAT of its purchases).
  */
 export function fundSummary(snapshot: Snapshot, phase: Phase): FundSummaryRow[] {
@@ -28,8 +30,9 @@ export function fundSummary(snapshot: Snapshot, phase: Phase): FundSummaryRow[] 
   return snapshot.funds
     .filter((fund) => fund.kind === "external")
     .map((fund) => {
+      const unlimited = fund.unlimited === true && phase === "actual";
       const contracts = snapshot.contracts.filter((c) => c.fundId === fund.id && c.phase === phase);
-      if (contracts.length === 0) return null;
+      if (contracts.length === 0 && !unlimited) return null;
 
       const totalContractCents = contracts.reduce((sum, c) => sum + c.amountCents, 0);
       const own = lines.flatMap((l) => l[phase].shares).filter((share) => share.fundId === fund.id);
@@ -39,10 +42,10 @@ export function fundSummary(snapshot: Snapshot, phase: Phase): FundSummaryRow[] 
       return {
         fundId: fund.id,
         name: fund.name,
-        totalContractCents,
+        totalContractCents: unlimited ? null : totalContractCents,
         outflowCents,
         vatCents,
-        leftCents: totalContractCents - outflowCents,
+        leftCents: unlimited ? null : totalContractCents - outflowCents,
       };
     })
     .filter((row): row is FundSummaryRow => row !== null)

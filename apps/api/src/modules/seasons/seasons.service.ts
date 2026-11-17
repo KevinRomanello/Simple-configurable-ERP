@@ -99,7 +99,7 @@ async function copyStructure(tx: Tx, fromId: number, toId: number) {
   const sponsors = (await tx.select().from(fund).where(eq(fund.seasonId, fromId))).filter((f) => f.kind === "external");
   if (sponsors.length > 0) {
     await tx.insert(fund).values(
-      sponsors.map((f) => ({ seasonId: toId, name: f.name, kind: f.kind, type: f.type, vatRate: f.vatRate, groupName: f.groupName })),
+      sponsors.map((f) => ({ seasonId: toId, name: f.name, kind: f.kind, type: f.type, vatRate: f.vatRate, groupName: f.groupName, unlimited: f.unlimited })),
     );
   }
 }

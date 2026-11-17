@@ -3,7 +3,7 @@ import { and, eq, exists, inArray, sql } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { fund, fundContract, lineFund } from "../../db/schema";
+import { fund, fundContract, lineFigures, lineFund } from "../../db/schema";
 import { canManageFunds, getCurrentUser } from "../auth/auth.service";
 import { getFixedSponsorRates, listVatRates } from "../lookups/lookups.service";
 import { assertSeasonOpen, getCurrentSeason } from "../seasons/seasons.service";
@@ -47,13 +47,15 @@ function fundOut(row: FundRow, money: MoneyByPhase = NO_MONEY) {
     type: row.type,
     vatRate: row.vatRate === null ? null : Number(row.vatRate),
     group: row.groupName,
+    unlimited: row.unlimited,
     contracts: money,
   };
 }
 
 /**
- * The funds a line can be paid from in a phase: the team fund, every gift (it needs no money) and
- * every sponsor that has a contract in that phase (GET /api/funds?phase=). Without a phase, every fund.
+ * The funds a line can be paid from in a phase: the team fund, every gift (it needs no money), every
+ * sponsor that has a contract in that phase and, in ACTUAL, every fund with no ceiling (it has no money,
+ * and never exists in EXPECTED). GET /api/funds?phase=. Without a phase, every fund.
  */
 export async function listFunds(phase?: Phase) {
   const season = await getCurrentSeason();
@@ -67,7 +69,10 @@ export async function listFunds(phase?: Phase) {
     .from(fund)
     .where(
       phase
-        ? and(inSeason, sql`(${fund.kind} = 'team' or ${fund.type} <> 'fund' or ${hasContract(phase)})`)
+        ? and(
+            inSeason,
+            sql`(${fund.kind} = 'team' or ${fund.type} <> 'fund' or ${hasContract(phase)} or (${fund.unlimited} and ${phase === "actual"}))`,
+          )
         : inSeason,
     )
     .orderBy(sql`${fund.kind} = 'team' desc`, sql`lower(${fund.name})`);
@@ -82,6 +87,8 @@ export interface SponsorInput {
   type: FundType;
   vatRate: number | null;
   group: string | null;
+  /** A fund with no ceiling: no money behind it, ACTUAL only. Only for a sponsor that gives a fund. */
+  unlimited: boolean;
 }
 
 /** The money a new sponsor brings: one contract per phase it counts in. */
@@ -108,7 +115,13 @@ const sponsorValues = (input: SponsorInput, rate: number) => ({
   type: input.type,
   vatRate: rate.toFixed(2),
   groupName: input.group,
+  unlimited: input.unlimited,
 });
+
+/** A fund with no ceiling is a sponsor that gives a fund, and has no sum of money. */
+function checkUnlimited(input: Pick<SponsorInput, "type" | "unlimited">) {
+  if (input.unlimited && input.type !== "fund") throw invalid("Only a sponsor that gives a fund can have no limit");
+}
 
 /**
  * Adds a sponsor ("INSERT COMPANY"), with the money it brings if already known: its contracts,
@@ -118,8 +131,12 @@ export async function createFund(input: SponsorInput, contracts: ContractInput[]
   const actor = await assertCanManageShared();
   const season = await getCurrentSeason();
   const rate = await checkedRate(input);
+  checkUnlimited(input);
   if (contracts.length > 0 && input.type !== "fund") {
     throw invalid("A sponsor that gives goods has no contract: it is not a sum of money");
+  }
+  if (contracts.length > 0 && input.unlimited) {
+    throw invalid("A fund with no limit has no contract: there is no sum of money behind it");
   }
   if (new Set(contracts.map((c) => c.phase)).size !== contracts.length) {
     throw invalid("A sponsor has one contract per phase");
@@ -159,10 +176,22 @@ export async function updateFund(fundId: number, input: Partial<SponsorInput>) {
       type: input.type ?? target.type,
       vatRate: input.vatRate !== undefined ? input.vatRate : target.vatRate === null ? null : Number(target.vatRate),
       group: input.group !== undefined ? input.group : target.groupName,
+      unlimited: input.unlimited ?? target.unlimited,
     };
     const rate = await checkedRate(merged);
+    checkUnlimited(merged);
     if (merged.type !== "fund" && (await moneyOf(tx, [fundId])).has(fundId)) {
       throw invalid("Take the money of this sponsor away first: a sponsor that gives goods has no contract");
+    }
+    if (merged.unlimited && !target.unlimited) {
+      if ((await moneyOf(tx, [fundId])).has(fundId)) throw invalid("Take the money of this fund away first: a fund with no limit has no contract");
+      // it never exists in EXPECTED: a line that already pays from it there would be left with a fund it cannot use
+      const [expected] = await tx
+        .select({ n: sql<number>`count(*)::int` })
+        .from(lineFund)
+        .innerJoin(lineFigures, eq(lineFigures.id, lineFund.figuresId))
+        .where(and(eq(lineFund.fundId, fundId), eq(lineFigures.phase, "estimate")));
+      if ((expected?.n ?? 0) > 0) throw conflict(`This fund pays ${expected?.n} EXPECTED lines: a fund with no limit exists only in ACTUAL`);
     }
     const [twin] = await tx
       .select({ id: fund.id })
@@ -204,6 +233,7 @@ export async function setContract(fundId: number, phase: Phase, input: { amount:
     if (!owner) throw notFound("Fund");
     if (owner.kind === "team") throw invalid("The team fund has no contracts: it is the team's own money");
     if (owner.type !== "fund") throw invalid(`"${owner.name}" gives goods, not a sum of money: it has no contract`);
+    if (owner.unlimited) throw invalid(`"${owner.name}" has no limit: there is no sum of money to put in it`);
     await assertSeasonOpen(tx, owner.seasonId);
     // one atomic write: two people setting the same money at once cannot leave two contracts
     const [saved] = await tx

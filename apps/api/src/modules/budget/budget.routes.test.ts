@@ -423,3 +423,42 @@ describe("a price typed with the VAT", () => {
     expect((await post({ quantity: 1, unitGrossCost: "1.23456" })).status).toBe(400);
   });
 });
+
+describe("lines paid from a fund with no limit", () => {
+  const setup = async () => {
+    const free = (await api.post("/api/funds", { name: "Free", vatRate: 22, group: "g", unlimited: true })).body;
+    const small = await sponsorId(api, "Small", { group: "g" });
+    await api.put(`/api/funds/${small}/contracts/actual`, { amount: "122" }); // covers 100,00 net with its VAT
+    const created = (await project()).id;
+    const added = (await api.post(`/api/projects/${created}/lines`, { item: "Part", figures: { actual: { quantity: 1, unitNetCost: "1000" } } })).body;
+    return { free: free.id as number, small, line: added.id as number };
+  };
+  const patch = (line: number, version: number, figures: object) => api.patch(`/api/lines/${line}`, { version, figures });
+
+  it("pays in ACTUAL: VAT covered, nothing short, whatever the price", async () => {
+    const { free, line } = await setup();
+    expect((await patch(line, 1, { actual: { fundIds: [free] } })).status).toBe(200);
+    const actual = (await sheet()).projects[0].lines[0].actual;
+    expect(actual.figures.fundIds).toEqual([free]);
+    expect(actual).toMatchObject({ shortCents: 0, teamVatCents: 0, amounts: { netCents: 100_000, vatCents: 22_000, outflowCents: 122_000 } });
+  });
+
+  it("is refused in EXPECTED, where it never exists", async () => {
+    const { free, line } = await setup();
+    const refused = await patch(line, 1, { estimate: { quantity: 1, unitNetCost: "10", fundIds: [free] } });
+    expect(refused.status).toBe(400);
+    expect(refused.body.error).toContain("only in ACTUAL");
+    const onCreate = await api.post(`/api/projects/${(await sheet()).projects[0].id}/lines`, {
+      item: "New", figures: { estimate: { quantity: 1, unitNetCost: "10", fundIds: [free] } },
+    });
+    expect(onCreate.status).toBe(400);
+  });
+
+  it("pays what a fund of its group cannot cover, when chosen after it", async () => {
+    const { free, small, line } = await setup();
+    expect((await patch(line, 1, { actual: { fundIds: [small, free] } })).status).toBe(200);
+    const shares = (await sheet()).projects[0].lines[0].actual.shares;
+    expect(shares.map((x: any) => [x.fundName, x.drawnCents])).toEqual([["Small", 12_200], ["Free", 109_800]]);
+    expect((await sheet()).projects[0].lines[0].actual.shortCents).toBe(0);
+  });
+});

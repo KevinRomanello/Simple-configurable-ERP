@@ -46,7 +46,7 @@ export function cashFlowSummary(snapshot: Snapshot, phase: Phase): CashFlowSumma
   const teamOutflowsCents = teamPurchases + teamVat;
   const leftValueCents = totalCashFlowCents - teamOutflowsCents;
   const shortfallCents = fundSummary(snapshot, phase).reduce(
-    (sum, row) => sum + Math.min(0, row.leftCents),
+    (sum, row) => sum + Math.min(0, row.leftCents ?? 0), // a fund with no ceiling is never short
     0,
   );
 
