@@ -50,6 +50,9 @@ export interface LineInput {
   projectId: number;
   position: number;
   item: string;
+  /** What was bought, beside the item: the make and the model. Only shown, never used in a calculation. */
+  brand: string | null;
+  model: string | null;
   category: string | null;
   priority: string | null;
   note: string | null;

@@ -57,6 +57,8 @@ export interface CalcLine {
   id: number;
   position: number;
   item: string;
+  brand: string | null;
+  model: string | null;
   category: string | null;
   priority: string | null;
   note: string | null;
@@ -168,6 +170,8 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
     id: line.id,
     position: line.position,
     item: line.item,
+    brand: line.brand,
+    model: line.model,
     category: line.category,
     priority: line.priority,
     note: line.note,

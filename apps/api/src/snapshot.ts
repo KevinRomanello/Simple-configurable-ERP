@@ -110,6 +110,8 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
           projectId: line.projectId,
           position: line.position,
           item: line.item,
+          brand: line.brand,
+          model: line.model,
           category: line.category,
           priority: line.priority,
           note: line.note,

@@ -261,6 +261,8 @@ export async function createLine(projectId: number, input: CreateLineInput) {
         projectId,
         position: (last?.position ?? 0) + 1,
         item: input.item,
+        brand: input.brand ?? null,
+        model: input.model ?? null,
         category: input.category ?? null,
         priority: input.priority ?? null,
         note: input.note ?? null,

@@ -10,7 +10,7 @@ import { editDraft, linePatch, PHASES, severalFunds, type EditDraft } from "../l
 import type { PhaseDraft } from "../lib/newLine";
 import { useAction } from "../lib/useAction";
 import { carSeasonOf, type GridLookups } from "./areaColumns";
-import { CarField, PhaseFields } from "./NewLine";
+import { BrandModelFields, CarField, PhaseFields } from "./NewLine";
 
 // A project of the budget on a phone, where the grid does not fit: one card per line with what
 // matters for the phase chosen (EXPECTED or ACTUAL), the yellow subtotal last. Touching a line opens
@@ -50,6 +50,7 @@ export function LineCards({ project, phase, lookups, canEdit, onRemove, closed }
           <>
             <span className="line-main">
               <strong>{line.item}</strong>
+              {(line.brand || line.model) && <span className="muted">{[line.brand, line.model].filter(Boolean).join(" ")}</span>}
               <span className="muted">{summary(line, phase)}</span>
               {otherCar && <span className="pill car">for {otherCar.car}</span>}
               {line.arrival.status !== "planned" && <ArrivalPill status={line.arrival.status} />}
@@ -113,6 +114,7 @@ function EditLine({ line, lookups, onDone, onRemove }: { line: CalcLine; lookups
           <Field label="Item" htmlFor={`${idPrefix}-item`}>
             <input id={`${idPrefix}-item`} className="input small" maxLength={500} value={draft.item} onChange={(e) => change({ item: e.target.value })} />
           </Field>
+          <BrandModelFields idPrefix={idPrefix} brand={draft.brand} model={draft.model} onChange={change} />
           <Field label="Category" htmlFor={`${idPrefix}-category`}>
             <select id={`${idPrefix}-category`} className="input small" value={draft.category} onChange={(e) => change({ category: e.target.value })}>
               <option value="">—</option>

@@ -1,6 +1,6 @@
 import { PRIORITIES, SPONSOR_TYPES } from "@erp/calc";
 import { z } from "zod";
-import { decimal, id, isoDate, LIMITS, longText, lookupCode, shortText, version } from "../../core/validation";
+import { decimal, id, isoDate, LIMITS, longText, lookupCode, optionalText, shortText, version } from "../../core/validation";
 
 // Input shapes of the budget endpoints. In `figures` every field is optional: a missing field is
 // left as it is, `null` clears it (`fundIds`: an empty list). Money and quantities are decimals in
@@ -26,6 +26,9 @@ const figuresByPhase = z.object({ estimate: figuresInput, actual: figuresInput }
 
 const lineFields = {
   item: shortText(500),
+  /** The make and the model of what is bought: free text, an empty one means nothing. */
+  brand: optionalText(200),
+  model: optionalText(200),
   category: lookupCode.nullable(),
   priority: z.enum(PRIORITIES).nullable(),
   note: longText.nullable(),
@@ -44,6 +47,8 @@ export const updateProjectInput = z
   .partial();
 
 export const createLineInput = z.object({ item: lineFields.item }).extend({
+  brand: lineFields.brand.optional(),
+  model: lineFields.model.optional(),
   category: lineFields.category.optional(),
   priority: lineFields.priority.optional(),
   note: lineFields.note.optional(),

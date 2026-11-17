@@ -102,6 +102,25 @@ export function CarField({ id, value, lookups, onChange }: { id: string; value: 
   );
 }
 
+/** The make and the model of what is bought, two free boxes beside the item. */
+export function BrandModelFields({ idPrefix, brand, model, onChange }: {
+  idPrefix: string;
+  brand: string;
+  model: string;
+  onChange: (patch: { brand?: string; model?: string }) => void;
+}) {
+  return (
+    <>
+      <Field label="Brand (optional)" htmlFor={`${idPrefix}-brand`}>
+        <input id={`${idPrefix}-brand`} className="input small" maxLength={200} value={brand} onChange={(e) => onChange({ brand: e.target.value })} />
+      </Field>
+      <Field label="Model (optional)" htmlFor={`${idPrefix}-model`}>
+        <input id={`${idPrefix}-model`} className="input small" maxLength={200} value={model} onChange={(e) => onChange({ model: e.target.value })} />
+      </Field>
+    </>
+  );
+}
+
 /** The form of a new line of a project, opened from the yellow «Add item» under its grid: only the name is needed. */
 export function NewLine({ project, lookups, onDone }: { project: { id: number; name: string }; lookups: GridLookups; onDone: () => void }) {
   const act = useAction();
@@ -132,6 +151,7 @@ export function NewLine({ project, lookups, onDone }: { project: { id: number; n
         <Field label="Item" htmlFor={`${idPrefix}-item`}>
           <input id={`${idPrefix}-item`} className="input small" autoFocus maxLength={500} value={draft.item} onChange={(e) => change({ item: e.target.value })} />
         </Field>
+        <BrandModelFields idPrefix={idPrefix} brand={draft.brand} model={draft.model} onChange={change} />
         <Field label="Category" htmlFor={`${idPrefix}-category`}>
           <select id={`${idPrefix}-category`} className="input small" value={draft.category} onChange={(e) => change({ category: e.target.value })}>
             <option value="">—</option>

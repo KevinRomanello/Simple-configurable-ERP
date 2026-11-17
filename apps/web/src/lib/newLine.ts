@@ -32,6 +32,9 @@ export const PHASES_OF: Record<FillIn, readonly Phase[]> = {
 
 export interface LineDraft {
   item: string;
+  /** The make and the model of what is bought: free text, both optional. */
+  brand: string;
+  model: string;
   category: string;
   priority: string;
   /** The season whose car the line is for, as its id; "" = the car of the line's own season. */
@@ -46,7 +49,7 @@ export const EMPTY_PHASE: PhaseDraft = { quantity: "", unitCost: "", priceMode: 
 /** A new line as the form starts: the purchase date is today (the arrival date is left empty: it is not known yet). */
 export function newLineDraft(today: string): LineDraft {
   const phase = { ...EMPTY_PHASE, purchaseDate: today };
-  return { item: "", category: "", priority: "", car: "", fillIn: "estimate", estimate: phase, actual: phase };
+  return { item: "", brand: "", model: "", category: "", priority: "", car: "", fillIn: "estimate", estimate: phase, actual: phase };
 }
 
 /** What the form needs to know about the funds and the suppliers (names are compared in lower case). */
@@ -78,6 +81,8 @@ export function phaseFigures(draft: PhaseDraft, lookups: LineLookups): FiguresPa
 
 export interface NewLineBody {
   item: string;
+  brand?: string;
+  model?: string;
   category?: string;
   priority?: string;
   carSeasonId?: number;
@@ -96,6 +101,8 @@ export function lineBody(draft: LineDraft, lookups: LineLookups, today: string):
   }
   return {
     item: draft.item.trim(),
+    ...(draft.brand.trim() !== "" ? { brand: draft.brand.trim() } : {}),
+    ...(draft.model.trim() !== "" ? { model: draft.model.trim() } : {}),
     ...(draft.category !== "" ? { category: draft.category } : {}),
     ...(draft.priority !== "" ? { priority: draft.priority } : {}),
     ...(draft.car !== "" ? { carSeasonId: Number(draft.car) } : {}),

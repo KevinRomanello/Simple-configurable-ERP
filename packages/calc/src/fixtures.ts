@@ -82,6 +82,8 @@ export function line(
     projectId,
     position: id,
     item: `Item ${id}`,
+    brand: null,
+    model: null,
     category: null,
     priority: null,
     note: null,

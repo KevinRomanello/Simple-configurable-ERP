@@ -456,6 +456,21 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
         return false;
       },
     },
+    // what was bought, beside the item: the make and the model, free text
+    {
+      colId: "brand",
+      headerName: "BRAND",
+      width: 140,
+      valueGetter: (p) => (isLine(p.data) ? (p.data.brand ?? "") : ""),
+      ...editableCell(commit, (v) => ({ brand: blank(v) ? null : String(v).trim() })),
+    },
+    {
+      colId: "model",
+      headerName: "MODEL",
+      width: 140,
+      valueGetter: (p) => (isLine(p.data) ? (p.data.model ?? "") : ""),
+      ...editableCell(commit, (v) => ({ model: blank(v) ? null : String(v).trim() })),
+    },
     {
       colId: "category",
       headerName: "CATEGORY",

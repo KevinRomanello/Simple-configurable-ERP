@@ -18,6 +18,13 @@ describe("lineBody", () => {
     expect(body(line({}))).toEqual({ item: "Sensor", figures: { estimate: { purchaseDate: TODAY } } });
   });
 
+  it("takes the brand and the model only when something is typed in them, without the spaces around", () => {
+    expect(body(line({ brand: " Bosch ", model: "GBH 2-26" }))).toMatchObject({ brand: "Bosch", model: "GBH 2-26" });
+    expect(body(line({ brand: "Bosch" }))).not.toHaveProperty("model");
+    expect(body(line({ brand: "  ", model: "" }))).not.toHaveProperty("brand");
+    expect(body(line({}))).not.toHaveProperty("model");
+  });
+
   it("takes the category and the priority only when chosen", () => {
     expect(body(line({ category: "Asset", priority: "High" }))).toMatchObject({ item: "Sensor", category: "Asset", priority: "High" });
     expect(body(line({}))).not.toHaveProperty("category");

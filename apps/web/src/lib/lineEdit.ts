@@ -9,6 +9,8 @@ export const PHASES: readonly Phase[] = ["estimate", "actual"];
 
 export interface EditDraft {
   item: string;
+  brand: string;
+  model: string;
   category: string;
   priority: string;
   /** The season whose car the line is for, as its id; "" = the car of its own season. */
@@ -49,6 +51,8 @@ function phaseDraft(line: CalcLine, phase: Phase): PhaseDraft {
 export function editDraft(line: CalcLine): EditDraft {
   return {
     item: line.item,
+    brand: line.brand ?? "",
+    model: line.model ?? "",
     category: line.category ?? "",
     priority: line.priority ?? "",
     car: line.carSeasonId === null ? "" : String(line.carSeasonId),
@@ -88,6 +92,8 @@ export function linePatch(draft: EditDraft, line: CalcLine, lookups: LineLookups
   const before = editDraft(line);
   const patch: LinePatch = { version: line.version };
   if (draft.item.trim() !== before.item) patch.item = draft.item.trim();
+  if (draft.brand.trim() !== before.brand) patch.brand = draft.brand.trim() || null;
+  if (draft.model.trim() !== before.model) patch.model = draft.model.trim() || null;
   if (draft.category !== before.category) patch.category = draft.category || null;
   if (draft.priority !== before.priority) patch.priority = draft.priority || null;
   if (draft.car !== before.car) patch.carSeasonId = draft.car === "" ? null : Number(draft.car);

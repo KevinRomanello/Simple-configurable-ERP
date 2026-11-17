@@ -12,6 +12,8 @@ const HELP: Record<string, Help> = {
   status:
     "What the line still needs. Triangle: CASH FROM or VAT % is missing, or more has arrived than was bought. Coins: the funds cannot cover the line. Hourglass: ordered, not everything has arrived yet. Check: everything has arrived. Rest on an icon to read it.",
   item: "The name of the item.",
+  brand: "The make of what was bought (for example Bosch). With MODEL it says which item it really is.",
+  model: "The model or code of what was bought, as the maker calls it (for example GBH 2-26).",
   category:
     "What the cost is for.\nComponents: everything that goes in the car.\nManufacturing: all the processes involved in producing the finished machine.\nConsumable: consumables (sheets of paper, felt-tip pens…).\nAsset: physical items that last (servers, screwdrivers…).\nLogistic: transport for trade fairs and tests, and reimbursements for private transport.\nAdministration: association fees, VAT…\nSoftware: software licences.",
   priority:

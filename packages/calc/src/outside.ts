@@ -92,6 +92,8 @@ export function outsideBudget(entries: OutsideEntry[], sections: Map<string, str
       projectId,
       position: index + 1,
       item: `${m.voce} - ${m.month}`,
+      brand: null, // calculated from the register: nothing was bought that has a make
+      model: null,
       category,
       priority: null,
       note: `${m.count} movement${m.count === 1 ? "" : "s"} in the register`,

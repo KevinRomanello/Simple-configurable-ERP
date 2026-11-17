@@ -43,10 +43,34 @@ describe("decimalText", () => {
 describe("editDraft", () => {
   it("starts from the line as it is; a phase with nothing typed is empty", () => {
     expect(editDraft(line(bought))).toEqual({
-      item: "Microcontroller", category: "Components", priority: "", car: "",
+      item: "Microcontroller", brand: "", model: "", category: "Components", priority: "", car: "",
       estimate: { quantity: "4", unitCost: "12.4", priceMode: "net", otherCost: "15.128", fund: "Team's fund", supplier: "RS Components", vatRate: "22", purchaseDate: "2026-10-01", arrivalDate: "" },
       actual: { quantity: "", unitCost: "", priceMode: "net", otherCost: "", fund: "", supplier: "", vatRate: "", purchaseDate: "", arrivalDate: "" },
     });
+  });
+});
+
+describe("the brand and the model", () => {
+  const made = { ...line(bought), brand: "Bosch", model: "GBH 2-26" } as CalcLine;
+
+  it("start from the line as it is, empty when it has none", () => {
+    expect(editDraft(made)).toMatchObject({ brand: "Bosch", model: "GBH 2-26" });
+    expect(editDraft(line(bought))).toMatchObject({ brand: "", model: "" });
+    expect(editDraft({ ...line(bought), brand: null, model: null } as CalcLine)).toMatchObject({ brand: "", model: "" });
+  });
+
+  it("are sent only when they changed, one at a time", () => {
+    expect(linePatch(editDraft(made), made, lookups)).toEqual({ version: 3 });
+    expect(linePatch({ ...editDraft(made), model: " GBH 18V " }, made, lookups)).toEqual({ version: 3, model: "GBH 18V" });
+    expect(linePatch({ ...editDraft(made), brand: "Makita" }, made, lookups)).toEqual({ version: 3, brand: "Makita" });
+  });
+
+  it("are taken away with an empty box, even one with only spaces", () => {
+    expect(linePatch({ ...editDraft(made), brand: "", model: "   " }, made, lookups)).toEqual({ version: 3, brand: null, model: null });
+  });
+
+  it("are not a change when only spaces around them were typed", () => {
+    expect(linePatch({ ...editDraft(made), brand: " Bosch " }, made, lookups)).toEqual({ version: 3 });
   });
 });
 

@@ -54,6 +54,34 @@ describe("lines", () => {
     expect(line.actual.amounts.outflowCents).toBe(0);
   });
 
+  it("keeps the brand and the model of what is bought, and shows them on the sheet", async () => {
+    const { id } = await project();
+    const created = await api.post(`/api/projects/${id}/lines`, { item: "Drill", brand: " Bosch ", model: "GBH 2-26" });
+    expect(created.body).toMatchObject({ brand: "Bosch", model: "GBH 2-26" }); // the spaces around are not kept
+    const [line] = (await sheet()).projects[0].lines;
+    expect(line).toMatchObject({ item: "Drill", brand: "Bosch", model: "GBH 2-26" });
+    // a line made without them has none
+    await api.post(`/api/projects/${id}/lines`, { item: "Bolt" });
+    expect((await sheet()).projects[0].lines[1]).toMatchObject({ brand: null, model: null });
+  });
+
+  it("changes the brand and the model one at a time, and an empty text takes them away", async () => {
+    const { id } = await project();
+    const line = (await api.post(`/api/projects/${id}/lines`, { item: "Drill", brand: "Bosch", model: "GBH 2-26" })).body;
+    const changed = await api.patch(`/api/lines/${line.id}`, { version: 1, model: "GBH 18V" });
+    expect(changed.body).toMatchObject({ brand: "Bosch", model: "GBH 18V", version: 2 }); // the brand was left alone
+    expect((await api.patch(`/api/lines/${line.id}`, { version: 2, brand: "   ", model: null })).body).toMatchObject({ brand: null, model: null });
+    expect((await sheet()).projects[0].lines[0]).toMatchObject({ brand: null, model: null });
+  });
+
+  it("refuses a brand or a model that is too long", async () => {
+    const { id } = await project();
+    const line = (await api.post(`/api/projects/${id}/lines`, { item: "A" })).body;
+    expect((await api.post(`/api/projects/${id}/lines`, { item: "B", brand: "x".repeat(201) })).status).toBe(400);
+    expect((await api.patch(`/api/lines/${line.id}`, { version: 1, model: "x".repeat(201) })).status).toBe(400);
+    expect((await api.patch(`/api/lines/${line.id}`, { version: 1, model: "x".repeat(200) })).status).toBe(200);
+  });
+
   it("subtotals the project and the area", async () => {
     const { id } = await project();
     const figures = { estimate: { quantity: 1, unitNetCost: "50", sponsorType: "none", vatRate: 0 } };

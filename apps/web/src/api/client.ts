@@ -80,6 +80,9 @@ export interface PayBody {
 export interface LinePatch {
   version: number;
   item?: string;
+  /** What was bought, beside the item; null takes it away. */
+  brand?: string | null;
+  model?: string | null;
   category?: string | null;
   priority?: string | null;
   note?: string | null;

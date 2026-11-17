@@ -91,6 +91,9 @@ export const budgetLine = pgTable(
       .references(() => project.id, { onDelete: "cascade" }),
     position: integer().notNull(),
     item: text().notNull(),
+    /** What was bought, beside the item: the make and the model, free text (docs/schema-database.md). */
+    brand: text(),
+    model: text(),
     // Validated by the service against listCategories()/PRIORITIES; plain text on purpose, because
     // categories are hardcoded for now and will become a table (see docs/hardcoded-registry.md).
     category: text(),

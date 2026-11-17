@@ -132,6 +132,8 @@ export function toSnapshot(raw: RawInputs, lookups: Lookups): Converted {
           projectId: id,
           position: lineIndex + 1,
           item: line.item,
+          brand: null, // the sheet has no column for them
+          model: null,
           category,
           priority,
           note: line.note,
