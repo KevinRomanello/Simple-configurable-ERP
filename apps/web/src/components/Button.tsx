@@ -25,9 +25,10 @@ interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   danger?: boolean;
 }
 
-export function IconButton({ icon, label, danger, ...rest }: IconButtonProps) {
+export function IconButton({ icon, label, danger, className, ...rest }: IconButtonProps) {
+  const classes = ["icon-btn", danger ? "danger" : "", className ?? ""];
   return (
-    <button type="button" className={`icon-btn${danger ? " danger" : ""}`} title={label} aria-label={label} {...rest}>
+    <button type="button" className={classes.filter(Boolean).join(" ")} title={label} aria-label={label} {...rest}>
       <FontAwesomeIcon icon={icon} />
     </button>
   );

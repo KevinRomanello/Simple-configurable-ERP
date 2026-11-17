@@ -12,7 +12,7 @@ Ogni pagina con tabelle o grafici ha un pulsante **Download** tra i comandi dell
 | Grafico | un'immagine, **sempre su fondo bianco** con testi scuri e legenda (a capo se non c'è posto) | nel foglio: l'immagine e sotto i numeri del grafico (in euro), perché in Excel si possano riusare |
 | Pagina del PDF | A4 orizzontale; **A3 orizzontale** se una tabella ha più di 14 colonne (le griglie del budget ne hanno 27), così una tabella non si spezza mai su due pagine | — |
 
-Il file segue **l'ordine che si vede**: se una tabella è ordinata per una colonna (vedi [stile-interfaccia.md](stile-interfaccia.md), punto 8), è scaricata così.
+Il file segue **l'ordine che si vede** (anche quello dei progetti scelto da chi scarica, [come-funziona.md](come-funziona.md), percorso A; un progetto chiuso nel budget si scarica comunque con tutte le sue righe): se una tabella è ordinata per una colonna (vedi [stile-interfaccia.md](stile-interfaccia.md), punto 8), è scaricata così.
 
 Il nome del file è il titolo della pagina e il giorno: `mt-dmt-2026-10-23.pdf`, `expected-gantt-2026-10-23.xlsx`.
 

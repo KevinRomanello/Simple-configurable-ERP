@@ -8,6 +8,7 @@ import { SearchSelectEditor } from "../components/SearchSelect";
 import { date, money, quantity } from "../lib/format";
 import { carLabel } from "../lib/season";
 import { gridCompare } from "../lib/sort";
+import { columnHelp } from "./columnHelp";
 
 /** The pinned "yellow row" of a project: same shape as a line, but only results. */
 type PhaseView = Partial<PhaseCalc> & Pick<PhaseCalc, "amounts" | "teamVatCents">;
@@ -289,14 +290,14 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFu
       ...editableCell(commit, (v) => patchFigures({ vatRate: blank(v) ? null : Number(String(v).replace("%", "")) })),
       editable: (p) => isLine(p.data) && !p.node.rowPinned && choosesOwnRate(lookups, fig(p.data)?.fundIds ?? []),
     },
-    { ...amountColumn("gross", "GRAND TOTAL", (a) => a.grossCents), headerClass: "sum", cellClass: ["calc", "sum"] },
     {
       ...amountColumn("outflow", "OUTFLOW", (a) => a.outflowCents, 118, true),
-      cellClass: ["calc", "sum-next"],
+      headerClass: "sum",
+      cellClass: ["calc", "sum"],
       // what the sponsor gives for free (a gift, or an old partial sponsor of the sheet) is not a column: it is explained here
       tooltipValueGetter: (p) => {
         const a = amountsOf(p.data);
-        return a && a.sponsorCents > 0 ? `${money(a.grossCents)} grand total - ${money(a.sponsorCents)} given for free by the sponsor` : undefined;
+        return a && a.sponsorCents > 0 ? `${money(a.grossCents)} with VAT - ${money(a.sponsorCents)} given for free by the sponsor` : undefined;
       },
     },
     {
@@ -365,6 +366,18 @@ function withMinWidths(columns: Columns): Columns {
   );
 }
 
+const BLOCK_PREFIX = /^(estimate|actual)\./;
+
+/** Puts on the heading of every column the text that explains it (`columnHelp`); a block's id has the phase in front of it. */
+function withHelp(columns: Columns): Columns {
+  return columns.map((c) => {
+    if ("children" in c) return { ...c, headerTooltip: columnHelp(c.headerName ?? ""), children: withHelp(c.children as Columns) as ColDef<Row>[] };
+    const id = c.colId ?? "";
+    const phase = BLOCK_PREFIX.exec(id)?.[1] as Phase | undefined;
+    return { ...c, headerTooltip: columnHelp(id.replace(BLOCK_PREFIX, ""), phase) };
+  });
+}
+
 /** Per phase: whether the ALSO FROM column is shown, because some line of the project needs another fund (or already has one). */
 export type MoreFunds = Record<Phase, boolean>;
 
@@ -380,7 +393,7 @@ export function areaColumns(
   canEdit: boolean,
   moreFunds: MoreFunds,
 ): Columns {
-  const columns = withMinWidths(editableColumns(lookups, commit, remove, moreFunds));
+  const columns = withMinWidths(withHelp(editableColumns(lookups, commit, remove, moreFunds)));
   return canEdit ? columns : readOnly(columns);
 }
 

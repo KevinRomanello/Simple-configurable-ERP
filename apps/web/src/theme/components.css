@@ -440,6 +440,32 @@
 .panel-head .spacer {
   flex: 1;
 }
+/* a closed project of a budget sheet: its lines are hidden, the column titles and the subtotal row stay (the grid still holds every line, so a download has them) */
+.panel.project-closed .ag-grid-scrolling-rows {
+  display: none;
+}
+/* moving a project: the handle, the project in hand, the line where it will land (docs/stile-interfaccia.md) */
+.drag-handle {
+  cursor: grab;
+  touch-action: none; /* a finger on the handle drags the project instead of scrolling the page */
+  color: var(--text-soft);
+}
+.project-box.dragging {
+  opacity: 0.5;
+}
+.project-box.dragging .drag-handle {
+  cursor: grabbing;
+}
+.project-box.drop-before {
+  box-shadow: 0 -4px 0 0 var(--primary-default);
+}
+.project-box.drop-after {
+  box-shadow: 0 4px 0 0 var(--primary-default);
+}
+/* while one is in hand every project is folded to its heading, so that they all fit on the screen */
+.panel.project-folded > :not(.panel-head) {
+  display: none;
+}
 .owner {
   color: var(--text-soft);
 }
@@ -893,9 +919,8 @@ a.chip {
 .ag-header-group-cell.phase-start,
 .ag-cell.sum,
 .ag-header-cell.sum { border-left: 2px solid var(--stroke-strong); }
-/* the columns that sum up a line (GRAND TOTAL, OUTFLOW) have a shade, like the summary columns of the tables */
-.ag-cell.sum,
-.ag-cell.sum-next { background: var(--bg-soft); }
+/* the column that sums up a line (OUTFLOW) has a shade, like the summary columns of the tables */
+.ag-cell.sum { background: var(--bg-soft); }
 .ag-cell.num { text-align: right; }
 .ag-row-pinned .ag-cell { font-weight: 700; background: var(--primary-default); color: var(--on-primary); }
 .ag-row-pinned .ag-cell.cell-negative { color: var(--on-primary-negative); }
@@ -915,6 +940,10 @@ a.chip {
 .ag-tooltip {
   white-space: pre-line;
   max-width: 320px;
+}
+/* what a column is (docs/come-funziona.md): wider than a hint, so that the long ones (CATEGORY, PRIORITY) stay short and fit under the heading */
+.ag-tooltip.ag-header-tooltip {
+  max-width: 460px;
 }
 
 /* AG Grid reserves 150px for the rows area even with "auto height"; a project with one line
@@ -1308,6 +1337,10 @@ button.line-card[aria-expanded="true"] {
   background: var(--primary-default);
   border-color: var(--primary-default);
   color: var(--on-primary);
+}
+/* on the yellow the grey of a note is too faint */
+.line-card.total .muted {
+  color: inherit;
 }
 .line-main {
   display: flex;

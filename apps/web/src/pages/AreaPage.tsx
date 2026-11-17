@@ -1,19 +1,22 @@
-import { faCheck, faPen, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faChevronDown, faChevronRight, faGripVertical, faPen, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type HTMLAttributes } from "react";
 import { useParams } from "react-router";
 import { api } from "../api/client";
 import type { AreaSheet, CalcLine, Phase } from "../api/types";
-import { IconButton } from "../components/Button";
+import { Button, IconButton } from "../components/Button";
 import { Chips } from "../components/Chips";
 import { useMe } from "../lib/auth";
 import { money } from "../lib/format";
 import { canEditArea } from "../lib/permissions";
+import { orderProjects } from "../lib/projectView";
 import { useSeason, useSeasonOpen, useSeasons } from "../lib/season";
 import { SCREEN, useMaxWidth } from "../lib/screen";
 import { useAction } from "../lib/useAction";
+import { useProjectDrag } from "../lib/useProjectDrag";
+import { useProjectView } from "../lib/useProjectView";
 import { gridTheme } from "../theme/grid";
 import { areaColumns, needsMoreFunds, type Commit, type GridLookups, type MoreFunds, type Row, type SubtotalRow } from "./areaColumns";
 import { VatReportTable } from "./VatReportTable";
@@ -46,6 +49,11 @@ export function AreaPage() {
   // on a phone the grid does not fit: each project is a list of cards, of one phase at a time
   const phone = useMaxWidth(SCREEN.phone);
   const [phase, setPhase] = useState<Phase>("estimate");
+  // which projects this person closed and the order they put them in: kept in this browser
+  const view = useProjectView(code);
+  const shown = orderProjects(sheet.data?.projects ?? [], view.order);
+  const shownIds = shown.map((p) => p.id);
+  const drag = useProjectDrag(shownIds, view.setOrder);
 
   const lookups = useMemo<GridLookups | null>(() => {
     if (!categories.data || !priorities.data || !vatRates.data || !fundsEstimate.data || !fundsActual.data || !allFunds.data || !suppliers.data || !seasons.data || !season) {
@@ -98,13 +106,30 @@ export function AreaPage() {
               : "Budget lines by project. This season is read-only: nothing in its budget can be changed."
         }
         add={canEdit ? { label: "New project", form: (close) => <NewProject areaCode={code} onDone={close} /> } : undefined}
+        actions={
+          shown.length > 1 && (
+            <>
+              <Button variant="ghost" onClick={() => view.setAll(shownIds, true)} disabled={shownIds.every((id) => view.closed.includes(id))}>Close all</Button>
+              <Button variant="ghost" onClick={() => view.setAll(shownIds, false)} disabled={shownIds.every((id) => !view.closed.includes(id))}>Open all</Button>
+              {view.order.length > 0 && <Button variant="ghost" onClick={view.resetOrder}>Original order</Button>}
+            </>
+          )
+        }
       />
 
       {phone && <Chips label="Phase" value={phase} onChange={setPhase} options={[{ value: "estimate", label: "EXPECTED" }, { value: "actual", label: "ACTUAL" }]} />}
       {data.projects.length === 0 && <Message>{canEdit ? "No projects yet: add the first one." : "No projects yet."}</Message>}
-      {data.projects.map((project) => (
-        <ProjectPanel key={project.id} project={project} buildColumns={buildColumns} canEdit={canEdit} lookups={lookups}
-          cards={phone ? { phase, onRemove: removeLine } : null} />
+      {shown.map((project) => (
+        <div key={project.id} data-project={project.id} // the drag reads it to know which project the pointer is over
+          className={`project-box${drag.draggedId === project.id ? " dragging" : ""}${drag.drop?.id === project.id ? (drag.drop.after ? " drop-after" : " drop-before") : ""}`}>
+          <ProjectPanel project={project} buildColumns={buildColumns} canEdit={canEdit} lookups={lookups}
+            cards={phone ? { phase, onRemove: removeLine } : null}
+            closed={view.closed.includes(project.id)} onToggle={() => view.toggle(project.id)}
+            // while one project is in hand every project folds to its heading, so that they all fit on the screen
+            folded={drag.draggedId !== null}
+            // the handle only when there is something to move
+            handle={shown.length > 1 ? drag.handle(project.id) : null} />
+        </div>
       ))}
 
       <VatReportTable areaCode={code} />
@@ -138,13 +163,20 @@ function subtotalRow(project: SheetProject): SubtotalRow {
   return { isSubtotal: true, item: "Subtotal", estimate: phase("estimate"), actual: phase("actual") };
 }
 
-function ProjectPanel({ project, buildColumns, canEdit, lookups, cards }: {
+function ProjectPanel({ project, buildColumns, canEdit, lookups, cards, closed, onToggle, folded, handle }: {
   project: SheetProject;
   buildColumns: (moreFunds: MoreFunds) => ReturnType<typeof areaColumns>;
   canEdit: boolean;
   lookups: GridLookups;
   /** On a phone: the lines as cards, of this phase, instead of the grid. */
   cards: { phase: Phase; onRemove: (line: CalcLine) => void } | null;
+  /** Closed: only the subtotal shows (the lines stay in the grid, so a download still has them all). */
+  closed: boolean;
+  onToggle: () => void;
+  /** Only the heading shows, because a project is being moved. */
+  folded: boolean;
+  /** The events of the handle that moves this project in the list this person sees (none when it is the only one). */
+  handle: HTMLAttributes<HTMLButtonElement> | null;
 }) {
   const act = useAction();
   const gridRef = useRef<AgGridReact<Row>>(null);
@@ -178,6 +210,7 @@ function ProjectPanel({ project, buildColumns, canEdit, lookups, cards }: {
   return (
     <Panel
       ref={panel}
+      className={[closed ? "project-closed" : "", folded ? "project-folded" : ""].filter(Boolean).join(" ") || undefined}
       head={
         <>
           {editing ? (
@@ -189,9 +222,17 @@ function ProjectPanel({ project, buildColumns, canEdit, lookups, cards }: {
             </>
           ) : (
             <>
+              {handle && <IconButton icon={faGripVertical} className="drag-handle" label={`Drag to move ${project.name} (or use the up and down arrow keys)`} {...handle} />}
+              <IconButton icon={closed ? faChevronRight : faChevronDown} label={`${closed ? "Open" : "Close"} ${project.name}`} aria-expanded={!closed} onClick={onToggle} />
               <h2>{project.name}</h2>
               {project.ownerName && <span className="owner">{project.ownerName}</span>}
               {canEdit && <IconButton icon={faPen} label="Rename project" onClick={() => setEditing(true)} />}
+              {/* closed, the figures of the subtotal are in the heading: the grid's own are to the right, past the columns of the lines */}
+              {closed && (
+                <span className="muted" title="What the team pays out of its own money (the subtotal row, OUTFLOW)">
+                  Outflow: expected {money(project.subtotal.estimate.outflowCents)} · actual {money(project.subtotal.actual.outflowCents)}
+                </span>
+              )}
             </>
           )}
           <span className="spacer" />
@@ -201,7 +242,7 @@ function ProjectPanel({ project, buildColumns, canEdit, lookups, cards }: {
     >
 
       {cards ? (
-        <LineCards project={project} phase={cards.phase} lookups={lookups} canEdit={canEdit} onRemove={cards.onRemove} />
+        <LineCards project={project} phase={cards.phase} lookups={lookups} canEdit={canEdit} onRemove={cards.onRemove} closed={closed} />
       ) : (
         <AgGridReact<Row>
           ref={gridRef}
@@ -230,7 +271,7 @@ function ProjectPanel({ project, buildColumns, canEdit, lookups, cards }: {
         />
       )}
 
-      {canEdit && <AddSection label="Add item" form={(close) => <NewLine project={project} lookups={lookups} onDone={close} />} />}
+      {canEdit && !closed && <AddSection label="Add item" form={(close) => <NewLine project={project} lookups={lookups} onDone={close} />} />}
     </Panel>
   );
 }
@@ -263,7 +304,6 @@ const TOTAL_COLUMNS: Column<{ label: string; amounts: Amounts }>[] = [
   { key: "label", header: "TOTAL", cellClass: () => "bold", cell: (r) => r.label },
   { key: "net", header: "NET COST", num: true, cell: (r) => money(r.amounts.netCents) },
   { key: "vat", header: "VAT (TEAM)", num: true, cell: (r) => money(r.amounts.teamVatCents) },
-  { key: "gross", header: "GRAND TOTAL", num: true, cell: (r) => money(r.amounts.grossCents) },
   { key: "outflow", header: "OUTFLOW", num: true, cellClass: () => "bold", cell: (r) => money(r.amounts.outflowCents) },
 ];
 

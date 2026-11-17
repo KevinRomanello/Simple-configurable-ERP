@@ -5,7 +5,8 @@ import type { ReactNode, Ref } from "react";
  * `title` is the heading; with `actions` the heading gets a row with the commands on the right; `head`
  * replaces that row entirely (for a heading that is edited in place).
  */
-export function Panel({ title, actions, head, children, ref }: {
+export function Panel({ title, actions, head, children, ref, className }: {
+  className?: string;
   title?: ReactNode;
   actions?: ReactNode;
   head?: ReactNode;
@@ -13,7 +14,7 @@ export function Panel({ title, actions, head, children, ref }: {
   ref?: Ref<HTMLElement>;
 }) {
   return (
-    <section ref={ref} className="panel">
+    <section ref={ref} className={className ? `panel ${className}` : "panel"}>
       {head ? (
         <div className="panel-head">{head}</div>
       ) : actions ? (

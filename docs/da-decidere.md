@@ -2,22 +2,22 @@
 
 L'elenco **unico** delle decisioni ancora aperte, con chi deve rispondere, cosa cambia e dove è descritto il dettaglio. Quando una decisione si chiude si sposta nel documento che la riguarda (e si toglie da qui); quando ne nasce una nuova si aggiunge qui.
 
-Ultimo aggiornamento: **13 novembre 2026** (aggiunta D14: il `setup` che si ferma su `db:roles`). Il 12 novembre: D11, i difetti del rendiconto uguale al foglio; D10 chiusa, aggiunta D12: l'area ADMINISTRATION; D13: il preventivo per Voce, rimandato). Il 10 novembre: D7, le domande per la tesoriera sul registro di cassa. Prima: 29 ottobre 2026. Chiuse il 29/10: annullare i movimenti e il progetto delle parti di una produzione ([inventario.md](inventario.md), §16 e §18).
+Ultimo aggiornamento: **17 novembre 2026** (U1: la colonna GRAND TOTAL non c'è più nel budget). Prima: **13 novembre 2026** (aggiunta D14: il `setup` che si ferma su `db:roles`). Il 12 novembre: D11, i difetti del rendiconto uguale al foglio; D10 chiusa, aggiunta D12: l'area ADMINISTRATION; D13: il preventivo per Voce, rimandato). Il 10 novembre: D7, le domande per la tesoriera sul registro di cassa. Prima: 29 ottobre 2026. Chiuse il 29/10: annullare i movimenti e il progetto delle parti di una produzione ([inventario.md](inventario.md), §16 e §18).
 
 ## Urgente
 
 ### U1. Il «GRAND TOTAL COST» include l'IVA che copre un fondo: va bene?
 
-**Dove.** Le pagine **TOTAL** (ESTIMATED / ACTUAL GRAND TOTAL COST e i loro grafici), le **analisi** (CASH FROM, BOUGHT FROM, CATEGORY ANALYSES: "Grand Total Cost" e grafici) e la colonna GRAND TOTAL della riga **Area total** (e di ogni riga del budget).
+**Dove.** Le pagine **TOTAL** (ESTIMATED / ACTUAL GRAND TOTAL COST e i loro grafici), le **analisi** (CASH FROM, BOUGHT FROM, CATEGORY ANALYSES: "Grand Total Cost" e grafici) e, finché c'era, la colonna GRAND TOTAL della riga **Area total** e di ogni riga del budget (**tolta il 17 novembre 2026** dalle pagine del budget: ora hanno solo OUTFLOW, [come-funziona.md](come-funziona.md)).
 
-**Com'è oggi.** GRAND TOTAL = netto + IVA **intera**, anche quella che un fondo di sponsor si prende: il fondo la consuma davvero, ed è il numero del foglio. Il 29/10/2026 si è deciso che la colonna **VAT** dei subtotali dei progetti e di Area total mostri **solo l'IVA a carico del team** ([sponsor-e-fondi.md](sponsor-e-fondi.md), §3). Risultato: in quelle tabelle **NET COST + VAT (TEAM) ≠ GRAND TOTAL** quando c'è un fondo che copre IVA, e chi somma le colonne a mano trova una differenza.
+**Com'è oggi.** GRAND TOTAL = netto + IVA **intera**, anche quella che un fondo di sponsor si prende: il fondo la consuma davvero, ed è il numero del foglio. Il 29/10/2026 si è deciso che la colonna **VAT** dei subtotali dei progetti e di Area total mostri **solo l'IVA a carico del team** ([sponsor-e-fondi.md](sponsor-e-fondi.md), §3). Risultato: in quelle tabelle **NET COST + VAT (TEAM) ≠ GRAND TOTAL** quando c'è un fondo che copre IVA, e chi somma le colonne a mano trova una differenza. (Nel budget la colonna non c'è più dal 17 novembre 2026, quindi lì la differenza è sparita; resta nelle pagine TOTAL e nelle analisi.)
 
 **La domanda.** Anche lì il costo deve essere **netto + solo IVA del team** (e quindi GRAND TOTAL cambia nelle pagine TOTAL, nelle analisi e nei loro grafici), oppure resta com'è, con una nota che spiega la differenza?
 
 **Cosa cambia se la risposta è «sì».**
 - cambiano le **differenze evidenziate di TOTAL** (expected contro actual) e tutti i grafici che usano il grand total;
 - la **riconciliazione col foglio** (`pnpm reconcile`, 1.995 confronti) confronta anche questi valori: non tornerebbero più al foglio, e ogni differenza andrebbe spiegata come voluta (come le altre in [regole-script-attuale.md](regole-script-attuale.md));
-- la colonna GRAND TOTAL di ogni riga del budget (netto + IVA intera, come nel foglio) resterebbe, o cambierebbe pure lei? Va deciso insieme.
+- la colonna GRAND TOTAL delle righe del budget è già stata tolta (17 novembre 2026): la risposta riguarda solo le pagine TOTAL, YEAR, CAR e le analisi.
 
 **Chi.** Tesoriere, con chi usa le analisi. **Non ancora risposto.** (Richiesta del 29/10/2026: «ci pensiamo poi, mettilo nelle docs come urgente».)
 

@@ -1,7 +1,7 @@
 import { faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useId, useState, type FormEvent } from "react";
 import { api } from "../api/client";
-import type { AreaSheet, CalcLine, Phase } from "../api/types";
+import type { AreaSheet, CalcLine, Phase, PhaseCalc } from "../api/types";
 import { ArrivalPill } from "../components/ArrivalPill";
 import { Button, IconButton } from "../components/Button";
 import { Field, Panel } from "../components/ui";
@@ -30,18 +30,20 @@ function summary(line: CalcLine, phase: Phase): string {
   ].filter(Boolean).join(" · ");
 }
 
-export function LineCards({ project, phase, lookups, canEdit, onRemove }: {
+export function LineCards({ project, phase, lookups, canEdit, onRemove, closed }: {
   project: SheetProject;
   phase: Phase;
   lookups: GridLookups;
   canEdit: boolean;
   onRemove: (line: CalcLine) => void;
+  /** The project is closed: only the card of the subtotal. */
+  closed: boolean;
 }) {
   const [open, setOpen] = useState<number | null>(null);
   const subtotal = project.subtotal[phase];
   return (
     <ul className="line-cards">
-      {project.lines.map((line) => {
+      {(closed ? [] : project.lines).map((line) => {
         const calc = line[phase];
         const otherCar = line.carSeasonId === null ? undefined : carSeasonOf(lookups, line);
         const body = (
@@ -54,10 +56,7 @@ export function LineCards({ project, phase, lookups, canEdit, onRemove }: {
               {calc.shortCents > 0 && <span className="hint error">The funds miss {money(calc.shortCents)}</span>}
               {calc.paidCents > 0 && <span className="hint">{calc.paidCents >= calc.teamFundCents + calc.teamVatCents ? "Paid" : `Paid ${money(calc.paidCents)} of ${money(calc.teamFundCents + calc.teamVatCents)}`}</span>}
             </span>
-            <span className="line-amount">
-              <strong>{money(calc.amounts.grossCents)}</strong>
-              <span className="muted">outflow {money(calc.amounts.outflowCents)}</span>
-            </span>
+            <Amount amounts={calc.amounts} />
           </>
         );
         return (
@@ -75,12 +74,20 @@ export function LineCards({ project, phase, lookups, canEdit, onRemove }: {
       })}
       <li className="line-card total">
         <span className="line-main"><strong>Subtotal</strong></span>
-        <span className="line-amount">
-          <strong>{money(subtotal.grossCents)}</strong>
-          <span>outflow {money(subtotal.outflowCents)}</span>
-        </span>
+        <Amount amounts={subtotal} />
       </li>
     </ul>
+  );
+}
+
+/** The money of a card: what leaves the fund register (OUTFLOW), and what a sponsor gives for free when there is something. */
+function Amount({ amounts }: { amounts: Pick<PhaseCalc["amounts"], "outflowCents" | "sponsorCents"> }) {
+  return (
+    <span className="line-amount">
+      <strong>{money(amounts.outflowCents)}</strong>
+      <span className="muted">outflow</span>
+      {amounts.sponsorCents > 0 && <span className="muted">sponsor {money(amounts.sponsorCents)}</span>}
+    </span>
   );
 }
 
