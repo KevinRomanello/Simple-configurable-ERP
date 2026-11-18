@@ -56,7 +56,7 @@ export async function getDerivedAreaCategory(): Promise<string> {
 export async function getStatementLayout(): Promise<StatementSpec[]> {
   // HARDCODED: the rows of the financial statement will be a list of the Settings page, kept by the admin
   return [
-    { row: 1, kind: "title", label: "RICAVI", side: "in" },
+    { row: 1, kind: "title", label: "RICAVI" },
     { row: 2, kind: "voce", label: "1. QUOTE ASSOCIATIVE", bold: true },
     { row: 3, kind: "sum", label: "2. CONTRIBUTI DEGLI ASSOCIATI E DEI TESSERATI", of: [4, 5, 6], total: false },
     { row: 4, kind: "voce", label: "2.1 da soci e tesserati", bold: false },
@@ -84,7 +84,7 @@ export async function getStatementLayout(): Promise<StatementSpec[]> {
     { row: 26, kind: "voce", label: "7.3 altro: CAMBI ATTIVI", bold: false },
     { row: 27, kind: "sum", label: "TOTALE RICAVI", of: [17, 22, 23], total: true },
     { row: 28, kind: "blank" },
-    { row: 29, kind: "title", label: "COSTI", side: "out" },
+    { row: 29, kind: "title", label: "COSTI" },
     { row: 30, kind: "sum", label: "1. ACQUISTO DI BENI E DI MERCI", of: [31, 32, 33, 34], total: false },
     { row: 31, kind: "voce", label: "1.1 Attrezzature", bold: false },
     { row: 32, kind: "voce", label: "1.2 Cancelleria e materiali da ufficio", bold: false },

@@ -10,8 +10,7 @@ const TREASURER = { email: "treasury@team.test", role: "pm" as const, treasury: 
 const PM = { email: "pm@team.test", role: "pm" as const, areas: ["mt-dmt"] };
 const VIEWER = { email: "viewer@team.test", role: "viewer" as const };
 
-interface Row { row: number; kind: string; label: string; cents: number | null; partialCents: number | null; count: number }
-interface Issue { kind: string; row: number | null; label: string; count: number; cents: number }
+interface Row { row: number; kind: string; label: string; cents: number | null; partialCents: number | null }
 
 /** A movement of the register: `cents` positive for money in, negative for money out. */
 async function move(voce: string | null, cents: number, over: { account?: string; on?: string } = {}) {
@@ -23,7 +22,7 @@ async function move(voce: string | null, cents: number, over: { account?: string
   });
   expect(created.status).toBe(201);
 }
-const statement = async (year = 2026) => (await api.get(`/api/cash/statement?year=${year}`)).body as { year: number; years: number[]; rows: Row[]; issues: Issue[] };
+const statement = async (year = 2026) => (await api.get(`/api/cash/statement?year=${year}`)).body as { year: number; years: number[]; rows: Row[] };
 const rowOf = (rows: Row[], row: number) => rows.find((r) => r.row === row)!;
 
 describe("who can see the financial statement", () => {
@@ -53,7 +52,7 @@ describe("the financial statement of a year", () => {
     await move("8.2 Imposta di bollo", -1_600);
     await move("2.1 da soci e tesserati", 9_999, { on: "2025-12-31" });
     const { rows } = await statement(2026);
-    expect(rowOf(rows, 4)).toMatchObject({ cents: 5_000, count: 1 });
+    expect(rowOf(rows, 4)).toMatchObject({ cents: 5_000 });
     expect(rowOf(rows, 17)).toMatchObject({ cents: 5_000 });
     expect(rowOf(rows, 22)).toMatchObject({ cents: 20_000 });
     expect(rowOf(rows, 27)).toMatchObject({ cents: 25_000, partialCents: 25_000 });
@@ -84,7 +83,7 @@ describe("what the statement counts, and what it still copies from the sheet", (
     await move("1.3 Materiale sportivo (per le ASD)", -80, { account: "paypal" });
     await move("1.4 Altro", -500, { account: "paypal" });
     const { rows } = await statement();
-    expect(rowOf(rows, 2)).toMatchObject({ cents: 4_000, count: 1 });
+    expect(rowOf(rows, 2)).toMatchObject({ cents: 4_000 });
     expect(rowOf(rows, 32).cents).toBe(-300);
     expect(rowOf(rows, 33).cents).toBe(-80);
     expect(rowOf(rows, 34).cents).toBe(-500);
@@ -97,7 +96,7 @@ describe("what the statement counts, and what it still copies from the sheet", (
     await move("4.4 da università", 700);
     const { rows } = await statement();
     expect(rowOf(rows, 14).cents).toBe(700);
-    expect(rowOf(rows, 10)).toMatchObject({ cents: 1_700, count: 2 });
+    expect(rowOf(rows, 10)).toMatchObject({ cents: 1_700 });
     expect(rowOf(rows, 17).cents).toBe(1_700);
     expect(rowOf(rows, 27).cents).toBe(1_700);
   });
@@ -105,7 +104,7 @@ describe("what the statement counts, and what it still copies from the sheet", (
   it("has every Voce row added by some sum: no money of a row can be missing from the totals", async () => {
     const layout = await getStatementLayout();
     const added = new Set(layout.flatMap((s) => (s.kind === "sum" ? s.of : [])));
-    expect(layout.filter((s) => s.kind === "voce" && !added.has(s.row)).map((s) => s.label)).toEqual([]);
+    expect(layout.flatMap((s) => (s.kind === "voce" && !added.has(s.row) ? [s.label] : []))).toEqual([]);
     // the production row without a Voce of its own is in the total of the institutional revenues
     const total = layout.find((s) => s.row === 17);
     expect(total && "of" in total ? total.of : []).toContain(16);
@@ -114,27 +113,22 @@ describe("what the statement counts, and what it still copies from the sheet", (
   it("counts the VAT inside IMPOSTE E TASSE and once in the total of the costs", async () => {
     await move("8.1 IRES/IRAP", -100);
     await move("9.3 Liquidazione IVA", -2_200);
-    const { rows, issues } = await statement();
+    const { rows } = await statement();
     expect(rowOf(rows, 64).cents).toBe(-2_200);
     expect(rowOf(rows, 60).cents).toBe(-2_300);
     expect(rowOf(rows, 68).cents).toBe(-2_300);
-    expect(issues).toContainEqual({ kind: "sectionInSection", row: 64, label: "9. IVA", count: 1, cents: -2_200 });
   });
 
-  it("shows the amounts without sign, so a refund on a revenue is hidden, and says so", async () => {
+  it("shows the amounts without sign in the second column, so a refund on a revenue keeps its sign only in the first", async () => {
     await move("2.1 da soci e tesserati", -400);
-    const { rows, issues } = await statement();
-    expect(rowOf(rows, 4)).toMatchObject({ cents: -400, partialCents: 400 });
-    expect(issues.filter((i) => i.kind === "wrongSign").map((i) => i.row)).toEqual([3, 4, 17, 27]);
+    expect(rowOf((await statement()).rows, 4)).toMatchObject({ cents: -400, partialCents: 400 });
   });
 
-  it("tells about the movements that no row counts: with no Voce, and with a Voce of the register the table does not have", async () => {
+  it("counts no movement that has no Voce or a Voce the table has no row for", async () => {
     await move(null, 1_500);
     await move("9.4 Pec aruba", -600);
-    const { rows, issues } = await statement();
+    const { rows } = await statement();
     expect(rowOf(rows, 27).cents).toBe(0);
     expect(rowOf(rows, 68).cents).toBe(0);
-    expect(issues).toContainEqual({ kind: "noVoce", row: null, label: "", count: 1, cents: 1_500 });
-    expect(issues).toContainEqual({ kind: "unknownVoce", row: null, label: "9.4 Pec aruba", count: 1, cents: -600 });
   });
 });

@@ -180,7 +180,7 @@ Funzioni pure, input = `Snapshot` (JSON), output = JSON. Una per vista, più i m
 | `settle.ts`              | `settleLine(figures, funds, phase, balances, settings)`: la "scatola nera" degli sponsor (copertura, IVA, chi la paga, quote dei fondi) |
 | `cash.ts`                | `bankInflows`, `inflowVat`: gli inflow di CASH FLOW e la loro IVA dell'11% (primo giorno del trimestre dopo; solo per quelli con la spunta Sponsorship) |
 | `register.ts`            | il registro di cassa: progressivi per conto con saldi iniziali e riporto fra anni (`registerTimeline`), il saldo a un giorno (`balancesAt`), l'abbinamento del foglio importato (`matchRegister`) |
-| `statement.ts`           | il rendiconto uguale al foglio: `financialStatement`, `statementIssues`, `sectionsOfVoci` ([registro-di-cassa.md](registro-di-cassa.md), §5.5) |
+| `statement.ts`           | il rendiconto uguale al foglio: `financialStatement`, `sectionsOfVoci` ([registro-di-cassa.md](registro-di-cassa.md), §5.5) |
 | `outside.ts`             | `outsideBudget`: le righe dell'area derivata dai movimenti fuori budget ([spese-fuori-budget.md](spese-fuori-budget.md)) |
 | `funds.ts`               | `fundSummary(snapshot, phase)`, `inflowsByMonth(rows)`                                                      |
 | `cashflow.ts`            | `cashFlowSummary(snapshot, phase)`                                                                            |

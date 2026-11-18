@@ -4,7 +4,10 @@ Scritto il 13 novembre 2026, dopo il rilascio v0.8.0. Riguarda i server dove il 
 
 ## 1. Come si riconosce
 
-Dopo `docker compose up -d` il passo `setup` esce con errore e l'API non riparte. Nel log di `setup` (`docker compose logs setup`) c'è:
+Dopo `docker compose up -d` il passo `setup` esce con errore e l'API non riparte. Nel log di `setup` (`docker compose logs setup`) c'è, a seconda del caso, uno di questi due messaggi (stessa causa, SQLSTATE `42501`):
+
+- `permission denied to alter role` (visto il 17 novembre 2026): il proprietario non può modificare l'utente `erp_app` in nessun modo, nemmeno la password;
+- il seguente, visto il 13 novembre 2026:
 
 ```
 code: '42501',
@@ -112,3 +115,22 @@ Per non dover più fare i passi del §4, `ensureAppRole` andrebbe cambiato così
 - la prova ricostruisce il tuo caso: un proprietario non superutente che lancia il comando su un utente già esistente. Oggi fallisce, dopo deve passare.
 
 È la domanda D14 di [da-decidere.md](da-decidere.md): aspetta il via.
+
+## 7. Come è stato risolto sul server (17 novembre 2026)
+
+Il 17 novembre 2026, mettendo online l'aggiornamento con le migrazioni `0031` e `0032`, `setup` si è fermato di nuovo (`permission denied to alter role`). Sul server si è scelto di **dare al proprietario del database l'attributo SUPERUSER**, senza toccare il codice:
+
+```sql
+ALTER ROLE <proprietario> WITH SUPERUSER;   -- da un utente che è già superutente
+```
+
+Cosa si è deciso, e perché va bene:
+
+- **Il proprietario, non `erp_app`.** Il proprietario (`DATABASE_OWNER_URL`) lo usano solo `setup` e il contenitore del database; l'API no. L'API continua a collegarsi come `erp_app`, che **resta senza privilegi**: in produzione rifiuta di partire se è superutente (`assertNotSuperuser`).
+- **L'attributo vale per tutta l'istanza di PostgreSQL**, non per un solo database: i ruoli sono dell'intera istanza. Qui l'istanza è quella del contenitore `db`, dedicata all'ERP (si controlla con `select datname from pg_database where not datistemplate`).
+- **Il rischio in più è piccolo** (il proprietario poteva già togliere il trigger dello storico), ma la sua password (`POSTGRES_PASSWORD` nel `.env`) va tenuta come adesso: solo sul server, mai nei log né in chat.
+- **Si può tornare indietro** con `ALTER ROLE <proprietario> NOSUPERUSER;`, solo se resta un altro superutente; poi `setup` si ferma di nuovo, a meno che si faccia la correzione del §6.
+- **Un database ospitato da un servizio esterno** spesso non permette SUPERUSER: lì la strada è la correzione del §6.
+
+La correzione del §6 **non è stata fatta** e non è più urgente su questo server; resta come difesa per i server dove SUPERUSER non si può dare ([da-decidere.md](da-decidere.md), D14).
+

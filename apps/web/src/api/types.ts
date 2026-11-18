@@ -3,9 +3,9 @@
 export type {
   Analysis, Arrival, ArrivalStatus, AreaSheet, Bom, BomLine, CalcLine, CashFlowSummary, CostPoint, FundSummaryRow,
   Gantt, ItemOrigin, ItemsView, MoneyIn, MonthlyInflow, PendingLine, Phase, PhaseCalc, PriceBasis, PriceMethod, PricePoint,
-  CashScope, Priority, SponsorType, StatementIssue, StatementIssueKind, StatementRow, StatsRow, ToPayLine, ToPayStatus, Totals, TotalsBlock, TotalsFigures, VatReport,
+  CashScope, Priority, SponsorType, StatementRow, StatsRow, ToPayLine, ToPayStatus, Totals, TotalsBlock, TotalsFigures, VatReport,
 } from "@erp/calc";
-import type { CashScope, ItemOrigin, MakePlan, PlanLine, Take, MoneyIn, PendingLine, Phase, PriceBasis, PriceMethod, PricePoint, Bom, CostPoint, StatementIssue, StatementRow, StatsRow, ToPayLine, Totals } from "@erp/calc";
+import type { CashScope, ItemOrigin, MakePlan, PlanLine, Take, MoneyIn, PendingLine, Phase, PriceBasis, PriceMethod, PricePoint, Bom, CostPoint, StatementRow, StatsRow, ToPayLine, Totals } from "@erp/calc";
 
 /** GET /api/views/totals(/year, /car): TOTAL of a season, a calendar year or a car, and what came in (none for a car). */
 export type TotalsView = Totals & {
@@ -132,13 +132,12 @@ export interface ToPay {
   lastMethodId: number | null;
 }
 
-/** GET /api/cash/statement: the financial statement of a calendar year (the table of the sheet), and what to check in it. */
+/** GET /api/cash/statement: the financial statement of a calendar year (the table of the sheet). */
 export interface Statement {
   year: number;
   /** The years of the register, the current one included, newest first. */
   years: number[];
   rows: StatementRow[];
-  issues: StatementIssue[];
 }
 
 /** GET /api/cash/to-link: a payment that pays no line of the budget yet. */

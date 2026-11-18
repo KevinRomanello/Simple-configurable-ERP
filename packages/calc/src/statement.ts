@@ -7,8 +7,8 @@ import type { CashAccount } from "./register";
 /** One row of the table, as the sheet lays it out. `row` is the row number of the sheet: the sums refer to it. */
 export type StatementSpec =
   | { row: number; kind: "blank" }
-  /** RICAVI or COSTI: what the rows below it are (money in or money out) until the next title. */
-  | { row: number; kind: "title"; label: string; side: "in" | "out" }
+  /** RICAVI or COSTI: a heading, with no amount. */
+  | { row: number; kind: "title"; label: string }
   /** The movements of the Voce with this name, in Cassa, Banca and Paypal. */
   | { row: number; kind: "voce"; label: string; bold: boolean }
   /** The rows added up; `total` marks the ones that add up whole sections. */
@@ -35,16 +35,7 @@ export interface StatementRow {
   cents: number | null;
   /** The same without its sign (the sheet's column C, "importi parziali"); on the result, revenues minus costs. */
   partialCents: number | null;
-  /** How many movements the row adds up. */
-  count: number;
 }
-
-interface Figure {
-  cents: number;
-  count: number;
-}
-
-const NOTHING: Figure = { cents: 0, count: 0 };
 
 /** The way the sheet finds a Voce: the same name, whatever the capitals and the spaces. */
 export const voceKey = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
@@ -66,29 +57,25 @@ const isBold = (spec: StatementSpec) => spec.kind !== "blank" && (spec.kind !== 
 export function financialStatement(entries: StatementEntry[], layout: StatementSpec[]): StatementRow[] {
   const groups = byVoce(entries);
   const specs = new Map(layout.map((spec) => [spec.row, spec]));
-  const figures = new Map<number, Figure>();
+  const known = new Map<number, number>();
 
-  const figureOf = (row: number): Figure => {
-    const known = figures.get(row);
-    if (known) return known;
+  const centsOf = (row: number): number => {
+    const found = known.get(row);
+    if (found !== undefined) return found;
     const spec = specs.get(row);
-    const figure = spec?.kind === "voce" ? voceFigure(spec) : spec?.kind === "sum" ? sumFigure(spec.of) : NOTHING;
-    figures.set(row, figure);
-    return figure;
+    const cents = spec?.kind === "voce" ? voceCents(spec) : spec?.kind === "sum" ? spec.of.reduce((sum, r) => sum + centsOf(r), 0) : 0;
+    known.set(row, cents);
+    return cents;
   };
-  const voceFigure = (spec: Extract<StatementSpec, { kind: "voce" }>): Figure => {
-    const counted = groups.get(voceKey(spec.label)) ?? [];
-    return { cents: counted.reduce((sum, e) => sum + e.cents, 0), count: counted.length };
-  };
-  const sumFigure = (rows: number[]): Figure =>
-    rows.map(figureOf).reduce((sum, f) => ({ cents: sum.cents + f.cents, count: sum.count + f.count }), NOTHING);
+  const voceCents = (spec: Extract<StatementSpec, { kind: "voce" }>): number =>
+    (groups.get(voceKey(spec.label)) ?? []).reduce((sum, e) => sum + e.cents, 0);
 
   return layout.map((spec): StatementRow => {
     const base = { row: spec.row, kind: spec.kind, label: "label" in spec ? spec.label : "", bold: isBold(spec), total: spec.kind === "sum" && spec.total };
-    if (spec.kind === "result") return { ...base, cents: null, partialCents: Math.abs(figureOf(spec.plus).cents) - Math.abs(figureOf(spec.minus).cents), count: 0 };
-    if (spec.kind !== "voce" && spec.kind !== "sum") return { ...base, cents: null, partialCents: null, count: 0 };
-    const { cents, count } = figureOf(spec.row);
-    return { ...base, cents, partialCents: Math.abs(cents), count };
+    if (spec.kind === "result") return { ...base, cents: null, partialCents: Math.abs(centsOf(spec.plus)) - Math.abs(centsOf(spec.minus)) };
+    if (spec.kind !== "voce" && spec.kind !== "sum") return { ...base, cents: null, partialCents: null };
+    const cents = centsOf(spec.row);
+    return { ...base, cents, partialCents: Math.abs(cents) };
   });
 }
 
@@ -103,80 +90,4 @@ export function sectionsOfVoci(layout: StatementSpec[]): Map<string, string> {
     if (spec.kind === "sum" && !spec.total) for (const row of spec.of) inSection.set(row, spec.label);
   }
   return new Map(layout.flatMap((spec) => (spec.kind === "voce" ? [[voceKey(spec.label), inSection.get(spec.row) ?? spec.label] as const] : [])));
-}
-
-export type StatementIssueKind =
-  /** Movements with no Voce: no row counts them. */
-  | "noVoce"
-  /** A Voce of the register that no row of the statement reads. */
-  | "unknownVoce"
-  /** A section that is a part of another section, so it is not one of the sections of the total. */
-  | "sectionInSection"
-  /** A row whose sign is the wrong one for its side; the column without sign hides it. */
-  | "wrongSign";
-
-export interface StatementIssue {
-  kind: StatementIssueKind;
-  /** The row it is about; null when it is about movements that are in no row. */
-  row: number | null;
-  /** The label of the row, or the name of the Voce no row reads. */
-  label: string;
-  /** The movements it touches: 0 means the rule is in the table but touches nothing now. */
-  count: number;
-  cents: number;
-}
-
-/** The sums that add up another row. */
-const parentsOf = (layout: StatementSpec[]) =>
-  layout.flatMap((spec) => (spec.kind === "sum" ? spec.of.map((row) => ({ row, parent: spec })) : []));
-
-/**
- * What to check in the statement of these movements. One is a rule of the table itself (a section inside another
- * one): it is always listed, with `count` 0 when it touches nothing. The others exist only if the movements have them
- * (no Voce, a Voce no row reads, a wrong sign).
- */
-export function statementIssues(entries: StatementEntry[], layout: StatementSpec[], rows: StatementRow[]): StatementIssue[] {
-  const rowOf = new Map(rows.map((r) => [r.row, r]));
-  const issue = (kind: StatementIssueKind, row: StatementRow, extra: Partial<StatementIssue> = {}): StatementIssue => ({
-    kind, row: row.row, label: row.label, count: row.count, cents: row.cents ?? 0, ...extra,
-  });
-
-  const read = new Set(layout.flatMap((s) => (s.kind === "voce" ? [voceKey(s.label)] : [])));
-  const unread = new Map<string, StatementIssue>();
-  for (const e of entries) {
-    if (e.voce === null || read.has(voceKey(e.voce))) continue;
-    const key = voceKey(e.voce);
-    const now = unread.get(key) ?? { kind: "unknownVoce" as const, row: null, label: e.voce, count: 0, cents: 0 };
-    unread.set(key, { ...now, count: now.count + 1, cents: now.cents + e.cents });
-  }
-  const none = entries.filter((e) => e.voce === null);
-
-  const sections = parentsOf(layout)
-    .filter(({ row, parent }) => !parent.total && specOf(layout, row).kind === "sum")
-    .map(({ row }) => issue("sectionInSection", rowOf.get(row)!));
-
-  const side = sideOfRows(layout);
-  const wrongSign = rows
-    .filter((r) => r.cents !== null && r.cents !== 0 && Math.sign(r.cents) === (side.get(r.row) === "in" ? -1 : 1))
-    .map((r) => issue("wrongSign", r));
-
-  return [
-    ...(none.length > 0 ? [{ kind: "noVoce" as const, row: null, label: "", count: none.length, cents: none.reduce((s, e) => s + e.cents, 0) }] : []),
-    ...unread.values(),
-    ...sections,
-    ...wrongSign,
-  ];
-}
-
-const specOf = (layout: StatementSpec[], row: number) => layout.find((s) => s.row === row)!;
-
-/** Which side each row is on: the one of the last title above it. */
-function sideOfRows(layout: StatementSpec[]): Map<number, "in" | "out"> {
-  const sides = new Map<number, "in" | "out">();
-  let side: "in" | "out" = "in";
-  for (const spec of layout) {
-    if (spec.kind === "title") side = spec.side;
-    sides.set(spec.row, side);
-  }
-  return sides;
 }

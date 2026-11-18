@@ -53,7 +53,7 @@ Descritto in [registro-di-cassa.md](registro-di-cassa.md) (§2 e §6). Non blocc
 
 ### D11. Il rendiconto uguale al foglio: i suoi difetti, per la tesoreria e il commercialista
 
-FINANCIAL STATEMENT ([registro-di-cassa.md](registro-di-cassa.md), §5.5) è **uguale al foglio «voci di ricavocosto»**, difetti compresi, perché serve per motivi legali; il pulsante **Things to check** li spiega e dice quanti soldi dell'anno toccano. Se si vogliono **correggere** è una scelta della tesoreria e del commercialista, una per una (cambia solo `getStatementLayout`, riga 9 del registro degli hardcode).
+FINANCIAL STATEMENT ([registro-di-cassa.md](registro-di-cassa.md), §5.5) è **uguale al foglio «voci di ricavocosto»**, difetti compresi, perché serve per motivi legali; dal 18 novembre 2026 il sito non li segnala più (il riquadro «Things to check» è stato tolto su richiesta). Se si vogliono **correggere** è una scelta della tesoreria e del commercialista, una per una (cambia solo `getStatementLayout`, riga 9 del registro degli hardcode).
 
 **Chiusi il 17 novembre 2026** (la tesoreria ha risposto):
 - **Il Paypal** ora conta in ogni riga (nel foglio mancava da QUOTE ASSOCIATIVE, 1.2 e 1.3): su quelle Voci non ci sono movimenti e non ci saranno, è per non perdere soldi in futuro.
@@ -61,7 +61,7 @@ FINANCIAL STATEMENT ([registro-di-cassa.md](registro-di-cassa.md), §5.5) è **u
 - **«9. IVA»** dentro «8. IMPOSTE E TASSE» è **giusto così**: il totale dei costi la conta una volta sola.
 
 **Ancora aperti:**
-1. **Le Voci 9.4 Pec aruba e 9.5 saldo fattura** non hanno riga nel rendiconto, e i movimenti senza Voce non compaiono: in quale riga vanno? Con i dati veri del 2026 sono una quarantina di movimenti, e i soldi mancano dai totali.
+1. **Le Voci 9.4 Pec aruba e 9.5 saldo fattura** non hanno riga nel rendiconto, e i movimenti senza Voce non compaiono: in quale riga vanno? Con i dati veri del 2026 sono una quarantina di movimenti, e i soldi mancano dai totali. Dal 18 novembre 2026 il sito non lo avvisa più: finché non si decide, nessuno se ne accorge guardando la pagina.
 2. **Il segno**: la colonna «importi parziali» è senza segno. Un rimborso su un costo (per esempio un noleggio restituito) va a ridurre il costo: la riga 4.2 Noleggi, oggi, ha un saldo positivo. È giusto così?
 
 ### D8. CASH FLOW dopo il registro: tenerlo, e dove si scrivono gli inflow
@@ -117,5 +117,5 @@ Il tag `0.1` non ha fatto partire il workflow, che aspetta tag che iniziano con 
 
 ### D14. `setup` non deve fermarsi quando il proprietario del database non è un superutente
 
-Il 13 novembre 2026, sul server, `setup` si è fermato su `db:roles` perché l'utente dell'API esisteva già e il proprietario delle tabelle non è un superutente ([ruolo-database-setup.md](ruolo-database-setup.md)). A mano si risolve (§4 del documento), ma a ogni aggiornamento tornerebbe. La correzione proposta è in §6 dello stesso documento: `ensureAppRole` non ripete gli attributi se l'utente li ha già, prova a rimettere la password senza fermarsi se non può, e tiene permessi e `REVOKE` su `audit_log` come oggi. **Aspetta il via**: tocca il codice che dà i permessi al database, quindi non l'ho fatta da solo.
+Il 13 novembre 2026, sul server, `setup` si è fermato su `db:roles` perché l'utente dell'API esisteva già e il proprietario delle tabelle non è un superutente ([ruolo-database-setup.md](ruolo-database-setup.md)). A mano si risolve (§4 del documento), ma a ogni aggiornamento tornerebbe. La correzione proposta è in §6 dello stesso documento: `ensureAppRole` non ripete gli attributi se l'utente li ha già, prova a rimettere la password senza fermarsi se non può, e tiene permessi e `REVOKE` su `audit_log` come oggi. **Aspetta il via**: tocca il codice che dà i permessi al database, quindi non l'ho fatta da solo. **Aggirata sul server il 17 novembre 2026**: il proprietario del database è diventato superutente ([ruolo-database-setup.md](ruolo-database-setup.md), §7), quindi non è più urgente; la correzione nel codice resta come difesa per i server dove SUPERUSER non si può dare.
 

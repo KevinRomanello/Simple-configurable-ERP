@@ -30,10 +30,10 @@ Nasce dal feedback della tesoreria (11 novembre 2026): tre richieste, che chiudo
 - **Differenze dal design:** il progetto per sezione usa il rendiconto (e un progetto «Voci not in the statement» per le Voci che il rendiconto non ha); un mese con più entrate che uscite su una Voce è «money in», non una riga negativa; il «money in» di una stagione conta solo ciò che viene dopo il giorno del BANK (il resto è già nel BANK).
 
 ### Fase 2: fatta (12 novembre 2026)
-- [x] Calcolo: `financialStatement` e `statementIssues` (`packages/calc/src/statement.ts`, 11 prove).
+- [x] Calcolo: `financialStatement` e `statementIssues` (`packages/calc/src/statement.ts`, 11 prove; `statementIssues` tolta il 18 novembre 2026 con il riquadro).
 - [x] La struttura del foglio nella funzione-API `getStatementLayout` (hardcode, riga 9 del registro); `GET /api/cash/statement?year=`; 10 prove sull'API (anche i permessi e ogni difetto).
 - [x] Prova di uguaglianza con il foglio vero (`tools/import-xlsx/src/statement.test.ts`): tutte le righe, etichetta e due colonne, al centesimo. Si salta se `fonti/` manca.
-- [x] Sito: pagina **FINANCIAL STATEMENT** nel gruppo Treasury, anno solare, il pulsante **Things to check (n)** con i difetti spiegati e gli importi dell'anno, il triangolo sulle righe interessate, Download (Excel/PDF della tabella).
+- [x] Sito: pagina **FINANCIAL STATEMENT** nel gruppo Treasury, anno solare, il pulsante **Things to check (n)** con i difetti spiegati e gli importi dell'anno, il triangolo sulle righe interessate (pulsante, riquadro e triangolo tolti il 18 novembre 2026), Download (Excel/PDF della tabella).
 - [x] Giro nel browser sui dati di sviluppo (sola lettura).
 - [x] Documenti permanenti: registro-di-cassa (§5.5, §6, §7, §9), hardcoded-registry (riga 9), stile-interfaccia, architettura, collaudo, avvio, da-decidere (D11).
 - **Decisioni prese dal lavoro** (da confermare con la tesoreria, D11): il rendiconto è **uguale al foglio, difetti compresi** (la proposta del §3.2 di contare il Paypal ovunque non è stata fatta: i difetti si dichiarano, non si correggono); la regola del foglio vale per nome di Voce; l'**Excel è quello della tabella** (valori), non il file identico al foglio con le formule; i testi del riquadro sono in inglese, come il sito; colore e bordi del foglio non si copiano (una cella è colorata di blu a caso).
