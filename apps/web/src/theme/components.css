@@ -444,7 +444,7 @@
 .panel.project-closed .ag-grid-scrolling-rows {
   display: none;
 }
-/* moving a project: the handle, the project in hand, the line where it will land (docs/stile-interfaccia.md) */
+/* moving a project or a row of a table: the handle, the one in hand, the line where it will land (docs/stile-interfaccia.md) */
 .drag-handle {
   cursor: grab;
   touch-action: none; /* a finger on the handle drags the project instead of scrolling the page */
@@ -461,6 +461,23 @@
 }
 .project-box.drop-after {
   box-shadow: 0 4px 0 0 var(--primary-default);
+}
+/* a row of a table: the handle's own narrow column, the row in hand faded, the line on the cells above or below */
+.data-table .drag-cell {
+  width: 1%;
+  padding-right: 0;
+}
+.data-table tr.dragging {
+  opacity: 0.5;
+}
+.data-table tr.dragging .drag-handle {
+  cursor: grabbing;
+}
+.data-table tr.drop-before > td {
+  box-shadow: inset 0 3px 0 0 var(--primary-default);
+}
+.data-table tr.drop-after > td {
+  box-shadow: inset 0 -3px 0 0 var(--primary-default);
 }
 /* while one is in hand every project is folded to its heading, so that they all fit on the screen */
 .panel.project-folded > :not(.panel-head) {

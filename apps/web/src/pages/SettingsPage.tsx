@@ -6,7 +6,7 @@ import type { BankCompare, Calculation, ItemField, SettingsView } from "../api/t
 import { Button } from "../components/Button";
 import { Chips } from "../components/Chips";
 import { CommitInput } from "../components/CommitInput";
-import { DeleteButton, OrderButtons } from "../components/ListButtons";
+import { DeleteButton } from "../components/ListButtons";
 import { QuickAdd, usedBy } from "../components/QuickAdd";
 import { AddSection, DataTable, Field, FormPanel, Loading, Message, PageHeader, Panel, type Column } from "../components/ui";
 import { useMe } from "../lib/auth";
@@ -236,7 +236,6 @@ type CategoryRow = SettingsView["categories"][number];
 
 function CategoriesPanel({ data }: { data: SettingsView }) {
   const act = useAction();
-  const ids = data.categories.map((c) => c.id);
   const toggle = (fields: ItemField[], field: ItemField, on: boolean) => (on ? [...fields, field] : fields.filter((f) => f !== field));
 
   const columns: Column<CategoryRow>[] = [
@@ -256,7 +255,6 @@ function CategoriesPanel({ data }: { data: SettingsView }) {
       }),
     ),
     usedBy<CategoryRow>(),
-    { key: "order", header: "ORDER", cell: (c) => <OrderButtons ids={ids} index={ids.indexOf(c.id)} label={c.name} onOrder={(order) => act(() => api.orderCategories(order))} /> },
     { key: "delete", header: "", num: true, cell: (c) => <DeleteButton label={c.name} usedBy={c.usedBy} onDelete={() => act(() => api.deleteCategory(c.id))} /> },
   ];
 
@@ -272,8 +270,10 @@ function CategoriesPanel({ data }: { data: SettingsView }) {
         rows={data.categories}
         rowKey={(c) => c.id}
         empty="No categories"
+        reorder={{ label: (c) => c.name, onOrder: (order) => act(() => api.orderCategories(order)) }}
         footer={
           <tr className="footer-row">
+            <td />
             <td>Items without a category</td>
             {FIELDS.map((field) => (
               <td key={field}>
@@ -285,7 +285,7 @@ function CategoriesPanel({ data }: { data: SettingsView }) {
                 />
               </td>
             ))}
-            <td colSpan={3} />
+            <td colSpan={2} />
           </tr>
         }
       />
@@ -362,15 +362,12 @@ function NewPlace({ onDone }: { onDone: () => void }) {
 
 function LocationsPanel({ locations }: { locations: SettingsView["locations"] }) {
   const act = useAction();
-  const ids = locations.map((l) => l.id);
-
   const columns: Column<LocationRow>[] = [
     { key: "room", header: "ROOM", cell: (l) => <CommitInput wide value={l.room} label={`Room of ${l.code}`} onCommit={(text) => text !== "" && act(() => api.updateLocation(l.id, { room: text }))} /> },
     { key: "shelf", header: "SHELF", cell: (l) => <CommitInput value={l.shelf} label={`Shelf of ${l.code}`} onCommit={(text) => act(() => api.updateLocation(l.id, { shelf: text }))} /> },
     { key: "level", header: "LEVEL", cell: (l) => <CommitInput value={l.level} label={`Level of ${l.code}`} onCommit={(text) => act(() => api.updateLocation(l.id, { level: text }))} /> },
     { key: "code", header: "CODE", cellClass: () => "muted", cell: (l) => l.code },
     usedBy<LocationRow>(),
-    { key: "order", header: "ORDER", cell: (l) => <OrderButtons ids={ids} index={ids.indexOf(l.id)} label={l.label} onOrder={(order) => act(() => api.orderLocations(order))} /> },
     { key: "delete", header: "", num: true, cell: (l) => <DeleteButton label={l.label} usedBy={l.usedBy} onDelete={() => act(() => api.deleteLocation(l.id))} /> },
   ];
 
@@ -381,7 +378,7 @@ function LocationsPanel({ locations }: { locations: SettingsView["locations"] })
         The exact spot, "red box", is written with each arrival. The code is what the movements of the inventory store: it never changes, so
         renaming a place keeps its history right. Used by: movements of the inventory.
       </p>
-      <DataTable title="Places" columns={columns} rows={locations} rowKey={(l) => l.id} empty="No places" />
+      <DataTable title="Places" columns={columns} rows={locations} rowKey={(l) => l.id} empty="No places" reorder={{ label: (l) => l.label, onOrder: (order) => act(() => api.orderLocations(order)) }} />
       <AddSection label="New place" form={(close) => <NewPlace onDone={close} />} />
     </Panel>
   );

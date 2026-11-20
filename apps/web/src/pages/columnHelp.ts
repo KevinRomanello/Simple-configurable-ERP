@@ -38,7 +38,7 @@ const HELP: Record<string, Help> = {
     actual: "The money that really left the fund register for the item: the cost with VAT minus what a sponsor gave for free. Calculated.",
   },
   purchaseDate: { estimate: "The day you plan to buy the item.", actual: "The day the item was bought." },
-  arrivalDate: { estimate: "The day you expect the item to be delivered.", actual: "The day the item was delivered." },
+  arrivalDate: { estimate: "The day you expect the item to be delivered.", actual: "The day the last of the item arrived: filled in from the arrivals registered in PENDING, once everything bought has arrived. Calculated." },
   arrival: "How much of what was bought has arrived. The inventory counts it: PENDING shows what is still to come.",
 };
 

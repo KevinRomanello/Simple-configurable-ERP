@@ -15,7 +15,7 @@ import { orderProjects } from "../lib/projectView";
 import { useSeason, useSeasonOpen, useSeasons } from "../lib/season";
 import { SCREEN, useMaxWidth } from "../lib/screen";
 import { useAction } from "../lib/useAction";
-import { useProjectDrag } from "../lib/useProjectDrag";
+import { useDragOrder } from "../lib/useDragOrder";
 import { useProjectView } from "../lib/useProjectView";
 import { gridTheme } from "../theme/grid";
 import { areaColumns, needsMoreFunds, type Commit, type GridLookups, type MoreFunds, type Row, type SubtotalRow } from "./areaColumns";
@@ -56,7 +56,7 @@ export function AreaPage() {
   const view = useProjectView(code);
   const shown = orderProjects(sheet.data?.projects ?? [], view.order);
   const shownIds = shown.map((p) => p.id);
-  const drag = useProjectDrag(shownIds, view.setOrder);
+  const drag = useDragOrder(shownIds, view.setOrder, { folds: true });
 
   const lookups = useMemo<GridLookups | null>(() => {
     if (!categories.data || !priorities.data || !vatRates.data || !fundsEstimate.data || !fundsActual.data || !allFunds.data || !suppliers.data || !seasons.data || !season) {
@@ -123,8 +123,7 @@ export function AreaPage() {
       {phone && <Chips label="Phase" value={phase} onChange={setPhase} options={[{ value: "estimate", label: "EXPECTED" }, { value: "actual", label: "ACTUAL" }]} />}
       {data.projects.length === 0 && <Message>{canEdit ? "No projects yet: add the first one." : "No projects yet."}</Message>}
       {shown.map((project) => (
-        <div key={project.id} data-project={project.id} // the drag reads it to know which project the pointer is over
-          className={`project-box${drag.draggedId === project.id ? " dragging" : ""}${drag.drop?.id === project.id ? (drag.drop.after ? " drop-after" : " drop-before") : ""}`}>
+        <div key={project.id} {...drag.boxProps(project.id)} className={`project-box ${drag.classOf(project.id)}`.trim()}>
           <ProjectPanel project={project} buildColumns={buildColumns} canEdit={canEdit} lookups={lookups}
             cards={phone ? { phase, onRemove: removeLine } : null}
             closed={view.closed.includes(project.id)} onToggle={() => view.toggle(project.id)}

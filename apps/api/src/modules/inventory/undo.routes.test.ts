@@ -61,14 +61,17 @@ describe("undoing a movement", () => {
       figures: { actual: { quantity: 10, unitNetCost: "5", sponsorType: "none", vatRate: 22, purchaseDate: "2026-10-01" } },
     });
     const arrival = async () => (await api.get("/api/areas/sw/sheet")).body.projects[0].lines[0].arrival;
+    const arrivalDate = async () => (await api.get("/api/areas/sw/sheet")).body.projects[0].lines[0].actual.arrivalDate;
     const received = await api.post("/api/inventory/receive", {
       lineId: line.id, newItem: { name: "Pressure sensor" }, quantity: "10", receivedOn: "2026-10-03", location: "s1-r1", spot: "",
     });
     expect(await arrival()).toMatchObject({ receivedMilli: 10_000, status: "received" });
+    expect(await arrivalDate()).toBe("2026-10-03");
     expect((await api.get("/api/inventory/pending")).body).toEqual([]);
 
     expect((await undo(received.body.movement.id)).status).toBe(204);
     expect(await arrival()).toEqual({ boughtMilli: 10_000, receivedMilli: 0, status: "ordered" });
+    expect(await arrivalDate()).toBeNull(); // not arrived any more: no date
     expect((await api.get("/api/inventory/pending")).body).toHaveLength(1);
   });
 

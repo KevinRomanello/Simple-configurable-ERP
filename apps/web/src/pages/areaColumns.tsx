@@ -313,10 +313,12 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFu
       colId: `${phase}.arrivalDate`,
       headerName: "ARRIVAL DATE",
       width: 125,
-      valueGetter: (p) => fig(p.data)?.arrivalDate ?? null,
+      valueGetter: (p) => p.data?.[phase].arrivalDate ?? null,
       valueFormatter: (p) => date(p.value),
-      cellEditor: "agDateStringCellEditor",
-      ...editableCell(commit, (v) => patchFigures({ arrivalDate: blank(v) ? null : String(v) })),
+      // EXPECTED is typed; ACTUAL is the day of the last arrival, filled in when all of it has arrived
+      ...(phase === "estimate"
+        ? { cellEditor: "agDateStringCellEditor", ...editableCell(commit, (v) => patchFigures({ arrivalDate: blank(v) ? null : String(v) })) }
+        : { cellClass: "calc" }),
     },
     // Only what was bought can arrive: the inventory (PENDING) tells how much of it has.
     ...(phase === "actual" ? [arrivalColumn] : []),

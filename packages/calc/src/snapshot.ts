@@ -99,10 +99,12 @@ export interface SupplierInput {
   name: string;
 }
 
-/** How much of a budget line has physically arrived: the sum of its receipts in the inventory. */
+/** How much of a budget line has physically arrived: the sum of its receipts in the inventory, and the day of the last one. */
 export interface ReceiptInput {
   lineId: number;
   quantityMilli: number;
+  /** The day of the latest receipt (the "Arrived on" of the form): the arrival date of the line once all of it is here. */
+  lastOn: string | null;
 }
 
 /** Money that came in outside the budget (a membership fee), in one month and on one Voce of the register. */

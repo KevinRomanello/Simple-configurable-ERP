@@ -128,6 +128,9 @@ async function withGoodsSponsor(tx: Tx, patch: FiguresInput): Promise<FiguresInp
  * from the main rate and from "no sponsor", which the person can change.
  */
 async function saveFigures(tx: Tx, lineId: number, phase: Phase, change: FiguresInput) {
+  if (phase === "actual" && change.arrivalDate !== undefined) {
+    throw invalid("The arrival date of ACTUAL is not typed: it is the day of the last arrival registered in PENDING");
+  }
   const patch = await withGoodsSponsor(tx, change);
   const [current] = await tx
     .select()

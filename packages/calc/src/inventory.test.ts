@@ -236,7 +236,7 @@ describe("arrival", () => {
     expect(arrivalOf(10_000, 4_000)).toEqual({ boughtMilli: 10_000, receivedMilli: 4_000, status: "partial" });
   });
 
-  const base = (actual: ReturnType<typeof figures> | null, receipts: { lineId: number; quantityMilli: number }[] = []) =>
+  const base = (actual: ReturnType<typeof figures> | null, receipts: { lineId: number; quantityMilli: number; lastOn: string | null }[] = []) =>
     snapshot({
       projects: [{ id: 1, areaId: 1, name: "Brakes", ownerName: null, position: 1 }],
       suppliers: [{ id: 1, name: "Acme" }],
@@ -247,10 +247,31 @@ describe("arrival", () => {
   it("is part of every calculated line", () => {
     expect(computeLines(base(null))[0]!.arrival.status).toBe("planned");
     expect(computeLines(base(figures(10, 10)))[0]!.arrival.status).toBe("ordered");
-    expect(computeLines(base(figures(10, 10), [{ lineId: 1, quantityMilli: 4_000 }]))[0]!.arrival).toEqual({
+    expect(computeLines(base(figures(10, 10), [{ lineId: 1, quantityMilli: 4_000, lastOn: "2026-10-03" }]))[0]!.arrival).toEqual({
       boughtMilli: 10_000, receivedMilli: 4_000, status: "partial",
     });
-    expect(computeLines(base(figures(10, 10), [{ lineId: 99, quantityMilli: 4_000 }]))[0]!.arrival.status).toBe("ordered");
+    expect(computeLines(base(figures(10, 10), [{ lineId: 99, quantityMilli: 4_000, lastOn: "2026-10-03" }]))[0]!.arrival.status).toBe("ordered");
+  });
+
+  it("gives ACTUAL the day of the last arrival, only once all that was bought is here", () => {
+    const arrivalDate = (actual: ReturnType<typeof figures> | null, receipts: { quantityMilli: number; lastOn: string | null }[]) =>
+      computeLines(base(actual, receipts.map((r) => ({ lineId: 1, ...r }))))[0]!.actual.arrivalDate;
+    expect(arrivalDate(figures(10, 10), [])).toBeNull();
+    expect(arrivalDate(figures(10, 10), [{ quantityMilli: 4_000, lastOn: "2026-10-03" }])).toBeNull(); // only a part
+    expect(arrivalDate(figures(10, 10), [{ quantityMilli: 10_000, lastOn: "2026-10-09" }])).toBe("2026-10-09");
+    expect(arrivalDate(figures(10, 10), [{ quantityMilli: 12_000, lastOn: "2026-10-09" }])).toBe("2026-10-09"); // more than bought
+    expect(arrivalDate(null, [{ quantityMilli: 1_000, lastOn: "2026-10-09" }])).toBeNull(); // nothing bought
+    // what is typed in ACTUAL does not count: the date is not typed there
+    expect(arrivalDate(figures(10, 10, { arrivalDate: "2026-12-24" }), [{ quantityMilli: 4_000, lastOn: "2026-10-03" }])).toBeNull();
+  });
+
+  it("keeps the arrival date typed in EXPECTED", () => {
+    expect(computeLines(base(figures(10, 10)))[0]!.estimate.arrivalDate).toBeNull();
+    const typed = snapshot({
+      projects: [{ id: 1, areaId: 1, name: "Brakes", ownerName: null, position: 1 }],
+      lines: [line(1, 1, figures(5, 10, { arrivalDate: "2026-11-30" }), null)],
+    });
+    expect(computeLines(typed)[0]!.estimate.arrivalDate).toBe("2026-11-30");
   });
 
   it("works out the price of one unit in the three ways", () => {
@@ -283,13 +304,13 @@ describe("pendingLines", () => {
       suppliers: [{ id: 1, name: "Acme" }],
       lines: [
         line(1, 1, figures(5, 10, { arrivalDate: "2026-11-30" }), figures(5, 10, { purchaseDate: "2026-10-01", supplierId: 1 })),
-        line(2, 2, figures(2, 50), figures(2, 50, { purchaseDate: "2026-09-15", arrivalDate: "2026-10-20" })),
+        line(2, 2, figures(2, 50), figures(2, 50, { purchaseDate: "2026-09-15" })),
         line(3, 1, figures(1, 1), figures(4, 5, { purchaseDate: "2026-10-05" })),
         line(4, 1, figures(1, 1), null),
         line(5, 1, figures(1, 1), figures(1, 1, { purchaseDate: "2026-10-02" })),
         line(6, 2, figures(1, 1), figures(2, 1)),
       ],
-      receipts: [{ lineId: 3, quantityMilli: 4_000 }, { lineId: 5, quantityMilli: 500 }],
+      receipts: [{ lineId: 3, quantityMilli: 4_000, lastOn: "2026-10-12" }, { lineId: 5, quantityMilli: 500, lastOn: "2026-10-12" }],
     }),
   );
 
@@ -302,7 +323,7 @@ describe("pendingLines", () => {
     const pending = Object.fromEntries(pendingLines(lines, "2026-10-20").map((p) => [p.lineId, p]));
     expect(pending[5]).toMatchObject({ boughtMilli: 1_000, receivedMilli: 500, remainingMilli: 500, daysWaiting: 18 });
     expect(pending[1]!.expectedArrival).toBe("2026-11-30"); // typed in the EXPECTED phase
-    expect(pending[2]!.expectedArrival).toBe("2026-10-20"); // the actual one wins
+    expect(pending[2]!.expectedArrival).toBeNull(); // nothing typed in EXPECTED: ACTUAL has no typed date
     expect(pending[6]!.daysWaiting).toBeNull();
     expect(pending[1]).toMatchObject({ projectName: "Brakes", supplierName: "Acme", areaCode: "mt-dmt" });
   });
@@ -319,7 +340,7 @@ describe("stats", () => {
         line(1, 1, figures(5, 10), figures(5, 10, { purchaseDate: "2026-10-01", vatRate: 0 }), { category: "Components" }),
         line(2, 2, figures(2, 50), figures(2, 50, { purchaseDate: "2026-10-01", vatRate: 0 }), { category: "Asset" }),
       ],
-      receipts: [{ lineId: 1, quantityMilli: 2_000 }],
+      receipts: [{ lineId: 1, quantityMilli: 2_000, lastOn: "2026-10-05" }],
     }),
   );
   const items = [item(1, "Sensor", { category: "Components" }), item(2, "Box", { category: "Asset" }), item(3, "Glue", { category: null })];

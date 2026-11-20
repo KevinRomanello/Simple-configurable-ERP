@@ -78,9 +78,11 @@ export function PhaseFields({ idPrefix, phase, draft, lookups, onChange, fixedFu
         <Field label="Purchase date (today if empty)" htmlFor={id("purchase")}>
           <input id={id("purchase")} className="input small" type="date" value={draft.purchaseDate} onChange={(e) => onChange({ purchaseDate: e.target.value })} />
         </Field>
-        <Field label="Arrival date (optional)" htmlFor={id("arrival")}>
-          <input id={id("arrival")} className="input small" type="date" value={draft.arrivalDate} onChange={(e) => onChange({ arrivalDate: e.target.value })} />
-        </Field>
+        {phase === "estimate" && (
+          <Field label="Arrival date (optional)" htmlFor={id("arrival")}>
+            <input id={id("arrival")} className="input small" type="date" value={draft.arrivalDate} onChange={(e) => onChange({ arrivalDate: e.target.value })} />
+          </Field>
+        )}
       </div>
     </div>
   );

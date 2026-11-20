@@ -6,7 +6,7 @@ import type { Area, ItemType, ParamKind, TypeParam } from "../api/types";
 import { Button, IconButton } from "../components/Button";
 import { TypeTree } from "../components/TypeTree";
 import { CommitInput } from "../components/CommitInput";
-import { DeleteButton, OrderButtons } from "../components/ListButtons";
+import { DeleteButton } from "../components/ListButtons";
 import { AddSection, DataTable, Field, FormPanel, Loading, Panel, type Column } from "../components/ui";
 import { useAction } from "../lib/useAction";
 
@@ -183,7 +183,6 @@ function NewType({ parent, areas, categories, onDone }: { parent?: ItemType; are
 function ParamsPanel({ type, types }: { type: ItemType; types: ItemType[] }) {
   const act = useAction();
   // the order is that of the type's own parameters; the ones of its parents come first and are changed on the parent
-  const ids = type.params.filter((p) => !p.inherited).map((p) => p.id);
   const ownerName = (p: TypeParam) => types.find((t) => t.id === p.typeId)?.name ?? "a parent";
   const parentOnly = (p: TypeParam, what: ReactNode) => (p.inherited ? <span className="muted">{what}</span> : null);
   const remove = (p: TypeParam) => {
@@ -191,7 +190,6 @@ function ParamsPanel({ type, types }: { type: ItemType; types: ItemType[] }) {
     if (window.confirm(`Delete "${p.name}" from ${type.name}?${lost}`)) void act(() => api.deleteParam(p.id));
   };
   const columns: Column<TypeParam>[] = [
-    { key: "order", header: "ORDER", cell: (p) => (p.inherited ? null : <OrderButtons ids={ids} index={ids.indexOf(p.id)} label={p.name} onOrder={(order) => act(() => api.orderParams(type.id, order))} />) },
     {
       key: "name",
       header: "PARAMETER",
@@ -234,7 +232,8 @@ function ParamsPanel({ type, types }: { type: ItemType; types: ItemType[] }) {
         Renaming is always possible. The kind changes only while nothing is written in it. Changing the unit does not convert what is
         written: 10 stays 10. A choice that items have can be renamed (they follow), not taken away.
       </p>
-      <DataTable title={`Parameters of ${type.name}`} columns={columns} rows={type.params} rowKey={(p) => p.id} empty="Nothing yet: add the first parameter" />
+      <DataTable title={`Parameters of ${type.name}`} columns={columns} rows={type.params} rowKey={(p) => p.id} empty="Nothing yet: add the first parameter"
+        reorder={{ label: (p) => p.name, movable: (p) => !p.inherited, onOrder: (order) => act(() => api.orderParams(type.id, order)) }} />
       <AddSection label="Add parameter" form={(close) => <NewParam typeId={type.id} onDone={close} />} />
     </Panel>
   );

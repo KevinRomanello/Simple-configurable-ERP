@@ -2,7 +2,7 @@ import { arrivalOf, type Arrival } from "./arrival";
 import { roundDiv } from "./money";
 import type { LineAmounts } from "./line";
 import { settleLine, type FundBalances, type FundShare } from "./settle";
-import type { Figures, FundInput, Snapshot } from "./snapshot";
+import type { Figures, FundInput, ReceiptInput, Snapshot } from "./snapshot";
 import type { Phase } from "./types";
 import { vatDeadline } from "./vat";
 
@@ -89,7 +89,7 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
   const projects = new Map(snapshot.projects.map((p) => [p.id, p]));
   const funds = new Map(snapshot.funds.map((f) => [f.id, f]));
   const suppliers = new Map(snapshot.suppliers.map((s) => [s.id, s]));
-  const received = new Map(snapshot.receipts.map((r) => [r.lineId, r.quantityMilli]));
+  const receipts = new Map(snapshot.receipts.map((r) => [r.lineId, r]));
   const paid = new Map((snapshot.payments ?? []).map((p) => [p.lineId, p.cents]));
 
   // What each fund can still pay in a phase: its contracts (a gift has none and is never short).
@@ -144,7 +144,8 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
       supplierId: supplier?.id ?? null,
       supplierName: supplier?.name ?? null,
       purchaseDate,
-      arrivalDate: figures?.arrivalDate ?? null,
+      // EXPECTED: typed. ACTUAL: not typed, it is the day of the last receipt once all that was bought has arrived
+      arrivalDate: phase === "estimate" ? (figures?.arrivalDate ?? null) : arrivedOn(quantity, receipts.get(lineId)),
       teamVatCents: settled.teamVatCents,
       vatDueDate,
     };
@@ -184,6 +185,11 @@ export function computeLines(snapshot: Snapshot): CalcLine[] {
     areaName: area.name,
     estimate: phaseCalc("estimate", line.figures.estimate, line.id),
     actual: phaseCalc("actual", line.figures.actual, line.id),
-    arrival: arrivalOf(line.figures.actual?.quantityMilli ?? 0, received.get(line.id) ?? 0),
+    arrival: arrivalOf(line.figures.actual?.quantityMilli ?? 0, receipts.get(line.id)?.quantityMilli ?? 0),
   }));
+}
+
+/** The day all that was bought was here: the day of the last receipt, once the arrivals add up to it; none before (and none again if one is undone). */
+function arrivedOn(boughtMilli: number, receipt: ReceiptInput | undefined): string | null {
+  return receipt && boughtMilli > 0 && receipt.quantityMilli >= boughtMilli ? receipt.lastOn : null;
 }

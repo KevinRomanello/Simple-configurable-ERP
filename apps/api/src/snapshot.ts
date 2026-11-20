@@ -1,5 +1,5 @@
 import { addDays, type Figures, type Phase, type Snapshot } from "@erp/calc";
-import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { toCents, toScaled } from "./core/money";
 import { db } from "./db/client";
 import {
@@ -74,7 +74,7 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
       // only when the BANK is the register's (the payments are in it), which `lateFrom` below says
       const payments = await loadPayments(tx, season.id);
       const arrived = await tx
-        .select({ lineId: stockMovement.budgetLineId, quantity: sql<string>`sum(${stockMovement.quantity})` })
+        .select({ lineId: stockMovement.budgetLineId, quantity: sql<string>`sum(${stockMovement.quantity})`, lastOn: max(stockMovement.occurredOn) })
         .from(stockMovement)
         .where(and(eq(stockMovement.kind, "receipt"), isNotNull(stockMovement.budgetLineId)))
         .groupBy(stockMovement.budgetLineId);
@@ -136,7 +136,7 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
           sponsorship: i.sponsorship,
         })),
         suppliers: suppliers.map((s) => ({ id: s.id, name: s.name })),
-        receipts: [...arrived.map((r) => ({ lineId: r.lineId!, quantityMilli: toScaled(r.quantity, 3) })), ...(outside?.receipts ?? [])],
+        receipts: [...arrived.map((r) => ({ lineId: r.lineId!, quantityMilli: toScaled(r.quantity, 3), lastOn: r.lastOn })), ...(outside?.receipts ?? [])],
         registerIncome: outside?.income ?? [],
         bank: bank ? { amountCents: bank.amountCents, asOfDate: bank.asOfDate } : null,
         payments,

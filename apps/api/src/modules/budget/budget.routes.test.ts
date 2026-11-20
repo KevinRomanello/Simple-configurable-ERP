@@ -148,6 +148,18 @@ describe("validation", () => {
   const patch = async (lineId: number, figures: object, extra: object = {}) =>
     api.patch(`/api/lines/${lineId}`, { version: 1, figures: { estimate: figures }, ...extra });
 
+  it("takes the arrival date in EXPECTED, and never in ACTUAL (it comes from the arrivals of PENDING)", async () => {
+    const line = await newLine();
+    expect((await patch(line.id, { arrivalDate: "2026-12-01" })).status).toBe(200);
+    expect((await sheet()).projects[0].lines[0].estimate.arrivalDate).toBe("2026-12-01");
+    const typed = await api.patch(`/api/lines/${line.id}`, { version: 2, figures: { actual: { arrivalDate: "2026-12-05" } } });
+    expect(typed.status).toBe(400);
+    expect(typed.body.error).toMatch(/not typed/);
+    const created = await api.post(`/api/projects/${(await project()).id}/lines`, { item: "B", figures: { actual: { quantity: 1, arrivalDate: "2026-12-05" } } });
+    expect(created.status).toBe(400);
+    expect((await sheet()).projects[0].lines[0].actual.arrivalDate).toBeNull();
+  });
+
   it("only accepts known categories and VAT rates", async () => {
     const { id } = await project();
     expect((await api.post(`/api/projects/${id}/lines`, { item: "A", category: "Nonsense" })).status).toBe(400);

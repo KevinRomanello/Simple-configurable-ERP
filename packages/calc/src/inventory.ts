@@ -415,7 +415,7 @@ export interface PendingLine {
   receivedMilli: number;
   remainingMilli: number;
   purchaseDate: string | null;
-  /** What was typed in the budget: the actual arrival date if any, else the expected one. */
+  /** The arrival date typed in the EXPECTED phase of the budget. */
   expectedArrival: string | null;
   /** Days since the purchase date, or null without one. */
   daysWaiting: number | null;
@@ -444,7 +444,7 @@ export function pendingLines(lines: CalcLine[], today: string): PendingLine[] {
       receivedMilli: received,
       remainingMilli: boughtMilli - received,
       purchaseDate: line.actual.purchaseDate,
-      expectedArrival: line.actual.arrivalDate ?? line.estimate.arrivalDate,
+      expectedArrival: line.estimate.arrivalDate,
       daysWaiting: line.actual.purchaseDate ? daysBetween(line.actual.purchaseDate, today) : null,
       prices,
     });

@@ -214,6 +214,18 @@ describe("goods that arrive from a purchase of the budget", () => {
     expect(detail.movements).toHaveLength(2);
   });
 
+  it("puts the day of the last arrival in ARRIVAL DATE of ACTUAL, only once all of it has arrived", async () => {
+    const { line } = await boughtLine({ quantity: 10, unit: "5" });
+    const arrivalDate = async () => (await api.get("/api/areas/sw/sheet")).body.projects[0].lines[0].actual.arrivalDate;
+    const receiveLine = (body: object) => api.post("/api/inventory/receive", { lineId: line.id, location: "s1-r1", ...body });
+    expect(await arrivalDate()).toBeNull();
+
+    const first = await receiveLine({ quantity: "4", receivedOn: "2026-10-05", newItem: newItem("Pressure sensor") });
+    expect(await arrivalDate()).toBeNull(); // only a part
+    await receiveLine({ quantity: "6", receivedOn: "2026-10-09", itemId: first.body.item.id });
+    expect(await arrivalDate()).toBe("2026-10-09"); // the day written in the form of the last one
+  });
+
   it("suggests the item that has the same name as the line", async () => {
     const item = await itemWithStock("Pressure Sensor", "1");
     await boughtLine({ item: "pressure sensor" });

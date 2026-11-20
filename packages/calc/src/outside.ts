@@ -85,7 +85,7 @@ export function outsideBudget(entries: OutsideEntry[], sections: Map<string, str
       fundIds: [],
       supplierId: null,
       purchaseDate: m.last,
-      arrivalDate: m.last,
+      arrivalDate: null,
     };
     return {
       id: -(index + 1),
@@ -104,5 +104,5 @@ export function outsideBudget(entries: OutsideEntry[], sections: Map<string, str
   });
 
   const income = months.filter((m) => m.netCents < 0).map((m): RegisterIncome => ({ voce: m.voce, on: m.last, cents: -m.netCents }));
-  return { projects, lines, receipts: lines.map((l) => ({ lineId: l.id, quantityMilli: 1000 })), income };
+  return { projects, lines, receipts: lines.map((l, index) => ({ lineId: l.id, quantityMilli: 1000, lastOn: costs[index]!.last })), income };
 }
