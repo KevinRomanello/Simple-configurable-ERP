@@ -24,6 +24,9 @@ import { SuppliersPage } from "./pages/SuppliersPage";
 import { TotalPage } from "./pages/TotalPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { UsersPage } from "./pages/UsersPage";
+import { FormPage } from "./pages/FormPage";
+import { RegistryHome } from "./pages/registry/RegistryHome";
+import { TablePage } from "./pages/registry/TablePage";
 
 const queryClient = new QueryClient({
   // Any screen whose data is refused with 401 (session expired or revoked) ends on the sign-in page.
@@ -35,41 +38,52 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <NoticeProvider>
-        <AuthGate>
-          <BrowserRouter>
-            <Routes>
-              <Route element={<Shell />}>
-                <Route index element={<Navigate to="/budget/mt-dmt" replace />} />
-                <Route path="budget/:code" element={<AreaPage />} />
-                <Route path="cash-from" element={<FundsPage />} />
-                <Route path="bought-from" element={<SuppliersPage />} />
-                <Route path="cash-flow" element={<CashFlowPage />} />
-                <Route path="register" element={<CashRegisterPage />} />
-                <Route path="to-pay" element={<ToPayPage />} />
-                <Route path="statement" element={<StatementPage />} />
-                <Route path="gantt/:phase" element={<GanttPage />} />
-                <Route path="total" element={<Navigate to="/total/season" replace />} />
-                <Route path="total/season" element={<TotalPage kind="season" />} />
-                <Route path="total/year" element={<TotalPage kind="year" />} />
-                <Route path="total/car" element={<TotalPage kind="car" />} />
-                <Route path="analysis/funds" element={<AnalysisPage kind="funds" />} />
-                <Route path="analysis/suppliers" element={<AnalysisPage kind="suppliers" />} />
-                <Route path="analysis/items" element={<ItemsPage />} />
-                <Route path="inventory" element={<InventoryPage />} />
-                <Route path="inventory/items/:id" element={<ItemPage />} />
-                <Route path="inventory/pending" element={<PendingPage />} />
-                <Route path="inventory/components" element={<ComponentsPage />} />
-                <Route path="inventory/components/:id" element={<ComponentPage />} />
-                <Route path="inventory/stats" element={<InventoryStatsPage />} />
-                <Route path="users" element={<UsersPage />} />
-                <Route path="settings/:section?" element={<SettingsPage />} />
-                <Route path="history" element={<HistoryPage />} />
-                <Route path="*" element={<p className="empty">This page does not exist.</p>} />
-              </Route>
-            </Routes>
-          </BrowserRouter>
-        </AuthGate>
+        <BrowserRouter>
+          <Routes>
+            {/* a form of the registry stands alone, and opens without signing in when it is public */}
+            <Route path="forms/:slug" element={<FormPage />} />
+            <Route path="*" element={<AuthGate><SignedIn /></AuthGate>} />
+          </Routes>
+        </BrowserRouter>
       </NoticeProvider>
     </QueryClientProvider>
+  );
+}
+
+/** The site of whoever is signed in: the menu and its pages. */
+function SignedIn() {
+  return (
+    <Routes>
+      <Route element={<Shell />}>
+        <Route index element={<Navigate to="/budget/mt-dmt" replace />} />
+        <Route path="budget/:code" element={<AreaPage />} />
+        <Route path="cash-from" element={<FundsPage />} />
+        <Route path="bought-from" element={<SuppliersPage />} />
+        <Route path="cash-flow" element={<CashFlowPage />} />
+        <Route path="register" element={<CashRegisterPage />} />
+        <Route path="to-pay" element={<ToPayPage />} />
+        <Route path="statement" element={<StatementPage />} />
+        <Route path="gantt/:phase" element={<GanttPage />} />
+        <Route path="total" element={<Navigate to="/total/season" replace />} />
+        <Route path="total/season" element={<TotalPage kind="season" />} />
+        <Route path="total/year" element={<TotalPage kind="year" />} />
+        <Route path="total/car" element={<TotalPage kind="car" />} />
+        <Route path="analysis/funds" element={<AnalysisPage kind="funds" />} />
+        <Route path="analysis/suppliers" element={<AnalysisPage kind="suppliers" />} />
+        <Route path="analysis/items" element={<ItemsPage />} />
+        <Route path="inventory" element={<InventoryPage />} />
+        <Route path="inventory/items/:id" element={<ItemPage />} />
+        <Route path="inventory/pending" element={<PendingPage />} />
+        <Route path="inventory/components" element={<ComponentsPage />} />
+        <Route path="inventory/components/:id" element={<ComponentPage />} />
+        <Route path="inventory/stats" element={<InventoryStatsPage />} />
+        <Route path="users" element={<UsersPage />} />
+        <Route path="settings/:section?" element={<SettingsPage />} />
+        <Route path="history" element={<HistoryPage />} />
+        <Route path="registry" element={<RegistryHome />} />
+        <Route path="registry/:table" element={<TablePage />} />
+        <Route path="*" element={<p className="empty">This page does not exist.</p>} />
+      </Route>
+    </Routes>
   );
 }

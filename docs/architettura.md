@@ -1,6 +1,6 @@
 # Architettura
 
-Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify) contiene tutte le regole, un **web app** (React) la usa, un **pacchetto di calcolo puro** (`packages/calc`) fa tutti i conti. La visione completa (inventario, analisi, backup, deploy) è nel piano originale in `fonti/`; qui c'è quello che serve alla v0 e i punti dove si innesta il resto.
+Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify) contiene tutte le regole, un **web app** (React) la usa, un **pacchetto di calcolo puro** (`packages/calc`) fa tutti i conti. Le **anagrafiche** (REGISTRY) hanno un motore puro tutto loro (`packages/registry`) e un modulo dell'API indipendente dal resto ([anagrafiche.md](anagrafiche.md)). La visione completa (inventario, analisi, backup, deploy) è nel piano originale in `fonti/`; qui c'è quello che serve alla v0 e i punti dove si innesta il resto.
 
 ## Principi
 
@@ -51,6 +51,8 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   │           ├── inventory/    # articoli, arrivi, movimenti, componenti (distinte), statistiche, immagini
 │   │           ├── cashflow/     # ingressi del team e BANK (il BANK viene dal registro, se può)
 │   │           ├── cash/         # il registro di cassa del fondo del team, le sue liste e l'import dell'Excel
+│   │           ├── registry/     # le anagrafiche: tabelle, campi, viste, record, file, moduli, webhook (anagrafiche.md)
+│   │           ├── rolesync/     # i ruoli dell'ERP calcolati dalle anagrafiche (anagrafiche.md, §9)
 │   │           └── views/        # una funzione per vista (Gantt, Total, analisi…)
 │   └── web/src/
 │       ├── theme/            # tokens.css (token Figma), base.css (tipografia), components.css, grid.ts
@@ -61,10 +63,18 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │       │                     # Notice, DownloadMenu, ExportBlocks, SortTh, MonthlyInflows (vedi stile-interfaccia.md)
 │       └── pages/            # una pagina per foglio del vecchio file, più Login, Users, History
 ├── packages/calc/src/        # funzioni pure + test
+├── packages/registry/src/    # il motore puro delle anagrafiche: valori, formule, filtri, permessi, moduli, CSV
 └── tools/import-xlsx/        # legge l'xlsx reale: riconciliazione col foglio e caricamento nel DB (usa fonti/)
 ```
 
 Ogni modulo API ha gli stessi tre file: `*.service.ts` (le funzioni, cioè l'API), `*.routes.ts` (wrapper Fastify + Zod), `*.test.ts`.
+
+**Moduli legati ma indipendenti.** Un modulo usa di un altro solo le funzioni pubbliche. Per le anagrafiche è esplicito:
+- `registry` espone a tutti gli altri soltanto `registry.public.ts`;
+- `rolesync` le usa e si aggancia agli utenti con `setManagedCheck`;
+- né `registry` né `users` sanno che `rolesync` esiste.
+
+Da fuori tutto passa dall'HTTP, anche con i token per i servizi.
 
 ## Flusso
 
@@ -139,6 +149,10 @@ Soldi in `numeric` nel database e in interi nel codice: importi in centesimi, qu
 | `stock_movement` | id, item_id, kind (`receipt`/`use`/`transfer`/`adjustment`/`disposal`/`build`), occurred_on, quantity, location, spot, to_location, to_spot, unit_net/gross/team, project_id, budget_line_id, built_by, car_season_id, note | il registro di tutto ciò che cambia lo scaffale; la giacenza è la somma, mai salvata. `car_season_id`: un arrivo fuori budget per la macchina di un'altra stagione |
 | `component_part` | id, component_id, part_id, quantity, note                                                                                            | la distinta dei materiali di un componente (anche sottoassiemi); mai un anello                                              |
 | `audit_log`     | id, at, actor_id (senza chiave esterna), table_name, row_id, action, before, after (jsonb)                                            | Scritta dai trigger; attore nullo = seed, importer, creazione account                                                      |
+| `reg_table`, `reg_field`, `reg_view`, `reg_record`, `reg_link`, `reg_file`, `reg_comment`, `reg_webhook`, `reg_webhook_log`, `reg_settings` | le anagrafiche: tabelle, campi, viste e moduli, record (valori in `data` JSONB per id del campo), collegamenti, file, commenti, webhook e loro chiamate, tabella delle persone | [anagrafiche.md](anagrafiche.md), §3; diagramma in [schema-database.md](schema-database.md), §6bis |
+| `role_sync`     | id = 1, enabled, i gruppi di ogni permesso dell'ERP, il campo delle aree | i ruoli dell'ERP dalle anagrafiche ([anagrafiche.md](anagrafiche.md), §9) |
+| `api_token`     | id, name, token_hash (SHA-256, unico), user_id, created_by, created_at, revoked_at | le chiavi dei servizi; la chiave si vede una volta sola |
+| `app_secret`    | name, value | segreti che il server si fa da sé (la chiave dei link personali); non nello storico |
 
 Vincoli, applicati dal servizio con messaggi chiari: quantità e costi ≥ 0; aliquota tra `listVatRates()`; sponsor parziale con 0 < valore ≤ netto; sponsor totale ignora il valore inserito; fondo o fornitore in uso → eliminazione rifiutata (409); fondi di una riga combinabili solo secondo le regole di [sponsor-e-fondi.md](sponsor-e-fondi.md#4-più-fondi-sulla-stessa-riga); `PATCH` di una riga con `version` vecchia → 409.
 
@@ -221,6 +235,9 @@ Prefisso `/api`. Tutto richiede un utente che ha fatto il login, tranne `/health
 | `GET /views/analysis/funds`, `/analysis/suppliers`                                                | `getFundAnalysis`, `getSupplierAnalysis`                                                         |                                                                      |
 | `GET /views/items?categories=&priority=&sort=`                                                      | `getItemsView`                                                                                     | CATEGORY ANALYSES                                                    |
 | `GET /views/vat-report?area=`                                                                       | `getVatReport`                                                                                     |                                                                      |
+| `/registry/*` | `modules/registry` | le anagrafiche: tabelle, campi, viste, record, collegamenti, file, storico, CSV, webhook, moduli e viste pubbliche (`/registry/public/*`, aperti anche senza accesso). Elenco completo in [anagrafiche.md](anagrafiche.md), §10 |
+| `GET/PUT /role-sync`, `POST /role-sync/preview` | `modules/rolesync` | i ruoli dell'ERP dalle anagrafiche (admin) |
+| `GET/POST/DELETE /tokens`, `POST /users` | `api-tokens.service`, `createUser` | le chiavi dei servizi (`Authorization: Bearer`) e gli account aggiunti a mano (admin) |
 
 Gli stessi endpoint `/views/*` sono la fonte per le analisi esterne (script Python con `requests` + pandas): una sola logica, nessuna copia in SQL.
 
@@ -264,6 +281,8 @@ Prerequisiti sul computer: Node 24 o più recente, Docker, pnpm. Se `pnpm` non c
 | tracciare una tabella nello storico             | una migrazione con `create trigger … execute function audit_row()` (vedi `0002_audit_triggers.sql`)                                                                      |
 | tabelle `calc_*` e viste SQL per gli analisti | dentro `runWrite()`: rigenera con `calc` dopo la scrittura                                                                                                                |
 | inventario                                      | nuovo modulo `inventory` con `inventory_unit` e `inventory_movement`; `budget_line_id` facoltativo; non tocca il resto                                                |
+| un'anagrafica nuova (fornitori, sponsor, rimborsi…) | nessun codice: una tabella del REGISTRY dal sito, con i suoi campi, moduli e regole ([anagrafiche.md](anagrafiche.md)) |
+| un tipo di campo delle anagrafiche | `packages/registry/src/values.ts` (validazione), `compute.ts` se è calcolato, l'editor in `apps/web/src/components/registry/Values.tsx` |
 
 ## Differenze dal piano originale
 

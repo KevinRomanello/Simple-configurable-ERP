@@ -5,7 +5,7 @@ const none = { canManageSettings: false, canManageInventory: false, canManageCas
 
 describe("settingsSections", () => {
   it("gives the admin every section, the budget first and the look of the site last", () => {
-    expect(settingsSections({ canManageSettings: true, canManageInventory: true, canManageCash: true })).toEqual(["budget", "inventory", "register", "appearance"]);
+    expect(settingsSections({ canManageSettings: true, canManageInventory: true, canManageCash: true })).toEqual(["budget", "inventory", "register", "registry", "appearance"]);
   });
 
   it("gives a user the inventory, and the register only with the treasury box", () => {

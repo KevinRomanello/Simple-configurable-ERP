@@ -182,6 +182,8 @@ export interface Permissions {
   canEditShared: boolean;
   /** The money of the team: the register, and the BANK and the inflows of CASH FLOW (admins, and project managers with the treasury box). */
   canManageCash: boolean;
+  /** Adding and deleting inflows (CASH FLOW): the treasury and the sponsors; receiving them and the BANK are `canManageCash` only. */
+  canChangeInflows: boolean;
   canManageSuppliers: boolean;
   canManageInventory: boolean;
   canViewHistory: boolean;
@@ -223,6 +225,8 @@ export interface UserRow {
   /** A project manager who also keeps the sponsors. */
   sponsors: boolean;
   active: boolean;
+  /** Role, areas, boxes and "active" come from the registry (docs/anagrafiche.md, §9): read-only here. */
+  managed: boolean;
   areaIds: number[];
 }
 

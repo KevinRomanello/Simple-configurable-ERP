@@ -11,7 +11,8 @@
     "db:migrate": "tsx --env-file-if-exists=../../.env src/db/migrate.ts",
     "db:seed": "tsx --env-file-if-exists=../../.env src/db/seed.ts",
     "db:roles": "tsx --env-file-if-exists=../../.env src/db/roles.ts",
-    "db:seed-demo": "tsx --env-file-if-exists=../../.env src/db/seed-demo.ts"
+    "db:seed-demo": "tsx --env-file-if-exists=../../.env src/db/seed-demo.ts",
+    "db:seed-registry": "tsx --env-file-if-exists=../../.env src/db/seed-registry.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
@@ -22,6 +23,7 @@
   },
   "dependencies": {
     "@erp/calc": "workspace:*",
+    "@erp/registry": "workspace:*",
     "@fastify/cookie": "^11.1.3",
     "@fastify/helmet": "^13.2.0",
     "@fastify/rate-limit": "^11.2.1",

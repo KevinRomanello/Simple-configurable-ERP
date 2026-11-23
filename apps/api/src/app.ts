@@ -20,6 +20,8 @@ import { suppliersRoutes } from "./modules/suppliers/suppliers.routes";
 import { usersRoutes } from "./modules/users/users.routes";
 import { viewsRoutes } from "./modules/views/views.routes";
 import { settingsRoutes } from "./modules/settings/settings.routes";
+import { registryRoutes } from "./modules/registry/registry.routes";
+import { rolesyncRoutes } from "./modules/rolesync/rolesync.routes";
 
 export interface AppOptions {
   /** Defaults to the values of the environment. */
@@ -48,7 +50,9 @@ export function buildApp(options: AppOptions = {}) {
   // One place that turns failures into HTTP answers: expected errors keep their status,
   // bad input is a 400, anything else is logged and hidden behind a generic 500.
   app.setErrorHandler((error, request, reply) => {
-    if (error instanceof AppError) return reply.code(error.status).send({ error: error.message });
+    if (error instanceof AppError) {
+      return reply.code(error.status).send({ error: error.message, ...(error.code ? { code: error.code } : {}), ...(error.details === undefined ? {} : { details: error.details }) });
+    }
     if (error instanceof ZodError) {
       return reply.code(400).send({ error: "Invalid input", issues: error.issues });
     }
@@ -85,6 +89,8 @@ export function buildApp(options: AppOptions = {}) {
       await api.register(cashRoutes);
       await api.register(viewsRoutes);
       await api.register(settingsRoutes);
+      await api.register(registryRoutes);
+      await api.register(rolesyncRoutes, { adminEmails: config.adminEmails });
     },
     { prefix: "/api" },
   );

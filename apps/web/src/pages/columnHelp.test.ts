@@ -21,7 +21,7 @@ type Column = ColDef<Row> | ColGroupDef<Row>;
 const headings = (columns: Column[]): Column[] => columns.flatMap((c) => ("children" in c ? [c, ...headings(c.children as Column[])] : [c]));
 
 // ALSO FROM is there only when a fund runs short: it is asked for here, so it is checked too
-const all = headings(areaColumns(lookups, () => undefined, () => undefined, true, { estimate: true, actual: true }));
+const all = headings(areaColumns(lookups, () => undefined, () => undefined, true, { estimate: true, actual: true }, 0));
 const label = (c: Column) => ("colId" in c && c.colId ? c.colId : (c.headerName ?? ""));
 
 describe("the explanation of the columns of the budget", () => {

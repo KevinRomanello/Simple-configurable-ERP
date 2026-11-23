@@ -1,5 +1,5 @@
 import {
-  faAnglesLeft, faBars, faBookOpen, faBoxesStacked, faCalendarDays, faChevronDown, faCarSide, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faFileInvoiceDollar, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece,
+  faAddressBook, faAnglesLeft, faBars, faPenToSquare, faTableList, faBookOpen, faBoxesStacked, faCalendarDays, faChevronDown, faCarSide, faChartLine, faChartPie, faClockRotateLeft, faDatabase, faFileInvoiceDollar, faHourglassHalf, faMagnifyingGlass, faPuzzlePiece,
   faMoneyBillWave, faRepeat, faRightFromBracket, faSackDollar, faScaleBalanced, faSliders, faTable, faTruckFast, faUsers, faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -8,6 +8,7 @@ import type { IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { api } from "../api/client";
+import { registry } from "../api/registry";
 import { forgetUser, useMe } from "../lib/auth";
 import { ROLE_NAME } from "../lib/permissions";
 import { useChosenSeasonId, useSeason } from "../lib/season";
@@ -34,6 +35,7 @@ const GROUP_PATHS: Record<string, string[]> = {
   treasury: ["/register", "/to-pay", "/statement"],
   total: ["/total/"],
   inventory: ["/inventory"],
+  registry: ["/registry"],
   admin: ["/users", "/settings", "/history"],
 };
 
@@ -131,6 +133,8 @@ export function Shell() {
   const [hidden, toggleSidebar] = useSidebarHidden();
   const [menuShown, setMenuShown] = useCompactMenu(compact);
   const areas = useQuery({ queryKey: ["areas"], queryFn: api.areas });
+  const registryTables = useQuery({ queryKey: ["registry-tables"], queryFn: registry.tables });
+  const myForms = useQuery({ queryKey: ["registry-forms"], queryFn: registry.myForms });
   const me = useMe();
   const queryClient = useQueryClient();
   // behind the organisation's login there is nothing to sign out of here
@@ -238,6 +242,22 @@ export function Shell() {
           <Item to="/inventory/components" icon={faPuzzlePiece}>COMPONENTS</Item>
           <Item to="/inventory/stats" icon={faChartPie}>INVENTORY STATS</Item>
         </NavGroup>
+
+        {/* the registries of the team and the forms the person may fill in (docs/anagrafiche.md) */}
+        {(me.role === "admin" || (registryTables.data?.length ?? 0) > 0 || (myForms.data?.length ?? 0) > 0) && (
+          <NavGroup id="registry" title="Registry" closed={groups.closed} onToggle={groups.toggle}>
+            <Item to="/registry" icon={faAddressBook} end>REGISTRY</Item>
+            {registryTables.data?.map((t) => (
+              <Item key={t.id} to={`/registry/${t.id}`} icon={faTableList}>{`${t.icon ? `${t.icon} ` : ""}${t.name}`}</Item>
+            ))}
+            {myForms.data?.map((f) => (
+              <a key={f.id} className="nav-link" href={`/forms/${f.slug}`}>
+                <FontAwesomeIcon icon={faPenToSquare} fixedWidth />
+                {f.name}
+              </a>
+            ))}
+          </NavGroup>
+        )}
 
         <NavGroup id="admin" title="Admin" closed={groups.closed} onToggle={groups.toggle}>
           {me.permissions.canManageUsers && <Item to="/users" icon={faUsers}>Users</Item>}

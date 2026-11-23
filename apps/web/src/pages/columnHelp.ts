@@ -10,7 +10,7 @@ type Help = string | Record<Phase, string>;
 /** By column: the id of a column of a block is the part after "estimate." or "actual.". */
 const HELP: Record<string, Help> = {
   status:
-    "What the line still needs. Triangle: CASH FROM or VAT % is missing, or more has arrived than was bought. Coins: the funds cannot cover the line. Hourglass: ordered, not everything has arrived yet. Check: everything has arrived. Rest on an icon to read it.",
+    "What the line still needs. Triangle: CASH FROM or VAT % is missing, or more has arrived than was bought. Coins: the funds cannot cover the line. Hourglass: ordered, not everything has arrived yet. Check: everything has arrived. Tag: BRAND or MODEL is missing. Rest on an icon to read it.",
   item: "The name of the item.",
   brand: "The make of what was bought (for example Bosch). With MODEL it says which item it really is.",
   model: "The model or code of what was bought, as the maker calls it (for example GBH 2-26).",

@@ -113,10 +113,10 @@ export function BrandModelFields({ idPrefix, brand, model, onChange }: {
 }) {
   return (
     <>
-      <Field label="Brand (optional)" htmlFor={`${idPrefix}-brand`}>
+      <Field label="Brand" htmlFor={`${idPrefix}-brand`}>
         <input id={`${idPrefix}-brand`} className="input small" maxLength={200} value={brand} onChange={(e) => onChange({ brand: e.target.value })} />
       </Field>
-      <Field label="Model (optional)" htmlFor={`${idPrefix}-model`}>
+      <Field label="Model" htmlFor={`${idPrefix}-model`}>
         <input id={`${idPrefix}-model`} className="input small" maxLength={200} value={model} onChange={(e) => onChange({ model: e.target.value })} />
       </Field>
     </>

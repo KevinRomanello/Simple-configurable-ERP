@@ -16,6 +16,7 @@ import { useTheme, type ThemeChoice } from "../lib/theme";
 import { useAction } from "../lib/useAction";
 import { CashListsPanel } from "./CashListsPanel";
 import { ItemTypesPanel } from "./ItemTypesPanel";
+import { RegistrySettings } from "./registry/RegistrySettings";
 import { SeasonsPanel } from "./SeasonsPanel";
 
 const FIELDS: ItemField[] = ["purpose", "safetyCodes", "disposal", "storageNotes", "maintenanceNotes"];
@@ -75,6 +76,7 @@ export function SettingsPage() {
         </>
       )}
       {section === "register" && <CashListsPanel />}
+      {section === "registry" && <RegistrySettings />}
       {section === "appearance" && (
         <>
           <AppearancePanel />

@@ -1,4 +1,4 @@
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, lt, ne, notLike } from "drizzle-orm";
 import { forbidden } from "../../core/errors";
 import { db } from "../../db/client";
 import { appUser, auditLog } from "../../db/schema";
@@ -106,6 +106,9 @@ export async function listHistory(query: HistoryQuery): Promise<{ entries: Histo
     query.rowId !== undefined ? eq(auditLog.rowId, query.rowId) : undefined,
     query.actorId !== undefined ? eq(auditLog.actorId, query.actorId) : undefined,
     query.before !== undefined ? lt(auditLog.id, query.before) : undefined,
+    // the registry has rules per field (docs/anagrafiche.md, §7): its raw history is for the admins; the others
+    // read the history of a record from the registry, which shows only the fields they may see
+    user.role === "admin" ? undefined : and(notLike(auditLog.tableName, "reg\\_%"), ne(auditLog.tableName, "api_token"), ne(auditLog.tableName, "role_sync")),
   ].filter((c) => c !== undefined);
 
   const rows = await db

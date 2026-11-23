@@ -61,13 +61,26 @@ export async function loginWithIdentity(
 
 export interface UserRow extends User {
   active: boolean;
+  /** Role, areas, boxes and "active" come from another module (the registry, docs/anagrafiche.md §9): not changed here. */
+  managed: boolean;
 }
 
-/** Every person who has signed in at least once (admins only). */
+/**
+ * Which of these emails have their role decided elsewhere. Set by the module that decides it (rolesync), so
+ * this module does not depend on it: without one, nobody is managed.
+ */
+type ManagedCheck = (emails: string[]) => Promise<Set<string>>;
+let managedCheck: ManagedCheck = async () => new Set();
+export function setManagedCheck(check: ManagedCheck) {
+  managedCheck = check;
+}
+
+/** Every person who has signed in at least once, or was added (admins only). */
 export async function listUsers(): Promise<UserRow[]> {
   requireAdmin(await getCurrentUser());
   const rows = await db.select().from(appUser).orderBy(asc(sql`lower(${appUser.name})`));
   const links = await db.select().from(userArea);
+  const managed = await managedCheck(rows.map((r) => r.email.toLowerCase()));
   return rows.map((row) => ({
     id: row.id,
     email: row.email,
@@ -76,8 +89,23 @@ export async function listUsers(): Promise<UserRow[]> {
     treasury: row.treasury,
     sponsors: row.sponsors,
     active: row.active,
+    managed: managed.has(row.email.toLowerCase()),
     areaIds: links.filter((l) => l.userId === row.id).map((l) => l.areaId).sort((a, b) => a - b),
   }));
+}
+
+/**
+ * POST /users (admins): adds a person before they sign in, or an account for a service (n8n, the bot) that
+ * then gets a key (Settings › API tokens).
+ */
+export async function createUser(input: { email: string; name: string; role: Role }): Promise<UserRow> {
+  const actor = await getCurrentUser();
+  requireAdmin(actor);
+  const email = input.email.trim().toLowerCase();
+  const [existing] = await db.select({ id: appUser.id }).from(appUser).where(sql`lower(${appUser.email}) = ${email}`);
+  if (existing) throw conflict("There is already a user with this email");
+  const [row] = await runWrite(actor, (tx) => tx.insert(appUser).values({ email, name: input.name.trim(), role: input.role }).returning({ id: appUser.id }));
+  return (await listUsers()).find((u) => u.id === row!.id)!;
 }
 
 /**
@@ -90,6 +118,10 @@ export async function updateUser(
 ): Promise<UserRow> {
   const actor = await getCurrentUser();
   requireAdmin(actor);
+  const [person] = await db.select({ email: appUser.email }).from(appUser).where(eq(appUser.id, userId));
+  if (person && (await managedCheck([person.email.toLowerCase()])).has(person.email.toLowerCase())) {
+    throw conflict("This person's role comes from the registry (Settings › Access): change it there");
+  }
 
   if (patch.areaIds) {
     const unique = [...new Set(patch.areaIds)];

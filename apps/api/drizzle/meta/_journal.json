@@ -232,6 +232,41 @@
       "when": 1794925973971,
       "tag": "0032_budget_line_brand_model",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1795296688054,
+      "tag": "0033_registry",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1795318012026,
+      "tag": "0034_registry_comments",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1795318702223,
+      "tag": "0035_registry_calendar",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1795320788847,
+      "tag": "0036_registry_more",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1795369495050,
+      "tag": "0037_registry_map",
+      "breakpoints": true
     }
   ]
 }

@@ -483,15 +483,16 @@ describe("lines paid from a fund with no limit", () => {
     expect(actual).toMatchObject({ shortCents: 0, teamVatCents: 0, amounts: { netCents: 100_000, vatCents: 22_000, outflowCents: 122_000 } });
   });
 
-  it("is refused in EXPECTED, where it never exists", async () => {
+  it("pays in EXPECTED too: what is expected to be spent with it, VAT covered, nothing short", async () => {
     const { free, line } = await setup();
-    const refused = await patch(line, 1, { estimate: { quantity: 1, unitNetCost: "10", fundIds: [free] } });
-    expect(refused.status).toBe(400);
-    expect(refused.body.error).toContain("only in ACTUAL");
+    expect((await patch(line, 1, { estimate: { quantity: 1, unitNetCost: "10", fundIds: [free] } })).status).toBe(200);
+    const estimate = (await sheet()).projects[0].lines[0].estimate;
+    expect(estimate.figures.fundIds).toEqual([free]);
+    expect(estimate).toMatchObject({ shortCents: 0, teamVatCents: 0, amounts: { netCents: 1_000, vatCents: 220, outflowCents: 1_220 } });
     const onCreate = await api.post(`/api/projects/${(await sheet()).projects[0].id}/lines`, {
       item: "New", figures: { estimate: { quantity: 1, unitNetCost: "10", fundIds: [free] } },
     });
-    expect(onCreate.status).toBe(400);
+    expect(onCreate.status).toBe(201);
   });
 
   it("pays what a fund of its group cannot cover, when chosen after it", async () => {

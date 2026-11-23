@@ -70,7 +70,7 @@ describe("views over data written through the API", () => {
     expect(analysis.names).toEqual([{ estimate: "Sponsor", actual: null }]);
   });
 
-  it("a fund with no limit has a row in ACTUAL with what was spent, and none in EXPECTED", async () => {
+  it("a fund with no limit has a row in ACTUAL with what was spent, and one in EXPECTED when a line expects to spend with it", async () => {
     const free = (await api.post("/api/funds", { name: "Free", vatRate: 22, unlimited: true })).body;
     const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
     await api.post(`/api/projects/${project.id}/lines`, {
@@ -80,11 +80,40 @@ describe("views over data written through the API", () => {
     const actual = (await api.get("/api/views/funds-summary?phase=actual")).body;
     expect(actual.rows).toEqual([{ fundId: free.id, name: "Free", totalContractCents: null, outflowCents: 12_200, vatCents: 2_200, leftCents: null }]);
     expect(actual.monthly).toEqual([]); // no money comes in
-    expect((await api.get("/api/views/funds-summary?phase=estimate")).body.rows).toEqual([]);
+    expect((await api.get("/api/views/funds-summary?phase=estimate")).body.rows).toEqual([
+      { fundId: free.id, name: "Free", totalContractCents: null, outflowCents: 0, vatCents: 0, leftCents: null },
+    ]); // listed with nothing expected yet
+    const first = (await api.get("/api/areas/sw/sheet")).body.projects[0].lines[0];
+    await api.patch(`/api/lines/${first.id}`, { version: first.version, figures: { estimate: { quantity: 1, unitNetCost: "50", fundIds: [free.id] } } });
+    expect((await api.get("/api/views/funds-summary?phase=estimate")).body.rows).toEqual([
+      { fundId: free.id, name: "Free", totalContractCents: null, outflowCents: 6_100, vatCents: 1_100, leftCents: null },
+    ]);
     // the analyses by fund list it as well: it is a fund like the others
-    expect((await api.get("/api/views/analysis/funds")).body.names).toEqual([{ estimate: null, actual: "Free" }]);
+    expect((await api.get("/api/views/analysis/funds")).body.names).toEqual([{ estimate: "Free", actual: "Free" }]);
     // and it is not a shortfall for the cash flow
     expect((await api.get("/api/views/cashflow")).body.actual.summary).toMatchObject({ shortfallCents: 0 });
+  });
+
+  it("goods have a row in each phase: what is expected to be spent with them and what was spent", async () => {
+    const gift = (await api.post("/api/funds", { name: "Goods", type: "gift", vatRate: 0 })).body;
+    const barter = (await api.post("/api/funds", { name: "Barter", type: "gift_vat", vatRate: 11 })).body;
+    const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
+    const add = (item: string, fundId: number, estimate: string, actual: string) =>
+      api.post(`/api/projects/${project.id}/lines`, {
+        item,
+        figures: {
+          estimate: { quantity: 1, unitNetCost: estimate, fundIds: [fundId] },
+          actual: { quantity: 1, unitNetCost: actual, fundIds: [fundId] },
+        },
+      });
+    expect((await add("A", gift.id, "100", "80")).status).toBe(201);
+    expect((await add("B", barter.id, "50", "40")).status).toBe(201);
+    const row = async (phase: string) => (await api.get(`/api/views/funds-summary?phase=${phase}`)).body.rows.map((r: any) => [r.name, r.totalContractCents, r.outflowCents, r.vatCents, r.leftCents]);
+    // the net of the goods, plus the VAT of the counter-invoice (11%), which the team pays
+    expect(await row("estimate")).toEqual([["Barter", null, 5_550, 550, null], ["Goods", null, 10_000, 0, null]]);
+    expect(await row("actual")).toEqual([["Barter", null, 4_440, 440, null], ["Goods", null, 8_000, 0, null]]);
+    // and they are not a shortfall for the cash flow
+    expect((await api.get("/api/views/cashflow")).body.estimate.summary).toMatchObject({ shortfallCents: 0 });
   });
 
   it("answers 404 for an unknown area and 400 for a bad filter", async () => {

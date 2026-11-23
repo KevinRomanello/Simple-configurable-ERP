@@ -12,6 +12,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/calc/package.json packages/calc/
+COPY packages/registry/package.json packages/registry/
 COPY tools/import-xlsx/package.json tools/import-xlsx/
 
 # --- api -------------------------------------------------------------------------------------------
@@ -20,6 +21,8 @@ ENV NODE_ENV=production
 RUN pnpm install --frozen-lockfile --prod --filter "@erp/api..."
 COPY packages/calc/tsconfig.json packages/calc/
 COPY packages/calc/src packages/calc/src
+COPY packages/registry/tsconfig.json packages/registry/
+COPY packages/registry/src packages/registry/src
 COPY apps/api/tsconfig.json apps/api/
 COPY apps/api/drizzle apps/api/drizzle
 COPY apps/api/src apps/api/src
@@ -35,6 +38,8 @@ FROM base AS site
 RUN pnpm install --frozen-lockfile --filter "@erp/web..."
 COPY packages/calc/tsconfig.json packages/calc/
 COPY packages/calc/src packages/calc/src
+COPY packages/registry/tsconfig.json packages/registry/
+COPY packages/registry/src packages/registry/src
 COPY apps/web/tsconfig.json apps/web/vite.config.ts apps/web/index.html apps/web/
 COPY apps/web/src apps/web/src
 RUN pnpm --filter @erp/web build

@@ -30,6 +30,7 @@ export function lockEditing(me: Me): Me {
       ...me.permissions,
       canEditShared: false,
       canManageCash: false,
+      canChangeInflows: false,
       canManageSuppliers: false,
       canManageInventory: false,
       canManageUsers: false,

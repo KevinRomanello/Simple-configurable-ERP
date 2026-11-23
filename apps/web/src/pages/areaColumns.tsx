@@ -1,4 +1,4 @@
-import { faCheck, faCoins, faHourglassHalf, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faCoins, faHourglassHalf, faTag, faTrash, faTriangleExclamation, type IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { ColDef, ColGroupDef, ICellRendererParams, ValueSetterParams } from "ag-grid-community";
 import type { FiguresPatch, LinePatch } from "../api/client";
@@ -7,6 +7,7 @@ import { ArrivalPill, arrivalTitle } from "../components/ArrivalPill";
 import { SearchSelectEditor } from "../components/SearchSelect";
 import { date, money, quantity } from "../lib/format";
 import { carLabel } from "../lib/season";
+import { missingMake, missingMakeText } from "../lib/missingMake";
 import { gridCompare } from "../lib/sort";
 import { columnHelp } from "./columnHelp";
 
@@ -71,8 +72,35 @@ function statusTip(row: Row | undefined): string | undefined {
     tips.push(`${PHASE_LABEL[phase]}: the funds are ${money(row[phase].shortCents)} short. ${SHORT_HINT}`);
   }
   if (row.arrival.status !== "planned") tips.push(arrivalTitle[row.arrival.status]);
+  if (missingMake(row).length > 0) tips.push(missingMakeText(missingMake(row)));
   return tips.length > 0 ? tips.join("\n") : undefined;
 }
+
+interface StatusIcon {
+  key: string;
+  icon: IconDefinition;
+  tone: "warning" | "error" | "success";
+}
+
+/** The icons of the status column of a line, in order: what is wrong with it first, then where its goods are, then the make and model. */
+function statusIcons(line: CalcLine): StatusIcon[] {
+  const { status } = line.arrival;
+  const icons: (StatusIcon | false)[] = [
+    isIncomplete(line) && { key: "incomplete", icon: faTriangleExclamation, tone: "warning" },
+    shortPhases(line).length > 0 && { key: "short", icon: faCoins, tone: "error" },
+    (status === "ordered" || status === "partial") && { key: "waiting", icon: faHourglassHalf, tone: "warning" },
+    status === "received" && { key: "arrived", icon: faCheck, tone: "success" },
+    status === "over" && { key: "over", icon: faTriangleExclamation, tone: "error" },
+    missingMake(line).length > 0 && { key: "make", icon: faTag, tone: "warning" },
+  ];
+  return icons.filter((icon) => icon !== false);
+}
+
+/** The status column is as wide as three icons need (84 px); a line with a fourth makes it wider by what that icon takes. */
+const statusWidth = (icons: number) => 84 + Math.max(0, icons - 3) * 24;
+
+/** The most icons any of these lines shows at once: it sets the width of their status column. */
+export const mostStatusIcons = (lines: CalcLine[]) => Math.max(0, ...lines.map((l) => statusIcons(l).length));
 
 /** The funds that can pay the rest of a line after its first fund: only others of the same group (never the team's own money). */
 function companionNames(lookups: GridLookups, phase: Phase, line: CalcLine): string[] {
@@ -394,51 +422,33 @@ export function areaColumns(
   remove: (line: CalcLine) => void,
   canEdit: boolean,
   moreFunds: MoreFunds,
+  iconsInStatus: number,
 ): Columns {
-  const columns = withMinWidths(withHelp(editableColumns(lookups, commit, remove, moreFunds)));
+  const columns = withMinWidths(withHelp(editableColumns(lookups, commit, remove, moreFunds, iconsInStatus)));
   return canEdit ? columns : readOnly(columns);
 }
 
-function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: CalcLine) => void, moreFunds: MoreFunds): Columns {
+function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: CalcLine) => void, moreFunds: MoreFunds, iconsInStatus: number): Columns {
   return [
     {
       colId: "status",
       headerName: "",
-      width: 84,
+      // a fixed width (not fitted to the icons): it does not jump when a flag comes or goes
+      width: statusWidth(iconsInStatus),
+      suppressAutoSize: true,
       pinned: "left",
       sortable: false,
       tooltipValueGetter: (p) => statusTip(p.data),
       cellRenderer: (p: ICellRendererParams<Row>) => {
         const row = p.data;
         if (!isLine(row)) return null;
-        const { status } = row.arrival;
         return (
           <span className="icon-row" aria-label={statusTip(row)}>
-            {isIncomplete(row) && (
-              <span className="tone-warning">
-                <FontAwesomeIcon icon={faTriangleExclamation} />
+            {statusIcons(row).map(({ key, icon, tone }) => (
+              <span key={key} className={`tone-${tone}`}>
+                <FontAwesomeIcon icon={icon} />
               </span>
-            )}
-            {shortPhases(row).length > 0 && (
-              <span className="tone-error">
-                <FontAwesomeIcon icon={faCoins} />
-              </span>
-            )}
-            {(status === "ordered" || status === "partial") && (
-              <span className="tone-warning">
-                <FontAwesomeIcon icon={faHourglassHalf} />
-              </span>
-            )}
-            {status === "received" && (
-              <span className="tone-success">
-                <FontAwesomeIcon icon={faCheck} />
-              </span>
-            )}
-            {status === "over" && (
-              <span className="tone-error">
-                <FontAwesomeIcon icon={faTriangleExclamation} />
-              </span>
-            )}
+            ))}
           </span>
         );
       },

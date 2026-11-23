@@ -9,6 +9,10 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** More from the server about the failure: the problems of each answer of a form. */
+    readonly details?: unknown,
+    /** A stable word for a failure the page words itself ("sign-in-needed", "password-needed"). */
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -43,7 +47,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   });
   if (response.status === 204) return undefined as T;
   const payload = await response.json().catch(() => null);
-  if (!response.ok) throw new ApiError(response.status, errorMessage(payload, response.statusText));
+  if (!response.ok) {
+    const body = payload as { details?: unknown; code?: string } | null;
+    throw new ApiError(response.status, errorMessage(payload, response.statusText), body?.details, body?.code);
+  }
   return payload as T;
 }
 
@@ -206,6 +213,7 @@ export const api = {
 
   // users and history
   users: () => get<UserRow[]>("/users"),
+  createUser: (body: { email: string; name: string; role: Role }) => post<UserRow>("/users", body),
   updateUser: (id: number, body: { role?: Role; treasury?: boolean; sponsors?: boolean; active?: boolean; areaIds?: number[] }) =>
     patch<UserRow>(`/users/${id}`, body),
   history: (query: { table?: string; before?: number }) => {
@@ -385,3 +393,14 @@ export const api = {
   supplierAnalysis: () => get<Analysis>("/views/analysis/suppliers"),
   items: (query: string) => get<ItemsView>(`/views/items?${query}`),
 };
+
+/** The plain JSON calls, for the modules that keep their own list of endpoints (api/registry.ts). */
+export const http = { get, post, patch, put, del };
+
+/** Sends a file as the body of a request (its type in Content-Type), and reads the JSON answer. */
+export async function upload<T>(path: string, file: Blob): Promise<T> {
+  const response = await fetch(`/api${path}`, { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new ApiError(response.status, errorMessage(payload, response.statusText));
+  return payload as T;
+}

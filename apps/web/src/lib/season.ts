@@ -40,6 +40,12 @@ export function useCanManageCash(): boolean {
   return useMe().permissions.canManageCash && open;
 }
 
+/** Whether the person may add and delete the inflows of the season shown: the treasury, and the sponsors (some inflows are theirs). */
+export function useCanChangeInflows(): boolean {
+  const open = useSeasonOpen();
+  return useMe().permissions.canChangeInflows && open;
+}
+
 /**
  * Shows another season: every page reads its data again (who is signed in stays). Choosing the
  * season of today forgets the choice, so next September the site moves on by itself.

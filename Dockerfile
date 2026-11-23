@@ -12,6 +12,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/calc/package.json packages/calc/
+COPY packages/registry/package.json packages/registry/
 COPY tools/import-xlsx/package.json tools/import-xlsx/
 RUN pnpm install --frozen-lockfile
 

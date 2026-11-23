@@ -331,6 +331,9 @@
 .hint.error {
   color: var(--error-default);
 }
+.hint.warning {
+  color: var(--warning-default);
+}
 .inline-form {
   display: flex;
   align-items: flex-end;
@@ -1690,4 +1693,440 @@ body.no-scroll {
 }
 .data-table.register td.lines {
   min-width: 180px;
+}
+
+/* --- the registry (docs/anagrafiche.md, §11) ----------------------------------------------------
+   Not designed in Figma: built from the tokens and the boxes of the other pages. */
+
+/* a record opens at the right of its table, over the page */
+.record-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(480px, 100vw);
+  overflow-y: auto;
+  z-index: 30;
+  padding: var(--space-m);
+  background: var(--bg-null);
+  border-left: 1px solid var(--stroke-strong);
+  box-shadow: -8px 0 24px rgb(0 0 0 / 12%);
+}
+.record-panel .value {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+.registry-grid.tall {
+  height: 70vh;
+}
+.chips-inline,
+.link-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+.pill-x {
+  border: 0;
+  background: none;
+  padding: 0 0 0 var(--space-2xs);
+  cursor: pointer;
+  color: inherit;
+}
+.pre-wrap {
+  white-space: pre-wrap;
+}
+.mono {
+  font-family: var(--font);
+  word-break: break-all;
+}
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+.file-pick input {
+  display: none;
+}
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
+}
+.history-list li {
+  border-left: 2px solid var(--stroke-sub);
+  padding-left: var(--space-xs);
+}
+.rule {
+  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-3xs);
+  padding: var(--space-s);
+}
+.link-list {
+  margin: 0;
+  padding-left: var(--space-m);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+.nowrap {
+  white-space: nowrap;
+}
+
+/* a form of the registry, on a page of its own, also on a phone */
+.public-form {
+  min-height: 100vh;
+  background: var(--bg-weak);
+  padding: var(--space-l) var(--space-m);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.public-form-card {
+  width: min(640px, 100%);
+}
+.public-form-card header h1 {
+  margin: 0 0 var(--space-xs);
+}
+.public-form textarea.input,
+.public-form .input.small {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* the gallery and the kanban of the registry */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-s);
+}
+.gallery-card,
+.kanban-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  text-align: left;
+  padding: var(--space-s);
+  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-3xs);
+  background: var(--bg-weak);
+  color: var(--text-strong);
+  font: inherit;
+  cursor: pointer;
+}
+.gallery-card:hover,
+.kanban-card:hover {
+  border-color: var(--stroke-strong);
+}
+.gallery-card img,
+.gallery-empty {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--bg-soft);
+  border-radius: var(--radius-3xs);
+}
+.card-line {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kanban {
+  display: flex;
+  gap: var(--space-s);
+  overflow-x: auto;
+  align-items: flex-start;
+}
+.kanban-column {
+  flex: 0 0 240px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  background: var(--bg-soft);
+  border-radius: var(--radius-3xs);
+  min-height: 120px;
+}
+.kanban-column.over {
+  outline: 2px dashed var(--stroke-strong);
+}
+.kanban-column h3 {
+  margin: 0;
+  font-size: 13px;
+}
+.kanban-card[draggable="true"] {
+  cursor: grab;
+}
+
+/* a card being moved: the copy that follows the pointer */
+.drag-ghost {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  padding: var(--space-2xs) var(--space-xs);
+  background: var(--primary-default);
+  color: var(--on-primary);
+  border-radius: var(--radius-3xs);
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+}
+.kanban-card.dragging {
+  opacity: 0.4;
+}
+.kanban-card,
+.calendar-item {
+  touch-action: none;
+  user-select: none;
+}
+
+/* the calendar and the timeline of the registry */
+.month-nav strong {
+  min-width: 140px;
+  text-align: center;
+}
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--stroke-sub);
+  border: 1px solid var(--stroke-sub);
+}
+.calendar-head {
+  background: var(--bg-soft);
+  padding: var(--space-2xs);
+  text-align: center;
+}
+.calendar-day {
+  background: var(--bg-weak);
+  min-height: 96px;
+  padding: var(--space-2xs);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.calendar-day.other {
+  opacity: 0.5;
+}
+.calendar-day.today > span {
+  background: var(--primary-default);
+  color: var(--on-primary);
+  border-radius: var(--radius-full);
+  padding: 0 var(--space-2xs);
+  align-self: flex-start;
+}
+.calendar-day.over {
+  outline: 2px dashed var(--stroke-strong);
+  outline-offset: -2px;
+}
+.calendar-item {
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  padding: 1px var(--space-2xs);
+  border: 0;
+  border-radius: var(--radius-3xs);
+  background: var(--bg-sub);
+  color: var(--text-strong);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+.timeline-scale {
+  position: relative;
+  height: 20px;
+  margin-left: 180px;
+  border-bottom: 1px solid var(--stroke-sub);
+}
+.timeline-scale span {
+  position: absolute;
+  font-size: 12px;
+  color: var(--text-sub);
+}
+.timeline-today {
+  position: absolute;
+  top: 0;
+  bottom: -2000px;
+  width: 2px;
+  background: var(--primary-default);
+  z-index: 0;
+}
+.timeline-row {
+  display: flex;
+  align-items: center;
+}
+.timeline-label {
+  flex: 0 0 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: var(--space-xs);
+}
+.timeline-lane {
+  position: relative;
+  flex: 1;
+  height: 26px;
+  background: var(--bg-weak);
+}
+.timeline-bar {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border: 0;
+  border-radius: var(--radius-3xs);
+  background: var(--secondary-default);
+  color: var(--text-null);
+  font: inherit;
+  font-size: 11px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  z-index: 1;
+}
+.timeline {
+  overflow: hidden;
+}
+
+/* the registry, after NocoDB's comparison (docs/anagrafiche-nocodb.md) */
+.timeline-rows {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px; /* GAP in Boards.tsx */
+}
+.timeline-arrows {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 180px; /* the width of .timeline-label */
+  width: calc(100% - 180px);
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.timeline-arrows path {
+  fill: none;
+  stroke: var(--text-sub);
+  stroke-width: 1.5;
+}
+.timeline-arrows marker path {
+  fill: var(--text-sub);
+  stroke: none;
+}
+.color-value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+.color-value .swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-3xs);
+  border: 1px solid var(--stroke-sub);
+}
+.history-list li.resolved {
+  opacity: 0.6;
+}
+.link-button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+.timeline-bar.movable {
+  cursor: grab;
+  touch-action: none;
+}
+.timeline-bar.moving {
+  cursor: grabbing;
+  opacity: 0.85;
+  outline: 2px dashed var(--text-sub);
+}
+.timeline-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+.timeline-handle.start {
+  left: 0;
+}
+.timeline-handle.end {
+  right: 0;
+}
+.map {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-weak);
+  border: 1px solid var(--stroke-sub);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.map-tile {
+  position: absolute;
+  width: 256px;
+  height: 256px;
+  pointer-events: none;
+}
+.map-pin {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--secondary-default);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  padding: 0;
+}
+.map-pin-label {
+  position: absolute;
+  left: 14px;
+  top: -4px;
+  white-space: nowrap;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #000;
+  padding: 0 3px;
+  border-radius: var(--radius-3xs);
+  pointer-events: none;
+}
+.map-credit {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #000;
+  padding: 1px 4px;
+}
+.map-credit a {
+  color: inherit;
+}
+.code-picture {
+  display: inline-block;
+  background: #fff;
+  vertical-align: middle;
+}
+.view-folder {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-sub);
+  margin-left: var(--space-xs);
 }

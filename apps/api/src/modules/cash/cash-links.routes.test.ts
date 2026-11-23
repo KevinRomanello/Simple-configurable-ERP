@@ -100,6 +100,9 @@ describe("an expected inflow that arrives", () => {
       expect((await api.as(person).get("/api/inflows/receivable")).status).toBe(403);
     }
     expect((await api.as(TREASURER).post(`/api/inflows/${gala.id}/receive`, { on: today(), account: "bank" })).status).toBe(204);
+    // the sponsors box adds and deletes inflows but cannot take apart what the treasury received: not undo it, not delete it
+    expect((await api.as(SP).del(`/api/inflows/${gala.id}/receive`)).status).toBe(403);
+    expect((await api.as(SP).del(`/api/inflows/${gala.id}`)).status).toBe(403);
 
     // the money that arrived with the sponsorship box is also an actual inflow now, read from the register
     expect((await api.get("/api/inflows?phase=actual")).body).toMatchObject([{ sourceName: "Acme", source: "register" }]);

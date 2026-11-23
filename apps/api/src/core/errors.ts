@@ -5,6 +5,8 @@ export class AppError extends Error {
     message: string,
     /** A stable word for the few failures the web app words itself (see the sign-in page). */
     readonly code?: string,
+    /** More about the failure, sent along: the problems of each answer of a form. */
+    readonly details?: unknown,
   ) {
     super(message);
   }

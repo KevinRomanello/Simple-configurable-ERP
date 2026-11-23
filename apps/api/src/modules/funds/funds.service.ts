@@ -3,7 +3,7 @@ import { and, eq, exists, inArray, sql } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { fund, fundContract, lineFigures, lineFund } from "../../db/schema";
+import { fund, fundContract, lineFund } from "../../db/schema";
 import { canManageFunds, getCurrentUser } from "../auth/auth.service";
 import { getFixedSponsorRates, listVatRates } from "../lookups/lookups.service";
 import { assertSeasonOpen, getCurrentSeason } from "../seasons/seasons.service";
@@ -54,8 +54,8 @@ function fundOut(row: FundRow, money: MoneyByPhase = NO_MONEY) {
 
 /**
  * The funds a line can be paid from in a phase: the team fund, every gift (it needs no money), every
- * sponsor that has a contract in that phase and, in ACTUAL, every fund with no ceiling (it has no money,
- * and never exists in EXPECTED). GET /api/funds?phase=. Without a phase, every fund.
+ * sponsor that has a contract in that phase and every fund with no ceiling (it has no money, in both
+ * phases). GET /api/funds?phase=. Without a phase, every fund.
  */
 export async function listFunds(phase?: Phase) {
   const season = await getCurrentSeason();
@@ -71,7 +71,7 @@ export async function listFunds(phase?: Phase) {
       phase
         ? and(
             inSeason,
-            sql`(${fund.kind} = 'team' or ${fund.type} <> 'fund' or ${hasContract(phase)} or (${fund.unlimited} and ${phase === "actual"}))`,
+            sql`(${fund.kind} = 'team' or ${fund.type} <> 'fund' or ${hasContract(phase)} or ${fund.unlimited})`,
           )
         : inSeason,
     )
@@ -185,13 +185,6 @@ export async function updateFund(fundId: number, input: Partial<SponsorInput>) {
     }
     if (merged.unlimited && !target.unlimited) {
       if ((await moneyOf(tx, [fundId])).has(fundId)) throw invalid("Take the money of this fund away first: a fund with no limit has no contract");
-      // it never exists in EXPECTED: a line that already pays from it there would be left with a fund it cannot use
-      const [expected] = await tx
-        .select({ n: sql<number>`count(*)::int` })
-        .from(lineFund)
-        .innerJoin(lineFigures, eq(lineFigures.id, lineFund.figuresId))
-        .where(and(eq(lineFund.fundId, fundId), eq(lineFigures.phase, "estimate")));
-      if ((expected?.n ?? 0) > 0) throw conflict(`This fund pays ${expected?.n} EXPECTED lines: a fund with no limit exists only in ACTUAL`);
     }
     const [twin] = await tx
       .select({ id: fund.id })

@@ -317,21 +317,22 @@ describe("a fund with no limit", () => {
     expect((await api.patch(`/api/funds/${id}`, { unlimited: false })).body.unlimited).toBe(false); // and back
   });
 
-  it("can be bought with in ACTUAL only: it is offered there and not in EXPECTED", async () => {
+  it("can be bought with in both phases: it is offered in ACTUAL and in EXPECTED", async () => {
     await make("Free");
     expect(await idsIn("actual")).toContain("Free");
-    expect(await idsIn("estimate")).not.toContain("Free");
+    expect(await idsIn("estimate")).toContain("Free");
     expect((await api.get("/api/funds")).body.map((f: any) => f.name)).toContain("Free"); // the list of sponsors has it
   });
 
-  it("cannot become unlimited while a line pays from it in EXPECTED", async () => {
+  it("can become unlimited while a line pays from it in EXPECTED: the line keeps it and is not short", async () => {
     const id = (await contract({ fundName: "Money" })).body.fundId;
     const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
     await api.post(`/api/projects/${project.id}/lines`, { item: "A", figures: { estimate: { quantity: 1, unitNetCost: "10", fundIds: [id] } } });
     await api.del(`/api/funds/${id}/contracts/estimate`);
-    const refused = await api.patch(`/api/funds/${id}`, { unlimited: true });
-    expect(refused.status).toBe(409);
-    expect(refused.body.error).toContain("EXPECTED");
+    expect((await api.patch(`/api/funds/${id}`, { unlimited: true })).status).toBe(200);
+    const estimate = (await api.get("/api/areas/sw/sheet")).body.projects[0].lines[0].estimate;
+    expect(estimate.figures.fundIds).toEqual([id]);
+    expect(estimate.shortCents).toBe(0);
   });
 
   it("is deleted like any sponsor, unless a line pays from it", async () => {

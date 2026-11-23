@@ -8,6 +8,8 @@ export interface RateLimits {
   api: number;
   /** the sign-in routes: strict, a person signs in a few times a day at most */
   signIn: number;
+  /** what is sent to the public forms of the registry (candidates applying): strict too, 20 by default */
+  publicForms?: number;
 }
 
 export const DEFAULT_RATE_LIMITS: RateLimits = { api: 1200, signIn: 10 };
@@ -15,6 +17,10 @@ export const DEFAULT_RATE_LIMITS: RateLimits = { api: 1200, signIn: 10 };
 const path = (request: FastifyRequest) => request.url.split("?")[0];
 const isSignIn = (request: FastifyRequest) =>
   ["/api/auth/login", "/api/auth/callback", "/api/auth/dev-login"].includes(path(request) ?? "");
+/** An answer sent to a public form: anybody can send one, so it counts apart and strictly. */
+/** What anybody can send to the registry without signing in: a form, or a password of a shared view (guesses). */
+const isPublicForm = (request: FastifyRequest) =>
+  (path(request) ?? "").startsWith("/api/registry/public/") && (request.method === "POST" || request.headers["x-view-password"] !== undefined);
 
 /**
  * Protections that apply to every answer of the API. Register it before the routes.
@@ -38,9 +44,9 @@ export function addSecurity(app: FastifyInstance, limits: RateLimits | false) {
   if (!limits) return;
   app.register(rateLimit, {
     timeWindow: "1 minute",
-    max: (request) => (isSignIn(request) ? limits.signIn : limits.api),
-    // the sign-in routes count apart from the rest
-    keyGenerator: (request) => (isSignIn(request) ? `${request.ip}:sign-in` : request.ip),
+    max: (request) => (isSignIn(request) ? limits.signIn : isPublicForm(request) ? (limits.publicForms ?? 20) : limits.api),
+    // the sign-in routes and the public forms count apart from the rest
+    keyGenerator: (request) => (isSignIn(request) ? `${request.ip}:sign-in` : isPublicForm(request) ? `${request.ip}:public-form` : request.ip),
     allowList: (request) => path(request) === "/api/health",
     // thrown, so the app's error handler words the answer like every other error: { error: "..." }
     errorResponseBuilder: () =>

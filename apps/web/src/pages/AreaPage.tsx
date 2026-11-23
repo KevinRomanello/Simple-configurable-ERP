@@ -18,7 +18,7 @@ import { useAction } from "../lib/useAction";
 import { useDragOrder } from "../lib/useDragOrder";
 import { useProjectView } from "../lib/useProjectView";
 import { gridTheme } from "../theme/grid";
-import { areaColumns, needsMoreFunds, type Commit, type GridLookups, type MoreFunds, type Row, type SubtotalRow } from "./areaColumns";
+import { areaColumns, mostStatusIcons, needsMoreFunds, type Commit, type GridLookups, type MoreFunds, type Row, type SubtotalRow } from "./areaColumns";
 import { VatReportTable } from "./VatReportTable";
 import { useExportBlock } from "../components/ExportBlocks";
 import { tableFromGrid } from "../lib/export/table";
@@ -86,7 +86,7 @@ export function AreaPage() {
   const canEdit = sheet.data ? canEditArea(me, sheet.data.area.id) && seasonOpen : false;
   // the columns of a project depend on whether a line of it needs another fund (ALSO FROM), so each panel builds its own
   const buildColumns = useMemo(
-    () => (lookups ? (moreFunds: MoreFunds) => areaColumns(lookups, commit, removeLine, canEdit, moreFunds) : null),
+    () => (lookups ? (moreFunds: MoreFunds, iconsInStatus: number) => areaColumns(lookups, commit, removeLine, canEdit, moreFunds, iconsInStatus) : null),
     [lookups, canEdit], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
@@ -167,7 +167,7 @@ function subtotalRow(project: SheetProject): SubtotalRow {
 
 function ProjectPanel({ project, buildColumns, canEdit, lookups, cards, closed, onToggle, folded, handle }: {
   project: SheetProject;
-  buildColumns: (moreFunds: MoreFunds) => ReturnType<typeof areaColumns>;
+  buildColumns: (moreFunds: MoreFunds, iconsInStatus: number) => ReturnType<typeof areaColumns>;
   canEdit: boolean;
   lookups: GridLookups;
   /** On a phone: the lines as cards, of this phase, instead of the grid. */
@@ -191,7 +191,8 @@ function ProjectPanel({ project, buildColumns, canEdit, lookups, cards, closed, 
   });
   const subtotal = useMemo(() => [subtotalRow(project)], [project]);
   const more = needsMoreFunds(project.lines);
-  const columns = useMemo(() => buildColumns(more), [buildColumns, more.estimate, more.actual]); // eslint-disable-line react-hooks/exhaustive-deps
+  const iconsInStatus = mostStatusIcons(project.lines);
+  const columns = useMemo(() => buildColumns(more, iconsInStatus), [buildColumns, more.estimate, more.actual, iconsInStatus]); // eslint-disable-line react-hooks/exhaustive-deps
   // a column that appears (or goes away) changes what the others can share: fit them again
   useEffect(() => gridRef.current?.api?.autoSizeAllColumns(true), [columns]);
   const [editing, setEditing] = useState(false);

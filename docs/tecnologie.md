@@ -526,6 +526,19 @@ Tutto parte da una descrizione comune della tabella (`lib/export/table.ts`), cos
 
 ---
 
+## qrcode-generator e JsBarcode
+
+**Il problema.** I campi «QR code» e «Barcode» delle anagrafiche (come in NocoDB) mostrano il testo di un altro campo come codice da leggere con il telefono o con un lettore.
+
+**Come funziona.**
+- `qrcode-generator` calcola la matrice di quadratini di un QR (livello di correzione M); il sito la disegna come un SVG.
+- `JsBarcode` disegna un codice a barre in un SVG, negli stessi 11 formati di NocoDB (CODE128, EAN13, EAN8, EAN5, EAN2, UPC, CODE39, ITF14, MSI, pharmacode, codabar).
+- Tutte e due sono MIT, senza dipendenze, e si caricano solo quando un codice è nella pagina.
+
+**Dove guardare:** `apps/web/src/components/registry/Codes.tsx`.
+
+---
+
 ## Font Awesome e Fira Code
 
 - **Font Awesome Free (set "solid")**: le stesse icone del design Figma, con gli stessi nomi (`faTrash`, `faPen`, `faCircleInfo`). Si importa **solo** l'icona che serve (`import { faTrash } from "@fortawesome/free-solid-svg-icons"`), quindi nel sito finiscono solo quelle usate; si disegna con `<FontAwesomeIcon icon={faTrash} />`.

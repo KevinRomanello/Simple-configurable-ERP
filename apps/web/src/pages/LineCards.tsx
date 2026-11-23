@@ -10,6 +10,7 @@ import { editDraft, linePatch, PHASES, severalFunds, type EditDraft } from "../l
 import type { PhaseDraft } from "../lib/newLine";
 import { useAction } from "../lib/useAction";
 import { carSeasonOf, type GridLookups } from "./areaColumns";
+import { missingMake, missingMakeText } from "../lib/missingMake";
 import { BrandModelFields, CarField, PhaseFields } from "./NewLine";
 
 // A project of the budget on a phone, where the grid does not fit: one card per line with what
@@ -55,6 +56,7 @@ export function LineCards({ project, phase, lookups, canEdit, onRemove, closed }
               {otherCar && <span className="pill car">for {otherCar.car}</span>}
               {line.arrival.status !== "planned" && <ArrivalPill status={line.arrival.status} />}
               {calc.shortCents > 0 && <span className="hint error">The funds miss {money(calc.shortCents)}</span>}
+              {missingMake(line).length > 0 && <span className="hint warning">{missingMakeText(missingMake(line))}</span>}
               {calc.paidCents > 0 && <span className="hint">{calc.paidCents >= calc.teamFundCents + calc.teamVatCents ? "Paid" : `Paid ${money(calc.paidCents)} of ${money(calc.teamFundCents + calc.teamVatCents)}`}</span>}
             </span>
             <Amount amounts={calc.amounts} />

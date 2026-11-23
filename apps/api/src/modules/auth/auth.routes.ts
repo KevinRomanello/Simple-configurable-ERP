@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { AuthConfig } from "../../core/auth-config";
 import { AppError, notFound } from "../../core/errors";
 import { loadUser, loginWithIdentity } from "../users/users.service";
+import { userOfToken } from "./api-tokens.service";
 import { userStorage } from "./auth.context";
 import { getEditOnPhone } from "../lookups/lookups.service";
 import { getCurrentUser, permissionsOf, type User } from "./auth.service";
@@ -26,7 +27,18 @@ const PUBLIC_PATHS = new Set([
   "/api/auth/logout",
 ]);
 
+/**
+ * Paths anybody may open: the public forms and views of the registry. Nobody is recognised there, not even
+ * from the header of the proxy: the proxy of IT lets these addresses through without its login, and what it
+ * does with the header on them is not ours to know (docs/anagrafiche.md, §8.4). A form for the members is
+ * filled in at /api/registry/forms/by-slug, behind the login like the rest.
+ */
+const isOpenPath = (path: string) => path.startsWith("/api/registry/public/");
+
 async function userOf(request: FastifyRequest, config: AuthConfig): Promise<User | null> {
+  // A service (n8n, the bot) sends the key of its token: it acts as the user the token was made for.
+  const authorization = request.headers.authorization;
+  if (authorization?.startsWith("Bearer ")) return userOfToken(authorization.slice(7).trim());
   // Behind the login proxy, who you are is what the proxy says in its header, on every request: no
   // cookie, no token. The role and the areas are still ours (the Users page), found by the email.
   if (config.emailHeader) {
@@ -69,7 +81,13 @@ export function addAuthHook(app: FastifyInstance, config: AuthConfig) {
       void reply.code(403).send({ error: "Cross-site request refused" });
       return;
     }
-    if (PUBLIC_PATHS.has(request.url.split("?")[0] ?? "")) {
+    const path = request.url.split("?")[0] ?? "";
+    if (PUBLIC_PATHS.has(path)) {
+      done();
+      return;
+    }
+    if (isOpenPath(path)) {
+      // open to everybody, as nobody
       done();
       return;
     }

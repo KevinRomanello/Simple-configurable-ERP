@@ -45,8 +45,10 @@ services:
         condition: service_healthy
     volumes:
       - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/test:/app/apps/api/test
       - ./apps/api/drizzle:/app/apps/api/drizzle
       - ./packages/calc/src:/app/packages/calc/src
+      - ./packages/registry/src:/app/packages/registry/src
       # the importer runs inside this container (load, reconcile), so it must be live too
       - ./tools/import-xlsx/src:/app/tools/import-xlsx/src
 
@@ -64,6 +66,7 @@ services:
       - ./apps/web/src:/app/apps/web/src
       - ./apps/web/index.html:/app/apps/web/index.html
       - ./packages/calc/src:/app/packages/calc/src
+      - ./packages/registry/src:/app/packages/registry/src
 
 volumes:
   db-data:

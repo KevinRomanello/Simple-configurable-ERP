@@ -73,8 +73,15 @@ describe("a fund with no ceiling in the summary", () => {
     ]);
   });
 
-  it("has no row in EXPECTED: it never exists there", () => {
-    expect(fundSummary(withFree(), "estimate")).toEqual([]);
+  it("has a row in EXPECTED too: what is expected to be spent with it", () => {
+    const s = withFree();
+    s.lines = [line(1, 1, figures(1, 4000, { fundIds: [3] }), figures(1, 3000, { fundIds: [3] }))];
+    expect(fundSummary(s, "estimate")).toEqual([
+      { fundId: 3, name: "Free", totalContractCents: null, outflowCents: 488_000, vatCents: 88_000, leftCents: null },
+    ]);
+    expect(fundSummary(s, "actual")).toEqual([
+      { fundId: 3, name: "Free", totalContractCents: null, outflowCents: 366_000, vatCents: 66_000, leftCents: null },
+    ]);
   });
 
   it("has a row even when nothing was bought with it yet", () => {
@@ -119,5 +126,45 @@ describe("fundContractsByMonth", () => {
     expect(fundContractsByMonth(s, "estimate")).toEqual([
       { month: "2026-01", totalCents: 1_000_000, names: ["Sponsor A"] },
     ]);
+  });
+});
+
+describe("goods in the summary", () => {
+  // goods have no sum of money, like a fund with no ceiling: the row says how much is (expected to be) spent with them
+  const gift = sponsorFund(2, { name: "Goods", type: "gift", vatRate: 0 });
+  const barter = sponsorFund(3, { name: "Barter", type: "gift_vat", vatRate: 11 });
+  function withGoods() {
+    return snapshot({
+      projects: [{ id: 1, areaId: 1, name: "P", ownerName: null, position: 1 }],
+      funds: [teamFund, gift, barter],
+      contracts: [],
+      lines: [
+        line(1, 1, figures(1, 1000, { fundIds: [2] }), figures(1, 800, { fundIds: [2] })),
+        line(2, 1, figures(2, 500, { fundIds: [3] }), figures(1, 500, { fundIds: [3] })),
+        line(3, 1, figures(1, 999, { fundIds: [1] }), null), // the team's own: not their business
+      ],
+    });
+  }
+
+  it("shows in EXPECTED what is expected to be spent: the net of the goods, plus the VAT of the counter-invoice", () => {
+    expect(fundSummary(withGoods(), "estimate")).toEqual([
+      { fundId: 3, name: "Barter", totalContractCents: null, outflowCents: 111_000, vatCents: 11_000, leftCents: null },
+      { fundId: 2, name: "Goods", totalContractCents: null, outflowCents: 100_000, vatCents: 0, leftCents: null },
+    ]);
+  });
+
+  it("shows in ACTUAL what was spent, the same way", () => {
+    expect(fundSummary(withGoods(), "actual")).toEqual([
+      { fundId: 3, name: "Barter", totalContractCents: null, outflowCents: 55_500, vatCents: 5_500, leftCents: null },
+      { fundId: 2, name: "Goods", totalContractCents: null, outflowCents: 80_000, vatCents: 0, leftCents: null },
+    ]);
+  });
+
+  it("has a row even when nothing was bought with it yet", () => {
+    const s = withGoods();
+    s.lines = [];
+    for (const phase of ["estimate", "actual"] as const) {
+      expect(fundSummary(s, phase).map((r) => [r.name, r.outflowCents, r.totalContractCents])).toEqual([["Barter", 0, null], ["Goods", 0, null]]);
+    }
   });
 });

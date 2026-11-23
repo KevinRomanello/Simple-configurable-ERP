@@ -1,12 +1,13 @@
 import type { Me } from "../api/types";
 
 /** The sections of Settings: what is kept for the budget, for the inventory, for the register of the treasury, and how the site looks. */
-export type SettingsSection = "budget" | "inventory" | "register" | "appearance";
+export type SettingsSection = "budget" | "inventory" | "register" | "registry" | "appearance";
 
 export const SECTION_LABELS: Record<SettingsSection, string> = {
   budget: "Budget",
   inventory: "Inventory",
   register: "Register",
+  registry: "Registry",
   appearance: "Appearance",
 };
 
@@ -21,6 +22,8 @@ export function settingsSections(can: Permissions): SettingsSection[] {
     ["budget", can.canManageSettings],
     ["inventory", can.canManageSettings || can.canManageInventory],
     ["register", can.canManageSettings || can.canManageCash],
+    // the people of the registry, the roles of the ERP taken from it and the keys of the services: admins
+    ["registry", can.canManageSettings],
     ["appearance", true],
   ];
   return sections.filter(([, allowed]) => allowed).map(([section]) => section);

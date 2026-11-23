@@ -11,10 +11,13 @@
 | Ruoli | `admin` (il tesoriere), `pm` (per **area**; nel sito si chiama **«User»**, il valore tecnico resta `pm`) e `viewer`. Due cose non sono ruoli ma **spunte di un pm**, che l'admin mette da Users: **«Treasury»** (i soldi del team, [registro-di-cassa.md](registro-di-cassa.md)) e **«Sponsors»** (chi tiene gli sponsor: non è uno sponsor, gestisce i loro fondi) |
 | Primo accesso | chi ha un account del team entra da solo come **`viewer`**; un admin lo promuove |
 | Fondi e contratti (CASH FROM) | **`admin` e i `pm` con la spunta Sponsors** |
-| Il registro di cassa, gli inflow e il BANK di CASH FLOW | **`admin` e i `pm` con la spunta Treasury** |
+| Il registro di cassa, il BANK di CASH FLOW e il **segnare un inflow come ricevuto** | **`admin` e i `pm` con la spunta Treasury** |
+| **Aggiungere e cancellare** gli inflow di CASH FLOW (20 novembre 2026: tra gli inflow ci sono anche gli sponsor) | **`admin` e i `pm` con la spunta Treasury o con la spunta Sponsors**; chi ha solo Sponsors non cancella un inflow **già ricevuto** (è legato al registro) |
 | Impostazioni (categorie, aliquote, unità, posti, interruttori del calcolo: pagina Settings) | **solo `admin`**; il riquadro **Item types** (tipi dell'inventario e loro parametri) anche `pm`, come il resto dell'inventario |
 | Fornitori | `admin` e `pm` possono aggiungerli (e toglierli, se non usati) |
-| Storico | **tabella** `audit_log` scritta da **trigger** del database; lo vedono `admin` e `pm` |
+| Storico | **tabella** `audit_log` scritta da **trigger** del database; lo vedono `admin` e `pm` (le righe delle anagrafiche, dei token e di `role_sync` solo gli admin, §8.3) |
+| Servizi (n8n, il bot, il sito) | un **token**: `Authorization: Bearer <chiave>`, agisce come l'utente per cui è fatto (§13) |
+| Ruoli presi dalle anagrafiche | facoltativo: con il collegamento acceso, ruolo, aree, spunte e «attivo» vengono dal REGISTRY e la pagina Users li mostra in sola lettura (§14) |
 | Deploy | da decidere dopo ([produzione.md](produzione.md)) |
 
 ## 2. Login con Google
@@ -62,7 +65,7 @@ Ruolo, aree e stato "attivo" si **rileggono dal database a ogni richiesta** (una
 
 ## 3. Come si protegge l'API
 
-- Un controllo comune (`addAuthHook`, in `modules/auth/auth.routes.ts`) gira prima di ogni rotta: tutto `/api/*` richiede un token valido di un utente attivo, tranne `/api/health` e `/api/auth/{config,login,callback,dev-login,logout}`. Altrimenti: **401**.
+- Un controllo comune (`addAuthHook`, in `modules/auth/auth.routes.ts`) gira prima di ogni rotta: tutto `/api/*` richiede un token valido di un utente attivo, tranne `/api/health` e `/api/auth/{config,login,callback,dev-login,logout}`. Altrimenti: **401**. I moduli e le viste pubbliche delle anagrafiche (`/api/registry/public/*`) sono aperti a tutti: chi è entrato è riconosciuto lo stesso (un modulo per i membri lo vuole), gli altri vanno avanti come nessuno; il servizio decide (anagrafiche.md, §8). Quello che vi si manda conta in un limite di richieste a parte, stretto (20 al minuto per indirizzo).
 - **`getCurrentUser()` resta senza argomenti**: l'utente della richiesta viene messo in un contesto asincrono di Node (`AsyncLocalStorage`, `auth.context.ts`) dal controllo comune, e la funzione lo legge da lì. I servizi non sono cambiati.
 - **I permessi si applicano nel server**, nei servizi, prima di ogni scrittura. L'interfaccia nasconde i comandi a chi non può usarli, ma è una comodità: i test provano che il server rifiuta (**403**) anche se qualcuno chiama l'API a mano.
 - **CSRF** (un altro sito che manda richieste a nome tuo): `SameSite=Lax` blocca i cookie nelle richieste cross-site di scrittura; in più, una richiesta che modifica dati con intestazione `Origin` è accettata solo se l'`Origin` è l'indirizzo pubblico (`PUBLIC_URL`) o l'host a cui è stata indirizzata la richiesta. *Si confronta con `PUBLIC_URL` e non solo con `Host` perché un proxy davanti all'API (quello di sviluppo di Vite, nginx…) riscrive `Host`: è un problema reale incontrato provando l'app nel browser, ora coperto da un test.* Le richieste senza `Origin` (curl, script) passano: senza un browser un altro sito non può usare i tuoi cookie.
@@ -110,7 +113,8 @@ Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modific
 | Vedere tutto: aree, viste, grafici, analisi (il registro no, vedi sotto) | sì | sì | sì | sì | sì |
 | Voci e progetti (aggiungere, modificare, eliminare) | tutte le aree | **solo le aree assegnate** | **solo le aree assegnate** | **solo le aree assegnate** | no |
 | Fondi e contratti (CASH FROM) | sì | **no** | **no** | **sì** | no |
-| Inflow e BANK scritto a mano (CASH FLOW), segnare un inflow come ricevuto | sì | **no** | **sì** | **no** | no |
+| BANK scritto a mano (CASH FLOW), segnare un inflow come ricevuto (e riprenderlo indietro) | sì | **no** | **sì** | **no** | no |
+| Aggiungere un inflow (CASH FLOW) e cancellarlo | sì | **no** | **sì** | **sì** (non uno già ricevuto: `403`) | no |
 | **Registro di cassa** (vederlo e scriverlo, le sue liste, l'import, i collegamenti alle righe del budget) | sì | **no** (`403`) | **sì** | **no** (`403`) | no (`403`) |
 | Scegliere la stagione da guardare (menù) | sì | sì | sì | sì | sì |
 | Stagioni: crearle, la loro macchina, la sola lettura (Settings) | sì | no | no | no | no |
@@ -166,7 +170,7 @@ Non sa *perché* è stato modificato, vede solo i valori. Per un bilancio basta.
 
 ### 8.3 Come si legge
 
-- `GET /api/audit?table=&rowId=&actorId=&before=&limit=` (admin e pm): le modifiche più recenti per prime; `limit` 1-500 (predefinito 100); `before` = id da cui continuare (la risposta dà `next`). Per ogni voce: istante, persona, tabella, riga, azione, un'etichetta leggibile (la voce, il progetto, il fondo…) e l'elenco dei **soli campi cambiati** (prima → dopo). Il campo `version` (il contatore del blocco ottimistico) si ignora quando è l'unica differenza.
+- `GET /api/audit?table=&rowId=&actorId=&before=&limit=` (admin e pm; ai pm senza le righe delle anagrafiche, dei token e di `role_sync`, che hanno permessi per campo: il pm legge lo storico di un record dal REGISTRY, con i soli campi che vede): le modifiche più recenti per prime; `limit` 1-500 (predefinito 100); `before` = id da cui continuare (la risposta dà `next`). Per ogni voce: istante, persona, tabella, riga, azione, un'etichetta leggibile (la voce, il progetto, il fondo…) e l'elenco dei **soli campi cambiati** (prima → dopo). Il campo `version` (il contatore del blocco ottimistico) si ignora quando è l'unica differenza.
 - Pagina **History**: tabella con filtro per tipo di dato e "Load older changes". Gli inserimenti e le cancellazioni mostrano i campi in un blocco apribile.
 - Limiti noti: i numeri passano da JSON, quindi sono numeri e non stringhe esatte (per leggere, non per calcolare); i campi di collegamento mostrano l'id (`fund_id: 3`) e non il nome; non c'è ancora il filtro per persona nella pagina (l'API lo ha: `actorId`).
 
@@ -246,6 +250,12 @@ Chi riesce a mandare **direttamente** all'app `X-Email: <un admin>` diventa quel
 
 Cosa **non** copre: chi controlla il proxy o una macchina i cui indirizzi sono in `PROXY_IPS`. Se il proxy gira **sullo stesso server**, Docker fa vedere le connessioni locali con l'indirizzo del suo ponte (per esempio `172.20.0.1`) e quello va messo in `PROXY_IPS`: ogni altro programma di quel server potrebbe allora parlare all'app come il proxy. Un segreto condiviso in un secondo header sarebbe una difesa in più (IT non l'ha previsto; si aggiunge in poche righe se lo vorranno).
 
+### Gli indirizzi che il proxy lascia passare senza login (anagrafiche)
+
+Le anagrafiche hanno indirizzi che il proxy di IT lascia passare **senza** il suo login ([produzione.md](produzione.md), A7):
+- **i moduli e le viste pubbliche** (`/api/registry/public/*`): lì l'API **non riconosce nessuno**, nemmeno con l'intestazione (`addAuthHook`, `isOpenPath`), e Caddy la toglie comunque. Un `X-Email` falso non fa compilare un modulo a nome di altri (`proxy-login.routes.test.ts`). I moduli per i membri si compilano all'indirizzo dietro il login (`/api/registry/forms/by-slug/…`, [anagrafiche.md](anagrafiche.md) §8.3);
+- **`/ext/*`**, l'ingresso dei servizi: Caddy lo gira all'API come `/api/*` togliendo l'intestazione, quindi lì vale solo un token (`Authorization: Bearer`, §13).
+
 ### Cosa resta aperto
 
 - **Mail mai vista = `viewer`** (vede tutti i dati). Va bene se il proxy lascia entrare **solo il team**; se lascia entrare tutta l'organizzazione, una mail mai vista dovrebbe restare fuori finché un admin non la aggiunge: serve un «Add user» nella pagina Users (non c'è). **Da chiedere a IT: chi passa dal proxy?**
@@ -258,3 +268,22 @@ Cosa **non** copre: chi controlla il proxy o una macchina i cui indirizzi sono i
 - `modules/auth/proxy-login.routes.test.ts` (14): 401 senza header o con header non valido; il cookie non vale; persona nuova `viewer` con il suo nome; stessa persona con maiuscole diverse; `ADMIN_EMAILS`; il nome esistente resta; **dieci richieste insieme di una persona nuova fanno un solo account** (con le connessioni già aperte; senza la protezione il test fallisce con dei 409); disattivata 403; il pm scrive nella sua area e non in un'altra; la persona nuova legge e non scrive; lo storico registra chi; la scrittura da un altro sito è rifiutata; Google e accesso di sviluppo spenti; il nome dell'header è quello configurato.
 - `core/auth-config.test.ts` (6 nuovi): la modalità proxy non vuole segreto né Google, il nome dell'header minuscolo, nessun secondo ingresso, nome non valido, in produzione https.
 - **Nel browser, con un finto proxy** (uno script fuori dal repository che sostituisce `X-Email`, come fa quello vero): entra da solo come admin, nessun Sign out, tutte le 22 pagine, una scrittura e una cancellazione (l'`Origin` passa il controllo con `PUBLIC_URL` dietro il proxy), la pagina Users con le persone entrate, un account disattivato (messaggio), una richiesta senza header (pagina «Try again»). Con `curl`: un indirizzo non ammesso riceve 403 con il suo indirizzo, uno ammesso passa, l'header doppio è 401.
+
+## 13. Token per i servizi
+
+**Stato: fatto e provato** (21 novembre 2026), insieme alle anagrafiche ([anagrafiche.md](anagrafiche.md), §10.1).
+
+- Un admin crea un token in **Settings › Registry › API tokens**: un nome e l'utente dell'ERP per cui agisce. La chiave (`erp_…`) si vede **una volta**; nel database c'è solo il suo SHA-256 (`api_token`), quindi una copia del database non la rivela.
+- Per un servizio si crea prima il suo account: `POST /api/users` (admin), nella stessa pagina («New account for a service»). È un `viewer`, con le regole che gli servono nel REGISTRY.
+- Una richiesta con `Authorization: Bearer <chiave>` è di quell'utente, con il suo ruolo e i suoi permessi, in ogni modo di accesso (Google o proxy). Una chiave sconosciuta o revocata è **401**. Revocare (`DELETE /api/tokens/:id`) vale dalla richiesta successiva; la riga resta, per lo storico.
+- Da chiedere a IT: dietro il proxy dell'organizzazione, le richieste con `Authorization: Bearer` (e i moduli pubblici, `/forms/*` e `/api/registry/public/*`) devono arrivare all'app senza il login del proxy, e da un indirizzo di `PROXY_IPS`.
+- Prove: `registry.routes.test.ts` (un servizio legge con il suo token, la chiave non esce mai nell'elenco, revocata smette subito, una chiave inventata è 401, un pm non vede i token).
+
+## 14. Ruoli presi dalle anagrafiche
+
+**Stato: fatto e provato** (21 novembre 2026). Regole e motivi in [anagrafiche.md](anagrafiche.md), §9.
+
+- **Settings › Registry**: si sceglie per ogni permesso (può entrare, admin, User con le aree, Treasury, Sponsors) un gruppo della tabella delle persone, più il campo che dà i codici delle aree. Prima di accendere si vede l'anteprima.
+- **Acceso**: dopo ogni modifica del registro, nella stessa transazione, il modulo `rolesync` crea gli account delle persone attive che non ci sono, aggiorna ruolo, aree, spunte e nome, e disattiva chi non è più attivo. Chi non è nel registro resta come prima; le email di `ADMIN_EMAILS` restano admin; se non restasse nessun admin attivo, gli admin di quel momento restano.
+- La pagina **Users** mostra le persone gestite con l'etichetta «registry» e i comandi spenti; il server rifiuta di cambiarle (409).
+- Prove: `registry.routes.test.ts` («the roles of the ERP from the registry»).

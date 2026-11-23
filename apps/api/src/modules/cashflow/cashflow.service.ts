@@ -6,7 +6,7 @@ import { today } from "../../core/today";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { bankSnapshot, cashEntry, teamInflow } from "../../db/schema";
-import { canManageCash, getCurrentUser } from "../auth/auth.service";
+import { canChangeInflows, canManageCash, getCurrentUser } from "../auth/auth.service";
 import { insertEntry, registerBalanceAt } from "../cash/cash.service";
 import type { ReceiveInput } from "../cash/cash.schema";
 import { assertSeasonOpen, getCurrentSeason } from "../seasons/seasons.service";
@@ -19,6 +19,13 @@ type Bank = Awaited<ReturnType<typeof bankOf>>;
 async function assertCanManageShared() {
   const actor = await getCurrentUser();
   if (!(await canManageCash(actor))) throw forbidden("You cannot change the cash flow");
+  return actor;
+}
+
+/** Adding and deleting inflows is also for the sponsors: some inflows are their money. Receiving them and the BANK are not. */
+async function assertCanChangeInflows() {
+  const actor = await getCurrentUser();
+  if (!(await canChangeInflows(actor))) throw forbidden("You cannot change the inflows");
   return actor;
 }
 
@@ -129,7 +136,7 @@ export async function listInflows(phase: Phase) {
 }
 
 export async function createInflow(input: { phase: Phase; sourceName: string; amount: string; inflowDate?: string | null; sponsorship?: boolean }) {
-  const actor = await assertCanManageShared();
+  const actor = await assertCanChangeInflows();
   const season = await getCurrentSeason();
   return runWrite(actor, async (tx) => {
     await assertSeasonOpen(tx, season.id);
@@ -213,10 +220,13 @@ export async function unreceiveInflow(inflowId: number) {
 }
 
 export async function deleteInflow(inflowId: number) {
-  const actor = await assertCanManageShared();
+  const actor = await assertCanChangeInflows();
+  const treasury = await canManageCash(actor);
   await runWrite(actor, async (tx) => {
-    const [target] = await tx.select({ seasonId: teamInflow.seasonId }).from(teamInflow).where(eq(teamInflow.id, inflowId));
+    const [target] = await tx.select({ seasonId: teamInflow.seasonId, cashEntryId: teamInflow.cashEntryId }).from(teamInflow).where(eq(teamInflow.id, inflowId));
     if (target) await assertSeasonOpen(tx, target.seasonId);
+    // a received inflow is tied to the register: taking that apart is the treasury's, as marking it received was
+    if (target?.cashEntryId != null && !treasury) throw forbidden("This inflow is already received: only the treasury can delete it");
     const deleted = await tx.delete(teamInflow).where(eq(teamInflow.id, inflowId)).returning({ id: teamInflow.id });
     if (deleted.length === 0) throw notFound("Inflow");
   });

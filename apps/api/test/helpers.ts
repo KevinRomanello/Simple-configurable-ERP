@@ -183,6 +183,11 @@ export async function resetData() {
   await ownerPool.query("delete from fund where season_id in (select id from season where name <> '2026-2027')");
   await ownerPool.query("delete from season where name <> '2026-2027'");
   await ownerPool.query("update season set car = 'Car 2026-2027', read_only = false where name = '2026-2027' and (car <> 'Car 2026-2027' or read_only)");
+  // the registry: its tables take fields, views, records, links, files and webhooks along, and the two
+  // one-row tables of settings, which start again empty
+  await ownerPool.query("truncate table reg_table, api_token, app_secret restart identity cascade");
+  await ownerPool.query("insert into reg_settings (id) values (1) on conflict do nothing");
+  await ownerPool.query("insert into role_sync (id) values (1) on conflict do nothing");
   await ownerPool.query("truncate table audit_log restart identity");
 }
 

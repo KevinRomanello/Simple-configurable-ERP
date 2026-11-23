@@ -72,7 +72,7 @@ export interface FundInput {
   vatRate: number | null;
   /** Funds of the same group can pay one line together; null = alone. */
   group: string | null;
-  /** A fund with no ceiling (ACTUAL only): it has no money behind it, pays everything and is never short. */
+  /** A fund with no ceiling: it has no money behind it, pays everything and is never short. */
   unlimited?: boolean;
 }
 

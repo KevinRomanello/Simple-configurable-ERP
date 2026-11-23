@@ -199,7 +199,7 @@ async function saveFigures(tx: Tx, lineId: number, phase: Phase, change: Figures
  * Replaces the funds that pay a line. They must work together: several funds only if they are in
  * the same group, never the team fund together with others (the team's own money cannot make up
  * for a fund that is not enough), a gift only alone (it covers everything) and never a sponsor
- * whose money goes into the bank. A fund with no ceiling only pays ACTUAL.
+ * whose money goes into the bank.
  */
 async function saveFunds(tx: Tx, figuresId: number, ids: number[], phase: Phase) {
   const found = ids.length > 0 ? await tx.select().from(fund).where(inArray(fund.id, ids)) : [];
@@ -211,9 +211,6 @@ async function saveFunds(tx: Tx, figuresId: number, ids: number[], phase: Phase)
   });
 
   for (const [index, f] of chosen.entries()) {
-    if (f.unlimited && phase === "estimate") {
-      throw invalid(`"${f.name}" has no limit: it exists only in ACTUAL, not in EXPECTED`);
-    }
     if (f.kind === "external" && f.type !== "fund" && chosen.length > 1) {
       throw invalid(`"${f.name}" covers the whole line: it cannot be combined with other funds`);
     }

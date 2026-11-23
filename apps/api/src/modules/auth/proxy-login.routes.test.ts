@@ -32,6 +32,22 @@ async function call(method: Method, url: string, headers: Record<string, string>
 const as = (email: string, extra: Record<string, string> = {}) => ({ "x-email": email, ...extra });
 const rowsOf = (email: string) => db.select().from(appUser).where(eq(appUser.email, email));
 
+describe("the public addresses of the registry", () => {
+  it("know nobody, whatever header comes: IT's proxy lets them through without its login", async () => {
+    await createUser({ email: "boss@team.test", role: "admin" });
+    const headers = as("boss@team.test");
+    // the admin makes a table and a form for the members (through the proxy, as usual)
+    expect((await call("POST", "/api/registry/tables", headers, { name: "Notes" })).status).toBe(201);
+    const form = await call("POST", "/api/registry/tables/Notes/views", headers, { name: "Note", type: "form", slug: "note", config: { form: { access: { kind: "members" }, mode: "create", fields: [{ fieldId: "Name" }] } } });
+    expect(form.status).toBe(201);
+    // a header that says "the admin" on a public address does not make anybody the admin
+    expect(await call("GET", "/api/registry/public/forms/note", headers)).toMatchObject({ status: 401, body: { code: "sign-in-needed" } });
+    expect((await call("POST", "/api/registry/public/forms/note", headers, { answers: { Name: "forged" } })).status).toBe(401);
+    // the same form, at the address behind the login, knows the admin
+    expect((await call("POST", "/api/registry/forms/by-slug/note", headers, { answers: { Name: "real" } })).status).toBe(200);
+  });
+});
+
 describe("who is signed in", () => {
   it("is nobody without the header, or with something that is not exactly one address", async () => {
     expect((await call("GET", "/api/me", {})).status).toBe(401);

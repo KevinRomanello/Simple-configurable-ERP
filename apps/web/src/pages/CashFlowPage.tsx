@@ -8,7 +8,7 @@ import { MonthlyInflows } from "../components/MonthlyInflows";
 import { ReceiveInflow } from "../components/ReceiveInflow";
 import { Cards, DataTable, Field, FormPanel, MoneyCard, PageHeader, Panel, type Column } from "../components/ui";
 import { date, moneyFromDecimal } from "../lib/format";
-import { useCanManageCash } from "../lib/season";
+import { useCanChangeInflows, useCanManageCash } from "../lib/season";
 import { useAction } from "../lib/useAction";
 
 const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
@@ -16,6 +16,7 @@ const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
 /** CASH FLOW: the money coming in and what is left after the team's spending, then the BANK balance (the order of the sheet). */
 export function CashFlowPage() {
   const canEdit = useCanManageCash();
+  const canChange = useCanChangeInflows();
   const [editingBank, setEditingBank] = useState(false);
   // a BANK that the register gives is not written here
   const fromRegister = useQuery({ queryKey: ["bank"], queryFn: api.bank }).data?.source === "register";
@@ -25,7 +26,7 @@ export function CashFlowPage() {
       <PageHeader
         title="CASH FLOW"
         description="Left value = BANK + inflows after the BANK date − the team's purchases and VAT after that date. The BANK is what the register holds in Cassa and Banca today, when the register has it; then an expected inflow is marked as received when the money arrives, and one that is late counts from the day after the BANK. An inflow of sponsorship owes 11% VAT, paid on the first day of the next quarter."
-        add={canEdit ? { label: "New inflow", form: (close) => <NewInflow fromRegister={fromRegister} onDone={close} /> } : undefined}
+        add={canChange ? { label: "New inflow", form: (close) => <NewInflow fromRegister={fromRegister} onDone={close} /> } : undefined}
         actions={
           canEdit && !fromRegister && (
             <Button variant="ghost" icon={faPen} onClick={() => setEditingBank(!editingBank)}>{editingBank ? "Close" : "Set BANK"}</Button>
@@ -134,6 +135,7 @@ function NewInflow({ fromRegister, onDone }: { fromRegister: boolean; onDone: ()
 function PhaseCashFlow({ phase }: { phase: Phase }) {
   const act = useAction();
   const canEdit = useCanManageCash();
+  const canChange = useCanChangeInflows();
   const inflows = useQuery({ queryKey: ["inflows", phase], queryFn: () => api.inflows(phase) });
   const view = useQuery({ queryKey: ["cashflow"], queryFn: api.cashFlow });
   const summary = view.data?.[phase].summary;
@@ -160,13 +162,15 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
       header: "",
       num: true,
       cell: (i) =>
-        canEdit &&
         i.source === "typed" && (
           <>
-            {phase === "estimate" && (i.cashEntryId === null
+            {/* receiving is the treasury's; the sponsors add and delete, but cannot delete what is already received */}
+            {canEdit && phase === "estimate" && (i.cashEntryId === null
               ? <IconButton icon={faCheck} label="Mark as received" onClick={() => setReceiving(i)} />
               : <IconButton icon={faRotateLeft} label="Not received" onClick={() => act(() => api.unreceiveInflow(i.id))} />)}
-            <IconButton icon={faTrash} label="Delete inflow" danger onClick={() => act(() => api.deleteInflow(i.id))} />
+            {canChange && (canEdit || i.cashEntryId === null) && (
+              <IconButton icon={faTrash} label="Delete inflow" danger onClick={() => act(() => api.deleteInflow(i.id))} />
+            )}
           </>
         ),
     },

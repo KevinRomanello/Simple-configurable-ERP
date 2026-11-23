@@ -144,8 +144,8 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
       ) : (
         <p className="muted">
           {gives === "unlimited"
-            ? "A fund with no limit has no sum of money: you buy with it in ACTUAL only, and CASH FROM shows how much was spent."
-            : "A sponsor that gives goods has no sum of money: nothing to add here."}
+            ? "A fund with no limit has no sum of money: you buy with it, and CASH FROM shows how much is expected to be spent (EXPECTED) and how much was spent (ACTUAL)."
+            : "A sponsor that gives goods has no sum of money: nothing to add here. CASH FROM shows how much is expected to be spent with it (EXPECTED) and how much was spent (ACTUAL)."}
         </p>
       )}
       <GroupSuggestions funds={funds.data ?? []} />

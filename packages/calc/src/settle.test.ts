@@ -52,7 +52,10 @@ describe("gifts", () => {
   it("a gift needs no contract and is never short", () => {
     const [p] = estimates(build([gift], [], [figures(1, 1000, { fundIds: [2] })]));
     expect(p!.shortCents).toBe(0);
-    expect(fundSummary(build([gift], [], []), "estimate")).toEqual([]);
+    // goods have no sum of money: the summary lists them with what is spent (nothing yet) and no total
+    expect(fundSummary(build([gift], [], []), "estimate")).toEqual([
+      { fundId: 2, name: "Sponsor 2", totalContractCents: null, outflowCents: 0, vatCents: 0, leftCents: null },
+    ]);
   });
 });
 

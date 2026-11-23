@@ -71,6 +71,14 @@ export async function canManageCash(user: User): Promise<boolean> {
   return user.role === "admin" || (user.role === "pm" && user.treasury);
 }
 
+/**
+ * Adding and deleting the inflows of CASH FLOW: the treasury, and the sponsors too, because some inflows are the sponsors' money.
+ * Marking an inflow as received (it is tied to the register) and the BANK stay with the treasury (`canManageCash`).
+ */
+export async function canChangeInflows(user: User): Promise<boolean> {
+  return user.role === "admin" || (user.role === "pm" && (user.treasury || user.sponsors));
+}
+
 export function requireAdmin(user: User): void {
   if (user.role !== "admin") throw forbidden("Only an admin can do this");
 }
@@ -80,6 +88,7 @@ export function permissionsOf(user: User) {
   return {
     canEditShared: user.role === "admin" || (user.role === "pm" && user.sponsors),
     canManageCash: user.role === "admin" || (user.role === "pm" && user.treasury),
+    canChangeInflows: user.role === "admin" || (user.role === "pm" && (user.treasury || user.sponsors)),
     canManageSuppliers: runsProjects(user),
     canManageInventory: runsProjects(user),
     canViewHistory: runsProjects(user),

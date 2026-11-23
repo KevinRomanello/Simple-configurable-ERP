@@ -57,10 +57,14 @@ describe("who can use the register", () => {
     expect((await as.put(`/api/funds/${sponsor.body.id}/contracts/estimate`, { amount: "1000" })).status).toBe(200);
     expect((await as.patch(`/api/funds/${sponsor.body.id}`, { name: "Acme 2" })).status).toBe(200);
     expect((await as.del(`/api/funds/${sponsor.body.id}`)).status).toBe(204);
-    expect((await as.post("/api/inflows", { phase: "estimate", sourceName: "Gala", amount: "100" })).status).toBe(403);
+    // some inflows are the sponsors' money: the sponsors box adds and deletes them; marking them received and the BANK stay with the treasury
+    const gala = await as.post("/api/inflows", { phase: "estimate", sourceName: "Gala", amount: "100" });
+    expect(gala.status).toBe(201);
+    expect((await as.del(`/api/inflows/${gala.body.id}`)).status).toBe(204);
     expect((await as.put("/api/bank", { amount: "100" })).status).toBe(403);
+    expect((await as.get("/api/inflows/receivable")).status).toBe(403);
     expect((await as.post("/api/projects", { areaCode: "sw", name: "X" })).status).toBe(403);
-    expect((await as.get("/api/me")).body.permissions).toMatchObject({ canEditShared: true, canManageCash: false, canManageInventory: true, canViewHistory: true });
+    expect((await as.get("/api/me")).body.permissions).toMatchObject({ canEditShared: true, canManageCash: false, canChangeInflows: true, canManageInventory: true, canViewHistory: true });
     // a project manager, with or without the treasury box, does not keep the sponsors unless the sponsors box is ticked
     expect((await api.as(TREASURER).post("/api/funds", { name: "Beta", vatRate: 22 })).status).toBe(403);
   });

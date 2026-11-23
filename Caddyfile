@@ -26,6 +26,21 @@
 		respond "Forbidden (your address: {remote_host})" 403
 	}
 
+	# The addresses the login proxy of IT lets through without its login (docs/produzione.md, A7): the public
+	# forms and views, and /ext/ for the services with a token (n8n, the bot). On these the header with the
+	# email is taken away, whatever the proxy does with it: there nobody is anybody, and /ext/ needs a token.
+	handle /api/registry/public/* {
+		reverse_proxy {$API_ADDRESS:api:3000} {
+			header_up -{$TRUSTED_EMAIL_HEADER:X-Email}
+		}
+	}
+	handle_path /ext/* {
+		rewrite * /api{uri}
+		reverse_proxy {$API_ADDRESS:api:3000} {
+			header_up -{$TRUSTED_EMAIL_HEADER:X-Email}
+		}
+	}
+
 	# The API sets its own security headers; here only the forwarding. API_ADDRESS (in .env) is where the
 	# API is on the Docker network: "api:3000" when the stack is started by docker-compose.prod.yml, or the
 	# container's own name ("erp-api:3000") when it was started another way.

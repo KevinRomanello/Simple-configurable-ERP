@@ -30,14 +30,20 @@ export function UsersPage() {
     change(user, { areaIds: on ? [...user.areaIds, areaId] : user.areaIds.filter((id) => id !== areaId) });
 
   const columns: Column<UserRow>[] = [
-    { key: "name", header: "NAME", cell: (u) => u.name, sort: (u) => u.name },
+    {
+      key: "name",
+      header: "NAME",
+      sort: (u) => u.name,
+      // the role of a person in the registry comes from there (Settings › Registry), not from this page
+      cell: (u) => <>{u.name}{u.managed && <span className="pill teal" title="Role, areas, boxes and Active come from the registry (Settings › Registry): change them there"> registry</span>}</>,
+    },
     { key: "email", header: "EMAIL", cell: (u) => u.email, sort: (u) => u.email },
     {
       key: "role",
       header: "ROLE",
       sort: (u) => u.role,
       cell: (u) => (
-        <select className="input small" value={u.role} aria-label={`Role of ${u.name}`} onChange={(e) => change(u, { role: e.target.value as Role })}>
+        <select className="input small" value={u.role} disabled={u.managed} aria-label={`Role of ${u.name}`} onChange={(e) => change(u, { role: e.target.value as Role })}>
           {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
         </select>
       ),
@@ -50,16 +56,16 @@ export function UsersPage() {
           <div className="area-boxes">
             {areas.data?.filter((area) => !area.derived).map((area) => (
               <label key={area.id} className="checkbox">
-                <input type="checkbox" checked={u.areaIds.includes(area.id)} onChange={(e) => toggleArea(u, area.id, e.target.checked)} />
+                <input type="checkbox" checked={u.areaIds.includes(area.id)} disabled={u.managed} onChange={(e) => toggleArea(u, area.id, e.target.checked)} />
                 {area.name}
               </label>
             ))}
             <label className="checkbox" title="The register of the team's money, and the BANK and the inflows of CASH FLOW">
-              <input type="checkbox" checked={u.treasury} aria-label={`${u.name} keeps the team's money (treasury)`} onChange={(e) => change(u, { treasury: e.target.checked })} />
+              <input type="checkbox" checked={u.treasury} disabled={u.managed} aria-label={`${u.name} keeps the team's money (treasury)`} onChange={(e) => change(u, { treasury: e.target.checked })} />
               <strong>Treasury</strong>
             </label>
             <label className="checkbox" title="The funds of the sponsors and their contracts (CASH FROM)">
-              <input type="checkbox" checked={u.sponsors} aria-label={`${u.name} keeps the sponsors`} onChange={(e) => change(u, { sponsors: e.target.checked })} />
+              <input type="checkbox" checked={u.sponsors} disabled={u.managed} aria-label={`${u.name} keeps the sponsors`} onChange={(e) => change(u, { sponsors: e.target.checked })} />
               <strong>Sponsors</strong>
             </label>
           </div>
@@ -73,7 +79,7 @@ export function UsersPage() {
       sort: (u) => (u.active ? 1 : 0),
       cell: (u) => (
         <label className="checkbox">
-          <input type="checkbox" checked={u.active} aria-label={`${u.name} is active`} onChange={(e) => change(u, { active: e.target.checked })} />
+          <input type="checkbox" checked={u.active} disabled={u.managed} aria-label={`${u.name} is active`} onChange={(e) => change(u, { active: e.target.checked })} />
           {u.active ? "yes" : "no"}
         </label>
       ),

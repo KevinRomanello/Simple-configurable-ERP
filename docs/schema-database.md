@@ -1,6 +1,6 @@
 # Com'è organizzato il database
 
-Le **34 tabelle** di PostgreSQL, disegnate. La fonte vera è [apps/api/src/db/schema.ts](../apps/api/src/db/schema.ts) (e le migrazioni in `apps/api/drizzle/`): se cambia lo schema, questo documento va aggiornato nello stesso lavoro. Per le regole di business di ogni area si vedano i documenti indicati in ogni sezione; per l'elenco in tabella e la descrizione di ogni colonna, [architettura.md](architettura.md) (Modello dati).
+Le **47 tabelle** di PostgreSQL, disegnate (34 dell'ERP e le 13 delle anagrafiche, sezione 6bis). La fonte vera è [apps/api/src/db/schema.ts](../apps/api/src/db/schema.ts) (e le migrazioni in `apps/api/drizzle/`): se cambia lo schema, questo documento va aggiornato nello stesso lavoro. Per le regole di business di ogni area si vedano i documenti indicati in ogni sezione; per l'elenco in tabella e la descrizione di ogni colonna, [architettura.md](architettura.md) (Modello dati).
 
 **Come leggere i diagrammi.** Ogni riquadro è una tabella con le colonne che contano (chiave `PK`, chiave esterna `FK`); le altre sono in `schema.ts`. Le linee sono le chiavi esterne con la loro cardinalità («zampa di gallina»):
 
@@ -13,7 +13,7 @@ Le **34 tabelle** di PostgreSQL, disegnate. La fonte vera è [apps/api/src/db/sc
 
 Esempio: `project ||--o{ budget_line` = un progetto ha zero o più voci, e una voce è di un solo progetto.
 
-## 1. La mappa: sei gruppi e i ponti fra loro
+## 1. La mappa: sette gruppi e i ponti fra loro
 
 Dentro un gruppo le tabelle sono unite da chiavi esterne (sezioni 2–6). **Fra i gruppi i ponti sono pochi**, ed è qui che si capisce cosa è collegato a cosa. Una linea tratteggiata è un collegamento **per nome** (un testo che deve coincidere con un elenco), non una chiave esterna (sezione 7).
 
@@ -25,6 +25,7 @@ flowchart LR
   inv["<b>Inventario</b><br/>inventory_item, item_type,<br/>item_type_param, item_param_value,<br/>item_image, item_datasheet,<br/>item_datasheet_file,<br/>stock_movement, component_part"]
   acc["<b>Accesso e storico</b><br/>app_user, user_area, audit_log"]
   set["<b>Impostazioni e liste</b><br/>category, category_field,<br/>vat_rate, unit, location, setting"]
+  ana["<b>Anagrafiche</b><br/>reg_table, reg_field, reg_view,<br/>reg_record, reg_link, reg_file,<br/>reg_webhook(_log), reg_comment,<br/>reg_settings, role_sync,<br/>app_secret, api_token"]
 
   fon -->|"season_id<br/>(fund, team_inflow, bank_snapshot)"| bud
   bud -->|"line_fund.fund_id<br/>chi paga una voce"| fon
@@ -35,6 +36,7 @@ flowchart LR
   inv -->|"item_datasheet.uploaded_by"| acc
   bud -.->|"per nome:<br/>category, aliquote"| set
   inv -.->|"per nome:<br/>category, unit, location"| set
+  ana -->|"reg_record.created_by / updated_by,<br/>reg_file.uploaded_by, api_token.user_id"| acc
 ```
 
 In parole, i cinque ponti che contano:
@@ -143,7 +145,7 @@ erDiagram
     fund_type type "fund, gift, gift_vat"
     numeric vat_rate "aliquota dello sponsor"
     text group_name "fondi dello stesso gruppo"
-    boolean unlimited "fondo senza limite: solo ACTUAL, niente contratti"
+    boolean unlimited "fondo senza limite: niente contratti"
   }
   fund_contract {
     integer id PK
@@ -456,6 +458,86 @@ erDiagram
 - `audit_log` **non ha chiavi esterne di proposito**: lo storico deve sopravvivere a tutto, anche a una riga cancellata o a una persona rimossa. `actor_id` vuoto = non una persona collegata (il seed, l'importer). Lo scrivono dei **trigger** del database nella stessa transazione della modifica: una modifica e la sua storia non possono divergere.
 - `setting` ha **una sola riga** (controllo `id = 1`).
 
+## 6bis. Anagrafiche (REGISTRY)
+
+Regole: [anagrafiche.md](anagrafiche.md). Le tabelle che le persone creano **non** sono tabelle del database: sono righe di `reg_table`, i loro campi righe di `reg_field`, i loro record righe di `reg_record` con i valori in `data` (JSONB, per id del campo). Così l'utente del database dell'API non ha bisogno di diritti sulla struttura e lo storico funziona da solo.
+
+```mermaid
+erDiagram
+  reg_table ||--o{ reg_field : "campi"
+  reg_table ||--o{ reg_view : "viste e moduli"
+  reg_table ||--o{ reg_record : "record"
+  reg_table ||--o{ reg_webhook : "webhook"
+  reg_webhook ||--o{ reg_webhook_log : "chiamate"
+  reg_field ||--o{ reg_link : "campo che possiede il collegamento"
+  reg_record ||--o{ reg_link : "record_id"
+  reg_record ||--o{ reg_link : "target_id"
+  reg_record ||--o{ reg_file : "allegati"
+  reg_record ||--o{ reg_comment : "commenti"
+  reg_field ||--o{ reg_file : "campo"
+  reg_table |o--o| reg_settings : "people_table_id"
+  reg_field |o--o| reg_settings : "email_field_id"
+  reg_view |o--o{ role_sync : "gruppi dei ruoli"
+  app_user ||--o{ api_token : "agisce come"
+  reg_table {
+    integer id PK
+    text name "unico senza maiuscole"
+    text section "il gruppo nel menù"
+    integer primary_field_id "il campo che dà il nome ai record"
+    jsonb access "le regole dei permessi"
+  }
+  reg_field {
+    integer id PK
+    integer table_id FK
+    text name "unico nella tabella"
+    text type
+    jsonb options "dipendono dal tipo"
+    boolean required
+    boolean unique_values
+  }
+  reg_view {
+    integer id PK
+    integer table_id FK
+    text name
+    text type "grid, form, gallery, kanban, calendar, timeline, map"
+    text slug "indirizzo di un modulo o di una vista pubblica"
+    jsonb config "filtro, ordinamenti, campi, gruppo, modulo"
+  }
+  reg_record {
+    integer id PK
+    integer table_id FK
+    jsonb data "i valori, per id del campo"
+    integer version "blocco ottimistico"
+    integer created_by FK
+    integer updated_by FK
+  }
+  reg_link {
+    integer id PK
+    integer field_id FK "il campo che possiede la coppia"
+    integer record_id FK
+    integer target_id FK
+    integer position
+  }
+  reg_file {
+    integer id PK
+    integer record_id FK
+    integer field_id FK
+    text name
+    text mime
+    bytea data "letto solo per aprire il file"
+  }
+```
+
+- `reg_table.primary_field_id` non è una chiave esterna (farebbe un anello con `reg_field`): la controlla il servizio.
+- I riferimenti dentro i JSONB (`access`, `options`, `config`: campi, gruppi, viste) li controlla il servizio a ogni modifica. Cancellare un campo pulisce viste e regole, ed è rifiutato finché un lookup, una formula, il nome dei record, una regola o le impostazioni lo usano.
+- `reg_settings` e `role_sync` hanno **una sola riga** (controllo `id = 1`), creata dalla migrazione.
+- `app_secret` tiene i segreti che il server si crea da sé (la chiave dei link personali dei moduli).
+- Migrazione `0036_registry_more.sql`:
+  - `reg_comment` ha `edited_at`, `resolved_at` e `resolved_by` (commenti modificati e risolti);
+  - `reg_webhook` ha `options` (jsonb: metodo, intestazioni, modello del corpo, campi, «quando»);
+  - il resto delle novità prese da NocoDB (tipi di campo, valori predefiniti, colori, password delle viste pubbliche) sta nei JSONB che c'erano già.
+- Migrazione `0037_registry_map.sql`: `reg_view.type` ammette anche `map`.
+
 ## 7. Collegamenti che non sono chiavi esterne
 
 Alcuni elenchi si scrivono **come testo** nelle altre tabelle e si controllano nei servizi, non nel database. Succede perché nacquero come valori del codice (regola 4 di `CLAUDE.md`) e poi diventarono tabelle.
@@ -470,6 +552,7 @@ Alcuni elenchi si scrivono **come testo** nelle altre tabelle e si controllano n
 | `audit_log.actor_id` | chi ha scritto | `app_user.id` (nessuna chiave) |
 | `audit_log.table_name` + `row_id` | quale riga è cambiata | qualunque tabella |
 | `cash_opening.year` + `account` | l'anno e il conto del saldo | gli anni e i conti dei movimenti |
+| `reg_record.data`, `reg_view.config`, `reg_table.access`, `reg_field.options` | id di campi, viste, tabelle, webhook | `reg_field.id`, `reg_view.id`, `reg_table.id`, `reg_webhook.id` (anagrafiche.md, §3) |
 
 Conseguenza pratica: rinominare una **categoria** o un'**unità** in Settings aggiorna anche le righe e gli articoli che la usano (lo fa il servizio); una **categoria o unità in uso** non si cancella; un **posto** non cambia codice, quindi si può rinominare senza toccare i movimenti.
 
@@ -496,7 +579,7 @@ Oltre alle chiavi esterne, il database dice no a:
 
 ## 9. Cosa è nello storico
 
-I trigger `audit_row()` scrivono in `audit_log` ogni inserimento, modifica e cancellazione di **30 tabelle su 34**: tutto ciò che cambia soldi, budget, registro, liste, utenti e inventario. **Non** ci sono: `audit_log` stessa, `area` (le aree non cambiano) e i due file binari `item_image` e `item_datasheet_file` (la descrizione della scheda dati sì, `item_datasheet`).
+I trigger `audit_row()` scrivono in `audit_log` ogni inserimento, modifica e cancellazione di **40 tabelle su 47**: tutto ciò che cambia soldi, budget, registro, liste, utenti, inventario e anagrafiche. **Non** ci sono: `audit_log` stessa, `area` (le aree non cambiano), i file binari `item_image`, `item_datasheet_file` e `reg_file` (la descrizione della scheda dati sì, `item_datasheet`; gli id dei file di un record sono nel suo `data`), `reg_webhook_log` (un registro delle chiamate) e `app_secret` (un segreto non va in una pagina). Le righe delle anagrafiche, dei token e di `role_sync` la pagina History le mostra solo agli admin (anagrafiche.md, §7.1).
 
 ## 10. Tipi enumerati
 
