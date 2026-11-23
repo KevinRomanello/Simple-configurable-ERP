@@ -56,7 +56,7 @@ export function EmptyRow({ colSpan, children }: { colSpan: number; children: Rea
  * each row is a card (`phone="scroll"` keeps the table, scrolling sideways). With `reorder` the rows
  * (their `rowKey` must be a number) have a handle, in a first column, to drag them into another order.
  */
-export function DataTable<T>({ title, columns, rows, rowKey, rowClass, empty, footer, initialSort = null, className, phone = "cards", reorder }: {
+export function DataTable<T>({ title, columns, rows, rowKey, rowClass, empty, footer, initialSort = null, className, phone = "cards", reorder, listed = true }: {
   title: string;
   columns: Column<T>[];
   rows: T[] | undefined;
@@ -69,6 +69,8 @@ export function DataTable<T>({ title, columns, rows, rowKey, rowClass, empty, fo
   className?: string;
   phone?: "cards" | "scroll";
   reorder?: Reorder<T>;
+  /** False for a table of work (the fields of a registry table): it is not on the Download list of the page. */
+  listed?: boolean;
 }) {
   const sort = useSort<T>(Object.fromEntries(columns.filter((c) => c.sort).map((c) => [c.key, c.sort!])), initialSort);
   const shown = sort.sorted(rows ?? []);
@@ -79,7 +81,7 @@ export function DataTable<T>({ title, columns, rows, rowKey, rowClass, empty, fo
   const columnClass = (c: Column<T>) =>
     classes(c.num && "num", c.className, c.key === titleKey && "cell-title", c.mobile === "hidden" && "cell-hidden");
   return (
-    <TableBox title={title} cards={phone === "cards"}>
+    <TableBox title={title} cards={phone === "cards"} listed={listed}>
       <Table className={classes(phone === "cards" && "phone-cards", className)}>
         <thead>
           <tr>

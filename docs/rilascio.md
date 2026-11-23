@@ -195,3 +195,18 @@ Per la prova con Google (provata prima) ho usato un file di appoggio **fuori dal
 ## 8. Dopo
 
 Restano le attività di [produzione.md](produzione.md) che non riguardano le immagini: preparare il server, farsi dare da IT gli indirizzi del proxy, il backup automatico fuori dal server e il suo ripristino provato, il responsabile del server.
+
+## 9. Dalle anagrafiche in poi: cosa c'è di diverso (23 novembre 2026)
+
+**La procedura è la stessa** (§2 per fare il rilascio, §3 la prima volta, §5 per aggiornare) e **non c'è nessuna variabile nuova** nel `.env`. Le immagini includono già `packages/registry` (`Dockerfile.prod` lo copia nell'API e nel sito) e le librerie nuove del sito (codici QR e a barre, Excel) entrano da sole dal `pnpm-lock.yaml`: non c'è niente da ricostruire a mano, quella è solo una cosa dello sviluppo locale. Il passo `setup` applica da solo le migrazioni `0033`–`0039` prima che l'API riparta.
+
+Quello che va saputo:
+
+1. **Backup prima**, come sempre (§5, punto 1), perché due migrazioni cambiano dati esistenti: la `0038` **mette `TBD` come marca e modello a tutti gli articoli già in inventario** (da cambiare a mano) e sostituisce l'unicità del nome con quella di nome, marca e modello ([inventario.md](inventario.md), §22). Le altre aggiungono tabelle e non toccano niente di quello che c'è.
+2. **Le anagrafiche partono accese e vuote.** Chi è admin le vede subito nel menù. Se non si vuole usarle ancora, dopo il primo accesso: Settings › App › Modules › Registry › **Off**; spente non compaiono nel sito e le loro API rispondono 404 ([moduli.md](moduli.md)).
+3. **IT deve aggiungere le regole del proxy** (A7 di [produzione.md](produzione.md)) **solo se** si vogliono i moduli pubblici o i servizi con un token (n8n, il bot): `/forms/`, `/assets/`, `/api/registry/public/` e `/ext/` senza il login. Senza, tutto il resto funziona e i moduli si compilano solo da chi è entrato.
+4. **Uscite dal server:** la vista mappa scarica le mattonelle da `tile.openstreetmap.org` (HTTPS in uscita; senza, la mappa mostra i punti senza sfondo) e i webhook chiamano l'indirizzo di n8n.
+5. **«Roles from the registry» resta spento** finché i gruppi del registro non sono pronti: acceso, cambia gli account dell'ERP a ogni modifica del registro (Settings › Registry).
+6. **I dati veri.** L'import da NocoDB non è stato fatto (il team ha detto «non ora»): in produzione le anagrafiche cominciano vuote. Se si porta in produzione una **copia del database di sviluppo** (§3, punto 3), arrivano anche le sue prove (le tabelle delle anagrafiche di prova, gli articoli di dimostrazione): meglio partire da un database vuoto, o dalla copia di quello vero.
+7. **Il segreto di firma dei link personali dei moduli** è nel database (`app_secret`, creato la prima volta che serve; i webhook hanno ognuno il suo segreto nella propria riga): un ripristino da copia lo porta con sé, e ricrearlo da zero rende non validi i link già mandati.
+

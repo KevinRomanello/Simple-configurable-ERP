@@ -1,8 +1,9 @@
-import { faArrowDown, faArrowUp, faCopy, faPen, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faCopy, faGripVertical, faPen, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import type { FormAccess, FormConfig, FormField, FormSet } from "@erp/registry";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { registry, type RegTable, type RegView } from "../../api/registry";
+import { useDragOrder } from "../../lib/useDragOrder";
 import { Button, IconButton } from "../../components/Button";
 import { Chips } from "../../components/Chips";
 import { SearchSelect } from "../../components/SearchSelect";
@@ -67,12 +68,8 @@ function FormEditor({ table, view, onDone }: { table: RegTable; view: RegView | 
   const accessValue = form.access.kind === "group" ? `group:${form.access.groupId}` : form.access.kind;
   const question = (i: number, change: Partial<FormField>) => set({ fields: form.fields.map((q, k) => (k === i ? { ...q, ...change } : q)) });
   const rule = (i: number, change: Partial<FormSet>) => set({ set: (form.set ?? []).map((s, k) => (k === i ? { ...s, ...change } : s)) });
-  const move = (i: number, by: number) => {
-    const list = [...form.fields];
-    const [q] = list.splice(i, 1);
-    list.splice(i + by, 0, q!);
-    set({ fields: list });
-  };
+  // the order of the questions is the handle of each one, as in every list (docs/stile-interfaccia.md, point 22)
+  const drag = useDragOrder(form.fields.map((q) => q.fieldId), (ids) => set({ fields: ids.map((id) => form.fields.find((q) => q.fieldId === id)!) }));
 
   const save = async () => {
     const config = { form };
@@ -128,13 +125,12 @@ function FormEditor({ table, view, onDone }: { table: RegTable; view: RegView | 
       {form.fields.map((q, i) => {
         const field = table.fields.find((f) => f.id === q.fieldId);
         return (
-          <div key={q.fieldId} className="rule stack tight">
+          <div key={q.fieldId} className={`rule stack tight ${drag.classOf(q.fieldId)}`.trim()} {...drag.boxProps(q.fieldId)}>
             <div className="inline-form">
+              {form.fields.length > 1 && <IconButton icon={faGripVertical} className="drag-handle" label={`Drag to move ${field?.name ?? "the question"} (or use the up and down arrow keys)`} {...drag.handle(q.fieldId)} />}
               <strong>{field?.name}</strong>
               <input className="input small" aria-label="Label" placeholder="Label (the name of the field)" value={q.label ?? ""} onChange={(e) => question(i, { label: e.target.value || undefined })} />
               <label className="checkbox"><input type="checkbox" checked={q.required ?? false} onChange={(e) => question(i, { required: e.target.checked })} /> Required</label>
-              {i > 0 && <IconButton icon={faArrowUp} label="Move up" onClick={() => move(i, -1)} />}
-              {i < form.fields.length - 1 && <IconButton icon={faArrowDown} label="Move down" onClick={() => move(i, 1)} />}
               <IconButton icon={faTrash} label="Remove the question" danger onClick={() => set({ fields: form.fields.filter((_, k) => k !== i) })} />
             </div>
             <input className="input small" aria-label="Help" placeholder="Help under the question" value={q.help ?? ""} onChange={(e) => question(i, { help: e.target.value || undefined })} />

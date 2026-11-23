@@ -1,11 +1,11 @@
-import { faArrowDown, faArrowUp, faClone, faCopy, faPen, faPlus, faStar, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faClone, faCopy, faPen, faPlus, faStar, faTrash } from "@fortawesome/free-solid-svg-icons";
 import type { AccessLevel, AccessRule, BarcodeFormat, ColorRule, DurationFormat, FieldOptions, FieldType, RollupFn } from "@erp/registry";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { registry, type RegField, type RegTable, type RegView, type Webhook, type WebhookOptions } from "../../api/registry";
 import { Button, IconButton } from "../../components/Button";
 import { Chips } from "../../components/Chips";
-import { Field, FormPanel, Panel, Table, TableScroll } from "../../components/ui";
+import { DataTable, Field, FormPanel, Panel, Table, TableScroll, type Column } from "../../components/ui";
 import { useMe } from "../../lib/auth";
 import { COMPUTED, FIELD_TYPE_LABELS, groupLevels, NEW_FIELD_TYPES } from "../../lib/registry";
 import { sheetAsCsv } from "../../lib/registrySheet";
@@ -46,44 +46,46 @@ export function ManagePanels({ table, view, tab, onTab }: { table: RegTable; vie
 function FieldsTab({ table }: { table: RegTable }) {
   const act = useAction();
   const [editing, setEditing] = useState<RegField | "new" | null>(null);
-  const move = (i: number, by: number) => {
-    const ids = table.fields.map((f) => f.id);
-    const [moved] = ids.splice(i, 1);
-    ids.splice(i + by, 0, moved!);
-    return act(() => registry.orderFields(table.id, ids));
-  };
+  const columns: Column<RegField>[] = [
+    {
+      key: "name",
+      header: "NAME",
+      cell: (f) => (
+        <>
+          {f.id === table.primaryFieldId && <span className="pill teal" title="Names the records">name</span>} {f.name}
+          {f.description && <div className="hint">{f.description}</div>}
+        </>
+      ),
+    },
+    { key: "type", header: "TYPE", cell: (f) => <>{FIELD_TYPE_LABELS[f.type]}{f.type === "formula" && <div className="hint mono">{f.options.expression}</div>}</> },
+    { key: "rules", header: "RULES", cell: (f) => [f.required && "required", f.unique && "unique"].filter(Boolean).join(", ") },
+    {
+      key: "actions",
+      header: "",
+      className: "num nowrap",
+      cell: (f) => (
+        <>
+          <IconButton icon={faStar} label="Make it the name of the records" absent={f.id === table.primaryFieldId || ["attachment", "button", "json"].includes(f.type)} onClick={() => act(() => registry.updateTable(table.id, { primaryFieldId: f.id }))} />
+          <IconButton icon={faPen} label={`Change ${f.name}`} onClick={() => setEditing(f)} />
+          <IconButton icon={faClone} label={`Duplicate ${f.name}`} absent={["link", "uuid"].includes(f.type)} onClick={() => act(() => registry.duplicateField(f.id))} />
+          <IconButton icon={faTrash} label={`Delete ${f.name}`} danger onClick={() => window.confirm(`Delete ${f.name} and all its values?`) && act(() => registry.deleteField(f.id))} />
+        </>
+      ),
+    },
+  ];
   return (
     <Panel title="Fields" actions={<Button small icon={faPlus} onClick={() => setEditing("new")}>Add a field</Button>}>
       {editing && <FieldForm table={table} field={editing === "new" ? null : editing} onDone={() => setEditing(null)} />}
-      <TableScroll>
-        <Table>
-          <thead>
-            <tr><th>NAME</th><th>TYPE</th><th>RULES</th><th /></tr>
-          </thead>
-          <tbody>
-            {table.fields.map((f, i) => (
-              <tr key={f.id}>
-                <td>
-                  {f.id === table.primaryFieldId && <span className="pill teal" title="Names the records">name</span>} {f.name}
-                  {f.description && <div className="hint">{f.description}</div>}
-                </td>
-                <td>{FIELD_TYPE_LABELS[f.type]}{f.type === "formula" && <div className="hint mono">{f.options.expression}</div>}</td>
-                <td>{[f.required && "required", f.unique && "unique"].filter(Boolean).join(", ")}</td>
-                <td className="num nowrap">
-                  {i > 0 && <IconButton icon={faArrowUp} label="Move up" onClick={() => move(i, -1)} />}
-                  {i < table.fields.length - 1 && <IconButton icon={faArrowDown} label="Move down" onClick={() => move(i, 1)} />}
-                  {f.id !== table.primaryFieldId && !["attachment", "button", "json"].includes(f.type) && (
-                    <IconButton icon={faStar} label="Make it the name of the records" onClick={() => act(() => registry.updateTable(table.id, { primaryFieldId: f.id }))} />
-                  )}
-                  <IconButton icon={faPen} label={`Change ${f.name}`} onClick={() => setEditing(f)} />
-                  {!["link", "uuid"].includes(f.type) && <IconButton icon={faClone} label={`Duplicate ${f.name}`} onClick={() => act(() => registry.duplicateField(f.id))} />}
-                  <IconButton icon={faTrash} label={`Delete ${f.name}`} danger onClick={() => window.confirm(`Delete ${f.name} and all its values?`) && act(() => registry.deleteField(f.id))} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      </TableScroll>
+      {/* the order is the handle of the row, as in every list (docs/stile-interfaccia.md, point 22) */}
+      <DataTable
+        title="Fields"
+        columns={columns}
+        rows={table.fields}
+        rowKey={(f) => f.id}
+        phone="scroll"
+        listed={false}
+        reorder={{ label: (f) => f.name, onOrder: (ids) => act(() => registry.orderFields(table.id, ids)) }}
+      />
     </Panel>
   );
 }

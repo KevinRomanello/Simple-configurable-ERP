@@ -1,4 +1,4 @@
-import { faArrowUpRightFromSquare, faFileArrowDown, faGear, faLock, faPen, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faArrowUpRightFromSquare, faGear, faLock, faPen, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import type { Filter, Sort } from "@erp/registry";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -9,10 +9,12 @@ import { useParams, useSearchParams } from "react-router";
 import { registry, type RegField, type RegRecord, type RegTable, type RegView } from "../../api/registry";
 import { Button, IconButton } from "../../components/Button";
 import { Chips } from "../../components/Chips";
+import { useExportBlock, useProvideExportFormats } from "../../components/ExportBlocks";
 import { ValueInput, ValueView } from "../../components/registry/Values";
 import { Loading, Message, PageHeader, Panel } from "../../components/ui";
 import { COMPUTED, GRID_EDITABLE, groupLevels, recordsQuery, showValue, SUMMARIES } from "../../lib/registry";
-import { fileBase, saveFile } from "../../lib/export/files";
+import { downloadFromUrl, fileBase, saveFile } from "../../lib/export/files";
+import { makeCell } from "../../lib/export/table";
 import { recordsAsXlsx } from "../../lib/registrySheet";
 import { todayIso } from "../../lib/today";
 import { useAction } from "../../lib/useAction";
@@ -150,13 +152,42 @@ function TableView({ table }: { table: RegTable }) {
       }),
     );
 
-  // the files of what the person sees: CSV and JSON from the server, Excel made here, a calendar for a view of dates
+  // The Download button of the page (the same as in every page): the records on the screen as a PDF or an Excel file, like any
+  // table; and, as formats of the same panel, what only the registry gives: all the records of the view as CSV or JSON, a calendar
+  // for a view of dates, and an Excel file made to be imported again (headers in the first row, nothing else).
+  const exportable = shownFields.filter((f) => f.type !== "button");
+  useExportBlock({
+    title: table.name,
+    kind: "table",
+    element: () => document.querySelector(".registry-grid"),
+    collect: () =>
+      records.data && records.data.records.length > 0
+        ? {
+            kind: "table",
+            table: {
+              head: [exportable.map((f) => makeCell(f.name, { bold: true, fill: "head" }))],
+              body: records.data.records.map((r) =>
+                exportable.map((f) => {
+                  const numeric = ["number", "rating", "rollup", "autonumber"].includes(f.type);
+                  return makeCell(showValue(f, r.fields[f.name]), { numeric, align: numeric ? "right" : undefined });
+                }),
+              ),
+            },
+          }
+        : null,
+  });
   const downloadXlsx = async () => {
     const rows = await registry.exportJson(table.id, query);
     const columns = shownFields.map((f) => ({ name: f.name, numeric: ["number", "rating", "rollup", "autonumber"].includes(f.type) }));
     const blob = await recordsAsXlsx(table.name, columns, rows.map((r) => shownFields.map((f) => showValue(f, r.fields[f.name]))));
     saveFile(blob, `${fileBase(table.name, todayIso())}.xlsx`);
   };
+  useProvideExportFormats([
+    { id: "csv", label: "CSV", run: () => downloadFromUrl(registry.exportUrl(table.id, query)) },
+    { id: "json", label: "JSON", run: () => downloadFromUrl(registry.exportUrl(table.id, query, "json")) },
+    ...(view?.config.dateField !== undefined ? [{ id: "ics", label: "Calendar (.ics)", run: () => downloadFromUrl(registry.exportUrl(table.id, query, "ics")) }] : []),
+    { id: "xlsx-import", label: "Excel, to import again", run: async () => void (await act(downloadXlsx)) },
+  ]);
   const removeSelected = async () => {
     if (window.confirm(`Delete the ${selected.length} records chosen? Their links and files go with them.`) && (await act(() => registry.bulkDelete(table.id, selected)))) setTicked({});
   };
@@ -202,19 +233,14 @@ function TableView({ table }: { table: RegTable }) {
   );
 
   return (
-    <div className={open !== null ? "with-record" : undefined}>
+    // the blocks of the page one under the other with the space of every page (a plain div would take it away)
+    <div className={`stack${open !== null ? " with-record" : ""}`}>
       <PageHeader
         title={`${table.icon ? `${table.icon} ` : ""}${table.name}`}
         description={table.description || (table.section ? `Registry › ${table.section}` : "Registry")}
         actions={
           <>
             {records.data?.canCreate && <Button icon={faPlus} onClick={() => setOpen("new")}>New record</Button>}
-            <a className="btn ghost" href={registry.exportUrl(table.id, query)} download>
-              <FontAwesomeIcon icon={faFileArrowDown} /> CSV
-            </a>
-            <a className="btn ghost" href={registry.exportUrl(table.id, query, "json")} download>JSON</a>
-            <Button variant="ghost" onClick={() => act(downloadXlsx)}>Excel</Button>
-            {view?.config.dateField !== undefined && <a className="btn ghost" href={registry.exportUrl(table.id, query, "ics")} download>Calendar (.ics)</a>}
             {manages && <Button variant="ghost" icon={faGear} onClick={() => setManage(manage ? null : "fields")}>{manage ? "Close settings" : "Table settings"}</Button>}
           </>
         }

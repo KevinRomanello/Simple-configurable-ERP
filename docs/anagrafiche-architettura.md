@@ -153,4 +153,4 @@ Nel sito, `apps/web/src/lib/architecture.test.ts` verifica che le pagine usino d
 
 - **Proxy di IT.** Va configurato da IT: le quattro regole sono in produzione.md, A7. Tutto quello che dipende dall'ERP è fatto e provato: gli indirizzi pubblici anonimi, `/ext/` per i token, il Caddyfile.
 - **Import dei dati veri da NocoDB.** Il team ha deciso di rimandarlo: anagrafiche.md, §13bis.
-- **Migrazioni `0033`–`0037` e ricostruzione dell'immagine del sito.** Si applicano rilasciando (rilascio.md).
+- **Migrazioni `0033`–`0039`** (le anagrafiche, poi marca e modello dell'inventario e i moduli). Si applicano da sole rilasciando, e le immagini includono già le librerie nuove (rilascio.md).

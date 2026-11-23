@@ -57,7 +57,9 @@ Recharts disegna un SVG. `chart.ts` lo clona, ci scrive dentro gli stili calcola
 - **Una nuova tabella in una pagina**: si avvolge in `<TableBox title="Nome nel file">…</TableBox>` invece di `<div className="table-wrap">`.
 - **Un nuovo grafico**: si usa `BarsChart` o `LineChart`; non serve altro.
 - **Una nuova pagina**: si mette `<DownloadMenu />` in fondo all'intestazione (`<header className="page-header">`), dentro lo stesso `<div className="actions">` degli altri comandi della pagina.
-- **Un altro formato** (CSV…): si scrive una funzione `makeXxx(title, blocks): Promise<Blob>` accanto a `pdf.ts` e `xlsx.ts` e la si aggiunge alla scelta in `DownloadMenu`.
+- **Un altro formato per tutte le pagine** (un altro file fatto dalle tabelle della pagina): si scrive una funzione `makeXxx(title, blocks): Promise<Blob>` accanto a `pdf.ts` e `xlsx.ts` e la si aggiunge alla scelta in `DownloadMenu`.
+- **Un formato di una pagina sola** (23 novembre 2026): un file che solo quella pagina sa fare, come il CSV di **tutti** i record di una vista delle anagrafiche. La pagina lo aggiunge allo **stesso** pannello con `useProvideExportFormats([{ id, label, run }])` (`components/ExportBlocks.tsx`): compare accanto a PDF ed Excel, e scegliendolo l'elenco di cosa va nel file si spegne (il file lo fa tutto la pagina) e il pulsante dice «Download <nome>». Non si fa mai un pulsante a parte. La pagina di una tabella delle anagrafiche dà così **CSV**, **JSON**, **Calendar (.ics)** (se la vista ha una data) ed **Excel, to import again** (intestazioni nella prima riga e nient'altro, per l'import), oltre a PDF ed Excel dei record sullo schermo.
+- **Una tabella di lavoro** (i campi di una tabella delle anagrafiche) non va nell'elenco: `DataTable` con `listed={false}` (o `TableBox listed={false}`).
 
 ## 5. Prove
 

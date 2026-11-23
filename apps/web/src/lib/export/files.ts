@@ -25,6 +25,16 @@ export function fileBase(title: string, day: string): string {
   return `${slug || "export"}-${day}`;
 }
 
+/** Asks the browser to download what an address gives (a file the server makes). */
+export function downloadFromUrl(url: string) {
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "";
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
 /** Hands a file to the browser as a download. */
 export function saveFile(blob: Blob, name: string) {
   const link = document.createElement("a");

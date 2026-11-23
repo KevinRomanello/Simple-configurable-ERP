@@ -25,4 +25,10 @@ describe("the site and the engine of the registry", () => {
     const own = Object.entries(files).filter(([path, text]) => path !== "../components/Picture.tsx" && /<img(?![^>]*\bmap-tile\b)/.test(text)).map(([path]) => path);
     expect(own).toEqual([]);
   });
+
+  it("moves rows with the handle, never with arrows: the order of a list is its drag handle (DataTable reorder, useDragOrder)", () => {
+    // the arrows of sorting and of «open in a new tab» have other names (faSort…, faArrowUpRightFromSquare)
+    const arrows = Object.entries(files).filter(([, text]) => /\bfaArrow(Up|Down)\b|"Move (up|down)"/.test(text)).map(([path]) => path);
+    expect(arrows).toEqual([]);
+  });
 });

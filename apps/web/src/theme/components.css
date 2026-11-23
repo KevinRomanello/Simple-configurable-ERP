@@ -281,6 +281,10 @@
   background: var(--error-soft);
   color: var(--error-strong);
 }
+/* an action that does not apply to a row keeps its place, empty (IconButton `absent`) */
+.icon-btn.absent {
+  visibility: hidden;
+}
 
 /* --- Text input (Figma: label left, 1px border, radius 2px, 4px 8px) ---------------------- */
 .field {
@@ -453,16 +457,20 @@
   touch-action: none; /* a finger on the handle drags the project instead of scrolling the page */
   color: var(--text-soft);
 }
-.project-box.dragging {
+.project-box.dragging,
+.rule.dragging {
   opacity: 0.5;
 }
-.project-box.dragging .drag-handle {
+.project-box.dragging .drag-handle,
+.rule.dragging .drag-handle {
   cursor: grabbing;
 }
-.project-box.drop-before {
+.project-box.drop-before,
+.rule.drop-before {
   box-shadow: 0 -4px 0 0 var(--primary-default);
 }
-.project-box.drop-after {
+.project-box.drop-after,
+.rule.drop-after {
   box-shadow: 0 4px 0 0 var(--primary-default);
 }
 /* a row of a table: the handle's own narrow column, the row in hand faded, the line on the cells above or below */
@@ -1334,7 +1342,8 @@ textarea.input {
 }
 .download-formats {
   display: flex;
-  gap: var(--space-m);
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-m);
   padding-top: var(--space-xs);
   border-top: 1px solid var(--stroke-sub);
 }

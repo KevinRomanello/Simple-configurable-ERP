@@ -453,7 +453,7 @@ Non c'è un disegno su Figma per queste pagine: usano i token e i componenti che
 - **Pagina di una tabella**:
   - le viste come schede (griglia, galleria, kanban, calendario, timeline);
   - la barra con Filter (anche «is within» e «le righe che non corrispondono»), Sort, Fields, Group (fino a cinque livelli), Summary (i riepiloghi), la ricerca, «New record»;
-  - i download CSV, JSON, Excel e, per un calendario o una timeline, il calendario `.ics`.
+  - **un solo pulsante Download**, come in ogni pagina (PDF ed Excel dei record sullo schermo), che ha come formati in più **CSV**, **JSON**, **Calendar (.ics)** (se la vista ha una data) ed **Excel, to import again**: [download.md](download.md), §4. Nell'intestazione restano «New record», «Table settings» e Download;
 
   La griglia si modifica sul posto per i tipi semplici, colora le righe e ferma le prime colonne come dice la vista. Si scelgono più righe per cambiare un campo in tutte o cancellarle. Una riga (o una scheda) si apre a lato con:
   - tutti i campi, i collegamenti (con la scelta dei record), gli allegati e i pulsanti;

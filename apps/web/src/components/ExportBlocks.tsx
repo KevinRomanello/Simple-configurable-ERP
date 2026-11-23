@@ -17,45 +17,89 @@ export interface ExportBlock {
   collect: () => Collected | null;
 }
 
+/**
+ * A file the page can give besides the PDF and the Excel file of what is on the screen: made by the page itself (the CSV of all the
+ * records of a view, a calendar). It is a format of the same Download button, not a button of its own.
+ */
+export interface ExportFormat {
+  id: string;
+  label: string;
+  /** Makes the file and hands it to the browser. */
+  run: () => Promise<void> | void;
+}
+
 interface Registry {
   register: (block: ExportBlock) => () => void;
+  registerFormats: (owner: string, formats: ExportFormat[]) => () => void;
 }
 
 const BlocksContext = createContext<ExportBlock[]>([]);
+const FormatsContext = createContext<ExportFormat[]>([]);
 const RegisterContext = createContext<Registry["register"]>(() => () => {});
+const RegisterFormatsContext = createContext<Registry["registerFormats"]>(() => () => {});
 
-/** Collects the blocks of the page that is open. */
+/** Collects the blocks and the extra formats of the page that is open. */
 export function ExportProvider({ children }: { children: ReactNode }) {
   const [blocks, setBlocks] = useState<ExportBlock[]>([]);
+  const [owned, setOwned] = useState<{ owner: string; formats: ExportFormat[] }[]>([]);
   const [register] = useState<Registry["register"]>(() => (block: ExportBlock) => {
     setBlocks((current) => [...current.filter((b) => b.id !== block.id), block]);
     return () => setBlocks((current) => current.filter((b) => b.id !== block.id));
   });
+  const [registerFormats] = useState<Registry["registerFormats"]>(() => (owner: string, formats: ExportFormat[]) => {
+    setOwned((current) => [...current.filter((o) => o.owner !== owner), { owner, formats }]);
+    return () => setOwned((current) => current.filter((o) => o.owner !== owner));
+  });
+  const formats = owned.flatMap((o) => o.formats);
   return (
     <RegisterContext.Provider value={register}>
-      <BlocksContext.Provider value={blocks}>{children}</BlocksContext.Provider>
+      <RegisterFormatsContext.Provider value={registerFormats}>
+        <BlocksContext.Provider value={blocks}>
+          <FormatsContext.Provider value={formats}>{children}</FormatsContext.Provider>
+        </BlocksContext.Provider>
+      </RegisterFormatsContext.Provider>
     </RegisterContext.Provider>
   );
 }
 
 export const useExportBlocks = () => useContext(BlocksContext);
+export const useExportFormats = () => useContext(FormatsContext);
 
-/** Puts a part of the page on the list of what can be downloaded, for as long as it is on the page. */
-export function useExportBlock(block: Omit<ExportBlock, "id">) {
+/** Adds formats to the Download button of the page, for as long as the page that calls this is there. */
+export function useProvideExportFormats(formats: ExportFormat[]) {
+  const owner = useId();
+  const register = useContext(RegisterFormatsContext);
+  const latest = useRef(formats);
+  latest.current = formats; // `run` is always the one of the last drawing
+  const key = formats.map((f) => `${f.id}:${f.label}`).join("|");
+  useEffect(
+    () => register(owner, formats.map((f) => ({ id: f.id, label: f.label, run: () => latest.current.find((x) => x.id === f.id)?.run() }))),
+    // only the ids and the labels decide what is registered: `run` is read from `latest` when it is used
+    [owner, key, register],
+  );
+}
+
+/**
+ * Puts a part of the page on the list of what can be downloaded, for as long as it is on the page. `listed: false`: it is
+ * not on the list (a table of work, such as the fields of a registry table, is not something to download).
+ */
+export function useExportBlock(block: Omit<ExportBlock, "id">, listed = true) {
   const id = useId();
   const latest = useRef(block);
   latest.current = block;
   const register = useContext(RegisterContext);
   useEffect(
     () =>
-      register({
-        id,
-        title: block.title,
-        kind: block.kind,
-        element: () => latest.current.element(),
-        collect: () => latest.current.collect(),
-      }),
-    [id, block.title, block.kind, register],
+      listed
+        ? register({
+            id,
+            title: block.title,
+            kind: block.kind,
+            element: () => latest.current.element(),
+            collect: () => latest.current.collect(),
+          })
+        : undefined,
+    [id, block.title, block.kind, register, listed],
   );
 }
 
@@ -77,8 +121,8 @@ function labelCells(table: HTMLTableElement) {
   }
 }
 
-/** A table of the page (the box with the scroll bar around it), downloadable under `title`; `cards`: one card per row on a phone. */
-export function TableBox({ title, children, className = "", cards = false }: { title: string; children: ReactNode; className?: string; cards?: boolean }) {
+/** A table of the page (the box with the scroll bar around it), downloadable under `title` (`listed: false`: not on the Download list); `cards`: one card per row on a phone. */
+export function TableBox({ title, children, className = "", cards = false, listed = true }: { title: string; children: ReactNode; className?: string; cards?: boolean; listed?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
   // only where the cards are shown (a long list on a computer does not need it), after every drawing:
   // rows and columns may have changed
@@ -87,15 +131,18 @@ export function TableBox({ title, children, className = "", cards = false }: { t
     const table = box.current?.querySelector("table");
     if (asCards && table) labelCells(table);
   });
-  useExportBlock({
-    title,
-    kind: "table",
-    element: () => box.current,
-    collect: () => {
-      const table = box.current?.querySelector("table");
-      return table ? { kind: "table", table: tableFromDom(table) } : null;
+  useExportBlock(
+    {
+      title,
+      kind: "table",
+      element: () => box.current,
+      collect: () => {
+        const table = box.current?.querySelector("table");
+        return table ? { kind: "table", table: tableFromDom(table) } : null;
+      },
     },
-  });
+    listed,
+  );
   return (
     <div ref={box} className={`table-wrap${cards ? " as-cards" : ""} ${className}`.trim()}>
       {children}

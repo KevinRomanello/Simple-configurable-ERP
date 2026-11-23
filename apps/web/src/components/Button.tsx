@@ -23,12 +23,14 @@ interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon: IconDefinition;
   label: string;
   danger?: boolean;
+  /** The action does not apply to this row: its place stays empty, so that the icons of every row line up. */
+  absent?: boolean;
 }
 
-export function IconButton({ icon, label, danger, className, ...rest }: IconButtonProps) {
-  const classes = ["icon-btn", danger ? "danger" : "", className ?? ""];
+export function IconButton({ icon, label, danger, absent, className, ...rest }: IconButtonProps) {
+  const classes = ["icon-btn", danger ? "danger" : "", absent ? "absent" : "", className ?? ""];
   return (
-    <button type="button" className={classes.filter(Boolean).join(" ")} title={label} aria-label={label} {...rest}>
+    <button type="button" className={classes.filter(Boolean).join(" ")} title={label} aria-label={label} {...(absent ? { tabIndex: -1, "aria-hidden": true, disabled: true } : {})} {...rest}>
       <FontAwesomeIcon icon={icon} />
     </button>
   );
