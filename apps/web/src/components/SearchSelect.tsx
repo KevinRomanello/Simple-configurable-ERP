@@ -1,5 +1,6 @@
 import type { CustomCellEditorProps } from "ag-grid-react";
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
+import { scrollToReveal } from "../lib/listScroll";
 
 /** The width of the list of a grid cell, as in `.search-editor` (theme/components.css). */
 const EDITOR_WIDTH = 220;
@@ -16,17 +17,39 @@ function matching(choices: Choice[], query: string): Choice[] {
   return wanted === "" ? choices : choices.filter((c) => c.label.toLowerCase().includes(wanted));
 }
 
-/** The list under the box: the arrows move, Enter and a click choose. */
-function Options({ shown, active, value, onPick, onHover, listId }: {
+/** Scrolls the list (and only the list, not the page) by the least that shows its `index`-th option. */
+function reveal(list: HTMLElement, index: number) {
+  const option = list.children[index] as HTMLElement | undefined;
+  if (!option) return;
+  // the position inside the list's content: from the screen positions, because the option's offsetTop
+  // depends on which ancestor is positioned (the list is absolute in a form and static in a grid cell)
+  const top = option.getBoundingClientRect().top - list.getBoundingClientRect().top - list.clientTop + list.scrollTop;
+  list.scrollTop = scrollToReveal(list.scrollTop, list.clientHeight, top, top + option.offsetHeight);
+}
+
+/**
+ * The list under the box: the arrows move, Enter and a click choose. The highlighted option always stays in
+ * sight: when the arrows (or a new search) move it out of the visible part, the list scrolls to it.
+ */
+function Options({ shown, active, query, value, onPick, onHover, listId }: {
   shown: Choice[];
   active: number;
+  query: string;
   value: string;
   onPick: (choice: Choice) => void;
   onHover: (index: number) => void;
   listId: string;
 }) {
+  const list = useRef<HTMLUListElement>(null);
+  // Set when the mouse moves the highlight: that option is under the pointer, so it is in sight, and scrolling
+  // would slide the options from under the pointer (the highlight would run down the list by itself).
+  const byMouse = useRef(false);
+  useEffect(() => {
+    if (byMouse.current) byMouse.current = false;
+    else if (list.current) reveal(list.current, active);
+  }, [active, query]);
   return (
-    <ul id={listId} role="listbox" className="search-list">
+    <ul id={listId} ref={list} role="listbox" className="search-list">
       {shown.map((c, i) => (
         <li
           key={c.value}
@@ -38,7 +61,13 @@ function Options({ shown, active, value, onPick, onHover, listId }: {
             e.preventDefault();
             onPick(c);
           }}
-          onMouseEnter={() => onHover(i)}
+          // mouse-move, not enter: when the list scrolls under a resting pointer the browser sends an "enter" for the
+          // option now beneath it, and the highlight would jump away from the one the arrows have just chosen
+          onMouseMove={() => {
+            if (i === active) return; // nothing changes, so no effect would run to clear the flag
+            byMouse.current = true;
+            onHover(i);
+          }}
         >
           {c.label || "—"}
         </li>
@@ -124,7 +153,7 @@ export function SearchSelect({ id, value, choices, onChange, disabled, label, cl
           } else onKey(e);
         }}
       />
-      {open && <Options shown={shown} active={active} value={value} onPick={pick} onHover={setActive} listId={listId} />}
+      {open && <Options shown={shown} active={active} query={query} value={value} onPick={pick} onHover={setActive} listId={listId} />}
     </div>
   );
 }
@@ -173,7 +202,7 @@ export function SearchSelectEditor({ value, values, onValueChange, stopEditing, 
         }}
         onKeyDown={onKey}
       />
-      <Options shown={shown} active={active} value={String(value ?? "")} onPick={pick} onHover={setActive} listId={listId} />
+      <Options shown={shown} active={active} query={query} value={String(value ?? "")} onPick={pick} onHover={setActive} listId={listId} />
     </div>
   );
 }

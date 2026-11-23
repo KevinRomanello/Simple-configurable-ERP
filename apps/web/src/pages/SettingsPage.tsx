@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Navigate, NavLink, useParams } from "react-router";
 import { api } from "../api/client";
@@ -18,13 +18,15 @@ import { CashListsPanel } from "./CashListsPanel";
 import { ItemTypesPanel } from "./ItemTypesPanel";
 import { RegistrySettings } from "./registry/RegistrySettings";
 import { SeasonsPanel } from "./SeasonsPanel";
+import { TokensPanel } from "./TokensPanel";
 
 const FIELDS: ItemField[] = ["purpose", "safetyCodes", "disposal", "storageNotes", "maintenanceNotes"];
 
 /**
  * Settings, a section at a time (docs/impostazioni.md): the budget (seasons, the switches of the calculation, VAT rates; admins),
  * the inventory (categories, types, units, places; admins and users), the register of the treasury (the Voci and the payment
- * methods; admins and users with the treasury box) and how the site looks (everyone). Each section has its address
+ * methods; admins and users with the treasury box) and the App (how the site looks, for everyone; the switches of the site and
+ * the modules, for admins). Each section has its address
  * (`/settings/budget`…), and a person sees only the sections they can use. A change applies at once to every page and goes
  * into the history. Not designed in Figma: built from the models of the interface (the pills of the other pages as tabs).
  */
@@ -32,7 +34,7 @@ export function SettingsPage() {
   const me = useMe();
   const { canManageSettings, canManageInventory, canManageCash } = me.permissions;
   const view = useQuery({ queryKey: ["settings"], queryFn: api.settings, enabled: canManageSettings || canManageInventory });
-  const allowed = settingsSections({ canManageSettings, canManageInventory, canManageCash });
+  const allowed = settingsSections({ canManageSettings, canManageInventory, canManageCash }, me.modules);
   const asked = useParams().section;
   const section = currentSection(allowed, asked);
 
@@ -77,10 +79,12 @@ export function SettingsPage() {
       )}
       {section === "register" && <CashListsPanel />}
       {section === "registry" && <RegistrySettings />}
-      {section === "appearance" && (
+      {section === "app" && (
         <>
           <AppearancePanel />
           {canManageSettings && <PhonePanel />}
+          {canManageSettings && <ModulesPanel />}
+          {canManageSettings && <TokensPanel />}
         </>
       )}
     </>
@@ -105,6 +109,36 @@ function AppearancePanel() {
         on another computer or phone you choose again.
       </p>
       <Chips label="Theme" options={THEMES} value={theme} onChange={setTheme} />
+    </Panel>
+  );
+}
+
+/**
+ * The parts of the ERP that can be turned off (admins): one that is off is not shown anywhere, in the menu, in the pages or in
+ * the settings, and its addresses answer «not found»; what it keeps stays where it is, until it is turned on again (docs/moduli.md).
+ */
+function ModulesPanel() {
+  const act = useAction();
+  const queryClient = useQueryClient();
+  const modules = useQuery({ queryKey: ["modules"], queryFn: api.modules });
+  if (!modules.data) return <Loading />;
+  // the menu and the pages read what is on from «me»: it is read again when a switch is turned
+  const turn = async (key: string, enabled: boolean) => {
+    if (await act(() => api.setModule(key, enabled))) await Promise.all([queryClient.invalidateQueries({ queryKey: ["modules"] }), queryClient.invalidateQueries({ queryKey: ["me"] })]);
+  };
+  return (
+    <Panel title="Modules">
+      <p className="muted">
+        The parts of the ERP that can be turned off. A module that is <strong>Off</strong> does not appear in the menu or anywhere else, and nothing can reach it (not even the keys of the services): what it
+        keeps is not touched, and everything comes back when it is turned on again.
+      </p>
+      {modules.data.map((m) => (
+        <div key={m.key} className="stack tight">
+          <strong>{m.label}</strong>
+          <p className="muted">{m.description}</p>
+          <Chips label={`${m.label} module`} options={[{ value: "on", label: "On" }, { value: "off", label: "Off" }]} value={m.enabled ? "on" : "off"} onChange={(value) => void turn(m.key, value === "on")} />
+        </div>
+      ))}
     </Panel>
   );
 }

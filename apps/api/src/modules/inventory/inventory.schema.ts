@@ -23,6 +23,9 @@ const paramValue = z.object({ paramId: id, value: z.union([z.boolean(), z.string
 const itemFields = {
   code: shortText(50).nullable(),
   name: shortText(),
+  /** The make and the model, as on a line of the budget: free text, an empty one means nothing. With the name they say which item it is. */
+  brand: optionalText(200),
+  model: optionalText(200),
   purpose: optionalText(),
   category: lookupCode.nullable(),
   areaId: id.nullable(),
@@ -47,6 +50,8 @@ const itemFields = {
 export const createItemInput = z.object({
   ...itemFields,
   code: itemFields.code.default(null),
+  brand: itemFields.brand.default(null),
+  model: itemFields.model.default(null),
   purpose: itemFields.purpose.default(null),
   category: itemFields.category.default(null),
   areaId: itemFields.areaId.default(null),

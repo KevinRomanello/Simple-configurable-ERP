@@ -54,4 +54,14 @@ describe("the boundaries of the modules", () => {
     const others = sources("apps/api/src/modules").filter((f) => !/\/modules\/(registry|rolesync)\//.test(f.file));
     expect(offending(others, (target) => target.includes("registry") || target === "@erp/registry")).toEqual([]);
   });
+
+  it("the switch of the modules knows no module, only their addresses (it needs just who is signing in: auth)", () => {
+    expect(offending(sources("apps/api/src/modules/appmodules"), (target) => /^\.\.\/(?!auth\/)[a-z-]+\//.test(target))).toEqual([]);
+  });
+
+  it("only app.ts, the sign-in (who knows what is on) and the bridge to the registry use the switch of the modules", () => {
+    const others = sources("apps/api/src").filter((f) => !f.file.includes("/modules/appmodules/") && !f.file.endsWith("src/app.ts"));
+    const allowed = ["apps/api/src/modules/auth/auth.routes.ts", "apps/api/src/modules/rolesync/rolesync.service.ts"];
+    expect(offending(others, (target, file) => target.includes("appmodules") && !allowed.includes(file))).toEqual([]);
+  });
 });

@@ -4,16 +4,16 @@
 
 ## 1. Come è ordinata la pagina (16 novembre 2026)
 
-La pagina non è più una colonna di undici riquadri: ha **quattro sezioni**, una alla volta, con le schede in cima e un **indirizzo** per ciascuna (`/settings/budget`, `/settings/inventory`, `/settings/register`, `/settings/appearance`). Ognuno vede **solo le schede che può usare**; `/settings` (o un indirizzo che non è suo) porta alla **prima sezione sua**.
+La pagina non è più una colonna di undici riquadri: ha **cinque sezioni** (le quattro di sotto più **Registry**, delle anagrafiche, che c'è solo a modulo acceso), una alla volta, con le schede in cima e un **indirizzo** per ciascuna (`/settings/budget`, `/settings/inventory`, `/settings/register`, `/settings/app`; l'indirizzo vecchio `/settings/appearance` porta a quest'ultimo). Ognuno vede **solo le schede che può usare**; `/settings` (o un indirizzo che non è suo) porta alla **prima sezione sua**.
 
 | Sezione | Riquadri, in ordine | Chi la vede |
 | --- | --- | --- |
 | **Budget** | Seasons and cars, Calculation, VAT rates | admin |
 | **Inventory** | Categories, Item types, Units, Places | admin e pm («User») |
 | **Register** | Register: Voci, Register: payment methods, Voce of a payment by budget category | admin e pm con la spunta **Treasury** |
-| **Appearance** | il tema chiaro o scuro; per gli **admin**, anche «Editing on a phone» (§2) | il tema a tutti, anche al viewer; l'interruttore agli admin |
+| **App** (si chiamava Appearance, 23 novembre 2026) | il tema chiaro o scuro; per gli **admin**, anche «Editing on a phone» (§2) **Modules** (gli interruttori dei moduli, [moduli.md](moduli.md)) e **API tokens** con gli account dei servizi | il tema a tutti, anche al viewer; gli interruttori agli admin |
 
-- Un **pm** vede Inventory (e Register con Treasury) più Appearance; un **viewer** vede solo Appearance, senza schede.
+- Un **pm** vede Inventory (e Register con Treasury) più App; un **viewer** vede solo App, senza schede.
 - **Categories** sta in Inventory (ci lavorano i pm e i tipi ne dipendono) ma vale **anche per il budget**: i blocchi di TOTAL e del Gantt seguono il suo ordine, e il riquadro lo dice.
 - **L'ordine delle liste** (Categories, Places, Register: Voci, Register: payment methods e i parametri di un tipo) si cambia **trascinando la maniglia a sei puntini** a sinistra della riga, come per i progetti del budget (dal 18 novembre 2026; prima c'erano le frecce ↑↓): una linea gialla dice dove cade la riga e al rilascio l'ordine si salva sul server. Con la maniglia selezionata da tastiera, le frecce su e giù spostano la riga di un posto. I parametri che vengono da un tipo padre non hanno la maniglia e restano in cima. Un clic sulla maniglia non fa niente.
 - Le schede sono i pulsanti a pillola delle altre pagine, fatti come link (`NavLink` con la classe `chip`): su Figma non c'è un riferimento per Settings. Sul telefono vanno a capo, la pagina non scorre di lato.
@@ -41,7 +41,7 @@ Regole comuni:
 
 ### Modificare dal telefono: «Editing on a phone» (16 novembre 2026)
 
-Dal telefono è facile toccare qualcosa per sbaglio. Un **interruttore degli admin, uguale per tutta la squadra** (Settings › Appearance, riquadro «Editing on a phone», **On** / **Off**), decide se dal telefono si può modificare il sito.
+Dal telefono è facile toccare qualcosa per sbaglio. Un **interruttore degli admin, uguale per tutta la squadra** (Settings › App, riquadro «Editing on a phone», **On** / **Off**), decide se dal telefono si può modificare il sito.
 
 - **On** (di partenza): non cambia niente. **Off**: su uno **schermo fino a 767 px** (la soglia del layout «telefono») il sito è **di sola lettura per tutti, admin compresi**. Spariscono i pulsanti «Add…», le caselle modificabili, i cestini, Undo, «Make new», arrivi, usi, pagamenti e i comandi di Settings e Users; restano la ricerca, i filtri, le schede, i download, la cronologia e il tema. Su computer e tablet non cambia niente.
 - **Come:** il valore è `setting.edit_on_phone` (migrazione `0030_edit_on_phone.sql`, di partenza vero), lo cambia `PATCH /api/settings/site` `{ editOnPhone }` (solo admin: `403` a pm, tesoriere e viewer; nello storico come gli altri interruttori) e arriva a tutti dentro `GET /api/me` (`editOnPhone`: il viewer non può leggere `/api/settings`). Nel sito `useMe()` (`lib/auth.tsx`), con l'interruttore spento e un telefono, restituisce la persona **senza i permessi di scrittura** (`lockEditing`, `lib/permissions.ts`): le pagine non sanno niente, perché decidono già cosa mostrare da lì, e `canEditArea` dice no. Sul telefono compare l'etichetta **«Read only»** nella barra in alto, e Users e Settings dicono perché sono chiuse.

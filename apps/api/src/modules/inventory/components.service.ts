@@ -85,7 +85,7 @@ export async function listComponents(query: ComponentsQuery): Promise<ComponentR
       if (areaId !== null && r.areaId !== areaId) return false;
       if (ofTypes && (r.typeId === null || !ofTypes.has(r.typeId))) return false;
       if (query.project !== undefined && r.makeProjectId !== query.project) return false;
-      return needle ? [r.name, r.code, r.purpose].some((v) => v?.toLowerCase().includes(needle)) : true;
+      return needle ? [r.name, r.brand, r.model, r.code, r.purpose].some((v) => v?.toLowerCase().includes(needle)) : true;
     })
     .map((i) => {
       const cost = unitCost(i.id, ctx, query.method, query.on ?? today());

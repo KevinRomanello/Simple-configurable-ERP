@@ -78,6 +78,8 @@ function labelOf(table: string, row: Json): string {
       return [pick("site"), pick("room"), pick("shelf"), pick("level")].filter((part) => part !== "").join(" / ");
     case "setting":
       return "settings";
+    case "app_module":
+      return `module ${pick("key")}`;
     case "component_part":
       return `part ${String(row.part_id ?? "")} of item ${String(row.component_id ?? "")}`;
     case "item_param_value":

@@ -199,17 +199,6 @@ export interface RoleChange {
   changes: Record<string, { from: unknown; to: unknown }>;
 }
 
-export interface ApiTokenRow {
-  id: number;
-  name: string;
-  userId: number;
-  userEmail: string;
-  userName: string;
-  createdAt: string;
-  createdBy: string | null;
-  revokedAt: string | null;
-}
-
 export interface ImportResult {
   rows: number;
   create: number;
@@ -290,8 +279,4 @@ export const registry = {
   roleSync: () => http.get<RoleSync>("/role-sync"),
   setRoleSync: (body: Partial<RoleSync>) => http.put<RoleSync & { applied: number; warnings: string[] }>("/role-sync", body),
   previewRoleSync: (body: Partial<RoleSync>) => http.post<{ changes: RoleChange[]; warnings: string[] }>("/role-sync/preview", body),
-
-  tokens: () => http.get<ApiTokenRow[]>("/tokens"),
-  createToken: (name: string, userId: number) => http.post<{ id: number; name: string; token: string }>("/tokens", { name, userId }),
-  revokeToken: (id: number) => http.del(`/tokens/${id}`),
 };

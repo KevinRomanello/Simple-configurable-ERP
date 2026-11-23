@@ -39,8 +39,16 @@ export function ItemEditor({
   return (
     <div className="form-grid">
       <Field>
-        <label htmlFor={`${idPrefix}-name`}>Name</label>
+        <label htmlFor={`${idPrefix}-name`}>Item</label>
         <input id={`${idPrefix}-name`} className="input small" maxLength={200} value={draft.name} onChange={(e) => onChange({ name: e.target.value })} />
+      </Field>
+      <Field>
+        <label htmlFor={`${idPrefix}-brand`}>Brand</label>
+        <input id={`${idPrefix}-brand`} className="input small" maxLength={200} value={draft.brand} onChange={(e) => onChange({ brand: e.target.value })} />
+      </Field>
+      <Field>
+        <label htmlFor={`${idPrefix}-model`}>Model</label>
+        <input id={`${idPrefix}-model`} className="input small" maxLength={200} value={draft.model} onChange={(e) => onChange({ model: e.target.value })} />
       </Field>
       <Field>
         <label htmlFor={`${idPrefix}-code`}>Code (optional)</label>

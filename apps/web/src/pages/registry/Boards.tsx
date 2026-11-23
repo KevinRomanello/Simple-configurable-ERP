@@ -3,7 +3,8 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, ty
 import { registry, type FileRef, type RegField, type RegRecord, type RegTable, type RegView } from "../../api/registry";
 import { IconButton } from "../../components/Button";
 import { ValueView } from "../../components/registry/Values";
-import { planMove, showValue } from "../../lib/registry";
+import { Picture } from "../../components/Picture";
+import { isPicture, planMove, showValue } from "../../lib/registry";
 import { useAction } from "../../lib/useAction";
 
 // The other ways of looking at a view (docs/anagrafiche.md, §6): cards with a picture (gallery), columns by a choice
@@ -11,7 +12,6 @@ import { useAction } from "../../lib/useAction";
 // points on a map. The records are the same as the grid's. Cards and bars move with the pointer events, so they
 // work with a mouse, a finger and an automated test.
 
-const isImage = (f: FileRef) => f.mime.startsWith("image/");
 
 function titleOf(table: RegTable, record: RegRecord) {
   const primary = table.fields.find((f) => f.id === table.primaryFieldId);
@@ -78,10 +78,10 @@ export function Gallery({ table, view, records, fields, onOpen }: { table: RegTa
   return (
     <div className="gallery">
       {records.map((r) => {
-        const picture = cover ? ((r.fields[cover.name] as FileRef[] | undefined) ?? []).find(isImage) : undefined;
+        const picture = cover ? ((r.fields[cover.name] as FileRef[] | undefined) ?? []).find(isPicture) : undefined;
         return (
           <button key={r.id} type="button" className="gallery-card" onClick={() => onOpen(r.id)}>
-            {cover && (picture ? <img src={registry.fileUrl(picture.id)} alt="" loading="lazy" /> : <span className="gallery-empty" aria-hidden="true" />)}
+            {cover && (picture ? <Picture src={registry.fileUrl(picture.id)} alt={picture.name} /> : <span className="gallery-empty" aria-hidden="true" />)}
             <CardBody table={table} record={r} fields={fields.filter((f) => f.id !== cover?.id)} />
           </button>
         );

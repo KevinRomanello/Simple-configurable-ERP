@@ -267,6 +267,20 @@
       "when": 1795369495050,
       "tag": "0037_registry_map",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1795440893938,
+      "tag": "0038_inventory_item_brand_model",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1795441684979,
+      "tag": "0039_app_module",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CategoryFields, InventoryItem, ItemType } from "../api/types";
-import { categoryOf, draftBody, draftOf, emptyDraft, emptyMakeDefaults, makeDefaultsBody, makeDefaultsOf, missingText, paramErrors, takesText, visibleFields } from "./inventory";
+import { categoryOf, draftBody, draftOf, emptyDraft, emptyMakeDefaults, itemLabel, makeDefaultsBody, makeDefaultsOf, missingText, paramErrors, takesText, visibleFields } from "./inventory";
 
 const fields: CategoryFields = {
   fallback: ["purpose", "storageNotes"],
@@ -33,7 +33,7 @@ describe("draftBody", () => {
   it("trims, turns empty texts into nothing and sends only what the category shows", () => {
     const draft = { ...emptyDraft(), name: "  Epoxy  ", category: "Consumable", unit: "kg", safetyCodes: " H315 ", disposal: "", maintenanceNotes: "not shown here" };
     expect(draftBody(draft, lookups)).toEqual({
-      name: "Epoxy", code: null, category: "Consumable", areaId: null, typeId: null, unit: "kg",
+      name: "Epoxy", brand: null, model: null, code: null, category: "Consumable", areaId: null, typeId: null, unit: "kg",
       purpose: null, safetyCodes: "H315", disposal: null, storageNotes: null,
       flammable: false, toxic: false, carcinogenic: false,
     });
@@ -71,13 +71,19 @@ describe("paramErrors", () => {
 
 describe("draftOf", () => {
   const item = {
-    id: 1, code: null, name: "Gloves", purpose: null, category: "Consumable", areaId: null, typeId: null, unit: "pcs", origin: "bought",
+    id: 1, code: null, name: "Gloves", brand: null, model: null, purpose: null, category: "Consumable", areaId: null, typeId: null, unit: "pcs", origin: "bought",
     safetyCodes: null, disposal: "General waste", storageNotes: null, maintenanceNotes: null, imageUpdatedAt: null, flammable: false, toxic: false, carcinogenic: false,
     makeProjectId: null, makeTo: null, makeToSpot: "",
   } satisfies InventoryItem;
 
   it("makes a draft from an item, with empty texts for what is not there", () => {
     expect(draftOf(item, {}, [])).toEqual({ ...emptyDraft(), name: "Gloves", category: "Consumable", disposal: "General waste" });
+  });
+
+  it("keeps the brand and the model, and sends them back trimmed, an empty one as nothing", () => {
+    const draft = draftOf({ ...item, brand: "Ansell", model: "HyFlex" }, {}, []);
+    expect(draft).toMatchObject({ brand: "Ansell", model: "HyFlex" });
+    expect(draftBody({ ...draft, brand: "  SKF ", model: " " }, lookups)).toMatchObject({ brand: "SKF", model: null });
   });
 
   it("writes the numbers of its type the way they are typed, so that saving again changes nothing", () => {
@@ -146,5 +152,13 @@ describe("takesText", () => {
     const takes = [{ location: "3", spot: "A", quantityMilli: 100_000 }, { location: "3", spot: "B", quantityMilli: 5_500 }, { location: "2", spot: "", quantityMilli: 31_500 }];
     expect(takesText(takes, "m", name)).toBe("Room 3 105,5 m · Room 2 31,5 m");
     expect(takesText([], "m", name)).toBe("");
+  });
+});
+
+describe("itemLabel", () => {
+  it("tells the items of one name apart: the name, then the brand and the model that are written", () => {
+    expect(itemLabel({ name: "Bearing", brand: "SKF", model: "6204" })).toBe("Bearing · SKF · 6204");
+    expect(itemLabel({ name: "Bearing", brand: null, model: "6204" })).toBe("Bearing · 6204");
+    expect(itemLabel({ name: "Bearing", brand: null, model: null })).toBe("Bearing");
   });
 });

@@ -262,7 +262,9 @@ erDiagram
   inventory_item {
     integer id PK
     text code "unico se c'è"
-    text name "unico senza maiuscole"
+    text name "con marca e modello: unici insieme, senza maiuscole"
+    text brand "marca, facoltativa"
+    text model "modello, facoltativo"
     integer area_id FK "vuoto = tutte le aree"
     integer type_id FK
     text category "per nome (sezione 7)"
@@ -579,7 +581,7 @@ Oltre alle chiavi esterne, il database dice no a:
 
 ## 9. Cosa è nello storico
 
-I trigger `audit_row()` scrivono in `audit_log` ogni inserimento, modifica e cancellazione di **40 tabelle su 47**: tutto ciò che cambia soldi, budget, registro, liste, utenti, inventario e anagrafiche. **Non** ci sono: `audit_log` stessa, `area` (le aree non cambiano), i file binari `item_image`, `item_datasheet_file` e `reg_file` (la descrizione della scheda dati sì, `item_datasheet`; gli id dei file di un record sono nel suo `data`), `reg_webhook_log` (un registro delle chiamate) e `app_secret` (un segreto non va in una pagina). Le righe delle anagrafiche, dei token e di `role_sync` la pagina History le mostra solo agli admin (anagrafiche.md, §7.1).
+I trigger `audit_row()` scrivono in `audit_log` ogni inserimento, modifica e cancellazione di **41 tabelle su 48**: tutto ciò che cambia soldi, budget, registro, liste, utenti, inventario e anagrafiche. **Non** ci sono: `audit_log` stessa, `area` (le aree non cambiano), i file binari `item_image`, `item_datasheet_file` e `reg_file` (la descrizione della scheda dati sì, `item_datasheet`; gli id dei file di un record sono nel suo `data`), `reg_webhook_log` (un registro delle chiamate) e `app_secret` (un segreto non va in una pagina). Le righe delle anagrafiche, dei token e di `role_sync` la pagina History le mostra solo agli admin (anagrafiche.md, §7.1).
 
 ## 10. Tipi enumerati
 
@@ -600,3 +602,5 @@ Un valore di un enum **non si toglie** con una migrazione semplice: si ricrea il
 ## 11. Unità dei numeri
 
 Soldi in `numeric(14,2)` nel database e in **centesimi interi** nel codice; quantità `numeric(14,3)` (millesimi nel codice); costi unitari `numeric(14,4)` (decimillesimi di euro nel codice); aliquote `numeric(5,2)` in percento. Le date sono `date` e nel codice stringhe `YYYY-MM-DD`. Mai virgola mobile.
+- Migrazione `0038_inventory_item_brand_model.sql`: `inventory_item.brand` e `model`; l'unicità passa dal solo nome (`inventory_item_name_uq`) al trio nome, marca e modello (`inventory_item_identity_uq`, senza maiuscole, vuoto = niente); gli articoli già presenti prendono `TBD` come marca e modello ([inventario.md](inventario.md), §22).
+- Migrazione `0039_app_module.sql`: la tabella `app_module` (`id`, `key` unica, `enabled`): **una riga solo per un modulo spento o riacceso**, nessuna riga = acceso ([moduli.md](moduli.md)). Ha il trigger dello storico.

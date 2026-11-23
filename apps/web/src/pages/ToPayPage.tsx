@@ -8,7 +8,7 @@ import { TableBox } from "../components/ExportBlocks";
 import { PayForm } from "../components/PayForm";
 import { PayLines } from "../components/PayLines";
 import { SortTh } from "../components/SortTh";
-import { EmptyRow, Field, Loading, Message, PageHeader, Panel } from "../components/ui";
+import { EmptyRow, Field, Loading, Message, PageHeader, Panel, Table } from "../components/ui";
 import { useMe } from "../lib/auth";
 import { date, money } from "../lib/format";
 import { useSort, type SortAccessors } from "../lib/sort";
@@ -88,7 +88,7 @@ export function ToPayPage() {
 
       <Panel>
         <TableBox title="To pay" cards>
-          <table className="data-table phone-cards">
+          <Table className="phone-cards">
             <thead>
               <tr>
                 <th />
@@ -136,7 +136,7 @@ export function ToPayPage() {
               ))}
               {rows.length === 0 && <EmptyRow colSpan={10}>{all.length === 0 ? "Everything that was bought has been paid" : "No line matches the search"}</EmptyRow>}
             </tbody>
-          </table>
+          </Table>
         </TableBox>
         {rows.length > 0 && <p className="muted">Left to pay in this list: {money(left)}. A payment covers the net first and then the VAT.</p>}
       </Panel>
@@ -170,7 +170,7 @@ function ToLink() {
       )}
       {open && (
         <TableBox title="Payments to tie" cards>
-          <table className="data-table phone-cards">
+          <Table className="phone-cards">
             <thead>
               <tr><th>DATE</th><th>DESCRIPTION</th><th>ACCOUNT</th><th className="num">AMOUNT</th><th /></tr>
             </thead>
@@ -190,7 +190,7 @@ function ToLink() {
               ))}
               {rows.length === 0 && <EmptyRow colSpan={5}>Every payment of this season pays a line</EmptyRow>}
             </tbody>
-          </table>
+          </Table>
         </TableBox>
       )}
     </Panel>

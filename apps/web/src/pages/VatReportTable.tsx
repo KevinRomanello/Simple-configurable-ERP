@@ -3,7 +3,7 @@ import { Fragment } from "react";
 import { api } from "../api/client";
 import { date, money } from "../lib/format";
 import { TableBox } from "../components/ExportBlocks";
-import { Panel } from "../components/ui";
+import { Panel, Table } from "../components/ui";
 
 /** The VAT the team has to pay on each quarterly deadline, per project (the old "VAT OUTFLOW / PROJECT"). */
 export function VatReportTable({ areaCode }: { areaCode: string }) {
@@ -15,7 +15,7 @@ export function VatReportTable({ areaCode }: { areaCode: string }) {
     // two rows per project (expected, actual): built from the common pieces rather than DataTable
     <Panel title="VAT OUTFLOW / PROJECT">
       <TableBox title="VAT OUTFLOW / PROJECT">
-        <table className="data-table">
+        <Table>
           <thead>
             <tr>
               <th>PROJECT</th>
@@ -44,7 +44,7 @@ export function VatReportTable({ areaCode }: { areaCode: string }) {
               </Fragment>
             ))}
           </tbody>
-        </table>
+        </Table>
       </TableBox>
     </Panel>
   );

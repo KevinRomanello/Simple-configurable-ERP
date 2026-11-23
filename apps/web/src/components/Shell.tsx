@@ -10,6 +10,7 @@ import { NavLink, Outlet, useLocation } from "react-router";
 import { api } from "../api/client";
 import { registry } from "../api/registry";
 import { forgetUser, useMe } from "../lib/auth";
+import { moduleOn } from "../lib/modules";
 import { ROLE_NAME } from "../lib/permissions";
 import { useChosenSeasonId, useSeason } from "../lib/season";
 import { SCREEN, useMaxWidth } from "../lib/screen";
@@ -133,9 +134,11 @@ export function Shell() {
   const [hidden, toggleSidebar] = useSidebarHidden();
   const [menuShown, setMenuShown] = useCompactMenu(compact);
   const areas = useQuery({ queryKey: ["areas"], queryFn: api.areas });
-  const registryTables = useQuery({ queryKey: ["registry-tables"], queryFn: registry.tables });
-  const myForms = useQuery({ queryKey: ["registry-forms"], queryFn: registry.myForms });
   const me = useMe();
+  // a module that is turned off is not in the menu at all, and nothing is asked of it (Settings › App › Modules)
+  const registryOn = moduleOn(me, "registry");
+  const registryTables = useQuery({ queryKey: ["registry-tables"], queryFn: registry.tables, enabled: registryOn });
+  const myForms = useQuery({ queryKey: ["registry-forms"], queryFn: registry.myForms, enabled: registryOn });
   const queryClient = useQueryClient();
   // behind the organisation's login there is nothing to sign out of here
   const signInOptions = useQuery({ queryKey: ["sign-in-options"], queryFn: api.signInOptions });
@@ -244,7 +247,7 @@ export function Shell() {
         </NavGroup>
 
         {/* the registries of the team and the forms the person may fill in (docs/anagrafiche.md) */}
-        {(me.role === "admin" || (registryTables.data?.length ?? 0) > 0 || (myForms.data?.length ?? 0) > 0) && (
+        {registryOn && (me.role === "admin" || (registryTables.data?.length ?? 0) > 0 || (myForms.data?.length ?? 0) > 0) && (
           <NavGroup id="registry" title="Registry" closed={groups.closed} onToggle={groups.toggle}>
             <Item to="/registry" icon={faAddressBook} end>REGISTRY</Item>
             {registryTables.data?.map((t) => (

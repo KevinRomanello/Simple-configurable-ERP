@@ -12,11 +12,13 @@ import { useInventoryLookups } from "../lib/inventory";
 import { usePrice } from "../lib/price";
 import { TableBox } from "../components/ExportBlocks";
 import { SortTh } from "../components/SortTh";
-import { EmptyRow, PageHeader, Panel } from "../components/ui";
+import { EmptyRow, PageHeader, Panel, Table } from "../components/ui";
 import { useSort, type SortAccessors } from "../lib/sort";
 
 const SORT: SortAccessors<PendingRow> = {
   item: (r) => r.item,
+  brand: (r) => r.brand,
+  model: (r) => r.model,
   project: (r) => r.projectName,
   supplier: (r) => r.supplierName,
   bought: (r) => r.boughtMilli,
@@ -49,10 +51,12 @@ export function PendingPage() {
       <Panel>
         {/* rows that open a form under them: built from the common pieces rather than DataTable */}
         <TableBox title="Pending" cards>
-          <table className="data-table phone-cards">
+          <Table className="phone-cards">
             <thead>
               <tr>
                 <SortTh sort={sort} by="item">ITEM</SortTh>
+                <SortTh sort={sort} by="brand">BRAND</SortTh>
+                <SortTh sort={sort} by="model">MODEL</SortTh>
                 <SortTh sort={sort} by="project">PROJECT</SortTh>
                 <SortTh sort={sort} by="supplier">BOUGHT FROM</SortTh>
                 <SortTh sort={sort} by="bought" className="num">BOUGHT</SortTh>
@@ -70,6 +74,8 @@ export function PendingPage() {
                 <Fragment key={row.lineId}>
                   <tr>
                     <td className="cell-title">{row.item}{row.category && <div className="muted">{row.category}</div>}</td>
+                    <td>{row.brand ?? <span className="muted">—</span>}</td>
+                    <td>{row.model ?? <span className="muted">—</span>}</td>
                     <td>{row.projectName}<div className="muted">{row.areaName}</div></td>
                     <td>{row.supplierName ?? <span className="muted">—</span>}</td>
                     <td className="num">{quantity(row.boughtMilli)}</td>
@@ -89,16 +95,16 @@ export function PendingPage() {
                   </tr>
                   {open === row.lineId && lookups && items.data && (
                     <tr className="row-panel">
-                      <td colSpan={11}>
+                      <td colSpan={13}>
                         <ReceiveForm line={row} items={items.data} lookups={lookups} onDone={() => setOpen(null)} onCancel={() => setOpen(null)} />
                       </td>
                     </tr>
                   )}
                 </Fragment>
               ))}
-              {pending.isSuccess && rows.length === 0 && <EmptyRow colSpan={11}>Everything that was bought has arrived</EmptyRow>}
+              {pending.isSuccess && rows.length === 0 && <EmptyRow colSpan={13}>Everything that was bought has arrived</EmptyRow>}
             </tbody>
-          </table>
+          </Table>
         </TableBox>
         {rows.length > 0 && (
           <p className="muted">

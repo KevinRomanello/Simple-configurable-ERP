@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { api, type ReceiveBody } from "../api/client";
 import type { ItemDraft, ItemRow, PendingRow } from "../api/types";
 import { moneyE4, quantity as showQuantity } from "../lib/format";
-import { draftBody, emptyDraft, paramErrors, type InventoryLookups } from "../lib/inventory";
+import { draftBody, emptyDraft, itemLabel, paramErrors, type InventoryLookups } from "../lib/inventory";
 import { carLabel, useSeasons } from "../lib/season";
 import { todayIso } from "../lib/today";
 import { useAction } from "../lib/useAction";
@@ -37,7 +37,7 @@ export function ReceiveForm({
   // a purchase of the budget belongs to an area: the new item starts in it
   const lineArea = lookups.areas.find((a) => a.code === line?.areaCode);
   const [draft, setDraft] = useState<ItemDraft>({
-    ...emptyDraft(), name: line?.item ?? "", category: line?.category ?? "", areaId: lineArea ? String(lineArea.id) : "",
+    ...emptyDraft(), name: line?.item ?? "", brand: line?.brand ?? "", model: line?.model ?? "", category: line?.category ?? "", areaId: lineArea ? String(lineArea.id) : "",
   });
   const [amount, setAmount] = useState(line ? String(line.remainingMilli / 1000) : "");
   const [receivedOn, setReceivedOn] = useState(todayIso());
@@ -97,7 +97,7 @@ export function ReceiveForm({
             id="receive-item"
             value={itemId}
             onChange={setItemId}
-            choices={[{ value: "", label: "Choose…" }, ...items.map((i) => ({ value: String(i.id), label: `${i.name}${i.code ? ` (${i.code})` : ""}` }))]}
+            choices={[{ value: "", label: "Choose…" }, ...items.map((i) => ({ value: String(i.id), label: `${itemLabel(i)}${i.code ? ` (${i.code})` : ""}` }))]}
           />
         </Field>
       ) : (

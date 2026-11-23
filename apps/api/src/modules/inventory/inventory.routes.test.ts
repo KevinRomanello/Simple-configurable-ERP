@@ -469,3 +469,109 @@ describe("what an item is: flammable, toxic, carcinogenic", () => {
   });
 });
 
+
+describe("what makes an item the item it is: its name, brand and model together", () => {
+  const make = (body: object) => api.post("/api/inventory/items", body);
+  const labels = async (query = "") => ((await api.get(`/api/inventory/items?${query}`)).body as { name: string; brand: string | null; model: string | null }[]).map((i) => [i.name, i.brand, i.model]);
+
+  it("keeps the brand and the model like the budget does: free text, an empty one means nothing", async () => {
+    const created = await make({ name: "Bearing", brand: "  SKF  ", model: "" });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({ brand: "SKF", model: null });
+    expect((await make({ name: "Bearing 2", brand: "x".repeat(201) })).status).toBe(400);
+  });
+
+  it("allows the same name with another brand or model, and refuses all three alike (any case), saying which item it clashes with", async () => {
+    expect((await make({ name: "Bearing", brand: "SKF", model: "6204" })).status).toBe(201);
+    expect((await make({ name: "Bearing", brand: "NSK", model: "6204" })).status).toBe(201);
+    expect((await make({ name: "Bearing", brand: "SKF", model: "6205" })).status).toBe(201);
+    expect((await make({ name: "Bearing" })).status).toBe(201); // nothing written is not the same as a brand
+    const same = await make({ name: "BEARING", brand: "skf", model: "6204" });
+    expect(same.status).toBe(409);
+    expect(same.body.error).toMatch(/"Bearing · SKF · 6204"/);
+    expect((await make({ name: "bearing", brand: "", model: "  " })).status).toBe(409); // an empty brand is no brand
+  });
+
+  it("checks the three together when an item is changed", async () => {
+    await make({ name: "Bearing", brand: "SKF", model: "6204" });
+    const other = (await make({ name: "Bearing", brand: "NSK", model: "6204" })).body;
+    expect((await api.patch(`/api/inventory/items/${other.id}`, { brand: "SKF" })).status).toBe(409);
+    expect((await api.patch(`/api/inventory/items/${other.id}`, { brand: "FAG" })).body).toMatchObject({ brand: "FAG", model: "6204" });
+    expect((await api.patch(`/api/inventory/items/${other.id}`, { brand: null, model: null })).body).toMatchObject({ brand: null, model: null });
+    expect((await api.patch(`/api/inventory/items/${other.id}`, { name: "Bearing" })).status).toBe(200); // itself is not a clash
+  });
+
+  it("lists them, finds an item by them, and puts the items in the order of the three", async () => {
+    await make({ name: "Bearing", brand: "SKF", model: "6204" });
+    await make({ name: "Bearing", brand: "NSK", model: "6204" });
+    await make({ name: "Axle" });
+    expect(await labels()).toEqual([["Axle", null, null], ["Bearing", "NSK", "6204"], ["Bearing", "SKF", "6204"]]);
+    expect(await labels("search=skf")).toEqual([["Bearing", "SKF", "6204"]]);
+    expect(await labels("search=6204")).toHaveLength(2);
+  });
+
+  it("shows the whole name in a bill of materials, so that two items with one name are told apart", async () => {
+    const part = (await make({ name: "Bearing", brand: "SKF", model: "6204" })).body;
+    const wheel = (await make({ name: "Wheel", origin: "made" })).body;
+    await api.post(`/api/inventory/components/${wheel.id}/parts`, { partId: part.id, quantity: "2" });
+    const lines = (await api.get(`/api/inventory/components/${wheel.id}`)).body.bom.lines as { name: string }[];
+    expect(lines.map((l) => l.name)).toEqual(["Bearing · SKF · 6204"]);
+  });
+
+  describe("from the budget to the shelf", () => {
+    const boughtMake = async (item: string, brand: string | null, model: string | null) => {
+      const project = (await api.post("/api/projects", { areaCode: "sw", name: "Brakes" })).body;
+      const line = (await api.post(`/api/projects/${project.id}/lines`, { item, category: "Components", ...(brand ? { brand } : {}), ...(model ? { model } : {}) })).body;
+      await api.patch(`/api/lines/${line.id}`, { version: 1, figures: { actual: { quantity: 10, unitNetCost: "5", sponsorType: "none", vatRate: 22, purchaseDate: "2026-10-01" } } });
+      return line as { id: number };
+    };
+    const receive = (lineId: number, itemId: number) => api.post("/api/inventory/receive", { lineId, itemId, quantity: "3", receivedOn: "2026-10-05", location: "s1-r1" });
+
+    it("tells the brand and the model of the line in the list of what has not arrived", async () => {
+      await boughtMake("Bearing", "SKF", "6204");
+      expect((await api.get("/api/inventory/pending")).body[0]).toMatchObject({ item: "Bearing", brand: "SKF", model: "6204" });
+    });
+
+    it("suggests the item with the same name, brand and model, or else the only one with the same name", async () => {
+      const nsk = (await make({ name: "Bearing", brand: "NSK", model: "6204" })).body;
+      await boughtMake("Bearing", "SKF", "6204");
+      expect((await api.get("/api/inventory/pending")).body[0].suggestedItemId).toBe(nsk.id); // the only Bearing there is
+      const skf = (await make({ name: "Bearing", brand: "SKF", model: "6204" })).body;
+      expect((await api.get("/api/inventory/pending")).body[0].suggestedItemId).toBe(skf.id); // the exact one
+      await api.del(`/api/inventory/items/${skf.id}`);
+      await make({ name: "Bearing", brand: "FAG", model: "6204" });
+      expect((await api.get("/api/inventory/pending")).body[0].suggestedItemId).toBeNull(); // two Bearings, neither is this one
+    });
+
+    it("gives a new item what the form was started with: the name, brand and model of the line", async () => {
+      const line = await boughtMake("Bearing", "SKF", "6204");
+      const arrived = await api.post("/api/inventory/receive", { lineId: line.id, newItem: { name: "Bearing", brand: "SKF", model: "6204", category: "Components" }, quantity: "4", receivedOn: "2026-10-05", location: "s1-r1" });
+      expect(arrived.body.item).toMatchObject({ name: "Bearing", brand: "SKF", model: "6204" });
+    });
+
+    it("fills the brand and the model that an item is missing from the line, and never replaces what is written", async () => {
+      const line = await boughtMake("Bearing", "SKF", "6204");
+      const bare = (await make({ name: "Bearing" })).body;
+      expect((await receive(line.id, bare.id)).body.item).toMatchObject({ brand: "SKF", model: "6204" });
+      const half = (await make({ name: "Bearing", brand: "NSK" })).body;
+      expect((await receive(line.id, half.id)).body.item).toMatchObject({ brand: "NSK", model: "6204" }); // the model only
+      const full = (await make({ name: "Bearing", brand: "FAG", model: "1" })).body;
+      expect((await receive(line.id, full.id)).body.item).toMatchObject({ brand: "FAG", model: "1" });
+    });
+
+    it("leaves the item alone when filling it would make it the same as another one", async () => {
+      const line = await boughtMake("Bearing", "SKF", "6204");
+      await make({ name: "Bearing", brand: "SKF", model: "6204" });
+      const bare = (await make({ name: "Bearing" })).body;
+      const arrived = await receive(line.id, bare.id);
+      expect(arrived.status).toBe(201);
+      expect(arrived.body.item).toMatchObject({ brand: null, model: null });
+    });
+
+    it("does not touch an item that arrives with a price of its own (nothing to fill it from)", async () => {
+      const bare = (await make({ name: "Bearing" })).body;
+      const free = await api.post("/api/inventory/receive", { itemId: bare.id, quantity: "1", receivedOn: "2026-10-05", location: "s1-r1", unitNet: "1", vatRate: 22 });
+      expect(free.body.item).toMatchObject({ brand: null, model: null });
+    });
+  });
+});

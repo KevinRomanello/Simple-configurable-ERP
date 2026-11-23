@@ -3,7 +3,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { CashAccount, ToPayRow } from "../api/types";
 import { SearchSelect } from "./SearchSelect";
-import { Field, FormPanel } from "./ui";
+import { Field, FormPanel, Table, TableScroll } from "./ui";
 import { money } from "../lib/format";
 import { decimalText } from "../lib/lineEdit";
 import { todayIso } from "../lib/today";
@@ -76,30 +76,32 @@ export function PayForm({ rows, lastMethodId, onDone }: { rows: ToPayRow[]; last
           <input id="pay-description" className="input small" maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} />
         </Field>
       </div>
-      <table className="data-table">
-        <thead>
-          <tr><th>LINE</th><th className="num">LEFT TO PAY</th><th className="num">THIS PAYMENT</th></tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.lineId}>
-              <td>{r.item}</td>
-              <td className="num" title={`net ${money(r.unpaidFundCents)} + VAT ${money(r.unpaidVatCents)}`}>{money(r.dueCents)}</td>
-              <td className="num">
-                <input
-                  className={`input small${cents(amounts[r.lineId] ?? "") > r.dueCents ? " error" : ""}`}
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  aria-label={`Amount for ${r.item}`}
-                  value={amounts[r.lineId] ?? ""}
-                  onChange={(e) => setAmounts({ ...amounts, [r.lineId]: e.target.value })}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <TableScroll>
+        <Table>
+          <thead>
+            <tr><th>LINE</th><th className="num">LEFT TO PAY</th><th className="num">THIS PAYMENT</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.lineId}>
+                <td>{r.item}</td>
+                <td className="num" title={`net ${money(r.unpaidFundCents)} + VAT ${money(r.unpaidVatCents)}`}>{money(r.dueCents)}</td>
+                <td className="num">
+                  <input
+                    className={`input small${cents(amounts[r.lineId] ?? "") > r.dueCents ? " error" : ""}`}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    aria-label={`Amount for ${r.item}`}
+                    value={amounts[r.lineId] ?? ""}
+                    onChange={(e) => setAmounts({ ...amounts, [r.lineId]: e.target.value })}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </TableScroll>
       {tooMuch && <p className="hint error">An amount is above what is left to pay of its line.</p>}
     </FormPanel>
   );

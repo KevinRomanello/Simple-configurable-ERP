@@ -17,6 +17,7 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 | 9 | Le righe del rendiconto (FINANCIAL STATEMENT): ordine, etichette, quali righe sommano quali, difetti del foglio compresi (tolti il 17/11/2026: Paypal ovunque, 4.4 e PRODUTTIVE MARGINALI nelle somme) | `getStatementLayout` (lookups) ↔ `GET /api/lookups/statement-layout` (futuro) | le 70 righe del foglio «voci di ricavocosto», con i suoi numeri di riga | un elenco della pagina Settings, tenuto dall'admin ([registro-di-cassa.md](registro-di-cassa.md), §5.5) |
 | 11 | Il server delle mappe della vista mappa delle anagrafiche | `tileAddress` (registry, `tiles.service.ts`) ↔ `GET /api/registry/tiles/:z/:x/:y.png` | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | un'impostazione del registro (Settings › Registry), per un server di mattonelle del team ([anagrafiche.md](anagrafiche.md), §12) |
 | 10 | La categoria del budget delle righe dell'area derivata ADMINISTRATION (le spese fuori budget calcolate dal registro): **«Administration»** | `getDerivedAreaCategory` (lookups) ↔ `GET /api/lookups/derived-area-category` (futuro) | «Administration» | un valore della pagina Settings, scelto fra le categorie ([spese-fuori-budget.md](spese-fuori-budget.md)) |
+| 12 | I moduli dell'ERP che si possono spegnere | `listModuleDefs` (appmodules) ↔ `GET /api/modules` | solo `registry` (anagrafiche), con i prefissi `/api/registry` e `/api/role-sync` | l'elenco ricavato dalle rotte che ogni modulo registra |
 
 ### Implementato (6 novembre 2026): la stagione corrente
 

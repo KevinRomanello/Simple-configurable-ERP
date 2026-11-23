@@ -6,7 +6,7 @@ import type { CashEntryRow } from "../api/types";
 /** What the panel needs of a payment: the register row, or a payment that pays no line yet. */
 type Payment = Pick<CashEntryRow, "id" | "cents" | "lines">;
 import { Button } from "./Button";
-import { Loading } from "./ui";
+import { Loading, Table, TableScroll } from "./ui";
 import { money } from "../lib/format";
 import { decimalText } from "../lib/lineEdit";
 import { useAction } from "../lib/useAction";
@@ -55,35 +55,37 @@ export function PayLines({ entry, onClose }: { entry: Payment; onClose: () => vo
         Which lines of the budget this payment of {money(payment)} paid (ACTUAL: what the team pays for them, the net out of its fund and the VAT; a payment covers the net first). A line with payments counts in the cash flow only what is still to pay.
       </p>
       <input className="input small" aria-label="Search lines" placeholder="Search a line or a project" value={text} onChange={(e) => setText(e.target.value)} />
-      <table className="data-table">
-        <thead>
-          <tr><th>LINE</th><th>PROJECT</th><th className="num">TEAM PAYS</th><th className="num">PAID BY OTHERS</th><th className="num">THIS PAYMENT</th></tr>
-        </thead>
-        <tbody>
-          {open.slice(0, SHOWN).map((l) => (
-            <tr key={l.lineId}>
-              <td>{l.item}</td>
-              <td>{l.project}</td>
-              <td className="num" title={`net ${money(l.teamFundCents)} + VAT ${money(l.teamVatCents)}`}>{money(l.totalCents)}</td>
-              <td className="num">{l.others > 0 ? money(l.others) : ""}</td>
-              <td className="num">
-                <input
-                  className="input small"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  aria-label={`Paid of ${l.item}`}
-                  placeholder="0,00"
-                  value={amounts[l.lineId] ?? ""}
-                  onChange={(e) => setAmounts({ ...amounts, [l.lineId]: e.target.value })}
-                />
-                <Button small variant="ghost" onClick={() => setAmounts({ ...amounts, [l.lineId]: decimalText(rest(l), 2) })}>Rest</Button>
-              </td>
-            </tr>
-          ))}
-          {open.length === 0 && <tr><td colSpan={5} className="empty">No line to pay{text ? " matches" : ""}</td></tr>}
-        </tbody>
-      </table>
+      <TableScroll>
+        <Table>
+          <thead>
+            <tr><th>LINE</th><th>PROJECT</th><th className="num">TEAM PAYS</th><th className="num">PAID BY OTHERS</th><th className="num">THIS PAYMENT</th></tr>
+          </thead>
+          <tbody>
+            {open.slice(0, SHOWN).map((l) => (
+              <tr key={l.lineId}>
+                <td>{l.item}</td>
+                <td>{l.project}</td>
+                <td className="num" title={`net ${money(l.teamFundCents)} + VAT ${money(l.teamVatCents)}`}>{money(l.totalCents)}</td>
+                <td className="num">{l.others > 0 ? money(l.others) : ""}</td>
+                <td className="num">
+                  <input
+                    className="input small"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    aria-label={`Paid of ${l.item}`}
+                    placeholder="0,00"
+                    value={amounts[l.lineId] ?? ""}
+                    onChange={(e) => setAmounts({ ...amounts, [l.lineId]: e.target.value })}
+                  />
+                  <Button small variant="ghost" onClick={() => setAmounts({ ...amounts, [l.lineId]: decimalText(rest(l), 2) })}>Rest</Button>
+                </td>
+              </tr>
+            ))}
+            {open.length === 0 && <tr><td colSpan={5} className="empty">No line to pay{text ? " matches" : ""}</td></tr>}
+          </tbody>
+        </Table>
+      </TableScroll>
       {open.length > SHOWN && <p className="muted">{open.length - SHOWN} more lines: search to narrow them.</p>}
       <div className="inline-form">
         <span className={over ? "hint error" : "muted"}>Paid on lines: {money(total + inOtherSeasons)} of {money(payment)}</span>

@@ -9,7 +9,7 @@ import { blockTitle } from "../lib/blocks";
 import { money, month } from "../lib/format";
 import { TableBox } from "../components/ExportBlocks";
 import { SortTh } from "../components/SortTh";
-import { Loading, Message, PageHeader, Panel } from "../components/ui";
+import { Loading, Message, PageHeader, Panel, Table } from "../components/ui";
 import { useSort } from "../lib/sort";
 
 type ProjectRow = Gantt["blocks"][number]["areas"][number]["rows"][number];
@@ -77,7 +77,7 @@ function BlockTable({ gantt, blockName, chips }: { gantt: Gantt; blockName: stri
       {chips}
       <h2>{blockTitle(blockName)}</h2>
       <TableBox title={`Monthly outflow per area (${blockTitle(blockName)})`}>
-        <table className="data-table frozen">
+        <Table className="frozen">
           <thead>
             <tr>
               <SortTh sort={sort} by="project">PROJECT</SortTh>
@@ -109,7 +109,7 @@ function BlockTable({ gantt, blockName, chips }: { gantt: Gantt; blockName: stri
               <td className="num sum sum-last">{money(block.total.sumCents)}</td>
             </tr>
           </tbody>
-        </table>
+        </Table>
       </TableBox>
       <BarsChart
         title={`Monthly Outflow Timeline (${blockName === "ALL" ? "All Items" : blockName})`}
@@ -138,7 +138,7 @@ function TeamFundTable({ gantt }: { gantt: Gantt }) {
   return (
     <Panel title="Team's fund">
       <TableBox title="Team's fund monthly outflow">
-        <table className="data-table frozen">
+        <Table className="frozen">
           <thead>
             <tr>
               <SortTh sort={sort} by="month">MONTH</SortTh>
@@ -165,7 +165,7 @@ function TeamFundTable({ gantt }: { gantt: Gantt }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       </TableBox>
       <BarsChart
         title="Monthly Outflow (All)"

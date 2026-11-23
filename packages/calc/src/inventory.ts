@@ -403,6 +403,9 @@ export function monthEnds(from: string, to: string): string[] {
 export interface PendingLine {
   lineId: number;
   item: string;
+  /** The make and the model written on the line of the budget: what the item of the inventory starts from. */
+  brand: string | null;
+  model: string | null;
   category: string | null;
   projectId: number;
   projectName: string;
@@ -432,6 +435,8 @@ export function pendingLines(lines: CalcLine[], today: string): PendingLine[] {
     pending.push({
       lineId: line.id,
       item: line.item,
+      brand: line.brand,
+      model: line.model,
       category: line.category,
       projectId: line.projectId,
       projectName: line.projectName,

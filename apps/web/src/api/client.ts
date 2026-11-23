@@ -1,5 +1,5 @@
 import type {
-  Analysis, Area, AreaSheet, Bank, ApplyBody, CategoryDefault, ToLinkRow, ToPay, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, PlanView, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, CashScope, SponsorBody, Statement, StatsResult, Supplier, TotalsView, TypeParam, UserRow, VatReport,
+  Analysis, ApiTokenRow, AppModule, Area, AreaSheet, Bank, ApplyBody, CategoryDefault, ToLinkRow, ToPay, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, PlanView, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, CashScope, SponsorBody, Statement, StatsResult, Supplier, TotalsView, TypeParam, UserRow, VatReport,
 } from "./types";
 import type { NewLineBody } from "../lib/newLine";
 import { chosenSeasonId } from "../lib/seasonChoice";
@@ -109,6 +109,8 @@ export function priceQuery(price: PriceChoice, extra: Record<string, string | un
 /** What the form of an item sends: empty texts mean "nothing". */
 export interface ItemBody {
   name?: string;
+  brand?: string | null;
+  model?: string | null;
   code?: string | null;
   category?: string | null;
   areaId?: number | null;
@@ -242,6 +244,13 @@ export const api = {
   orderLocations: (ids: number[]) => put<void>("/settings/locations/order", { ids }),
   /** The admin's switch: whether the site can be changed from a phone. */
   updateSite: (body: { editOnPhone: boolean }) => patch<void>("/settings/site", body),
+  /** The parts of the ERP that can be turned off, and turning one on or off (admins). */
+  modules: () => get<AppModule[]>("/modules"),
+  setModule: (key: string, enabled: boolean) => patch<void>(`/modules/${key}`, { enabled }),
+  /** The keys of the services (n8n, the bot…): they act as the user chosen; the key is in the answer of `createToken` only. */
+  tokens: () => get<ApiTokenRow[]>("/tokens"),
+  createToken: (name: string, userId: number) => post<{ id: number; name: string; token: string }>("/tokens", { name, userId }),
+  revokeToken: (id: number) => del(`/tokens/${id}`),
   updateCalculation: (body: Partial<Omit<Calculation, "bankCompare">> & { bankCompare?: Partial<Calculation["bankCompare"]> }) =>
     patch<void>("/settings/calculation", body),
 

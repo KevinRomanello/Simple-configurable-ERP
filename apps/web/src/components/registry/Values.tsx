@@ -3,7 +3,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { FieldOptions, FieldType } from "@erp/registry";
 import { useState } from "react";
 import { registry, type FileRef, type LinkedRef } from "../../api/registry";
-import { formatDuration, showValue } from "../../lib/registry";
+import { formatDuration, isPicture, showValue } from "../../lib/registry";
+import { PictureLink } from "../Picture";
 import { SearchSelect } from "../SearchSelect";
 import { Barcode, QrCode } from "./Codes";
 
@@ -23,9 +24,9 @@ export function ValueView({ field, value }: { field: Described; value: unknown }
   if (field.type === "attachment" && Array.isArray(value)) {
     return (
       <span className="chips-inline">
-        {(value as FileRef[]).map((f) => (
-          <a key={f.id} href={registry.fileUrl(f.id)} target="_blank" rel="noreferrer">{f.name}</a>
-        ))}
+        {(value as FileRef[]).map((f) =>
+          isPicture(f) ? <PictureLink key={f.id} src={registry.fileUrl(f.id)} name={f.name} /> : <a key={f.id} href={registry.fileUrl(f.id)} target="_blank" rel="noreferrer">{f.name}</a>,
+        )}
       </span>
     );
   }

@@ -14,7 +14,7 @@ import { SearchSelect } from "../components/SearchSelect";
 import { AddSection, Card, Cards, DataTable, DetailHeader, Field, FormPanel, Loading, Message, Panel, type Column } from "../components/ui";
 import { useMe } from "../lib/auth";
 import { money, moneyE4, monthOfDate, quantity } from "../lib/format";
-import { useInventoryLookups } from "../lib/inventory";
+import { itemLabel, useInventoryLookups } from "../lib/inventory";
 import { usePrice } from "../lib/price";
 import { useAction } from "../lib/useAction";
 
@@ -36,7 +36,7 @@ function AddPart({ componentId, candidates, onDone }: { componentId: number; can
           id="part-item"
           value={partId}
           onChange={setPartId}
-          choices={[{ value: "", label: "Choose…" }, ...candidates.map((i) => ({ value: String(i.id), label: `${i.name}${i.origin === "made" ? " (made)" : ""}` }))]}
+          choices={[{ value: "", label: "Choose…" }, ...candidates.map((i) => ({ value: String(i.id), label: `${itemLabel(i)}${i.origin === "made" ? " (made)" : ""}` }))]}
         />
       </Field>
       <Field label="Quantity in one" htmlFor="part-quantity">
@@ -126,7 +126,7 @@ export function ComponentPage() {
       <DetailHeader
         picture={<ItemThumb id={item.id} hasImage={hasPicture} size="full" name={item.name} />}
         title={item.name}
-        subtitle={<>{item.purpose ?? "Made by the team"} · <Link to={`/inventory/items/${item.id}`} className="item-link">open the item</Link><HazardPills item={item} /></>}
+        subtitle={<>{item.brand || item.model ? <>{[item.brand, item.model].filter(Boolean).join(" · ")} · </> : null}{item.purpose ?? "Made by the team"} · <Link to={`/inventory/items/${item.id}`} className="item-link">open the item</Link><HazardPills item={item} /></>}
       />
 
       <PriceSelector value={price} onChange={setPrice} date />

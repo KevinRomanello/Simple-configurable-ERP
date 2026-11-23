@@ -3,7 +3,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { StatementRow } from "../api/types";
 import { TableBox } from "../components/ExportBlocks";
-import { Field, Loading, Message, PageHeader, Panel } from "../components/ui";
+import { Field, Loading, Message, PageHeader, Panel, Table } from "../components/ui";
 import { useMe } from "../lib/auth";
 import { money } from "../lib/format";
 
@@ -37,11 +37,11 @@ export function StatementPage() {
 
       <Panel>
         <TableBox title={`Financial statement ${shown}`}>
-          <table className="data-table statement">
+          <Table className="statement">
             <tbody>
               {rows.map((row) => <StatementLine key={row.row} row={row} year={shown} />)}
             </tbody>
-          </table>
+          </Table>
         </TableBox>
       </Panel>
     </>

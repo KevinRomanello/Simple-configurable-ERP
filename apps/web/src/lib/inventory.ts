@@ -29,10 +29,13 @@ export const HAZARDS = [
 ] as const;
 
 export const emptyDraft = (): ItemDraft => ({
-  name: "", code: "", category: "", areaId: "", typeId: "", values: {}, unit: "pcs",
+  name: "", brand: "", model: "", code: "", category: "", areaId: "", typeId: "", values: {}, unit: "pcs",
   purpose: "", safetyCodes: "", disposal: "", storageNotes: "", maintenanceNotes: "",
   flammable: false, toxic: false, carcinogenic: false,
 });
+
+/** An item as a person reads it where it has to be told from another with the same name: «Bearing · SKF · 6204». */
+export const itemLabel = (item: { name: string; brand: string | null; model: string | null }) => [item.name, item.brand, item.model].filter(Boolean).join(" · ");
 
 /** What «Make new» starts from, as typed: "" for none. */
 export interface MakeDefaults {
@@ -82,6 +85,8 @@ export const asksHazards = (draft: Pick<ItemDraft, "typeId">, types: ItemType[])
 
 export const draftOf = (item: InventoryItem, values: ParamValues, types: ItemType[]): ItemDraft => ({
   name: item.name,
+  brand: item.brand ?? "",
+  model: item.model ?? "",
   code: item.code ?? "",
   category: item.category ?? "",
   areaId: item.areaId === null ? "" : String(item.areaId),
@@ -125,6 +130,8 @@ export function draftBody(draft: ItemDraft, lookups: { fields: CategoryFields; t
   const type = typeOf(draft, lookups.types);
   const body: ItemBody = {
     name: draft.name.trim(),
+    brand: draft.brand.trim() === "" ? null : draft.brand.trim(),
+    model: draft.model.trim() === "" ? null : draft.model.trim(),
     code: draft.code.trim() === "" ? null : draft.code.trim(),
     category: categoryOf(draft, lookups.types),
     areaId: draft.areaId === "" ? null : Number(draft.areaId),

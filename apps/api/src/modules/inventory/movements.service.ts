@@ -12,7 +12,7 @@ import { listLocations, listVatRates } from "../lookups/lookups.service";
 import { assertCarExists } from "../seasons/seasons.service";
 import { loadInventory, movementsOf } from "./inventory.data";
 import type { buildInput, movementInput, receiveInput } from "./inventory.schema";
-import { assertCanManageInventory, insertItem } from "./items.service";
+import { assertCanManageInventory, findDuplicate, insertItem } from "./items.service";
 
 async function assertLocation(code: string) {
   if (!(await listLocations()).some((l) => l.code === code)) throw invalid(`Unknown location "${code}"`);
@@ -27,8 +27,8 @@ async function assertProject(tx: Pick<Tx, "select">, projectId: number) {
 
 /**
  * What the budget has bought and has not fully received, the oldest purchase first. For each one,
- * the item earlier arrivals went to, and an item with the same name if there is one: the form
- * starts from them.
+ * the item earlier arrivals went to, and the item it probably is (the one with the same name, brand and model, or else
+ * the only one with the same name): the form starts from them.
  */
 export async function listPending() {
   const lines = computeLines(await loadSnapshot());
@@ -42,13 +42,31 @@ export async function listPending() {
     .orderBy(desc(stockMovement.id));
   const lastItemOfLine = new Map<number, number>();
   for (const e of earlier) if (e.lineId !== null && !lastItemOfLine.has(e.lineId)) lastItemOfLine.set(e.lineId, e.itemId);
-  const byName = new Map((await db.select({ id: inventoryItem.id, name: inventoryItem.name }).from(inventoryItem)).map((i) => [i.name.toLowerCase(), i.id]));
+  const items = await db.select({ id: inventoryItem.id, name: inventoryItem.name, brand: inventoryItem.brand, model: inventoryItem.model }).from(inventoryItem);
+  const same = (a: string | null, b: string | null) => (a ?? "").toLowerCase() === (b ?? "").toLowerCase();
+  const suggested = (p: { item: string; brand: string | null; model: string | null }) => {
+    const named = items.filter((i) => same(i.name, p.item));
+    return (named.find((i) => same(i.brand, p.brand) && same(i.model, p.model)) ?? (named.length === 1 ? named[0] : undefined))?.id ?? null;
+  };
 
   return pending.map((p) => ({
     ...p,
     receivedItemId: lastItemOfLine.get(p.lineId) ?? null,
-    suggestedItemId: byName.get(p.item.toLowerCase()) ?? null,
+    suggestedItemId: suggested(p),
   }));
+}
+
+/**
+ * An item that has no brand or model takes those of the line it arrives for (what is already written is never replaced),
+ * unless another item is already exactly that: then it is left as it is.
+ */
+async function takeMakeFromLine(tx: Tx, item: typeof inventoryItem.$inferSelect, line: { brand: string | null; model: string | null }) {
+  const brand = item.brand ?? line.brand;
+  const model = item.model ?? line.model;
+  if (brand === item.brand && model === item.model) return item;
+  if (await findDuplicate(tx, { name: item.name, brand, model, code: null }, item.id)) return item;
+  const [updated] = await tx.update(inventoryItem).set({ brand, model }).where(eq(inventoryItem.id, item.id)).returning();
+  return updated!;
 }
 
 /** Prices of goods that did not come from the budget: typed net price, VAT rate, and whether it was a gift. */
@@ -74,6 +92,7 @@ export async function receive(input: z.infer<typeof receiveInput>) {
   return runWrite(actor, async (tx) => {
     let prices: UnitPricesE4;
     let projectId = input.projectId ?? null;
+    let lineMake: { brand: string | null; model: string | null } | null = null;
 
     if (input.lineId !== undefined) {
       // Two arrivals of the same purchase at the same moment take turns: the second one then sees the first.
@@ -88,6 +107,7 @@ export async function receive(input: z.infer<typeof receiveInput>) {
       }
       prices = linePrices;
       projectId = line.projectId;
+      lineMake = { brand: line.brand, model: line.model };
     } else {
       prices = await typedPrices(input);
     }
@@ -100,6 +120,7 @@ export async function receive(input: z.infer<typeof receiveInput>) {
     } else {
       [item] = await tx.select().from(inventoryItem).where(eq(inventoryItem.id, input.itemId!));
       if (!item) throw notFound("Item");
+      if (lineMake) item = await takeMakeFromLine(tx, item, lineMake);
     }
 
     const [movement] = await tx

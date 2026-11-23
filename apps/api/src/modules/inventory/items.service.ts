@@ -11,7 +11,7 @@ import { appUser, area, componentPart, inventoryItem, itemDatasheet, itemImage, 
 import { canManageInventory, getCurrentUser } from "../auth/auth.service";
 import { listCategories, listLocations, listUnits } from "../lookups/lookups.service";
 import { IMAGE_LIMITS, type CreateItemInput, type ParamFilter, type PriceQuery, type UpdateItemInput } from "./inventory.schema";
-import { loadInventory } from "./inventory.data";
+import { itemLabel, loadInventory } from "./inventory.data";
 import { categoryOfType, checkAreaAndType, itemsMatching, subtreeIds, valuesByItem, writeValues, type ParamValues } from "./types.service";
 
 export async function assertCanManageInventory() {
@@ -43,18 +43,26 @@ async function checkItemFields(input: { category?: string | null; unit?: string;
   }
 }
 
-/** The name or code is taken: say by which item, so the person can use that one instead. */
-export async function findDuplicate(tx: Pick<Tx, "select">, name: string | undefined, code: string | null | undefined, exceptId?: number) {
+/** What says which item it is: its name, brand and model together (any case, a missing brand or model counts as empty), and its code. */
+type Identity = { name: string; brand: string | null; model: string | null; code: string | null };
+
+/** The id of another item that has this name, brand and model together (or this code), if there is one. */
+export async function findDuplicate(tx: Pick<Tx, "select">, item: Identity, exceptId?: number) {
   const same = [
-    name !== undefined ? sql`lower(${inventoryItem.name}) = lower(${name})` : undefined,
-    code ? sql`lower(${inventoryItem.code}) = lower(${code})` : undefined,
+    sql`(lower(${inventoryItem.name}) = lower(${item.name}) and lower(coalesce(${inventoryItem.brand}, '')) = lower(${item.brand ?? ""}) and lower(coalesce(${inventoryItem.model}, '')) = lower(${item.model ?? ""}))`,
+    item.code ? sql`lower(${inventoryItem.code}) = lower(${item.code})` : undefined,
   ].filter((c) => c !== undefined);
-  if (same.length === 0) return;
   const [found] = await tx
     .select()
     .from(inventoryItem)
     .where(and(sql`(${sql.join(same, sql` or `)})`, exceptId === undefined ? undefined : sql`${inventoryItem.id} <> ${exceptId}`));
-  if (found) throw conflict(`There is already an item "${found.name}" with this name or code`);
+  return found;
+}
+
+/** The identity is taken: say by which item, so the person can use that one instead. */
+async function assertNotTaken(tx: Pick<Tx, "select">, item: Identity, exceptId?: number) {
+  const found = await findDuplicate(tx, item, exceptId);
+  if (found) throw conflict(`There is already an item "${itemLabel(found)}" with this name, brand and model or this code`);
 }
 
 /** Creates an item (used by the receiving flow too, inside its own transaction). */
@@ -62,7 +70,7 @@ export async function insertItem(tx: Tx, input: CreateItemInput) {
   const { params, ...columns } = input;
   await checkItemFields(columns);
   await checkMakeDefaults(columns.origin, columns);
-  await findDuplicate(tx, columns.name, columns.code);
+  await assertNotTaken(tx, columns);
   // an item takes the category of its type: what is sent is only for an item without a type (or of a type with none yet)
   const category = (await categoryOfType(tx, columns.typeId)) ?? columns.category;
   const [created] = await tx.insert(inventoryItem).values({ ...columns, category }).returning();
@@ -88,7 +96,7 @@ export async function updateItem(itemId: number, input: UpdateItemInput) {
     const typeCategory = columns.typeId !== undefined || columns.category !== undefined ? await categoryOfType(tx, columns.typeId === undefined ? target.typeId : columns.typeId) : null;
     const changes = typeCategory === null ? columns : { ...columns, category: typeCategory };
     if (Object.keys(changes).length > 0) {
-      await findDuplicate(tx, changes.name, changes.code, itemId);
+      await assertNotTaken(tx, { ...target, ...changes }, itemId);
       const [row] = await tx.update(inventoryItem).set(changes).where(eq(inventoryItem.id, itemId)).returning();
       updated = row!;
     }
@@ -105,9 +113,9 @@ export async function deleteItem(itemId: number) {
     const [target] = await tx.select().from(inventoryItem).where(eq(inventoryItem.id, itemId));
     if (!target) throw notFound("Item");
     const [moved] = await tx.select({ n: sql<number>`count(*)::int` }).from(stockMovement).where(eq(stockMovement.itemId, itemId));
-    if ((moved?.n ?? 0) > 0) throw conflict(`"${target.name}" has ${moved?.n} movements: they stay in the history`);
+    if ((moved?.n ?? 0) > 0) throw conflict(`"${itemLabel(target)}" has ${moved?.n} movements: they stay in the history`);
     const [used] = await tx.select({ n: sql<number>`count(*)::int` }).from(componentPart).where(eq(componentPart.partId, itemId));
-    if ((used?.n ?? 0) > 0) throw conflict(`"${target.name}" is a part of ${used?.n} other items: remove it from them first`);
+    if ((used?.n ?? 0) > 0) throw conflict(`"${itemLabel(target)}" is a part of ${used?.n} other items: remove it from them first`);
     await tx.delete(inventoryItem).where(eq(inventoryItem.id, itemId));
   });
 }
@@ -118,6 +126,8 @@ export interface ItemRow {
   id: number;
   code: string | null;
   name: string;
+  brand: string | null;
+  model: string | null;
   category: string | null;
   areaId: number | null;
   typeId: number | null;
@@ -175,7 +185,7 @@ export async function listItems(
     .filter((r) => (query.flammable ? r.flammable : true))
     .filter((r) => (query.toxic ? r.toxic : true))
     .filter((r) => (query.carcinogenic ? r.carcinogenic : true))
-    .filter((r) => (needle ? [r.name, r.code, r.purpose, r.category].some((v) => v?.toLowerCase().includes(needle)) : true))
+    .filter((r) => (needle ? [r.name, r.brand, r.model, r.code, r.purpose, r.category].some((v) => v?.toLowerCase().includes(needle)) : true))
     .filter((r) => (query.location ? (stock.get(r.id) ?? []).some((s) => s.location === query.location) : true))
     .map((r): ItemRow => {
       const cost = shelfPrice(r.id, ctx, query.method, on);
@@ -185,6 +195,8 @@ export async function listItems(
         id: r.id,
         code: r.code,
         name: r.name,
+        brand: r.brand,
+        model: r.model,
         category: r.category,
         areaId: r.areaId,
         typeId: r.typeId,
@@ -203,7 +215,7 @@ export async function listItems(
         carcinogenic: r.carcinogenic,
       };
     })
-    .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+    .sort((a, b) => itemLabel(a).toLowerCase().localeCompare(itemLabel(b).toLowerCase()));
 }
 
 export interface MovementRow {

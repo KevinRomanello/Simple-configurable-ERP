@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import { registry, type FileRef, type RegField, type RegTable } from "../../api/registry";
 import { Button, IconButton } from "../../components/Button";
 import { ValueInput, ValueView } from "../../components/registry/Values";
+import { Picture, PictureLink } from "../../components/Picture";
 import { Field } from "../../components/ui";
-import { COMPUTED, showValue } from "../../lib/registry";
+import { COMPUTED, isPicture, showValue } from "../../lib/registry";
 import { useAction } from "../../lib/useAction";
 import { useNotify } from "../../components/Notice";
 
@@ -128,7 +129,14 @@ function Files({ table, recordId, field, files, canEdit }: { table: RegTable; re
     <div className="stack tight">
       {files.map((f) => (
         <span key={f.id} className="file-row">
-          <a href={registry.fileUrl(f.id)} target="_blank" rel="noreferrer">{f.name}</a>
+          {isPicture(f) ? (
+            <>
+              <Picture className="file-thumb" src={registry.fileUrl(f.id)} alt={f.name} />
+              <PictureLink src={registry.fileUrl(f.id)} name={f.name} />
+            </>
+          ) : (
+            <a href={registry.fileUrl(f.id)} target="_blank" rel="noreferrer">{f.name}</a>
+          )}
           <span className="muted label-s">{Math.ceil(f.size / 1024)} KB</span>
           {canEdit && <IconButton icon={faTrash} label={`Remove ${f.name}`} danger onClick={() => act(() => registry.deleteFile(f.id))} />}
         </span>

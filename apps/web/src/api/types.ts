@@ -202,8 +202,30 @@ export interface Me {
   permissions: Permissions;
   /** The switch of the admins: whether the site can be changed from a phone. */
   editOnPhone: boolean;
+  /** Which parts of the ERP are on (Settings › App › Modules): a module that is off is not shown anywhere. */
+  modules: Record<string, boolean>;
   /** Set by the interface, not the server: this screen shows the site read-only (`lockEditing`). */
   readOnly?: boolean;
+}
+
+/** The key of a service (GET /api/tokens): who it acts as, who made it and whether it was revoked. The key itself is shown only when it is made. */
+export interface ApiTokenRow {
+  id: number;
+  name: string;
+  userId: number;
+  userEmail: string;
+  userName: string;
+  createdAt: string;
+  createdBy: string | null;
+  revokedAt: string | null;
+}
+
+/** A part of the ERP that an admin can turn off (GET /api/modules). */
+export interface AppModule {
+  key: string;
+  label: string;
+  description: string;
+  enabled: boolean;
 }
 
 /** GET /api/auth/config: which ways of signing in this server offers. */
@@ -314,6 +336,9 @@ export type ParamValues = Record<number, string | boolean>;
 /** What is typed about an item (everything but the stock). */
 export interface ItemDraft {
   name: string;
+  /** The make and the model, as typed: "" for none. */
+  brand: string;
+  model: string;
   code: string;
   category: string;
   /** "" for none, else the id. */
@@ -336,6 +361,8 @@ export interface InventoryItem {
   id: number;
   code: string | null;
   name: string;
+  brand: string | null;
+  model: string | null;
   purpose: string | null;
   category: string | null;
   areaId: number | null;
@@ -360,6 +387,8 @@ export interface ItemRow {
   id: number;
   code: string | null;
   name: string;
+  brand: string | null;
+  model: string | null;
   category: string | null;
   areaId: number | null;
   typeId: number | null;

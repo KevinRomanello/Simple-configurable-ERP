@@ -10,6 +10,7 @@ const person = (role: Me["role"], areaIds: number[] = []): Me => ({
   areaIds,
   permissions: { canEditShared: false, canManageCash: false, canChangeInflows: false, canManageSuppliers: false, canManageInventory: false, canViewHistory: false, canManageUsers: false, canManageSettings: false },
   editOnPhone: true,
+  modules: { registry: true },
 });
 
 describe("canEditArea", () => {

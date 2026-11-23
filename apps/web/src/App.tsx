@@ -1,6 +1,7 @@
 import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { isUnauthorized } from "./api/client";
+import { IfModule } from "./components/IfModule";
 import { NoticeProvider } from "./components/Notice";
 import { Shell } from "./components/Shell";
 import { AuthGate, forgetUser } from "./lib/auth";
@@ -80,8 +81,8 @@ function SignedIn() {
         <Route path="users" element={<UsersPage />} />
         <Route path="settings/:section?" element={<SettingsPage />} />
         <Route path="history" element={<HistoryPage />} />
-        <Route path="registry" element={<RegistryHome />} />
-        <Route path="registry/:table" element={<TablePage />} />
+        <Route path="registry" element={<IfModule name="registry"><RegistryHome /></IfModule>} />
+        <Route path="registry/:table" element={<IfModule name="registry"><TablePage /></IfModule>} />
         <Route path="*" element={<p className="empty">This page does not exist.</p>} />
       </Route>
     </Routes>

@@ -468,7 +468,7 @@ Non c'è un disegno su Figma per queste pagine: usano i token e i componenti che
   - webhook: metodo, intestazioni, corpo, campi, «quando», prova e log;
   - import CSV o Excel: controllo e poi caricamento;
   - la tabella: nome, sezione, icona, duplicare e cancellare (admin). «Keep in the view» salva nella vista il filtro, gli ordinamenti, i campi e il gruppo scelti al momento; la larghezza delle colonne si salva da sola.
-- **Settings › Registry** (admin): la tabella delle persone e il campo della mail, i ruoli dell'ERP dal registro (scelte, anteprima, acceso/spento), i token e gli account dei servizi.
+- **Settings › Registry** (admin, e **solo a modulo acceso**: spento, la scheda non c'è, [moduli.md](moduli.md)): la tabella delle persone e il campo della mail, i ruoli dell'ERP dal registro (scelte, anteprima, acceso/spento). I **token e gli account dei servizi** sono in **Settings › App**, perché valgono per tutto l'ERP.
 - **Pagina del modulo** (`/forms/<slug>`): da sola, senza menù, adatta al telefono; per i moduli `public` anche senza essere entrati.
 
 ## 12. Limiti e cose da sapere
@@ -484,6 +484,8 @@ Non c'è un disegno su Figma per queste pagine: usano i token e i componenti che
   - in produzione il server deve poter uscire in HTTPS verso `tile.openstreetmap.org`, altrimenti la mappa mostra i punti senza lo sfondo;
   - per molti utenti o un uso pesante, la politica di OpenStreetMap chiede un server di mattonelle proprio: si cambia solo `tileAddress`.
 - **Webhook verso indirizzi interni**: li può creare solo chi gestisce la tabella; il server chiama l'indirizzo scritto (come fa NocoDB). Solo `http(s)`.
+
+**Spegnere il modulo (23 novembre 2026).** Un admin può spegnere le anagrafiche in Settings › App › Modules: spariscono dal menù e dal sito, le API rispondono 404, i dati restano e tornano riaccendendo, e il collegamento dei ruoli si ferma (gli account tornano modificabili a mano). Come funziona: [moduli.md](moduli.md).
 
 ## 13. Cosa resta fuori (per ora) e come si aggiunge
 
@@ -590,7 +592,7 @@ Lo crea come il primo admin, passando dai servizi, quindi è nello storico. Si t
 - **Settings › Registry:** anteprima dei ruoli; ha trovato le aree composte (`mt-dmt`), ora riconosciute.
 - **Il giorno dopo (22 novembre):**
   - kanban «Pipeline»: una scheda trascinata da Waiting a Contacted cambia lo stato (allora con il drag and drop HTML5 ed eventi creati a mano, perché il mouse dell'automazione non lo faceva partire; ora con il puntatore, vedi sotto);
-  - galleria «Faces» con la foto caricata;
+  - galleria «Faces» con la foto caricata (un clic sulla copertina la ingrandisce, un clic sul resto della scheda apre il record; gli allegati che sono immagini si ingrandiscono ovunque, [stile-interfaccia.md](stile-interfaccia.md), punto 25);
   - commenti dal record;
   - riepilogo «Different values of State = 6»;
   - `openapi.json` e `aggregate` dalla pagina;

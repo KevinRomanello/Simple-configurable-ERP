@@ -5,6 +5,7 @@ import { useSort, type SortState, type SortValue } from "../../lib/sort";
 import { IconButton } from "../Button";
 import { TableBox } from "../ExportBlocks";
 import { SortTh } from "../SortTh";
+import { Table } from "./Table";
 
 /** One column of a table. */
 export interface Column<T> {
@@ -79,7 +80,7 @@ export function DataTable<T>({ title, columns, rows, rowKey, rowClass, empty, fo
     classes(c.num && "num", c.className, c.key === titleKey && "cell-title", c.mobile === "hidden" && "cell-hidden");
   return (
     <TableBox title={title} cards={phone === "cards"}>
-      <table className={classes("data-table", phone === "cards" && "phone-cards", className)}>
+      <Table className={classes(phone === "cards" && "phone-cards", className)}>
         <thead>
           <tr>
             {reorder && <th className="drag-cell" aria-label="Order" />}
@@ -112,7 +113,7 @@ export function DataTable<T>({ title, columns, rows, rowKey, rowClass, empty, fo
           {rows !== undefined && rows.length === 0 && empty && <EmptyRow colSpan={columns.length + (reorder ? 1 : 0)}>{empty}</EmptyRow>}
           {footer}
         </tbody>
-      </table>
+      </Table>
     </TableBox>
   );
 }

@@ -5,7 +5,7 @@ import { readRegisterFile, type SheetRead } from "../lib/cashSheet";
 import { date, money } from "../lib/format";
 import { useAction } from "../lib/useAction";
 import { Button } from "./Button";
-import { Card, Cards, Field, Panel } from "./ui";
+import { Card, Cards, Field, Panel, Table, TableScroll } from "./ui";
 
 // "Import from Excel": the sheet of the treasury is read in the browser, checked against the register
 // (nothing is saved), then added to it or put in its place. docs/registro-di-cassa.md, "L'import"
@@ -202,13 +202,15 @@ export function CashImport({ categories, methods, onClose }: { categories: CashL
             )}
           </div>
 
-          <table className="data-table">
-            <thead><tr><th>BALANCES</th>{(Object.keys(ACCOUNT_NAME) as CashAccount[]).map((a) => <th key={a} className="num">{ACCOUNT_NAME[a].toUpperCase()}</th>)}</tr></thead>
-            <tbody>
-              <tr><td>The sheet gives (end of {preview.year})</td>{(Object.keys(ACCOUNT_NAME) as CashAccount[]).map((a) => <td key={a} className="num">{money(preview.balances.sheet[a])}</td>)}</tr>
-              <tr><td>The register has now</td>{(Object.keys(ACCOUNT_NAME) as CashAccount[]).map((a) => <td key={a} className="num">{money(preview.balances.site[a])}</td>)}</tr>
-            </tbody>
-          </table>
+          <TableScroll>
+            <Table>
+              <thead><tr><th>BALANCES</th>{(Object.keys(ACCOUNT_NAME) as CashAccount[]).map((a) => <th key={a} className="num">{ACCOUNT_NAME[a].toUpperCase()}</th>)}</tr></thead>
+              <tbody>
+                <tr><td>The sheet gives (end of {preview.year})</td>{(Object.keys(ACCOUNT_NAME) as CashAccount[]).map((a) => <td key={a} className="num">{money(preview.balances.sheet[a])}</td>)}</tr>
+                <tr><td>The register has now</td>{(Object.keys(ACCOUNT_NAME) as CashAccount[]).map((a) => <td key={a} className="num">{money(preview.balances.site[a])}</td>)}</tr>
+              </tbody>
+            </Table>
+          </TableScroll>
 
           <div className="stack tight">
             <label className="checkbox">

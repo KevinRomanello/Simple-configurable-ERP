@@ -273,7 +273,7 @@ Le anagrafiche hanno indirizzi che il proxy di IT lascia passare **senza** il su
 
 **Stato: fatto e provato** (21 novembre 2026), insieme alle anagrafiche ([anagrafiche.md](anagrafiche.md), §10.1).
 
-- Un admin crea un token in **Settings › Registry › API tokens**: un nome e l'utente dell'ERP per cui agisce. La chiave (`erp_…`) si vede **una volta**; nel database c'è solo il suo SHA-256 (`api_token`), quindi una copia del database non la rivela.
+- Un admin crea un token in **Settings › App › API tokens** (stanno in App perché valgono per tutto l'ERP e restano anche a Registry spento, [moduli.md](moduli.md); prima del 23 novembre 2026 erano in Settings › Registry): un nome e l'utente dell'ERP per cui agisce. La chiave (`erp_…`) si vede **una volta**; nel database c'è solo il suo SHA-256 (`api_token`), quindi una copia del database non la rivela.
 - Per un servizio si crea prima il suo account: `POST /api/users` (admin), nella stessa pagina («New account for a service»). È un `viewer`, con le regole che gli servono nel REGISTRY.
 - Una richiesta con `Authorization: Bearer <chiave>` è di quell'utente, con il suo ruolo e i suoi permessi, in ogni modo di accesso (Google o proxy). Una chiave sconosciuta o revocata è **401**. Revocare (`DELETE /api/tokens/:id`) vale dalla richiesta successiva; la riga resta, per lo storico.
 - Da chiedere a IT: dietro il proxy dell'organizzazione, le richieste con `Authorization: Bearer` (e i moduli pubblici, `/forms/*` e `/api/registry/public/*`) devono arrivare all'app senza il login del proxy, e da un indirizzo di `PROXY_IPS`.

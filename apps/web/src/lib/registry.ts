@@ -232,3 +232,6 @@ export function planMove(bars: Bar[], id: number, start: string, end: string): {
   }
   return [...changed.values()].map((b) => ({ id: b.id, start: b.start, end: b.end }));
 }
+
+/** Whether a file of a record is a picture (the browser can show it): by the type the server saved it with. */
+export const isPicture = (file: Pick<FileRef, "mime">): boolean => file.mime.startsWith("image/");

@@ -327,6 +327,13 @@ describe("pendingLines", () => {
     expect(pending[6]!.daysWaiting).toBeNull();
     expect(pending[1]).toMatchObject({ projectName: "Brakes", supplierName: "Acme", areaCode: "mt-dmt" });
   });
+
+  it("carries the brand and the model written on the line, which the item of the inventory starts from", () => {
+    const written = lines.map((l) => (l.id === 1 ? { ...l, brand: "SKF", model: "6204" } : l));
+    const pending = Object.fromEntries(pendingLines(written, "2026-10-20").map((p) => [p.lineId, p]));
+    expect(pending[1]).toMatchObject({ brand: "SKF", model: "6204" });
+    expect(pending[2]).toMatchObject({ brand: null, model: null });
+  });
 });
 
 describe("stats", () => {

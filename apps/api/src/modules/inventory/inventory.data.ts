@@ -7,8 +7,15 @@ import { componentPart, inventoryItem, stockMovement } from "../../db/schema";
 
 type Reader = Pick<typeof db, "select">;
 
+/** The name, brand and model written the way a person reads them: «Bearing · SKF · 6204». */
+export const itemLabel = (item: { name: string; brand: string | null; model: string | null }) => [item.name, item.brand, item.model].filter(Boolean).join(" · ");
+
+/**
+ * An item as the calculation engine reads it. Its `name` is the whole label: the engine only shows it (the lines of a bill of
+ * materials, what a build is short of), and two items with the same name must not look alike there.
+ */
 export function itemInput(row: typeof inventoryItem.$inferSelect): ItemInput {
-  return { id: row.id, name: row.name, category: row.category, origin: row.origin, unit: row.unit };
+  return { id: row.id, name: itemLabel(row), category: row.category, origin: row.origin, unit: row.unit };
 }
 
 /** The database row of a movement as the calculation engine reads it (thousandths, ten-thousandths). */

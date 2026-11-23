@@ -5,6 +5,7 @@ import { loadAuthConfig, type AuthConfig } from "./core/auth-config";
 import { env } from "./core/env";
 import { AppError, badValueMessage, postgresCode, retryMessage } from "./core/errors";
 import { addSecurity, DEFAULT_RATE_LIMITS, type RateLimits } from "./core/security";
+import { addModuleGate, appModulesRoutes } from "./modules/appmodules/appmodules.routes";
 import { addAuthHook, authRoutes } from "./modules/auth/auth.routes";
 import { createGoogleClient, type GoogleClient } from "./modules/auth/google";
 import { auditRoutes } from "./modules/audit/audit.routes";
@@ -75,6 +76,7 @@ export function buildApp(options: AppOptions = {}) {
     async (api) => {
       addAuthHook(api, config); // before any route, so every route below is protected
       addSeasonHook(api); // the season chosen in the menu, for every route below
+      addModuleGate(api); // the modules an admin turned off do not answer (docs/moduli.md)
       await api.register(healthRoutes);
       await api.register(authRoutes, { config, google });
       await api.register(usersRoutes);
@@ -91,6 +93,7 @@ export function buildApp(options: AppOptions = {}) {
       await api.register(settingsRoutes);
       await api.register(registryRoutes);
       await api.register(rolesyncRoutes, { adminEmails: config.adminEmails });
+      await api.register(appModulesRoutes);
     },
     { prefix: "/api" },
   );

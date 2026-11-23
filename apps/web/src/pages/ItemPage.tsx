@@ -26,7 +26,7 @@ import { SCREEN, useMaxWidth } from "../lib/screen";
 import { useAction } from "../lib/useAction";
 import { TableBox } from "../components/ExportBlocks";
 import { SortTh } from "../components/SortTh";
-import { Card, Cards, DataTable, DetailHeader, EmptyRow, Loading, Message, Panel, type Column } from "../components/ui";
+import { Card, Cards, DataTable, DetailHeader, EmptyRow, Loading, Message, Panel, Table, type Column } from "../components/ui";
 import { useSort, type SortAccessors } from "../lib/sort";
 
 const PART_COLUMNS: Column<BomLine>[] = [
@@ -140,7 +140,7 @@ export function ItemPage() {
         title={item.name}
         subtitle={
           <>
-            {area?.name ?? "Every area"} · {type ? `${type.path} · ` : ""}counted in {item.unit}{item.code ? ` · code ${item.code}` : ""}
+            {item.brand || item.model ? <>{[item.brand, item.model].filter(Boolean).join(" · ")} · </> : null}{area?.name ?? "Every area"} · {type ? `${type.path} · ` : ""}counted in {item.unit}{item.code ? ` · code ${item.code}` : ""}
             {item.origin === "made" && <> · <span className="pill teal">made by the team</span></>}
             <HazardPills item={item} />
           </>
@@ -229,7 +229,7 @@ export function ItemPage() {
           <ReceiveForm items={items.data} presetItemId={itemId} lookups={lookups} onDone={() => setReceiving(false)} onCancel={() => setReceiving(false)} />
         )}
         <TableBox title="Where it is" cards>
-          <table className="data-table phone-cards">
+          <Table className="phone-cards">
             <thead>
               <tr>
                 <SortTh sort={byPlace} by="place">PLACE</SortTh>
@@ -265,7 +265,7 @@ export function ItemPage() {
               })}
               {stock.length === 0 && <EmptyRow colSpan={4}>None on the shelf</EmptyRow>}
             </tbody>
-          </table>
+          </Table>
         </TableBox>
       </Panel>
 

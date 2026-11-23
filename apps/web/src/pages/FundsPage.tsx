@@ -8,7 +8,7 @@ import { CommitInput } from "../components/CommitInput";
 import { TableBox } from "../components/ExportBlocks";
 import { MonthlyInflows } from "../components/MonthlyInflows";
 import { SortTh } from "../components/SortTh";
-import { DataTable, EmptyRow, Field, FormPanel, PageHeader, Panel, type Column } from "../components/ui";
+import { DataTable, EmptyRow, Field, FormPanel, PageHeader, Panel, Table, type Column } from "../components/ui";
 import { date, money, moneyFromDecimal } from "../lib/format";
 import { givesBody, givesOf, hasMoney, type Gives } from "../lib/gives";
 import { useSort, type SortAccessors } from "../lib/sort";
@@ -248,7 +248,7 @@ function SponsorsPanel() {
     // a header on two rows (the money of each phase): built from the common pieces rather than DataTable
     <Panel title="SPONSORS">
       <TableBox title="Sponsors">
-        <table className="data-table">
+        <Table>
           <thead>
             <tr>
               <SortTh sort={sort} by="name" rowSpan={2}>NAME</SortTh>
@@ -291,7 +291,7 @@ function SponsorsPanel() {
             ))}
             {funds.isSuccess && sponsors.length === 0 && <EmptyRow colSpan={9}>No sponsors yet</EmptyRow>}
           </tbody>
-        </table>
+        </Table>
       </TableBox>
       <GroupSuggestions funds={funds.data ?? []} />
     </Panel>

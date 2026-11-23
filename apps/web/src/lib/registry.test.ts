@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RegField } from "../api/registry";
-import { formatDuration, groupLevels, opsFor, planMove, recordsQuery, showValue, viewFields } from "./registry";
+import { formatDuration, groupLevels, isPicture, opsFor, planMove, recordsQuery, showValue, viewFields } from "./registry";
 
 const field = (id: number, type: RegField["type"], options: RegField["options"] = {}, position = id): RegField => ({ id, name: `F${id}`, type, options, required: false, unique: false, description: "", position });
 
@@ -88,5 +88,14 @@ describe("moving a bar of the timeline", () => {
 
   it("never ends before it starts", () => {
     expect(planMove(bars, 3, "2026-11-21", "2026-11-18")).toEqual([{ id: 3, start: "2026-11-21", end: "2026-11-21" }, { id: 1, start: "2026-11-22", end: "2026-11-26" }, { id: 2, start: "2026-11-27", end: "2026-11-28" }]);
+  });
+});
+
+describe("isPicture", () => {
+  it("is true for the files the server saved as an image, and only for them", () => {
+    expect(isPicture({ mime: "image/png" })).toBe(true);
+    expect(isPicture({ mime: "image/svg+xml" })).toBe(true);
+    expect(isPicture({ mime: "application/pdf" })).toBe(false);
+    expect(isPicture({ mime: "" })).toBe(false);
   });
 });

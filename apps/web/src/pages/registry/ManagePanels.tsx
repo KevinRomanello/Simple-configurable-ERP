@@ -5,7 +5,7 @@ import { useState } from "react";
 import { registry, type RegField, type RegTable, type RegView, type Webhook, type WebhookOptions } from "../../api/registry";
 import { Button, IconButton } from "../../components/Button";
 import { Chips } from "../../components/Chips";
-import { Field, FormPanel, Panel } from "../../components/ui";
+import { Field, FormPanel, Panel, Table, TableScroll } from "../../components/ui";
 import { useMe } from "../../lib/auth";
 import { COMPUTED, FIELD_TYPE_LABELS, groupLevels, NEW_FIELD_TYPES } from "../../lib/registry";
 import { sheetAsCsv } from "../../lib/registrySheet";
@@ -55,33 +55,35 @@ function FieldsTab({ table }: { table: RegTable }) {
   return (
     <Panel title="Fields" actions={<Button small icon={faPlus} onClick={() => setEditing("new")}>Add a field</Button>}>
       {editing && <FieldForm table={table} field={editing === "new" ? null : editing} onDone={() => setEditing(null)} />}
-      <table className="data-table">
-        <thead>
-          <tr><th>NAME</th><th>TYPE</th><th>RULES</th><th /></tr>
-        </thead>
-        <tbody>
-          {table.fields.map((f, i) => (
-            <tr key={f.id}>
-              <td>
-                {f.id === table.primaryFieldId && <span className="pill teal" title="Names the records">name</span>} {f.name}
-                {f.description && <div className="hint">{f.description}</div>}
-              </td>
-              <td>{FIELD_TYPE_LABELS[f.type]}{f.type === "formula" && <div className="hint mono">{f.options.expression}</div>}</td>
-              <td>{[f.required && "required", f.unique && "unique"].filter(Boolean).join(", ")}</td>
-              <td className="num nowrap">
-                {i > 0 && <IconButton icon={faArrowUp} label="Move up" onClick={() => move(i, -1)} />}
-                {i < table.fields.length - 1 && <IconButton icon={faArrowDown} label="Move down" onClick={() => move(i, 1)} />}
-                {f.id !== table.primaryFieldId && !["attachment", "button", "json"].includes(f.type) && (
-                  <IconButton icon={faStar} label="Make it the name of the records" onClick={() => act(() => registry.updateTable(table.id, { primaryFieldId: f.id }))} />
-                )}
-                <IconButton icon={faPen} label={`Change ${f.name}`} onClick={() => setEditing(f)} />
-                {!["link", "uuid"].includes(f.type) && <IconButton icon={faClone} label={`Duplicate ${f.name}`} onClick={() => act(() => registry.duplicateField(f.id))} />}
-                <IconButton icon={faTrash} label={`Delete ${f.name}`} danger onClick={() => window.confirm(`Delete ${f.name} and all its values?`) && act(() => registry.deleteField(f.id))} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <TableScroll>
+        <Table>
+          <thead>
+            <tr><th>NAME</th><th>TYPE</th><th>RULES</th><th /></tr>
+          </thead>
+          <tbody>
+            {table.fields.map((f, i) => (
+              <tr key={f.id}>
+                <td>
+                  {f.id === table.primaryFieldId && <span className="pill teal" title="Names the records">name</span>} {f.name}
+                  {f.description && <div className="hint">{f.description}</div>}
+                </td>
+                <td>{FIELD_TYPE_LABELS[f.type]}{f.type === "formula" && <div className="hint mono">{f.options.expression}</div>}</td>
+                <td>{[f.required && "required", f.unique && "unique"].filter(Boolean).join(", ")}</td>
+                <td className="num nowrap">
+                  {i > 0 && <IconButton icon={faArrowUp} label="Move up" onClick={() => move(i, -1)} />}
+                  {i < table.fields.length - 1 && <IconButton icon={faArrowDown} label="Move down" onClick={() => move(i, 1)} />}
+                  {f.id !== table.primaryFieldId && !["attachment", "button", "json"].includes(f.type) && (
+                    <IconButton icon={faStar} label="Make it the name of the records" onClick={() => act(() => registry.updateTable(table.id, { primaryFieldId: f.id }))} />
+                  )}
+                  <IconButton icon={faPen} label={`Change ${f.name}`} onClick={() => setEditing(f)} />
+                  {!["link", "uuid"].includes(f.type) && <IconButton icon={faClone} label={`Duplicate ${f.name}`} onClick={() => act(() => registry.duplicateField(f.id))} />}
+                  <IconButton icon={faTrash} label={`Delete ${f.name}`} danger onClick={() => window.confirm(`Delete ${f.name} and all its values?`) && act(() => registry.deleteField(f.id))} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </TableScroll>
     </Panel>
   );
 }
@@ -603,27 +605,29 @@ function WebhooksTab({ table }: { table: RegTable }) {
     <>
       <Panel title="Webhooks" actions={<Button small icon={faPlus} onClick={() => setEditing("new")}>Add a webhook</Button>}>
         <p className="muted">After a change is saved the server sends the record to the address (n8n), signed: header X-Registry-Signature = sha256=HMAC of the body with the secret.</p>
-        <table className="data-table">
-          <thead><tr><th>NAME</th><th>ADDRESS</th><th>EVENTS</th><th>SECRET</th><th /></tr></thead>
-          <tbody>
-            {(hooks.data ?? []).map((h) => (
-              <tr key={h.id}>
-                <td>{h.name}{!h.active && <span className="pill teal"> off</span>}</td>
-                <td className="mono">{h.options.method ?? "POST"} {h.url}</td>
-                <td>{h.events.join(", ")}{h.options.when === "becomes" ? " · when it starts matching" : ""}{h.options.fields?.length ? ` · ${h.options.fields.join(", ")}` : ""}</td>
-                <td><IconButton icon={faCopy} label="Copy the secret" onClick={() => navigator.clipboard.writeText(h.secret)} /></td>
-                <td className="num nowrap">
-                  <Button small variant="ghost" onClick={() => act(() => registry.testWebhook(h.id)).then(() => setLogOf(h.id))}>Test</Button>
-                  <Button small variant="ghost" onClick={() => setLogOf(logOf === h.id ? null : h.id)}>Log</Button>
-                  <Button small variant="ghost" onClick={() => act(() => registry.updateWebhook(h.id, { active: !h.active }))}>{h.active ? "Turn off" : "Turn on"}</Button>
-                  <IconButton icon={faPen} label={`Change ${h.name}`} onClick={() => setEditing(h)} />
-                  <IconButton icon={faClone} label={`Duplicate ${h.name}`} onClick={() => act(() => registry.duplicateWebhook(h.id))} />
-                  <IconButton icon={faTrash} label={`Delete ${h.name}`} danger onClick={() => act(() => registry.deleteWebhook(h.id))} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <TableScroll>
+          <Table>
+            <thead><tr><th>NAME</th><th>ADDRESS</th><th>EVENTS</th><th>SECRET</th><th /></tr></thead>
+            <tbody>
+              {(hooks.data ?? []).map((h) => (
+                <tr key={h.id}>
+                  <td>{h.name}{!h.active && <span className="pill teal"> off</span>}</td>
+                  <td className="mono">{h.options.method ?? "POST"} {h.url}</td>
+                  <td>{h.events.join(", ")}{h.options.when === "becomes" ? " · when it starts matching" : ""}{h.options.fields?.length ? ` · ${h.options.fields.join(", ")}` : ""}</td>
+                  <td><IconButton icon={faCopy} label="Copy the secret" onClick={() => navigator.clipboard.writeText(h.secret)} /></td>
+                  <td className="num nowrap">
+                    <Button small variant="ghost" onClick={() => act(() => registry.testWebhook(h.id)).then(() => setLogOf(h.id))}>Test</Button>
+                    <Button small variant="ghost" onClick={() => setLogOf(logOf === h.id ? null : h.id)}>Log</Button>
+                    <Button small variant="ghost" onClick={() => act(() => registry.updateWebhook(h.id, { active: !h.active }))}>{h.active ? "Turn off" : "Turn on"}</Button>
+                    <IconButton icon={faPen} label={`Change ${h.name}`} onClick={() => setEditing(h)} />
+                    <IconButton icon={faClone} label={`Duplicate ${h.name}`} onClick={() => act(() => registry.duplicateWebhook(h.id))} />
+                    <IconButton icon={faTrash} label={`Delete ${h.name}`} danger onClick={() => act(() => registry.deleteWebhook(h.id))} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </TableScroll>
         {logOf !== null && (
           <ol className="history-list">
             {(log.data ?? []).map((c) => <li key={c.id}>{c.at.slice(0, 19).replace("T", " ")} · {c.event} {c.recordId ? `#${c.recordId}` : ""} · {c.status ?? "no answer"} {c.error ?? ""}</li>)}

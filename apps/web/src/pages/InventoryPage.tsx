@@ -38,6 +38,9 @@ const ITEM: Column<ItemRow> = {
 };
 // on a phone a card leaves out what is empty (see .none in components.css)
 const none = <span className="muted none">—</span>;
+// the make and the model, as in the budget: with the item they say which one it is
+const BRAND: Column<ItemRow> = { key: "brand", header: "BRAND", sort: (r) => r.brand, cell: (r) => r.brand ?? none };
+const MODEL: Column<ItemRow> = { key: "model", header: "MODEL", sort: (r) => r.model, cell: (r) => r.model ?? none };
 const HAZARD_COLUMN: Column<ItemRow> = {
     key: "hazards",
     header: "HAZARDS",
@@ -91,10 +94,10 @@ const paramColumn = (param: TypeParam): Column<ItemRow> => ({
  * the same on every row), and the hazards only if the type asks them.
  */
 function columnsFor(type: ItemType | undefined, areas: Area[], types: ItemType[]): Column<ItemRow>[] {
-  if (type) return [PICTURE, ITEM, ...type.params.map(paramColumn), ...(type.hazards ? [HAZARD_COLUMN] : []), ...STOCK];
+  if (type) return [PICTURE, ITEM, BRAND, MODEL, ...type.params.map(paramColumn), ...(type.hazards ? [HAZARD_COLUMN] : []), ...STOCK];
   const area: Column<ItemRow> = { key: "area", header: "AREA", sort: (r) => areas.find((a) => a.id === r.areaId)?.name ?? null, cell: (r) => areas.find((a) => a.id === r.areaId)?.name ?? none };
   const kind: Column<ItemRow> = { key: "type", header: "TYPE", sort: (r) => types.find((t) => t.id === r.typeId)?.name ?? null, cell: (r) => types.find((t) => t.id === r.typeId)?.name ?? none };
-  return [PICTURE, ITEM, area, kind, HAZARD_COLUMN, ...STOCK];
+  return [PICTURE, ITEM, BRAND, MODEL, area, kind, HAZARD_COLUMN, ...STOCK];
 }
 
 /** INVENTORY: everything the team keeps, how much of it, where, and what it is worth. */

@@ -5,6 +5,7 @@ import { db } from "../../db/client";
 import { appUser, area, roleSync, userArea } from "../../db/schema";
 import { getCurrentUser, requireAdmin, type Role } from "../auth/auth.service";
 import { groupsOfRegistry, onRegistryChange, onRegistryUse, peopleInViews } from "../registry/registry.public";
+import { isModuleOn } from "../appmodules/appmodules.service";
 import { setManagedCheck } from "../users/users.service";
 
 // The roles of the ERP taken from the registry (docs/anagrafiche.md, §9): who may enter, who is admin, who is a
@@ -53,7 +54,8 @@ export function startRoleSync(emails: string[]) {
   });
   setManagedCheck(async (list) => {
     const config = await readConfig(db);
-    if (!config.enabled) return new Set();
+    // with the Registry module turned off nothing is taken from it any more: the accounts are kept by hand again
+    if (!config.enabled || !(await isModuleOn("registry"))) return new Set();
     const people = await peopleInViews(db, [], null);
     const known = new Set((people ?? []).map((p) => p.email));
     return new Set(list.filter((e) => known.has(e) && !adminEmails.includes(e)));

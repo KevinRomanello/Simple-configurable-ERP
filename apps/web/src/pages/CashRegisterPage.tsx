@@ -11,7 +11,7 @@ import { CommitInput } from "../components/CommitInput";
 import { EditCell } from "../components/EditCell";
 import { TableBox } from "../components/ExportBlocks";
 import { SearchSelect } from "../components/SearchSelect";
-import { Cards, Field, FormPanel, Loading, Message, MoneyCard, PageHeader, Panel } from "../components/ui";
+import { Cards, Field, FormPanel, Loading, Message, MoneyCard, PageHeader, Panel, Table } from "../components/ui";
 import { SortTh } from "../components/SortTh";
 import { useMe } from "../lib/auth";
 import { date, money } from "../lib/format";
@@ -278,7 +278,7 @@ export function CashRegisterPage() {
       {sort.state && <p className="muted">Sorted by a column: the Progressivo columns follow the order of the days, so they add up row by row only in the original order (click the header again to get it back).</p>}
 
       <TableBox title={`Cash register ${data.year}`}>
-        <table className="data-table register">
+        <Table className="register">
           <thead>
             <tr>
               <th colSpan={6} />
@@ -361,7 +361,7 @@ export function CashRegisterPage() {
               <tr><td colSpan={17} className="empty">{data.entries.length === 0 ? "No movements in this year yet" : "No movement matches the filters"}</td></tr>
             )}
           </tbody>
-        </table>
+        </Table>
       </TableBox>
     </>
   );

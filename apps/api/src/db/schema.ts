@@ -524,6 +524,9 @@ export const inventoryItem = pgTable(
     /** The team's own code or label, if it has one. */
     code: text(),
     name: text().notNull(),
+    /** The make and the model, free text like on a line of the budget: with the name they say which item it is (docs/inventario.md, §4). */
+    brand: text(),
+    model: text(),
     /** What it is for. */
     purpose: text(),
     // Validated by the service against listCategories(); plain text for the same reason as budget_line.
@@ -556,7 +559,8 @@ export const inventoryItem = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("inventory_item_name_uq").on(sql`lower(${t.name})`),
+    // an item is its name, brand and model together (a missing brand or model counts as empty), in any case
+    uniqueIndex("inventory_item_identity_uq").on(sql`lower(${t.name})`, sql`lower(coalesce(${t.brand}, ''))`, sql`lower(coalesce(${t.model}, ''))`),
     uniqueIndex("inventory_item_code_uq")
       .on(sql`lower(${t.code})`)
       .where(sql`${t.code} is not null`),
@@ -995,3 +999,13 @@ export const regComment = pgTable(
   },
   (t) => [index("reg_comment_record").on(t.recordId)],
 );
+
+/**
+ * A part of the ERP that an admin has turned off (Settings › App › Modules, docs/moduli.md). A module without a row is on:
+ * which modules there are, and what each one covers, is written in `appmodules.service.ts`, so a new one needs no migration.
+ */
+export const appModule = pgTable("app_module", {
+  id: id(),
+  key: text().notNull().unique(),
+  enabled: boolean().notNull().default(true),
+});
