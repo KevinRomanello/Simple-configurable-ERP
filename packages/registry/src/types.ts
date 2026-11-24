@@ -12,6 +12,13 @@ export type FieldType = (typeof FIELD_TYPES)[number];
 /** Fields whose value is worked out, given by the server (uuid) or none (button): nobody writes them. */
 export const COMPUTED_TYPES: readonly FieldType[] = ["lookup", "rollup", "formula", "button", "uuid", "qrcode", "barcode", "autonumber", "created", "modified", "creator", "modifier"];
 export const isComputed = (type: FieldType) => COMPUTED_TYPES.includes(type);
+/**
+ * The fields that can be the name of the records (what links, titles and cards show): one value that reads as a name: a text, a
+ * number, a date, a choice, a formula… Not the ones that hold many values (a link, a lookup, a rollup, several choices, a person), a
+ * file, a button, JSON, a coordinate, a colour, a code or a tick.
+ */
+export const NAME_TYPES: readonly FieldType[] = ["text", "longtext", "email", "url", "phone", "number", "date", "datetime", "time", "duration", "select", "formula", "autonumber", "uuid", "created", "modified", "creator", "modifier"];
+export const canBeName = (type: FieldType) => NAME_TYPES.includes(type);
 /** Fields whose value is kept in `reg_record.data`: the written ones (links in `reg_link`, with nothing in data) and the uuid. */
 export const isStored = (type: FieldType) => type === "uuid" || (!isComputed(type) && type !== "link");
 

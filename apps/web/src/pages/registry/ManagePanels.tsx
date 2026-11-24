@@ -1,5 +1,6 @@
 import { faClone, faCopy, faPen, faPlus, faStar, faTrash } from "@fortawesome/free-solid-svg-icons";
 import type { AccessLevel, AccessRule, BarcodeFormat, ColorRule, DurationFormat, FieldOptions, FieldType, RollupFn } from "@erp/registry";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { registry, type RegField, type RegTable, type RegView, type Webhook, type WebhookOptions } from "../../api/registry";
@@ -7,7 +8,7 @@ import { Button, IconButton } from "../../components/Button";
 import { Chips } from "../../components/Chips";
 import { DataTable, Field, FormPanel, Panel, Table, TableScroll, type Column } from "../../components/ui";
 import { useMe } from "../../lib/auth";
-import { COMPUTED, FIELD_TYPE_LABELS, groupLevels, NEW_FIELD_TYPES } from "../../lib/registry";
+import { canBeName, COMPUTED, FIELD_TYPE_LABELS, groupLevels, NEW_FIELD_TYPES } from "../../lib/registry";
 import { sheetAsCsv } from "../../lib/registrySheet";
 import { useAction } from "../../lib/useAction";
 import { FormsTab } from "./FormBuilder";
@@ -60,12 +61,32 @@ function FieldsTab({ table }: { table: RegTable }) {
     { key: "type", header: "TYPE", cell: (f) => <>{FIELD_TYPE_LABELS[f.type]}{f.type === "formula" && <div className="hint mono">{f.options.expression}</div>}</> },
     { key: "rules", header: "RULES", cell: (f) => [f.required && "required", f.unique && "unique"].filter(Boolean).join(", ") },
     {
+      // the field that names the records: one for the table, and only a field with one value that reads as a name can be it
+      key: "name",
+      header: "RECORD NAME",
+      className: "name-column",
+      cell: (f) =>
+        f.id === table.primaryFieldId ? (
+          <IconButton icon={faStar} label="This field is the name of the records" className="name-star on" aria-pressed onClick={() => {}} />
+        ) : (
+          <IconButton
+            icon={faStar}
+            label={`Name the records by ${f.name}`}
+            className="name-star"
+            absent={!canBeName(f.type)}
+            onClick={() =>
+              window.confirm(`Name the records of ${table.name} by «${f.name}»?\n\nLinks from other tables, titles, cards and lists will show this value for each record. You can go back by choosing the star of the field that was the name.`) &&
+              act(() => registry.updateTable(table.id, { primaryFieldId: f.id }))
+            }
+          />
+        ),
+    },
+    {
       key: "actions",
       header: "",
       className: "num nowrap",
       cell: (f) => (
         <>
-          <IconButton icon={faStar} label="Make it the name of the records" absent={f.id === table.primaryFieldId || ["attachment", "button", "json"].includes(f.type)} onClick={() => act(() => registry.updateTable(table.id, { primaryFieldId: f.id }))} />
           <IconButton icon={faPen} label={`Change ${f.name}`} onClick={() => setEditing(f)} />
           <IconButton icon={faClone} label={`Duplicate ${f.name}`} absent={["link", "uuid"].includes(f.type)} onClick={() => act(() => registry.duplicateField(f.id))} />
           <IconButton icon={faTrash} label={`Delete ${f.name}`} danger onClick={() => window.confirm(`Delete ${f.name} and all its values?`) && act(() => registry.deleteField(f.id))} />
@@ -76,6 +97,10 @@ function FieldsTab({ table }: { table: RegTable }) {
   return (
     <Panel title="Fields" actions={<Button small icon={faPlus} onClick={() => setEditing("new")}>Add a field</Button>}>
       {editing && <FieldForm table={table} field={editing === "new" ? null : editing} onDone={() => setEditing(null)} />}
+      <p className="muted">
+        The <FontAwesomeIcon icon={faStar} /> marks the field that is the <strong>name of the records</strong>: its value is what a link from another table, the title of a record, a card or a list shows for each one. There is one for the table and you can change it
+        whenever you like (the values do not change); a text, a number, a date, a choice or a formula can be it.
+      </p>
       {/* the order is the handle of the row, as in every list (docs/stile-interfaccia.md, point 22) */}
       <DataTable
         title="Fields"

@@ -49,6 +49,25 @@ async function peopleSettings(t: Awaited<ReturnType<typeof teamSchema>>) {
   return { members };
 }
 
+describe("the name of the records", () => {
+  it("is a field with one value that reads as a name: a link, a lookup or a file cannot be it, a text or a formula can", async () => {
+    const t = await teamSchema();
+    const field = (name: string) => t.people.fields.find((f: any) => f.name === name);
+    for (const refused of ["Area", "Area Tag", "CF"].filter((n) => field(n)?.type !== "text")) {
+      const reply = await api.patch("/api/registry/tables/People", { primaryFieldId: field(refused).id });
+      expect([refused, reply.status]).toEqual([refused, 400]);
+      expect(reply.body.error).toMatch(/cannot name the records/);
+    }
+    // the name stays what it was after a refusal, and a text or a formula is taken
+    expect(ok(await api.get("/api/registry/tables/People")).primaryFieldId).toBe(field("Full Name").id);
+    ok(await api.patch("/api/registry/tables/People", { primaryFieldId: field("Surname").id }));
+    ok(await api.patch("/api/registry/tables/People", { primaryFieldId: field("Full Name").id }));
+    // and a link shows the name of the record it points to, whichever field that is
+    const area = ok(await api.get(`/api/registry/tables/People/records/${t.anna.id}`)).fields.Area;
+    expect(area).toEqual([{ id: t.sw.id, name: "SW" }]);
+  });
+});
+
 describe("tables, fields and records", () => {
   it("make a table, fields of every kind and records, worked out like NocoDB", async () => {
     const t = await teamSchema();

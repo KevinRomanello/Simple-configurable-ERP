@@ -9,4 +9,5 @@ export { FormPanel } from "./FormPanel";
 export { Loading, Message } from "./Message";
 export { PageHeader, type AddAction } from "./PageHeader";
 export { Panel } from "./Panel";
+export { Peek } from "./Peek";
 export { Table, TableScroll } from "./Table";

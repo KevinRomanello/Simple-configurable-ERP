@@ -1,6 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import {
-  atLeast, canSeeTable, dropFields, fieldProblem, filterFields, formulaRefs, fromText, groupLevels, groupViews, isComputed, isStored, matches, normalizeValue,
+  atLeast, canBeName, canSeeTable, dropFields, fieldProblem, filterFields, formulaRefs, fromText, groupLevels, groupViews, isComputed, isStored, matches, normalizeValue,
   openRegistry, parseFormula, recordPermission, showExpression, storeExpression, tablePermission, textOf, FormulaError,
   type AccessRule, type Field, type FieldOptions, type FieldType, type Filter, type Registry, type Table, type View, type ViewConfig,
 } from "@erp/registry";
@@ -149,7 +149,7 @@ export async function updateTable(tableRef: string | number, patch: z.infer<type
   if (patch.position !== undefined) changes.position = patch.position;
   if (patch.primaryFieldId !== undefined) {
     const field = fieldOf(reg, table, patch.primaryFieldId);
-    if (["attachment", "button", "json"].includes(field.type)) throw invalid("That field cannot name the records");
+    if (!canBeName(field.type)) throw invalid(`${field.name} cannot name the records: choose a field with one value that reads as a name (a text, a number, a date, a choice) or a formula`);
     changes.primaryFieldId = field.id;
   }
   if (patch.access !== undefined) changes.access = accessFrom(reg, table, patch.access);

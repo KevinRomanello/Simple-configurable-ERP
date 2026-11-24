@@ -4,6 +4,7 @@ import { registry, type FileRef, type RegField, type RegRecord, type RegTable, t
 import { IconButton } from "../../components/Button";
 import { ValueView } from "../../components/registry/Values";
 import { Picture } from "../../components/Picture";
+import { approach, clampZoom, levelsOf, TILE, tileLayout, tileZoom, wheelPoints, zoomTo, type Camera } from "../../lib/mapZoom";
 import { isPicture, planMove, showValue } from "../../lib/registry";
 import { useAction } from "../../lib/useAction";
 
@@ -361,7 +362,6 @@ function Arrows({ rows, field, x }: { rows: { r: RegRecord; s: string; e: string
 
 // --- the map ----------------------------------------------------------------------------------------
 
-const TILE = 256;
 const MAP_HEIGHT = 480;
 
 /** A point (latitude, longitude) in the pixels of the whole world at zoom `z` (Web Mercator, like every web map). */
@@ -372,7 +372,7 @@ function worldPixel(lat: number, lng: number, z: number): { x: number; y: number
 }
 
 /** The zoom and centre that show every point, with a margin. */
-function fit(points: { lat: number; lng: number }[], width: number): { z: number; x: number; y: number } {
+function fit(points: { lat: number; lng: number }[], width: number): Camera {
   for (let z = 16; z > 1; z--) {
     const px = points.map((p) => worldPixel(p.lat, p.lng, z));
     const xs = px.map((p) => p.x);
@@ -388,6 +388,11 @@ function fit(points: { lat: number; lng: number }[], width: number): { z: number
 /**
  * The map view (NocoDB's Map): each record at the coordinates of its field. The pictures of the map come from the
  * ERP (`/api/registry/tiles`), which fetches them for everybody: the browser talks to nobody else.
+ *
+ * The map moves and zooms only after a click on it, so that the page scrolls past it as it does past any other box: the wheel
+ * and the pinch of a trackpad are the map's while it is clicked, until the pointer leaves it, somebody clicks elsewhere or Esc
+ * is pressed (the + and − buttons and the pins work always). The zoom is continuous: every movement of the wheel zooms a little,
+ * and the map eases towards where they lead (lib/mapZoom.ts), keeping the point under the pointer still.
  */
 export function MapView({ table, view, records, onOpen }: { table: RegTable; view: RegView; records: RegRecord[]; onOpen: (id: number) => void }) {
   const geo = table.fields.find((f) => f.id === view.config.geoField);
@@ -399,39 +404,125 @@ export function MapView({ table, view, records, onOpen }: { table: RegTable; vie
         return lat !== undefined && lng !== undefined && Number.isFinite(lat) && Number.isFinite(lng) && String(r.fields[geo.name] ?? "") !== "" ? [{ r, lat, lng }] : [];
       })
     : [];
+  // the camera is also kept in a ref: the wheel and the drawing loop read the latest one without waiting for a render
   const [camera, setCamera] = useState(() => fit(points, 800));
+  const cameraRef = useRef(camera);
+  const commit = (c: Camera) => {
+    cameraRef.current = c;
+    setCamera(c);
+  };
   useEffect(() => {
     const measured = box.current?.clientWidth ?? 800;
     setWidth(measured);
-    setCamera(fit(points, measured));
+    goal.current = null;
+    commit(fit(points, measured));
   }, [view.id, points.length]);
+
+  // where the zoom is going (a zoom and the pixel under which the map stays still), and the drawing that eases towards it
+  const goal = useRef<{ z: number; offset: { x: number; y: number } } | null>(null);
+  const frame = useRef<number | null>(null);
+  const draw = () => {
+    frame.current = null;
+    const to = goal.current;
+    if (!to) return;
+    const now = cameraRef.current;
+    const z = approach(now.z, to.z);
+    commit(zoomTo(now, z, to.offset));
+    if (z === to.z) goal.current = null;
+    else frame.current = requestAnimationFrame(draw);
+  };
+  const ease = () => {
+    if (frame.current === null) frame.current = requestAnimationFrame(draw);
+  };
+
+  // clicked: the map is the one that gets the wheel
+  const [active, setActive] = useState(false);
+  const activeRef = useRef(false);
+  const activate = (on: boolean) => {
+    activeRef.current = on;
+    setActive(on);
+  };
+  const panning = useRef(false);
+  useEffect(() => {
+    if (!active) return;
+    const outside = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) activate(false);
+    };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") activate(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    window.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [active]);
+
+  // The wheel and the pinch of a trackpad zoom the map and nothing else: the listener is not a passive one (React's `onWheel` is),
+  // so that the page does not scroll, and the browser does not zoom the whole page, at the same time. Until the map is clicked it
+  // lets them through.
+  const hasMap = geo !== undefined;
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!activeRef.current) return;
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const offset = { x: e.clientX - rect.left - rect.width / 2, y: e.clientY - rect.top - rect.height / 2 };
+      goal.current = { z: clampZoom((goal.current?.z ?? cameraRef.current.z) + levelsOf(wheelPoints(e, window.innerHeight))), offset };
+      ease();
+    };
+    // Safari sends a pinch as its own gesture events, and zooms the page with them
+    const still = (e: Event) => {
+      if (activeRef.current) e.preventDefault();
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("gesturestart", still);
+    el.addEventListener("gesturechange", still);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("gesturestart", still);
+      el.removeEventListener("gesturechange", still);
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+      frame.current = null;
+      goal.current = null;
+    };
+  }, [hasMap]);
+
+  // The pictures: those of the level nearest the zoom, stretched to it. While the ones of a new level arrive, the ones of the
+  // level before stay under them, so that there is no blank map in between.
+  const want = tileZoom(camera.z);
+  const [settled, setSettled] = useState(want);
+  const [loaded, setLoaded] = useState<Set<string>>(() => new Set());
+  const seen = (key: string) => setLoaded((now) => (now.has(key) ? now : new Set(now.size > 3000 ? [] : now).add(key)));
+  const left = camera.x - width / 2;
+  const top = camera.y - MAP_HEIGHT / 2;
+  const wanted = tileLayout(camera.z, want, left, top, width, MAP_HEIGHT);
+  useEffect(() => {
+    if (settled !== want && wanted.every((t) => loaded.has(t.key))) setSettled(want);
+  });
+  const under = settled !== want && Math.abs(camera.z - settled) <= 2 ? tileLayout(camera.z, settled, left, top, width, MAP_HEIGHT) : [];
+  const tiles = [...(under.length > 150 ? [] : under), ...wanted];
+
   if (!geo) return <p className="empty">A map needs a field of coordinates: choose it in Table settings › Views.</p>;
 
-  // whole pixels: tiles placed at fractions of a pixel show thin seams between them
-  const left = Math.round(camera.x - width / 2);
-  const top = Math.round(camera.y - MAP_HEIGHT / 2);
-  const count = 2 ** camera.z;
-  const tiles: { key: string; x: number; y: number; src: string }[] = [];
-  for (let ty = Math.floor(top / TILE); ty * TILE < top + MAP_HEIGHT; ty++) {
-    if (ty < 0 || ty >= count) continue;
-    for (let tx = Math.floor(left / TILE); tx * TILE < left + width; tx++) {
-      const wrapped = ((tx % count) + count) % count;
-      tiles.push({ key: `${camera.z}/${tx}/${ty}`, x: tx * TILE - left, y: ty * TILE - top, src: registry.tileUrl(camera.z, wrapped, ty) });
-    }
-  }
-  const zoom = (by: 1 | -1) =>
-    setCamera((c) => {
-      const z = Math.max(1, Math.min(18, c.z + by));
-      const k = 2 ** (z - c.z);
-      return { z, x: c.x * k, y: c.y * k };
-    });
+  const zoom = (by: 1 | -1) => {
+    goal.current = { z: clampZoom(Math.round(goal.current?.z ?? cameraRef.current.z) + by), offset: { x: 0, y: 0 } };
+    ease();
+  };
   const pan = (event: ReactPointerEvent) => {
+    activate(true);
     if (event.button !== 0 || (event.target as HTMLElement).closest("button")) return;
+    goal.current = null; // a hand on the map stops the zoom that was coming
+    panning.current = true;
     const x0 = event.clientX;
     const y0 = event.clientY;
-    const start = camera;
-    const move = (e: PointerEvent) => setCamera({ ...start, x: start.x - (e.clientX - x0), y: start.y - (e.clientY - y0) });
+    const start = cameraRef.current;
+    const move = (e: PointerEvent) => commit({ ...start, x: start.x - (e.clientX - x0), y: start.y - (e.clientY - y0) });
     const up = () => {
+      panning.current = false;
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
     };
@@ -445,8 +536,29 @@ export function MapView({ table, view, records, onOpen }: { table: RegTable; vie
         <IconButton icon={faMinus} label="Zoom out" onClick={() => zoom(-1)} />
         <span className="muted label-s">{geo.name} · {points.length} of {records.length} on the map</span>
       </div>
-      <div ref={box} className="map" style={{ height: MAP_HEIGHT }} onPointerDown={pan} onWheel={(e) => zoom(e.deltaY < 0 ? 1 : -1)}>
-        {tiles.map((t) => <img key={t.key} className="map-tile" src={t.src} alt="" draggable={false} style={{ left: t.x, top: t.y }} />)}
+      <div
+        ref={box}
+        className={`map${active ? " active" : ""}`}
+        style={{ height: MAP_HEIGHT }}
+        onPointerDown={pan}
+        // a mouse that leaves lets the page have its wheel back; a finger lifted does not mean it left
+        onPointerLeave={(e) => e.pointerType === "mouse" && !panning.current && activate(false)}
+      >
+        {tiles.map((t) => {
+          const columns = 2 ** t.level;
+          return (
+            <img
+              key={t.key}
+              className="map-tile"
+              src={registry.tileUrl(t.level, ((t.tx % columns) + columns) % columns, t.ty)}
+              alt=""
+              draggable={false}
+              style={{ left: t.x, top: t.y, width: t.w, height: t.h }}
+              onLoad={() => seen(t.key)}
+              onError={() => seen(t.key)}
+            />
+          );
+        })}
         {points.map(({ r, lat, lng }) => {
           const p = worldPixel(lat, lng, camera.z);
           return (
@@ -455,6 +567,7 @@ export function MapView({ table, view, records, onOpen }: { table: RegTable; vie
             </button>
           );
         })}
+        {!active && <span className="map-hint">Click the map to move and zoom it</span>}
         <span className="map-credit">
           © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors
         </span>

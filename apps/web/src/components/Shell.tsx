@@ -10,6 +10,7 @@ import { NavLink, Outlet, useLocation } from "react-router";
 import { api } from "../api/client";
 import { registry } from "../api/registry";
 import { forgetUser, useMe } from "../lib/auth";
+import { ignorePasswordManagers } from "../lib/ignorePasswordManagers";
 import { moduleOn } from "../lib/modules";
 import { ROLE_NAME } from "../lib/permissions";
 import { useChosenSeasonId, useSeason } from "../lib/season";
@@ -135,6 +136,8 @@ export function Shell() {
   const [menuShown, setMenuShown] = useCompactMenu(compact);
   const areas = useQuery({ queryKey: ["areas"], queryFn: api.areas });
   const me = useMe();
+  // the fields of the working site are never a form for a password manager (the public forms of the registry are outside it)
+  useEffect(() => ignorePasswordManagers(), []);
   // a module that is turned off is not in the menu at all, and nothing is asked of it (Settings › App › Modules)
   const registryOn = moduleOn(me, "registry");
   const registryTables = useQuery({ queryKey: ["registry-tables"], queryFn: registry.tables, enabled: registryOn });

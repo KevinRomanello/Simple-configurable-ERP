@@ -234,7 +234,7 @@ function TableView({ table }: { table: RegTable }) {
 
   return (
     // the blocks of the page one under the other with the space of every page (a plain div would take it away)
-    <div className={`stack${open !== null ? " with-record" : ""}`}>
+    <div className="stack">
       <PageHeader
         title={`${table.icon ? `${table.icon} ` : ""}${table.name}`}
         description={table.description || (table.section ? `Registry › ${table.section}` : "Registry")}
@@ -370,7 +370,9 @@ function TableView({ table }: { table: RegTable }) {
           ),
         )}
 
-      {open !== null && <RecordPanel table={table} recordId={open === "new" ? null : open} onClose={() => setOpen(null)} onCreated={(id) => setOpen(id)} />}
+      {open !== null && (
+        <RecordPanel table={table} recordId={open === "new" ? null : open} ids={(records.data?.records ?? []).map((r) => r.id)} onNavigate={setOpen} onClose={() => setOpen(null)} onCreated={(id) => setOpen(id)} />
+      )}
     </div>
   );
 }

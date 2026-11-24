@@ -455,7 +455,7 @@ Non c'è un disegno su Figma per queste pagine: usano i token e i componenti che
   - la barra con Filter (anche «is within» e «le righe che non corrispondono»), Sort, Fields, Group (fino a cinque livelli), Summary (i riepiloghi), la ricerca, «New record»;
   - **un solo pulsante Download**, come in ogni pagina (PDF ed Excel dei record sullo schermo), che ha come formati in più **CSV**, **JSON**, **Calendar (.ics)** (se la vista ha una data) ed **Excel, to import again**: [download.md](download.md), §4. Nell'intestazione restano «New record», «Table settings» e Download;
 
-  La griglia si modifica sul posto per i tipi semplici, colora le righe e ferma le prime colonne come dice la vista. Si scelgono più righe per cambiare un campo in tutte o cancellarle. Una riga (o una scheda) si apre a lato con:
+  La griglia si modifica sul posto per i tipi semplici, colora le righe e ferma le prime colonne come dice la vista. Si scelgono più righe per cambiare un campo in tutte o cancellarle. Una riga (o una scheda) si apre **in un grande rettangolo al centro, sopra a tutto** (il record espanso di NocoDB, `Peek`: la pagina dietro si scurisce e sta ferma; si chiude con la X, con Esc o con un clic fuori). In alto le frecce al record prima e dopo nella lista, il titolo (il nome del record), «copia il link», «duplica» e il cestino; a sinistra i campi, con il tipo di campo davanti al nome; a destra i commenti e lo storico. Se ci sono modifiche non salvate, chiuderlo o cambiare record chiede conferma. Ha:
   - tutti i campi, i collegamenti (con la scelta dei record), gli allegati e i pulsanti;
   - i commenti: modifica, risolto;
   - lo storico;
@@ -473,6 +473,8 @@ Non c'è un disegno su Figma per queste pagine: usano i token e i componenti che
 
 ## 12. Limiti e cose da sapere
 
+- **Cosa mostra un collegamento**: il **primo campo** (il «nome») dell'altra tabella. Se è vuoto, o la tabella non ne ha uno che dica qualcosa, si vede solo il codice del record («#259»). Per cambiarlo: Table settings › Fields **della tabella a cui si collega** (non di quella in cui lo si vede), colonna **RECORD NAME**: la stella accesa è il campo che dà il nome, quelle spente sono i campi che potrebbero darlo, un clic su una spenta lo sposta (chiede conferma: cambia ovunque, e i valori non cambiano; per tornare indietro si clicca la stella del campo di prima). Può darlo un campo con **un solo valore che si legge come un nome**: testo, numero, data, scelta, formula e simili; **non** un collegamento, un lookup, un rollup, più scelte, una persona, un file, un bottone, JSON, coordinate, colore o un segno di spunta (il server rifiuta, la stella non c'è: `canBeName`). Quando il nome è fatto di più pezzi (il tipo di un certificato e la sua data) si crea un campo **formula** che li mette insieme, con un **lookup** per portare qui il nome del tipo (`CONCAT({Type Name}, " · ", {Date})`), e si fa diventare quello il nome: come «Full Name» nelle persone e «Title» nei certificati della demo.
+- **Admin**: un admin dell'ERP ha il livello **manage su tutte le tabelle**, vede ogni campo e li scrive tutti, qualunque regola dica il registro (`combine` in `packages/registry/src/access.ts`; le regole contano per gli altri). Non si scrivono, per natura, i campi calcolati: formule, lookup, rollup, contatori e simili; e i collegamenti e gli allegati si cambiano dal pannello del record, non dalla cella della griglia.
 - **Dimensioni**: pensato per decine di tabelle con qualche migliaio di record ciascuna; ogni lettura carica le tabelle che servono (quella chiesta, quelle a cui si collega e la tabella delle persone). Oltre le decine di migliaia di record serve un'altra strategia (una cache con un controllo di freschezza, o filtri in SQL sui campi salvati); il punto da cambiare è uno (`registry.data.ts` e `query.ts`). Una pagina della griglia chiede fino a 1.000 record.
 - **File** nel database: 10 MB per file di base, configurabile per campo (fino a 50). Per gli allegati grandi (video) servirà uno storage a parte. Un file si mostra nella pagina solo se è davvero un'immagine o un PDF (si guardano i primi byte); tutto il resto si scarica.
 - **Scelte**: togliere o rinominare una scelta non cambia i valori già scritti (restano col vecchio testo, che i filtri trovano ancora). Rinominare una scelta in tutti i record si fa con l'import CSV in modalità «upsert».
@@ -480,6 +482,8 @@ Non c'è un disegno su Figma per queste pagine: usano i token e i componenti che
 - **I moduli pubblici** e i **token** dietro il proxy di IT: il proxy deve lasciar passare senza il suo login `/forms/*`, `/assets/*`, `/api/registry/public/*` e `/ext/*` (produzione.md, A7). Su questi indirizzi nessuno è riconosciuto (§8.3), e `/ext/` vuole un token. Da chiedere a IT, come `PROXY_IPS`.
 - **Fuso orario**: date e ore delle formule e dei filtri sono in UTC; un giorno (`date`) è un giorno, senza ora.
 - **La mappa**:
+  - **si muove e si zooma solo dopo un clic**: finché non la clicchi la pagina scorre come sempre (rotella e dito), e passandoci sopra compare un velo grigio che dice «Click the map to move and zoom it» (lascia passare il clic). Cliccata, la rotella e il pizzico del trackpad sono suoi e la pagina sta ferma; torna libera quando il mouse esce dalla mappa, si clicca altrove o si preme Esc. I pulsanti + e − e i punti funzionano sempre;
+  - **lo zoom è continuo**: ogni movimento della rotella ingrandisce un poco (450 punti sono un livello; una tacca di mouse ne fa circa un quinto) e la mappa ci arriva con dolcezza; il punto sotto il puntatore resta fermo. Le mattonelle sono quelle del livello più vicino, stirate fino al livello giusto (`lib/mapZoom.ts`: `POINTS_PER_LEVEL`, `PINCH_WEIGHT`, `EASE` sono i tre valori da regolare a occhio); mentre arrivano quelle del livello nuovo restano sotto quelle di prima, e non c'è mai un vuoto;
   - le mattonelle le scarica il server dell'ERP da OpenStreetMap (`tileAddress` in `tiles.service.ts`, nel registro dei valori fissi) e le tiene in memoria per una settimana, al massimo 2.000;
   - in produzione il server deve poter uscire in HTTPS verso `tile.openstreetmap.org`, altrimenti la mappa mostra i punti senza lo sfondo;
   - per molti utenti o un uso pesante, la politica di OpenStreetMap chiede un server di mattonelle proprio: si cambia solo `tileAddress`.
@@ -563,11 +567,13 @@ Poi lo stesso comando con `--apply`.
 docker compose exec api sh -c "cd apps/api && pnpm exec tsx src/db/seed-registry.ts"
 ```
 
-Crea un registro inventato con la forma di quello del team:
-- tabelle: Areas, Projects, Roles, People, Certificate Types, Certificates;
-- gruppi: Current Members, Executive Board, HR;
-- le regole del §7;
-- i moduli del §8.2: `/forms/apply`, `/forms/hr-scouting`, `/forms/onboarding`, `/forms/exit`, `/forms/certificates`.
+Crea un registro inventato (nessuno è una persona vera) con la forma di quello del team, e con almeno un esempio di quasi ogni cosa, per vederla funzionare:
+- **tabelle:** Areas, Projects, Roles, People (12 persone), Certificate Types, Certificates, **Venues** (luoghi, con una mappa) e **Telemetry Tasks** (un piccolo piano);
+- **viste:** griglie, **gruppi in una cartella** (Current Members, Executive Board, HR), **colori per stato** (Everybody; `colorBy` e il colore di ogni scelta), **kanban** (Pipeline, Board), **calendario** (Applications, Calendar), **timeline** (Path) e **gantt con le dipendenze** (Gantt: le barre si trascinano e le successive seguono), **galleria con le foto** (Faces: ritratti disegnati dal seme, che si ingrandiscono con un clic), **mappa** (Map: le mattonelle passano dal server dell'ERP, quindi serve l'uscita verso `tile.openstreetmap.org`) e una **vista pubblica** di sola lettura (`/api/registry/public/views/areas-public`, con i soli campi della vista);
+- **campi:** formule (indirizzo di squadra, voto del colloquio, scadenza dei certificati, giorni di un compito; **il nome di un certificato**, «tipo · data», che è quello che mostra un collegamento a lui), lookup, **rollup** (persone e abilità media di ogni area), valutazioni, allegati, coordinate, collegamenti anche della tabella a sé stessa;
+- **commenti** su due persone (uno risolto) e un **webhook spento** («New application, to n8n»), per vedere la scheda Webhooks;
+- le regole del §7: i gruppi, i campi nascosti o in sola lettura, il proprio record;
+- i moduli del §8.2: `/forms/apply` (pubblico), `/forms/hr-scouting`, `/forms/onboarding` (link personale), `/forms/exit`, `/forms/certificates`.
 
 Lo crea come il primo admin, passando dai servizi, quindi è nello storico. Si toglie con `… seed-registry.ts --remove`.
 

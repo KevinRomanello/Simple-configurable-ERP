@@ -1,27 +1,38 @@
-import { faCheck, faClockRotateLeft, faClone, faComment, faFloppyDisk, faLink, faPen, faTrash, faUpload, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faChevronDown, faChevronUp, faClone, faFloppyDisk, faLink, faPen, faTrash, faUpload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { registry, type FileRef, type RegField, type RegTable } from "../../api/registry";
 import { Button, IconButton } from "../../components/Button";
+import { Chips } from "../../components/Chips";
+import { FIELD_ICONS } from "../../components/registry/fieldIcons";
 import { ValueInput, ValueView } from "../../components/registry/Values";
 import { Picture, PictureLink } from "../../components/Picture";
-import { Field } from "../../components/ui";
-import { COMPUTED, isPicture, showValue } from "../../lib/registry";
+import { Peek } from "../../components/ui";
+import { COMPUTED, FIELD_TYPE_LABELS, isPicture, showValue } from "../../lib/registry";
 import { useAction } from "../../lib/useAction";
 import { useNotify } from "../../components/Notice";
 
 /**
- * A record of the registry at the side of its table: every field the person may see, the ones they may change
- * as boxes, the files, the buttons and, on request, the history. `recordId` null: a new record.
+ * A record of the registry, in the big rectangle over the page (the expanded record of NocoDB, `Peek`): the title, the arrows to the
+ * record before and after in the list, what can be done with it, every field the person may see (the ones they may change as boxes,
+ * with the kind of field in front of each name), the files and the buttons, and at the right the comments and the history.
+ * `recordId` null: a new record. `ids` are the records of the list it was opened from, in their order.
  * Not designed in Figma: built from the boxes and buttons of the other pages.
  */
-export function RecordPanel({ table, recordId, onClose, onCreated }: { table: RegTable; recordId: number | null; onClose: () => void; onCreated: (id: number) => void }) {
+export function RecordPanel({ table, recordId, ids, onNavigate, onClose, onCreated }: {
+  table: RegTable;
+  recordId: number | null;
+  ids: number[];
+  onNavigate: (id: number) => void;
+  onClose: () => void;
+  onCreated: (id: number) => void;
+}) {
   const notify = useNotify();
   const act = useAction();
   const record = useQuery({ queryKey: ["registry-record", table.id, recordId], queryFn: () => registry.record(table.id, recordId!), enabled: recordId !== null });
   const [draft, setDraft] = useState<Record<string, unknown>>({});
-  const [side, setSide] = useState<"fields" | "history" | "comments">("fields");
+  const [side, setSide] = useState<"comments" | "history">("comments");
   useEffect(() => {
     setDraft({});
   }, [recordId]);
@@ -76,49 +87,78 @@ export function RecordPanel({ table, recordId, onClose, onCreated }: { table: Re
     if (url && /^https?:\/\//i.test(url)) window.open(url, "_blank", "noopener");
     else notify("info", "Sent");
   };
+  // what is written and not saved is not lost by a stray click outside, or by going to another record, without asking
+  const leave = (then: () => void) => {
+    if (!changed || window.confirm("Leave without saving the changes?")) then();
+  };
   const title = recordId === null ? `New record in ${table.name}` : showValue({ type: "text", options: {} }, values[table.fields.find((f) => f.id === table.primaryFieldId)?.name ?? ""]) || `#${recordId}`;
+  const place = recordId === null ? -1 : ids.indexOf(recordId);
+  const before = place > 0 ? ids[place - 1] : undefined;
+  const after = place >= 0 && place < ids.length - 1 ? ids[place + 1] : undefined;
 
   return (
-    <aside className="record-panel" aria-label="Record">
-      <div className="panel-head">
-        <h2>{title}</h2>
-        <span className="spacer" />
-        {recordId !== null && <IconButton icon={faLink} label="Copy the link of the record" onClick={copyLink} />}
-        {recordId !== null && table.writable.length > 0 && <IconButton icon={faClone} label="Duplicate the record" onClick={duplicate} />}
-        {recordId !== null && <IconButton icon={faComment} label="Comments" onClick={() => setSide(side === "comments" ? "fields" : "comments")} />}
-        {recordId !== null && <IconButton icon={faClockRotateLeft} label="History" onClick={() => setSide(side === "history" ? "fields" : "history")} />}
-        {recordId !== null && record.data?.canEdit && <IconButton icon={faTrash} label="Delete record" danger onClick={remove} />}
-        <IconButton icon={faXmark} label="Close" onClick={onClose} />
-      </div>
-      {side === "history" && recordId !== null ? (
-        <History tableId={table.id} recordId={recordId} />
-      ) : side === "comments" && recordId !== null ? (
-        <Comments tableId={table.id} recordId={recordId} />
-      ) : (
-        <form className="stack tight" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+    <Peek
+      label="Record"
+      title={title}
+      onClose={() => leave(onClose)}
+      leading={
+        recordId !== null && (
+          <>
+            <IconButton icon={faChevronUp} label="The record before" disabled={before === undefined} onClick={() => before !== undefined && leave(() => onNavigate(before))} />
+            <IconButton icon={faChevronDown} label="The record after" disabled={after === undefined} onClick={() => after !== undefined && leave(() => onNavigate(after))} />
+          </>
+        )
+      }
+      actions={
+        recordId !== null && (
+          <>
+            <IconButton icon={faLink} label="Copy the link of the record" onClick={copyLink} />
+            {table.writable.length > 0 && <IconButton icon={faClone} label="Duplicate the record" onClick={duplicate} />}
+            {record.data?.canEdit && <IconButton icon={faTrash} label="Delete record" danger onClick={remove} />}
+          </>
+        )
+      }
+      side={
+        recordId !== null && (
+          <div className="stack tight">
+            <Chips label="Comments or history" value={side} onChange={setSide} options={[{ value: "comments", label: "Comments" }, { value: "history", label: "History" }]} />
+            {side === "comments" ? <Comments tableId={table.id} recordId={recordId} /> : <History tableId={table.id} recordId={recordId} />}
+          </div>
+        )
+      }
+    >
+      <form className="peek-fields" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+        {recordId !== null && !record.data && <p className="muted">Loading…</p>}
+        <div className="peek-rows">
           {shown.map((f) => (
-            <Field key={f.id} label={<>{f.name}{f.required && writable.has(f.name) ? " *" : ""}</>} htmlFor={`record-${f.id}`}>
-              {f.type === "attachment" ? (
-                <Files table={table} recordId={recordId!} field={f} files={(values[f.name] as FileRef[] | undefined) ?? []} canEdit={writable.has(f.name)} />
-              ) : f.type === "button" ? (
-                <Button small variant="ghost" disabled={!f.options.url && !record.data?.canEdit} onClick={() => press(f)}>{f.options.label ?? f.name}</Button>
-              ) : writable.has(f.name) && !COMPUTED.includes(f.type) ? (
-                <ValueInput id={`record-${f.id}`} field={f} value={shownValue(f)} choices={choicesOf(f)} onChange={(v) => setDraft({ ...draft, [f.name]: v })} />
-              ) : (
-                <span className="value"><ValueView field={f} value={values[f.name]} /></span>
-              )}
-              {f.description && <span className="hint">{f.description}</span>}
-            </Field>
-          ))}
-          {(changed || recordId === null) && (
-            <div className="inline-form">
-              <Button small icon={faFloppyDisk} type="submit" disabled={!changed}>{recordId === null ? "Create" : "Save"}</Button>
-              {recordId !== null && <Button small variant="ghost" onClick={() => setDraft({})}>Undo changes</Button>}
+            <div key={f.id} className="peek-row">
+              <label htmlFor={`record-${f.id}`} className="peek-label" title={FIELD_TYPE_LABELS[f.type]}>
+                <FontAwesomeIcon icon={FIELD_ICONS[f.type]} fixedWidth className="faint" />
+                <span>{f.name}{f.required && writable.has(f.name) ? " *" : ""}</span>
+              </label>
+              <div className="peek-value">
+                {f.type === "attachment" ? (
+                  <Files table={table} recordId={recordId!} field={f} files={(values[f.name] as FileRef[] | undefined) ?? []} canEdit={writable.has(f.name)} />
+                ) : f.type === "button" ? (
+                  <Button small variant="ghost" disabled={!f.options.url && !record.data?.canEdit} onClick={() => press(f)}>{f.options.label ?? f.name}</Button>
+                ) : writable.has(f.name) && !COMPUTED.includes(f.type) ? (
+                  <ValueInput id={`record-${f.id}`} field={f} value={shownValue(f)} choices={choicesOf(f)} onChange={(v) => setDraft({ ...draft, [f.name]: v })} />
+                ) : (
+                  <span className="value"><ValueView field={f} value={values[f.name]} /></span>
+                )}
+                {f.description && <span className="hint">{f.description}</span>}
+              </div>
             </div>
-          )}
-        </form>
-      )}
-    </aside>
+          ))}
+        </div>
+        {(changed || recordId === null) && (
+          <div className="peek-save">
+            <Button small icon={faFloppyDisk} type="submit" disabled={!changed}>{recordId === null ? "Create" : "Save"}</Button>
+            {recordId !== null && <Button small variant="ghost" onClick={() => setDraft({})}>Undo changes</Button>}
+          </div>
+        )}
+      </form>
+    </Peek>
   );
 }
 

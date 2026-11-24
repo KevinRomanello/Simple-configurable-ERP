@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RegField } from "../api/registry";
-import { formatDuration, groupLevels, isPicture, opsFor, planMove, recordsQuery, showValue, viewFields } from "./registry";
+import { FIELD_TYPES, canBeName as engineCanBeName } from "@erp/registry";
+import { canBeName, formatDuration, groupLevels, isPicture, opsFor, planMove, recordsQuery, showValue, viewFields } from "./registry";
 
 const field = (id: number, type: RegField["type"], options: RegField["options"] = {}, position = id): RegField => ({ id, name: `F${id}`, type, options, required: false, unique: false, description: "", position });
 
@@ -99,3 +100,15 @@ describe("isPicture", () => {
     expect(isPicture({ mime: "" })).toBe(false);
   });
 });
+
+describe("canBeName", () => {
+  it("says what the engine says, for every type of field", () => {
+    for (const type of FIELD_TYPES) expect([type, canBeName(type)]).toEqual([type, engineCanBeName(type)]);
+  });
+
+  it("takes a text or a formula and leaves a link, many choices and a file", () => {
+    expect(canBeName("text") && canBeName("formula") && canBeName("select") && canBeName("date")).toBe(true);
+    expect(canBeName("link") || canBeName("lookup") || canBeName("multiselect") || canBeName("attachment") || canBeName("checkbox")).toBe(false);
+  });
+});
+

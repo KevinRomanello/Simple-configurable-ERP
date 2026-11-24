@@ -235,3 +235,8 @@ export function planMove(bars: Bar[], id: number, start: string, end: string): {
 
 /** Whether a file of a record is a picture (the browser can show it): by the type the server saved it with. */
 export const isPicture = (file: Pick<FileRef, "mime">): boolean => file.mime.startsWith("image/");
+
+/** The fields that can be the name of the records: the same as `canBeName` of the engine (a test keeps them alike). */
+export const NAME_TYPES: FieldType[] = ["text", "longtext", "email", "url", "phone", "number", "date", "datetime", "time", "duration", "select", "formula", "autonumber", "uuid", "created", "modified", "creator", "modifier"];
+export const canBeName = (type: FieldType): boolean => NAME_TYPES.includes(type);
+
