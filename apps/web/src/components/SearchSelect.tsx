@@ -1,5 +1,6 @@
 import type { CustomCellEditorProps } from "ag-grid-react";
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { scrollToReveal } from "../lib/listScroll";
 
 /** The width of the list of a grid cell, as in `.search-editor` (theme/components.css). */
@@ -31,7 +32,7 @@ function reveal(list: HTMLElement, index: number) {
  * The list under the box: the arrows move, Enter and a click choose. The highlighted option always stays in
  * sight: when the arrows (or a new search) move it out of the visible part, the list scrolls to it.
  */
-function Options({ shown, active, query, value, onPick, onHover, listId }: {
+function Options({ shown, active, query, value, onPick, onHover, listId, floating }: {
   shown: Choice[];
   active: number;
   query: string;
@@ -39,6 +40,8 @@ function Options({ shown, active, query, value, onPick, onHover, listId }: {
   onPick: (choice: Choice) => void;
   onHover: (index: number) => void;
   listId: string;
+  /** Where to draw it on the screen, when it floats over the page instead of sitting under its box. */
+  floating?: CSSProperties;
 }) {
   const list = useRef<HTMLUListElement>(null);
   // Set when the mouse moves the highlight: that option is under the pointer, so it is in sight, and scrolling
@@ -49,7 +52,8 @@ function Options({ shown, active, query, value, onPick, onHover, listId }: {
     else if (list.current) reveal(list.current, active);
   }, [active, query]);
   return (
-    <ul id={listId} ref={list} role="listbox" className="search-list">
+    // mouse-down on the list itself (its scroll bar) must not take the focus from the box either: the list would close
+    <ul id={listId} ref={list} role="listbox" className={`search-list${floating ? " floating" : ""}`} style={floating} onMouseDown={(e) => e.preventDefault()}>
       {shown.map((c, i) => (
         <li
           key={c.value}
@@ -75,6 +79,44 @@ function Options({ shown, active, query, value, onPick, onHover, listId }: {
       {shown.length === 0 && <li className="none">Nothing found</li>}
     </ul>
   );
+}
+
+/**
+ * Where the list of a box goes on the screen: under the box, or over it when there is more room there. It is drawn over the page
+ * (`position: fixed`, in the body), not inside the box's own container: a container that scrolls or hides what overflows (a table,
+ * the record that opens over the page) would cut it off. It follows the box when the page or a container scrolls.
+ */
+function useFloatingPlace(open: boolean, box: RefObject<HTMLElement | null>): CSSProperties | null {
+  const [place, setPlace] = useState<CSSProperties | null>(null);
+  useLayoutEffect(() => {
+    if (!open) {
+      setPlace(null);
+      return;
+    }
+    const update = () => {
+      const r = box.current?.getBoundingClientRect();
+      if (!r) return;
+      const below = window.innerHeight - r.bottom - 8;
+      const above = r.top - 8;
+      const up = below < 180 && above > below;
+      const next: CSSProperties = {
+        left: r.left,
+        minWidth: r.width,
+        maxWidth: Math.max(r.width, window.innerWidth - r.left - 8),
+        maxHeight: Math.max(120, Math.min(240, up ? above : below)),
+        ...(up ? { top: "auto", bottom: window.innerHeight - r.top + 2 } : { top: r.bottom + 2 }),
+      };
+      setPlace((now) => (now && JSON.stringify(now) === JSON.stringify(next) ? now : next));
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open, box]);
+  return place;
 }
 
 /** Moves the highlighted option with the arrows; Enter chooses it. Returns true when the key was used. */
@@ -106,6 +148,8 @@ export function SearchSelect({ id, value, choices, onChange, disabled, label, cl
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const listId = useId();
+  const input = useRef<HTMLInputElement>(null);
+  const place = useFloatingPlace(open, input);
   const shown = useMemo(() => matching(choices, query), [choices, query]);
   const current = choices.find((c) => c.value === value);
 
@@ -126,6 +170,7 @@ export function SearchSelect({ id, value, choices, onChange, disabled, label, cl
   return (
     <div className="search-select">
       <input
+        ref={input}
         id={id}
         role="combobox"
         aria-expanded={open}
@@ -153,7 +198,7 @@ export function SearchSelect({ id, value, choices, onChange, disabled, label, cl
           } else onKey(e);
         }}
       />
-      {open && <Options shown={shown} active={active} query={query} value={value} onPick={pick} onHover={setActive} listId={listId} />}
+      {open && place && createPortal(<Options shown={shown} active={active} query={query} value={value} onPick={pick} onHover={setActive} listId={listId} floating={place} />, document.body)}
     </div>
   );
 }

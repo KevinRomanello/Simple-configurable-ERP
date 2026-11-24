@@ -1290,6 +1290,12 @@ textarea.input {
   border-radius: var(--radius-3xs);
   font-size: 13px;
 }
+/* the list of a box in a form floats over the page (SearchSelect: in the body, placed by the box), above even the record that opens over it */
+.search-list.floating {
+  position: fixed;
+  z-index: 80;
+  margin: 0;
+}
 .search-list li {
   padding: var(--space-2xs) var(--space-xs);
   white-space: nowrap;
@@ -1859,7 +1865,6 @@ body.no-scroll {
 .peek-rows {
   border: 1px solid var(--stroke-sub);
   border-radius: var(--radius-3xs);
-  overflow: hidden;
 }
 .peek-row {
   display: grid;
