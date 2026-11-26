@@ -153,7 +153,7 @@ erDiagram
 Alcune cose erano fisse *per un po'* ma dovevano diventare impostazioni. Invece di scriverle come costanti sparse, **ognuna viveva dentro la funzione che un giorno sarebbe stata l'API di quella cosa**. Il 26 ottobre 2026 è successo per categorie, aliquote, unità, posti e interruttori del calcolo ([impostazioni.md](impostazioni.md)), ed è cambiato **solo il corpo** di quelle funzioni:
 
 ```ts
-// apps/api/src/modules/lookups/lookups.service.ts
+// apps/api/src/platform/lookups/lookups.service.ts
 export async function getSettings(): Promise<Settings> {
   const [row] = await db.select().from(setting); // prima: un oggetto scritto qui, con // HARDCODED
   return { varianceThreshold: Number(row.varianceThreshold), /* … */ };
@@ -199,15 +199,15 @@ Cosa la riconciliazione **non** copre: i dati reali sono semplici (IVA quasi sem
 
 | Voglio… | Tocco |
 | --- | --- |
-| una categoria in più, un'aliquota IVA, le scadenze IVA | la funzione giusta in `apps/api/src/modules/lookups/lookups.service.ts` |
+| una categoria in più, un'aliquota IVA, le scadenze IVA | la funzione giusta in `apps/api/src/platform/lookups/lookups.service.ts` |
 | cambiare la risposta a Q1 (IVA con sponsor totale) o Q2 (confronto con BANK) | la pagina **Settings** (tabella `setting`); nel codice `getSettings()` |
 | il modo di arrotondare (Q7) | `roundDiv` in `packages/calc/src/money.ts` |
 | un colore, un font, una spaziatura | `apps/web/src/theme/tokens.css` (e Figma) |
 | una **colonna nuova** su una voce | `schema.ts` → `pnpm db:generate` → `db:migrate` → Zod in `budget.schema.ts` → `saveFigures`/`updateLine` in `budget.service.ts` → tipo `Figures` in `calc/snapshot.ts` e `loadSnapshot` in `snapshot.ts` → colonna in `areaColumns.tsx` |
 | una **vista/analisi nuova** | funzione in `packages/calc/src/` con il suo test → `views.service.ts` + rotta in `views.routes.ts` → funzione in `api/client.ts` → pagina in `apps/web/src/pages/`, rotta in `App.tsx`, voce di menu in `Shell.tsx` |
 | un **endpoint nuovo** | `x.service.ts` + `x.routes.ts`, registrato in `app.ts`, funzione in `api/client.ts` |
-| i permessi dei ruoli | `canWrite()` e le funzioni vicine in `modules/auth/auth.service.ts` (+ il test `roles.test.ts`) |
-| il login e i token | `modules/auth/` ([accesso-e-storico.md](accesso-e-storico.md)) |
+| i permessi dei ruoli | `canWrite()` e le funzioni vicine in `platform/auth/auth.service.ts` (+ il test `roles.test.ts`) |
+| il login e i token | `platform/auth/` ([accesso-e-storico.md](accesso-e-storico.md)) |
 | tracciare un'altra tabella nello storico | una migrazione che aggancia il trigger `audit_row()` (come `0002_audit_triggers.sql`) |
 | i dati per le analisi con script | gli endpoint `/api/views/*` restituiscono già JSON pronto per Python |
 | l'inventario | un modulo nuovo (`modules/inventory/`) con le sue tabelle, che punta a `budget_line.id` |

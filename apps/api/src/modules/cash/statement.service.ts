@@ -2,7 +2,7 @@ import { financialStatement, type StatementEntry } from "@erp/calc";
 import { today } from "../../core/today";
 import { db } from "../../db/client";
 import { cashCategory } from "../../db/schema";
-import { getStatementLayout } from "../lookups/lookups.service";
+import { getStatementLayout } from "../../platform/lookups/lookups.service";
 import { assertCanManageCash, loadRegister } from "./cash.service";
 
 // The financial statement of a calendar year, worked out from the register as the sheet of the treasury does

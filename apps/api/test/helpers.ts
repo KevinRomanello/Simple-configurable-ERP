@@ -7,11 +7,11 @@ import { loadAuthConfig } from "../src/core/auth-config";
 import type { RateLimits } from "../src/core/security";
 import { db, pool } from "../src/db/client";
 import { appUser, area, fund, userArea } from "../src/db/schema";
-import type { User } from "../src/modules/auth/auth.service";
-import { SESSION_COOKIE } from "../src/modules/auth/auth.routes";
-import type { GoogleClient } from "../src/modules/auth/google";
-import { signSessionToken } from "../src/modules/auth/tokens";
-import { LOOKUP_DEFAULTS } from "../src/modules/lookups/defaults";
+import type { User } from "../src/platform/auth/auth.service";
+import { SESSION_COOKIE } from "../src/platform/auth/auth.routes";
+import type { GoogleClient } from "../src/platform/auth/google";
+import { signSessionToken } from "../src/platform/auth/tokens";
+import { LOOKUP_DEFAULTS } from "../src/platform/lookups/defaults";
 import { testOwnerUrl } from "./db-urls";
 
 export interface Reply {

@@ -143,7 +143,7 @@ L'apertura resta uguale, ed è la parte che il documento chiamava «seconda moss
 
 **Cosa succede.** `GET /api/settings` conta l'uso di ogni voce con una o due query per voce: circa 40 query (3,6 ms oggi). Il numero cresce con le voci.
 
-**Soluzione proposta.** Cinque query raggruppate (`group by` per categoria, aliquota, unità, posto) in `apps/api/src/modules/settings/settings.service.ts`.
+**Soluzione proposta.** Cinque query raggruppate (`group by` per categoria, aliquota, unità, posto) in `apps/api/src/platform/settings/settings.service.ts`.
 
 **Prova.** I test della pagina Settings che ci sono già (USED BY).
 

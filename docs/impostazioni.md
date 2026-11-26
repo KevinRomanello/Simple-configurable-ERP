@@ -65,9 +65,9 @@ Cambiarla cambia subito tutte le righe pagate da uno sponsor così. La pagina lo
 | Cosa | Dove |
 | --- | --- |
 | tabelle | `category`, `category_field` (categoria × campo; `category_id` vuoto = articoli senza categoria), `vat_rate`, `unit`, `location`, `setting` (una riga sola): migrazione `0010_admin_settings.sql`, che le crea **già riempite con i valori di prima** (quindi all'inizio non cambia niente) e mette il trigger dello storico |
-| valori di partenza | `apps/api/src/modules/lookups/defaults.ts` (`LOOKUP_DEFAULTS`): gli stessi della migrazione. Li usano i test (ogni test riparte da lì) e la riconciliazione col foglio |
+| valori di partenza | `apps/api/src/platform/lookups/defaults.ts` (`LOOKUP_DEFAULTS`): gli stessi della migrazione. Li usano i test (ogni test riparte da lì) e la riconciliazione col foglio |
 | lettura | le stesse funzioni di prima (`listCategories`, `listVatRates`, `getSettings`, `listLocations`, `listUnits`, `getCategoryFields` in `lookups.service.ts`): è cambiato **solo il loro corpo**, che ora legge il database (regola 4). Chi le chiamava non è cambiato |
-| scrittura | `apps/api/src/modules/settings/` (servizio e rotte), solo admin |
+| scrittura | `apps/api/src/platform/settings/` (servizio e rotte), solo admin |
 | pagina | `apps/web/src/pages/SettingsPage.tsx` (una sezione alla volta, §1), fatta con i modelli dell'interfaccia ([stile-interfaccia.md](stile-interfaccia.md)); non c'è un riferimento Figma, come per Users e History |
 | permesso | `canManageSettings` in `permissionsOf` (`auth.service.ts`) |
 
@@ -98,7 +98,7 @@ Restano hardcode, nel [registro](hardcoded-registry.md):
 
 ## 4. Prove
 
-- `apps/api/src/modules/settings/settings.routes.test.ts` (19): solo l'admin (pm e viewer `403`, il permesso in `/api/me`); i valori di partenza; categorie (in fondo con i campi giusti, nomi unici, rinomina con righe e articoli, cancellazione rifiutata con il motivo, ordine seguito da TOTAL, ordine sbagliato rifiutato, campi e articoli senza categoria, campo sconosciuto rifiutato); aliquote (una volta sola, due decimali, fuori scala, subito usabili da uno sponsor, in uso non cancellabili); unità (rinomina con gli articoli, in uso non cancellabili); posti (codice dai nomi che non cambia, doppione rifiutato, con movimenti non cancellabili, ordine); interruttori (l'IVA degli inflow cambia CASH FLOW, la scelta Q1 cambia le righe dello sponsor tipo C, valori fuori scala rifiutati, ciò che non si manda resta); storico (chi ha cambiato cosa).
+- `apps/api/src/platform/settings/settings.routes.test.ts` (19): solo l'admin (pm e viewer `403`, il permesso in `/api/me`); i valori di partenza; categorie (in fondo con i campi giusti, nomi unici, rinomina con righe e articoli, cancellazione rifiutata con il motivo, ordine seguito da TOTAL, ordine sbagliato rifiutato, campi e articoli senza categoria, campo sconosciuto rifiutato); aliquote (una volta sola, due decimali, fuori scala, subito usabili da uno sponsor, in uso non cancellabili); unità (rinomina con gli articoli, in uso non cancellabili); posti (codice dai nomi che non cambia, doppione rifiutato, con movimenti non cancellabili, ordine); interruttori (l'IVA degli inflow cambia CASH FLOW, la scelta Q1 cambia le righe dello sponsor tipo C, valori fuori scala rifiutati, ciò che non si manda resta); storico (chi ha cambiato cosa).
 - `apps/api/src/modules/inventory/types.routes.test.ts` (14): i tipi dell'inventario e i loro parametri, anche i permessi (pm sì, viewer no); elenco in [inventario.md](inventario.md), §14.
 - Riconciliazione col foglio: **1.995 controlli uguali**, con i valori del foglio.
 - Nel browser: la pagina con i cinque riquadri, aggiunta e cancellazione di un'unità, cestino spento su un'unità usata, Save attivo solo dopo una modifica e Undo.

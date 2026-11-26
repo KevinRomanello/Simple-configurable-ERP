@@ -3,7 +3,7 @@ import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { area, category, inventoryItem, itemParamValue, itemType, itemTypeParam } from "../../db/schema";
-import { canManageInventory, getCurrentUser } from "../auth/auth.service";
+import { canManageInventory, getCurrentUser } from "../../platform/auth/auth.service";
 import { paramNumber, type CreateParamInput, type ParamFilter, type UpdateParamInput } from "./inventory.schema";
 
 // The types of the inventory (Resistor, Screw…) and their parameters, kept on the Settings page by

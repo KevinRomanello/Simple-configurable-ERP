@@ -4,8 +4,8 @@ import { today } from "../../core/today";
 import { db } from "../../db/client";
 import { budgetLine, project, season, stockMovement } from "../../db/schema";
 import { loadSnapshot } from "../../snapshot";
-import { listLocations } from "../lookups/lookups.service";
-import { getCurrentSeason } from "../seasons/seasons.service";
+import { listLocations } from "../../platform/lookups/lookups.service";
+import { getCurrentSeason } from "../../platform/seasons/seasons.service";
 import { loadInventory } from "./inventory.data";
 
 /**

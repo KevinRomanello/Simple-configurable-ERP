@@ -7,9 +7,9 @@ import {
 } from "./db/schema";
 import { loadPayments } from "./modules/cash/cash.service";
 import { loadOutsideBudget } from "./modules/cash/outside-budget.service";
-import { loadLookups } from "./modules/lookups/lookups.service";
+import { loadLookups } from "./platform/lookups/lookups.service";
 import { bankOf, loadInflows } from "./modules/cashflow/cashflow.service";
-import { getCurrentSeason } from "./modules/seasons/seasons.service";
+import { getCurrentSeason } from "./platform/seasons/seasons.service";
 
 type FigureRow = typeof lineFigures.$inferSelect;
 

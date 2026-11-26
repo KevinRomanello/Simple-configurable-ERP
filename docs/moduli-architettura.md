@@ -469,8 +469,8 @@ Ogni passo lascia l'app funzionante, con tutte le prove verdi e i documenti aggi
 
 | Passo | Cosa | Fatto quando |
 | --- | --- | --- |
-| **G0** | Le regole come prove, con la lista delle eccezioni di oggi. Il meccanismo comune nel `core`: eventi, porte, domande d'uso, dichiarazioni, con il «salta chi è spento». | le prove girano e la lista elenca il §2.2 |
-| **G1** | Il **nucleo** in `platform/`: auth, users, seasons, aree (da `/areas` del budget), liste comuni, settings dell'app, audit, appmodules, health. Settings e stagioni smettono di leggere le tabelle degli altri (`usedBy`, `onLookupRenamed`, `onSeasonCreated`, `seasonUsage`); lo storico usa `auditLabel`. Le spunte diventano dichiarazioni (domanda 2). | il nucleo non importa nessun modulo |
+| **G0 — fatto (26 novembre 2026)** | Le regole come prove, con la lista delle eccezioni di oggi. Il meccanismo comune nel `core`: eventi, porte, domande d'uso, dichiarazioni, con il «salta chi è spento». | le prove girano e la lista elenca il §2.2 (fatto: `architecture.map.ts`, `core/contracts.ts`, [prestazioni.md](prestazioni.md)) |
+| **G1** (in corso: lo spostamento delle cartelle e `/api/areas` sono fatti, 26 novembre 2026) | Il **nucleo** in `platform/`: auth, users, seasons, aree (da `/areas` del budget), liste comuni, settings dell'app, audit, appmodules, health. Settings e stagioni smettono di leggere le tabelle degli altri (`usedBy`, `onLookupRenamed`, `onSeasonCreated`, `seasonUsage`); lo storico usa `auditLabel`. Le spunte diventano dichiarazioni (domanda 2). | il nucleo non importa nessun modulo |
 | **G2** | **Lo schema si divide** per proprietario. Nessuna migrazione. | `drizzle-kit generate` non vede differenze |
 | **G3** | **Anagrafiche** in `modules/registry`, e `rolesync` diventa `bridges/registry-access`. Sono già in regola: si spostano e si adattano le prove. | prove di oggi verdi con i percorsi nuovi |
 | **G4** | **Tesoreria** in `modules/treasury` con `treasury.public.ts`. Le parti miste (`cash-links`, `outside-budget`, `loadPayments`, inflow ricevuti, BANK dal registro, Voce di partenza) vanno in `bridges/treasury-budget`. Migrazione di `inflow_receipt` e `category_voce`. | tesoreria e ponte senza eccezioni |
@@ -478,6 +478,29 @@ Ogni passo lascia l'app funzionante, con tutte le prove verdi e i documenti aggi
 | **G6** | **Budget** in `modules/budget` con `budget.public.ts`: budget, fondi, fornitori, CASH FLOW a mano, viste, e lo **snapshot con le porte**. | idem; i numeri di prova del calcolo identici (stessi test, stesso foglio di riconciliazione) |
 | **G7** | **Il sito**: cartelle (§7.1), manifesti, punti di aggancio, client e tipi divisi, menù, indirizzi e Settings dai manifesti, prove del sito. | nessuna pagina importa un altro modulo se non dal suo `public.ts` |
 | **G8** | **Gli interruttori** per budget, tesoreria e inventario in Settings › App › Modules; `/me.bridges`; la prova di tutte le combinazioni (§12); la lista delle eccezioni vuota. | le 16 combinazioni passano |
+
+### G0: cosa c'è (26 novembre 2026)
+
+- **`apps/api/src/architecture.map.ts`**: i dati che le prove controllano.
+  - Il proprietario di ogni cartella di `modules/` e di `snapshot.ts` (nucleo, budget, tesoreria, inventario, anagrafiche, ponti).
+  - Il proprietario di ognuna delle 48 tabelle.
+  - **La lista delle eccezioni di oggi**: 9 import fra proprietari diversi e 33 usi di una tabella di un altro (§2.2, misurati dal codice). Ognuna ha il commento del passo che la scioglie.
+- **`apps/api/src/architecture.test.ts`** (5 prove nuove):
+  - ogni cartella e ogni tabella ha un proprietario, e niente di più;
+  - un proprietario importa solo il suo codice, il `core` e i motori (un ponte anche il `*.public` dei suoi moduli);
+  - un proprietario usa solo le sue tabelle (e quelle del nucleo);
+  - nessuno importa un ponte, tranne `app.ts`;
+  - un file `*.public` non mostra niente di Drizzle, e i nomi che mostra sono scritti nella prova.
+
+  Una violazione nuova fa fallire la prova; una tolta dal codice deve uscire dalla lista, che quindi può solo accorciarsi. Gli strumenti del database (i seed) e `app.ts` possono usare tutto.
+- **`apps/api/src/core/contracts.ts`**: il meccanismo comune, tutto funzioni in un processo.
+  - *Eventi*: ascoltano in ordine, nella stessa transazione, e uno può rifiutare con un errore.
+  - *Domande* («chi usa questa categoria?»): raccolgono la risposta di ognuno.
+  - *Porte*: una risposta sola, e una risposta di partenza quando nessuno risponde o il ponte è spento.
+  - *Dichiarazioni*: ciò che il nucleo raccoglie all'avvio.
+
+  Ognuno è registrato con il nome del suo proprietario; chi chiede passa `Active` (chi è acceso in questa richiesta, da `activeOwners`), e gli spenti vengono saltati. Gli eventi e le domande di tipo `data` (manutenzione dei dati) arrivano anche agli spenti, quelli di tipo `feature` no (§8.7). 11 prove in `core/contracts.test.ts`.
+- **Il benchmark** (`pnpm bench`) e la **baseline**: [prestazioni.md](prestazioni.md). Alla fine di ogni passo G1–G8 si confronta con la baseline.
 
 **I documenti da aggiornare alla fine**:
 - [architettura.md](architettura.md) (struttura del repository e livelli);

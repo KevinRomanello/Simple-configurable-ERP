@@ -36,16 +36,22 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   │   └── src/
 │   │       ├── main.ts           # avvio Fastify, registra i moduli
 │   │       ├── db/               # schema.ts, client.ts (utente dell'API), owner.ts (proprietario), migrate.ts, roles.ts + app-role.ts, seed-base.ts, seed.ts
-│   │       ├── core/             # tx.ts (runWrite), errors.ts, money.ts (numeric ↔ centesimi), auth-config.ts, security.ts (intestazioni, limite di richieste)
+│   │       ├── core/             # tx.ts (runWrite), errors.ts, money.ts (numeric ↔ centesimi), auth-config.ts, security.ts (intestazioni, limite di richieste),
+│   │       │                     #   contracts.ts (eventi, domande, porte e dichiarazioni fra i proprietari del server: moduli-architettura.md, §5)
 │   │       ├── snapshot.ts       # loadSnapshot(): dal DB al formato di calc
+│   │       ├── architecture.map.ts   # chi possiede ogni cartella e ogni tabella, e le eccezioni di oggi (le prove di architettura lo leggono)
+│   │       ├── platform/         # il nucleo, sempre acceso (moduli-architettura.md, §4.1)
+│   │       │   ├── auth/         # login Google, JWT, controllo delle richieste, ruoli e permessi
+│   │       │   ├── users/        # utenti, ruoli, aree dei pm
+│   │       │   ├── areas/        # l'elenco delle aree (GET /api/areas)
+│   │       │   ├── audit/        # lettura dello storico delle modifiche
+│   │       │   ├── lookups/      # categorie, aliquote, unità, posti, impostazioni (dal database); regole IVA (HARDCODED)
+│   │       │   ├── settings/     # la pagina Settings: le scritture dell'admin su quegli elenchi (impostazioni.md)
+│   │       │   ├── seasons/      # stagioni e macchine; la stagione scelta nel menù (header X-Season)
+│   │       │   ├── appmodules/   # gli interruttori dei moduli (moduli.md)
+│   │       │   └── health/
 │   │       └── modules/
-│   │           ├── auth/         # login Google, JWT, controllo delle richieste, ruoli e permessi
-│   │           ├── users/        # utenti, ruoli, aree dei pm
-│   │           ├── audit/        # lettura dello storico delle modifiche
-│   │           ├── lookups/      # categorie, aliquote, unità, posti, impostazioni (dal database); regole IVA (HARDCODED)
-│   │           ├── settings/     # la pagina Settings: le scritture dell'admin su quegli elenchi (impostazioni.md)
-│   │           ├── seasons/      # stagioni e macchine; la stagione scelta nel menù (header X-Season)
-│   │           ├── budget/       # aree, progetti, righe
+│   │           ├── budget/       # progetti, righe e il foglio di un'area
 │   │           ├── funds/        # fondi e contratti
 │   │           ├── suppliers/
 │   │           ├── inventory/    # articoli, arrivi, movimenti, componenti (distinte), statistiche, immagini
@@ -100,7 +106,7 @@ flowchart LR
 Cosa oggi è fisso e domani non lo sarà? Le categorie, le aliquote IVA, le regole delle scadenze, la soglia di scostamento, la stagione corrente (le ultime tre non lo sono più). Ognuna ha già la sua funzione di servizio e la sua route; **il valore è scritto nel corpo della funzione** e nessun altro file lo conosce:
 
 ```ts
-// apps/api/src/modules/lookups/lookups.service.ts
+// apps/api/src/platform/lookups/lookups.service.ts
 export async function listCategories(): Promise<string[]> {
   // HARDCODED: diventa la tabella `category`, modificabile dall'admin
   return ["Components", "Manufacturing", "Consumable", "Asset", "Logistic", "Administration", "Software"];
@@ -277,7 +283,7 @@ Prerequisiti sul computer: Node 24 o più recente, Docker, pnpm. Se `pnpm` non c
 | trasformare un hardcode in funzionalità        | trova la riga in [hardcoded-registry.md](hardcoded-registry.md); cambia il corpo della funzione; aggiungi tabella, migrazione e route di scrittura; togli la riga dal registro |
 | aggiungere un campo a una riga                  | `schema.ts` → migrazione → Zod nel modulo → tipo in `calc` → colonna nella griglia                                                                                    |
 | aggiungere un'analisi                           | funzione pura in `calc` + `GET /views/<nome>` in `views` (+ pagina, se serve)                                                                                           |
-| un permesso nuovo o un ruolo                    | `canWrite()` e le funzioni vicine in `modules/auth/auth.service.ts`; i test in `roles.test.ts`                                                                          |
+| un permesso nuovo o un ruolo                    | `canWrite()` e le funzioni vicine in `platform/auth/auth.service.ts`; i test in `roles.test.ts`                                                                          |
 | tracciare una tabella nello storico             | una migrazione con `create trigger … execute function audit_row()` (vedi `0002_audit_triggers.sql`)                                                                      |
 | tabelle `calc_*` e viste SQL per gli analisti | dentro `runWrite()`: rigenera con `calc` dopo la scrittura                                                                                                                |
 | inventario                                      | nuovo modulo `inventory` con `inventory_unit` e `inventory_movement`; `budget_line_id` facoltativo; non tocca il resto                                                |

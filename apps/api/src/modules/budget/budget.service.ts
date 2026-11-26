@@ -7,16 +7,11 @@ import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { area, budgetLine, fund, lineFigures, lineFund, project, supplier } from "../../db/schema";
 import { loadSnapshot } from "../../snapshot";
-import { canWrite, getCurrentUser, type User } from "../auth/auth.service";
-import { getDefaultVatRate, listCategories, listVatRates } from "../lookups/lookups.service";
-import { assertCarExists, assertSeasonOpen, getCurrentSeason } from "../seasons/seasons.service";
+import { canWrite, getCurrentUser, type User } from "../../platform/auth/auth.service";
+import { getDefaultVatRate, listCategories, listVatRates } from "../../platform/lookups/lookups.service";
+import { assertCarExists, assertSeasonOpen, getCurrentSeason } from "../../platform/seasons/seasons.service";
 import { ensureSupplier } from "../suppliers/suppliers.service";
 import type { CreateLineInput, FiguresInput, UpdateLineInput } from "./budget.schema";
-
-/** The areas, in the order of the old sheet tabs (GET /api/areas). */
-export async function listAreas() {
-  return db.select().from(area).orderBy(asc(area.position));
-}
 
 /** One area as the old area sheets showed it (GET /api/areas/:code/sheet). */
 export async function getAreaSheet(areaCode: string): Promise<AreaSheet> {

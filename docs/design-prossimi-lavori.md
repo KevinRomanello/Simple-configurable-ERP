@@ -12,7 +12,7 @@ Sette richieste dell'utente:
 | D | **TO PAY** visibile a chi tiene il budget, e gli **ordini** (più righe comprate in un solo ordine) | medio-grande |
 | E | **Non perdere quello che si sta scrivendo** quando si cambia pagina (bozze) | medio — **fatta** (26 novembre 2026, in due passi: E1 la base e i form più usati, E2 tutti gli altri) |
 | F | **Ctrl+Z** (annulla) e Ctrl+Shift+Z (rifai) | grande |
-| G | **I moduli**: budget, tesoreria, inventario e anagrafiche spegnibili, che si parlano solo con «API come funzioni». Design a parte: [moduli-architettura.md](moduli-architettura.md) (ADR-2) | molto grande, a passi |
+| G | **I moduli**: budget, tesoreria, inventario e anagrafiche spegnibili, che si parlano solo con «API come funzioni». Design a parte: [moduli-architettura.md](moduli-architettura.md) (ADR-2) | molto grande, a passi — **G0 fatto** (26 novembre 2026) |
 
 **Ordine consigliato: A → B → C → E → G → D → F.**
 - **Prima le fasi che toccano solo il sito o poco più** (A, B, C, E).
@@ -381,7 +381,7 @@ In `lib/architecture.test.ts`: ogni file che contiene `<FormPanel` o `<form` dev
   - prende un numero da `change_seq`;
   - lo mette in `app.change_id` (insieme a `app.actor_id`, nella stessa istruzione);
   - lo aggiunge alla lista della richiesta in corso.
-- **La lista della richiesta** è un `AsyncLocalStorage`, come `userStorage` in `modules/auth/auth.context.ts`.
+- **La lista della richiesta** è un `AsyncLocalStorage`, come `userStorage` in `platform/auth/auth.context.ts`.
   - Si apre in un hook `onRequest` per i metodi che scrivono.
   - Un hook `onSend` mette l'intestazione **`X-Change-Ids: 123`** (più numeri separati da virgola se la richiesta ha fatto più transazioni).
   - Le richieste GET non ce l'hanno.
@@ -420,7 +420,7 @@ Il modulo nuovo è `apps/api/src/modules/changes/`. Passi, tutti dentro **una** 
 7. **La colonna `version`** (`budget_line`, `reg_record`) non torna indietro: diventa quella attuale **+1**, così una griglia aperta altrove si accorge del cambio. Il resto torna esattamente com'era.
 8. **Controllare che non si sia toccato altro**: le righe dello storico dell'annullamento (`change_id` nuovo) devono riguardare esattamente le stesse coppie (tabella, id). Se una cancellazione ha trascinato a cascata righe arrivate dopo (un pagamento legato alla riga creata), qui compaiono → 409 «"<nome>" is now used by …», e la transazione torna indietro.
 9. **I seguiti dei moduli** (§6.6), dentro la transazione e dopo il commit.
-10. **Rispondere** con le frasi. Si fanno con `labelOf` e `changesOf` di `modules/audit/audit.service.ts`, da esportare (un solo modo di nominare le cose).
+10. **Rispondere** con le frasi. Si fanno con `labelOf` e `changesOf` di `platform/audit/audit.service.ts`, da esportare (un solo modo di nominare le cose).
 
 **Perché «al contrario» basta, anche con le cascate.**
 - In Postgres i trigger AFTER della stessa tabella scattano in ordine di nome.

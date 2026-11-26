@@ -111,7 +111,7 @@ Da questo lavoro `--replace` **non cancella più i fornitori**: sono di tutte le
 
 ## 8. Prove
 
-- `apps/api/src/modules/seasons/seasons.routes.test.ts` (12 test):
+- `apps/api/src/platform/seasons/seasons.routes.test.ts` (12 test):
   - elenco e stagione di oggi (anche con una stagione futura e una passata);
   - nuova stagione copiata dalla più recente, senza righe né soldi, con la vecchia intatta; doppione 409, pm 403, valori non validi 400;
   - l'header cambia letture e scritture; header non valido 400, stagione inesistente 404;

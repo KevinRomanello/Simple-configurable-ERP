@@ -3,10 +3,10 @@ import { invalid } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { appUser, area, roleSync, userArea } from "../../db/schema";
-import { getCurrentUser, requireAdmin, type Role } from "../auth/auth.service";
+import { getCurrentUser, requireAdmin, type Role } from "../../platform/auth/auth.service";
 import { groupsOfRegistry, onRegistryChange, onRegistryUse, peopleInViews } from "../registry/registry.public";
-import { isModuleOn } from "../appmodules/appmodules.service";
-import { setManagedCheck } from "../users/users.service";
+import { isModuleOn } from "../../platform/appmodules/appmodules.service";
+import { setManagedCheck } from "../../platform/users/users.service";
 
 // The roles of the ERP taken from the registry (docs/anagrafiche.md, §9): who may enter, who is admin, who is a
 // User ("pm") and of which areas, who has the Treasury and the Sponsors boxes, each from a group (a view of the

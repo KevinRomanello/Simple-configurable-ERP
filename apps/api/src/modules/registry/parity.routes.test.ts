@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ADMIN, createUser, resetData, testApp } from "../../../test/helpers";
-import { loadUser } from "../users/users.service";
+import { loadUser } from "../../platform/users/users.service";
 import { registryWrite, saveRecords } from "./registry.write";
 
 // The services of NocoDB the registry gives too (docs/anagrafiche-nocodb.md): the API v3 endpoints (count,

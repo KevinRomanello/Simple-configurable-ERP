@@ -608,10 +608,10 @@ function normalise(value: CellValue | undefined): Plain {
 
 | Pezzo | Libreria o strumento | Dove |
 | --- | --- | --- |
-| firma e verifica dei JWT, chiavi pubbliche di Google | `jose` (v6) | `modules/auth/tokens.ts`, `google.ts` |
-| lettura e scrittura dei cookie | `@fastify/cookie` | `modules/auth/auth.routes.ts` |
+| firma e verifica dei JWT, chiavi pubbliche di Google | `jose` (v6) | `platform/auth/tokens.ts`, `google.ts` |
+| lettura e scrittura dei cookie | `@fastify/cookie` | `platform/auth/auth.routes.ts` |
 | validazione delle variabili d'ambiente | Zod | `core/auth-config.ts` |
-| l'utente della richiesta | `AsyncLocalStorage` | `modules/auth/auth.context.ts` |
+| l'utente della richiesta | `AsyncLocalStorage` | `platform/auth/auth.context.ts` |
 | lo storico | funzione e trigger SQL in una migrazione scritta a mano | `apps/api/drizzle/0002_audit_triggers.sql` |
 | intestazioni di sicurezza, niente cache | `@fastify/helmet` | `core/security.ts` |
 | limite di richieste per indirizzo | `@fastify/rate-limit` | `core/security.ts` |
@@ -632,7 +632,7 @@ Non abbiamo usato una libreria di login completa (Passport, Auth.js, un servizio
 - **I permessi si danno dopo le migrazioni** (`pnpm db:roles`): una tabella nuova, creata da una migrazione, riceve i permessi base dell'utente dell'API grazie ai privilegi predefiniti, ma le eccezioni (come `audit_log`) vanno ricordate in `db/app-role.ts`.
 - **Una migrazione "personalizzata"** (drizzle-kit `generate --custom`) non è generata dallo schema: i trigger vanno scritti a mano e committati come le altre.
 
-**Dove guardare:** [accesso-e-storico.md](accesso-e-storico.md) (il disegno completo), `apps/api/src/modules/auth/` e i test `google.test.ts`, `auth.routes.test.ts`, `roles.test.ts`, `audit.routes.test.ts`.
+**Dove guardare:** [accesso-e-storico.md](accesso-e-storico.md) (il disegno completo), `apps/api/src/platform/auth/` e i test `google.test.ts`, `auth.routes.test.ts`, `roles.test.ts`, `audit.routes.test.ts`.
 
 ---
 

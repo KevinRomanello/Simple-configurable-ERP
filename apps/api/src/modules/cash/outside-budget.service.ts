@@ -3,7 +3,7 @@ import { and, asc, eq, gte, lte, notExists, sql } from "drizzle-orm";
 import { toCents } from "../../core/money";
 import type { Tx } from "../../core/tx";
 import { cashCategory, cashEntry, cashEntryLine, teamInflow } from "../../db/schema";
-import { getDerivedAreaCategory, getStatementLayout } from "../lookups/lookups.service";
+import { getDerivedAreaCategory, getStatementLayout } from "../../platform/lookups/lookups.service";
 
 // What the team spends and receives outside the budget, read from the register: the movements the derived area is made of
 // (docs/spese-fuori-budget.md). Nothing is stored; the snapshot asks for it at every reading.

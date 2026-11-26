@@ -2,8 +2,8 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { ADMIN, createUser, resetData, testApp } from "../../../test/helpers";
-import { userStorage } from "../auth/auth.context";
-import { loadUser } from "../users/users.service";
+import { userStorage } from "../../platform/auth/auth.context";
+import { loadUser } from "../../platform/users/users.service";
 import { importFromNocodb } from "./nocodb";
 
 // A fake NocoDB with the shapes of its API v3 (meta and data, pages with `next`, files), and made-up people.

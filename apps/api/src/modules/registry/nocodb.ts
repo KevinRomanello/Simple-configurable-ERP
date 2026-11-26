@@ -1,7 +1,7 @@
 import { BARCODE_FORMATS, DURATION_FORMATS, fromText, normalizeValue, textOf, type DurationFormat, type FieldType, type FieldOptions, type RollupFn } from "@erp/registry";
 import { db } from "../../db/client";
 import { appUser, regFile } from "../../db/schema";
-import { getCurrentUser, requireAdmin } from "../auth/auth.service";
+import { getCurrentUser, requireAdmin } from "../../platform/auth/auth.service";
 import { createRecords, updateRecords } from "./records.service";
 import { createField, createTable, deleteField, getTable, listTables, updateField, updateTable } from "./schema.service";
 import { registryWrite, saveRecords } from "./registry.write";

@@ -6,7 +6,7 @@ import { today } from "../../core/today";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { budgetLine, cashCategory, cashEntry, cashEntryLine, cashMethod, cashOpening, project, teamInflow } from "../../db/schema";
-import { canManageCash, getCurrentUser } from "../auth/auth.service";
+import { canManageCash, getCurrentUser } from "../../platform/auth/auth.service";
 import type { CreateEntryInput, UpdateEntryInput } from "./cash.schema";
 
 // The register of the team's money (docs/registro-di-cassa.md): every movement on Cassa, Banca and

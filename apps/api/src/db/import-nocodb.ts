@@ -1,7 +1,7 @@
 import { asc, eq } from "drizzle-orm";
-import { userStorage } from "../modules/auth/auth.context";
+import { userStorage } from "../platform/auth/auth.context";
 import { importFromNocodb } from "../modules/registry/nocodb";
-import { loadUser } from "../modules/users/users.service";
+import { loadUser } from "../platform/users/users.service";
 import { db, pool } from "./client";
 import { appUser } from "./schema";
 

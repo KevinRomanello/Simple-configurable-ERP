@@ -8,7 +8,7 @@ import { conflict, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { regFile, regLink, regRecord, regTable, regWebhook, regWebhookLog } from "../../db/schema";
-import type { User } from "../auth/auth.service";
+import type { User } from "../../platform/auth/auth.service";
 import { loadRegistry } from "./registry.data";
 
 // The one way records are written, whoever writes them (the grid, the API, a form, an import): links and

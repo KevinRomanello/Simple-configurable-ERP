@@ -38,7 +38,7 @@ Erano le righe 1, 2, 4, 6, 7 e 8: ora stanno nel database e li cambia l'admin da
 | Unità di misura | `listUnits` | `unit` |
 | Campi facoltativi per categoria | `getCategoryFields` | `category_field` |
 
-I valori con cui partono sono quelli del vecchio foglio (`LOOKUP_DEFAULTS` in `apps/api/src/modules/lookups/defaults.ts`, gli stessi della migrazione `0010`): li usano i test e la riconciliazione col foglio.
+I valori con cui partono sono quelli del vecchio foglio (`LOOKUP_DEFAULTS` in `apps/api/src/platform/lookups/defaults.ts`, gli stessi della migrazione `0010`): li usano i test e la riconciliazione col foglio.
 
 L'arrotondamento (Q7) non è un'impostazione: il motore lavora in interi e arrotonda l'IVA al centesimo riga per riga (`roundDiv` in `packages/calc/src/money.ts`). Cambiarlo vuol dire cambiare quella funzione.
 

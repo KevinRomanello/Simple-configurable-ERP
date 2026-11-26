@@ -4,9 +4,9 @@ import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { fund, fundContract, lineFund } from "../../db/schema";
-import { canManageFunds, getCurrentUser } from "../auth/auth.service";
-import { getFixedSponsorRates, listVatRates } from "../lookups/lookups.service";
-import { assertSeasonOpen, getCurrentSeason } from "../seasons/seasons.service";
+import { canManageFunds, getCurrentUser } from "../../platform/auth/auth.service";
+import { getFixedSponsorRates, listVatRates } from "../../platform/lookups/lookups.service";
+import { assertSeasonOpen, getCurrentSeason } from "../../platform/seasons/seasons.service";
 import { ensureSupplier, renameSupplier } from "../suppliers/suppliers.service";
 
 async function assertCanManageShared() {

@@ -188,10 +188,10 @@ La pagina **FINANCIAL STATEMENT** (gruppo **Treasury**, solo `canManageCash`) è
 | registro, liste, import, collegamenti alle righe | `apps/api/src/modules/cash/` (`cash.service.ts`, `cash-lists.service.ts`, `cash-import.service.ts`, `cash-links.service.ts`, `cash.schema.ts`, `cash.routes.ts`, `defaults.ts`) |
 | inflow ricevuti, ACTUAL dal registro, ritardo | `loadInflows`, `receiveInflow`, `unreceiveInflow`, `listReceivable` in `apps/api/src/modules/cashflow/cashflow.service.ts`; i pagamenti e il giorno dopo il BANK entrano nello snapshot in `apps/api/src/snapshot.ts` |
 | spese fuori budget (area ADMINISTRATION) | [spese-fuori-budget.md](spese-fuori-budget.md), §5: `packages/calc/src/outside.ts`, `apps/api/src/modules/cash/outside-budget.service.ts` |
-| rendiconto | `packages/calc/src/statement.ts` (`financialStatement`), la struttura in `getStatementLayout` (`apps/api/src/modules/lookups/lookups.service.ts`), `apps/api/src/modules/cash/statement.service.ts`, `apps/web/src/pages/StatementPage.tsx` |
+| rendiconto | `packages/calc/src/statement.ts` (`financialStatement`), la struttura in `getStatementLayout` (`apps/api/src/platform/lookups/lookups.service.ts`), `apps/api/src/modules/cash/statement.service.ts`, `apps/web/src/pages/StatementPage.tsx` |
 | pagamenti nel calcolo | `packages/calc/src/lines.ts` (`paidCents`, `teamFundDueCents`, `cashDate`), `cashflow.ts`, `gantt.ts` |
 | BANK dal registro | `bankOf` in `apps/api/src/modules/cashflow/cashflow.service.ts`, usato da `getBank` e da `loadSnapshot` |
-| permessi | `canManageCash` e `canManageFunds` in `apps/api/src/modules/auth/auth.service.ts` |
+| permessi | `canManageCash` e `canManageFunds` in `apps/api/src/platform/auth/auth.service.ts` |
 | lettura del foglio | `apps/web/src/lib/cashSheet.ts` |
 | pagina, import, liste | `apps/web/src/pages/CashRegisterPage.tsx`, `components/CashImport.tsx`, `pages/CashListsPanel.tsx` |
 | inflow ricevuti e righe pagate | `apps/web/src/components/ReceiveInflow.tsx` (usato da `pages/CashFlowPage.tsx`), `components/PayLines.tsx` (usato dal registro) |

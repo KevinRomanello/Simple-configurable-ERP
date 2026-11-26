@@ -3,7 +3,7 @@ import { conflict, forbidden, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { lineFigures, supplier } from "../../db/schema";
-import { canManageSuppliers, getCurrentUser } from "../auth/auth.service";
+import { canManageSuppliers, getCurrentUser } from "../../platform/auth/auth.service";
 
 async function assertCanManageSuppliers() {
   const actor = await getCurrentUser();

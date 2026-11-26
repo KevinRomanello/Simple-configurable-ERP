@@ -7,7 +7,7 @@ import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { budgetLine, cashCategory, cashEntry, cashEntryLine, category, project } from "../../db/schema";
 import { loadSnapshot } from "../../snapshot";
-import { allSeasons, assertSeasonOpen, getCurrentSeason, getSeasonById } from "../seasons/seasons.service";
+import { allSeasons, assertSeasonOpen, getCurrentSeason, getSeasonById } from "../../platform/seasons/seasons.service";
 import type { PayInput } from "./cash.schema";
 import { assertCanManageCash, insertEntry } from "./cash.service";
 

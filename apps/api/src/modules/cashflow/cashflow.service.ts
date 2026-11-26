@@ -6,10 +6,10 @@ import { today } from "../../core/today";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { bankSnapshot, cashEntry, teamInflow } from "../../db/schema";
-import { canChangeInflows, canManageCash, getCurrentUser } from "../auth/auth.service";
+import { canChangeInflows, canManageCash, getCurrentUser } from "../../platform/auth/auth.service";
 import { insertEntry, registerBalanceAt } from "../cash/cash.service";
 import type { ReceiveInput } from "../cash/cash.schema";
-import { assertSeasonOpen, getCurrentSeason } from "../seasons/seasons.service";
+import { assertSeasonOpen, getCurrentSeason } from "../../platform/seasons/seasons.service";
 
 type Reader = Pick<Tx, "select">;
 type Season = { id: number; startsOn: string; endsOn: string };

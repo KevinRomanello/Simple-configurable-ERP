@@ -7,7 +7,7 @@ import type { z } from "zod";
 import { AppError, forbidden, invalid, notFound } from "../../core/errors";
 import { db } from "../../db/client";
 import { appUser, auditLog, regField, regFile, regWebhook } from "../../db/schema";
-import { getCurrentUser } from "../auth/auth.service";
+import { getCurrentUser } from "../../platform/auth/auth.service";
 import { fieldOf, filterFrom, needRecord, needTable, tableIdOf, tableOf, viewerOf, visibleFields, visibleRecords } from "./registry.access";
 import { loadRegistry } from "./registry.data";
 import type { bulkInput, importInput, recordsQuery, upsertInput } from "./registry.schema";

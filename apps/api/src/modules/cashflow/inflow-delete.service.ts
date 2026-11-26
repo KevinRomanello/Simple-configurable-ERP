@@ -3,9 +3,9 @@ import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
 import { cashEntry, cashEntryLine, teamInflow } from "../../db/schema";
-import { canManageCash } from "../auth/auth.service";
+import { canManageCash } from "../../platform/auth/auth.service";
 import { deleteEntryIn } from "../cash/cash.service";
-import { assertSeasonOpen, getCurrentSeason } from "../seasons/seasons.service";
+import { assertSeasonOpen, getCurrentSeason } from "../../platform/seasons/seasons.service";
 import { assertCanChangeInflows, bankOf } from "./cashflow.service";
 
 // Deleting an inflow of CASH FLOW choosing where from (docs/registro-di-cassa.md, section 5.2): the same company is often in three
