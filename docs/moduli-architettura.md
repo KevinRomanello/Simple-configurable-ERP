@@ -1,0 +1,555 @@
+# ADR-2: l'ERP a moduli (budget, tesoreria, inventario, anagrafiche)
+
+**Stato:** proposto (26 novembre 2026); **le cinque decisioni aperte sono state prese lo stesso giorno** (§14). È solo design: **nessun codice** è stato scritto.
+**Chi decide:** l'utente.
+**Collegati:**
+- [anagrafiche-architettura.md](anagrafiche-architettura.md) (ADR-1): le anagrafiche sono già fatte così, e sono il modello;
+- [moduli.md](moduli.md): l'interruttore di oggi, solo per le anagrafiche;
+- [design-prossimi-lavori.md](design-prossimi-lavori.md): le fasi A–F. Questa è la **fase G**, da fare dopo A, B, C, E e prima di D e F.
+
+---
+
+## 1. Cosa chiede l'utente
+
+1. Poter **accendere e spegnere** budget, inventario e tesoreria, come oggi le anagrafiche.
+2. **Separare le funzionalità anche nelle pagine**: spento un modulo, non deve restare niente di suo, nemmeno dentro le pagine degli altri.
+3. **«API» intese anche come funzioni**: ogni modulo offre funzioni che il resto dell'app usa, e nessuno accede direttamente ai suoi oggetti o li modifica. Così tutto è «super modulare».
+4. **Lo stesso per le anagrafiche.**
+5. La domanda: **i moduli comunicano internamente con API HTTPS?**
+
+## 2. Com'è oggi (misurato il 26 novembre 2026)
+
+### 2.1 La risposta alla domanda: come si parlano
+
+| Fra chi | Come |
+| --- | --- |
+| Browser ↔ server | **HTTP**, con JSON: gli indirizzi `/api/…`. Il sito non tocca mai il database. |
+| Servizi esterni (n8n) ↔ server | HTTP, con un token: `/api/…` e `/ext/…`. |
+| **Un modulo ↔ un altro, dentro il server** | **Nessuna HTTP.** Il server è **un solo programma** (Node con Fastify) e i moduli sono cartelle: si chiamano **come funzioni**, nello stesso processo, e possono stare nella stessa transazione del database. |
+
+**Funzioni e non HTTP è la scelta giusta e resta.** È veloce e permette di fare «tutto o niente». Per esempio «Pay» in TO PAY scrive il movimento del registro e il suo legame con la riga del budget in una transazione sola; con due servizi in HTTP questo non si potrebbe garantire.
+
+**Il problema non è *come* si parlano, ma *cosa* toccano.** Oggi un modulo legge e scrive **direttamente le tabelle e i servizi interni degli altri**. L'idea dell'utente («API come funzioni, senza accedere agli oggetti degli altri») è proprio la soluzione. Le anagrafiche la applicano già: [anagrafiche-architettura.md](anagrafiche-architettura.md) e `registry.public.ts`.
+
+### 2.2 I legami nel codice del server
+
+Ogni modulo è una cartella in `apps/api/src/modules/`, e c'è un solo file di schema per tutte le tabelle (`db/schema.ts`). Gli import diretti fra moduli sono pochi: il legame vero passa dallo schema, perché ogni servizio può importare qualsiasi tabella.
+
+| Chi | Tocca, di altri | Perché |
+| --- | --- | --- |
+| `cash` (tesoreria) | `budget_line`, `project`, `category`, `team_inflow`, `fund`, `supplier`, `season` | pagamenti delle righe, TO PAY, pagamenti da legare, area ADMINISTRATION, inflow ricevuti, Voce di partenza delle categorie |
+| `cashflow` | `cash_entry`, e `insertEntry` e il saldo del registro da `cash.service` | BANK dal registro, «Mark as received» |
+| `inventory` | `budget_line`, `project`, `season` | PENDING e arrivi, progetto di un movimento e di una produzione, statistiche per progetto e per macchina |
+| `seasons` | `project`, `budget_line`, `fund` | contare le righe di una stagione; la stagione nuova copia progetti e sponsor |
+| `settings` | `budget_line`, `line_figures`, `fund`, `inventory_item`, `item_type`, `stock_movement` | il «USED BY» di categorie, IVA, unità e posti; la rinomina di una categoria o di un'unità, ripetuta nel testo delle righe e dei pezzi |
+| `audit` (storico) | un caso per tabella in `labelOf` | i nomi leggibili |
+| `auth` | `permissionsOf` con le spunte Treasury e Sponsors | i permessi dei moduli sono scritti nel nucleo |
+| `suppliers` | `line_figures` | USED BY |
+| `snapshot.ts` | budget, fondi, inflow e BANK (`cashflow`), pagamenti e ADMINISTRATION (`cash`), arrivi (`stock_movement`) | **il punto dove tutto si incontra**: il calcolo vede tutto |
+| `registry` | solo `auth` e `users` | già rispettato, con le prove |
+
+### 2.3 I legami nel database
+
+Le chiavi esterne che puntano al nucleo (`season`, `area`, `app_user`, `category`) vanno bene. Ci sono **cinque legami fra moduli**:
+
+| Colonna | Punta a | Alla cancellazione |
+| --- | --- | --- |
+| `stock_movement.budget_line_id` | `budget_line` | set null |
+| `stock_movement.project_id` | `project` | set null |
+| `inventory_item.make_project_id` | `project` | set null |
+| `team_inflow.cash_entry_id` | `cash_entry` | set null |
+| `category.default_voce_id` | `cash_category` | set null |
+
+`cash_entry_line` (movimento ↔ riga) è già una tabella di legame a sé.
+
+### 2.4 I legami nel sito
+
+- **Le chiamate all'API**: un solo `api/client.ts` e un solo `api/types.ts` per tutti.
+- **Le pagine**: tutte in `pages/`. Menù (`Shell.tsx`) e indirizzi (`App.tsx`) elencano tutto, e solo le anagrafiche hanno `IfModule`.
+- **Le pagine si mescolano**:
+  - il budget mostra pagato e arrivato;
+  - la pagina di un pezzo dice «from the budget»;
+  - i form dell'inventario chiedono il progetto (`inventoryProjects`);
+  - il registro ha «Link to budget lines».
+- **Settings è già divisa per modulo** (`lib/settingsSections.ts`: Budget, Inventory, Register, Registry, App). Users ha le spunte Treasury e Sponsors.
+
+### 2.5 Cosa c'è già di buono
+
+- **Le anagrafiche**: contratto `registry.public.ts` con `onRegistryChange`, `onRegistryUse`, `peopleInViews`, `groupsOfRegistry`; il ponte `rolesync`; le prove di architettura in `apps/api/src/architecture.test.ts`.
+- **L'interruttore dei moduli** (`appmodules`): indirizzi in 404, `/me.modules`, menù.
+- **I motori di calcolo puri** (`packages/calc`, `packages/registry`).
+
+---
+
+## 3. La decisione, in breve
+
+**Un monolite modulare**: un solo server e un solo database, divisi in tre tipi di parti.
+
+- **Nucleo** (sempre acceso): accesso e utenti, stagioni e aree, liste comuni, storico, interruttori, impostazioni dell'app.
+- **Moduli** (spegnibili): **budget**, **tesoreria**, **inventario**, **anagrafiche**. Un modulo conosce solo il nucleo.
+- **Ponti** (accesi da soli quando sono accesi i due moduli che collegano): **tesoreria×budget**, **inventario×budget**, **anagrafiche×accesso** (esiste già: `rolesync`). Ciò che ha bisogno di due moduli vive in un ponte, mai dentro uno dei due.
+
+Ogni modulo e ogni ponte ha un **contratto**: le «API come funzioni» dell'utente. Il contratto contiene:
+- funzioni pubbliche (letture e azioni);
+- eventi;
+- porte (domande che il modulo fa e che altri possono rispondere).
+
+**Nessuno tocca tabelle o funzioni interne di un altro.** Lo fanno rispettare le prove di architettura, come oggi per le anagrafiche.
+
+```mermaid
+flowchart TB
+  subgraph N["Nucleo (sempre acceso)"]
+    A1["accesso, utenti, spunte, permessi"]
+    A2["stagioni, aree, liste comuni (categorie, IVA)"]
+    A3["storico, interruttori, impostazioni App, eventi e porte"]
+  end
+  B["Budget"] --> N
+  T["Tesoreria"] --> N
+  I["Inventario"] --> N
+  R["Anagrafiche"] --> N
+  TB[["Ponte tesoreria×budget"]] --> B
+  TB --> T
+  IB[["Ponte inventario×budget"]] --> I
+  IB --> B
+  RA[["Ponte anagrafiche×accesso (rolesync)"]] --> R
+  RA --> N
+```
+
+Una freccia vuol dire «usa il contratto di». Nessuna freccia entra in un ponte: **nessuno dipende da un ponte**.
+
+---
+
+## 4. Le parti
+
+### 4.1 Il nucleo (cartella `apps/api/src/platform/`)
+
+| Cosa | Oggi in | Note |
+| --- | --- | --- |
+| accesso, sessioni, token, `/me` | `modules/auth` | `/me` raccoglie permessi e moduli **dai contratti**, non li scrive più a mano |
+| utenti, ruoli, aree di un pm, **spunte** | `modules/users` | le spunte le dichiarano i moduli (§8.5) |
+| stagioni, macchine, sola lettura | `modules/seasons` | la stagione nuova non copia più il budget da sé: manda l'evento `seasonCreated` e il budget risponde |
+| aree | rotta `/areas` in `modules/budget` | le aree sono di tutti (utenti, progetti, pezzi, tipi); l'area derivata ADMINISTRATION è del ponte tesoreria×budget |
+| liste comuni: **categorie** e **aliquote IVA** | `modules/settings`, `modules/lookups` | usate da budget, inventario e tesoreria; il «USED BY» e la rinomina diventano domande ed eventi (§5.2) |
+| impostazioni dell'app (`setting`, `/settings/site`) | `modules/settings` | gli interruttori del calcolo sono del budget, con le sue chiavi |
+| storico | `modules/audit` | i nomi leggibili li danno i moduli (`auditLabel`) |
+| interruttori dei moduli | `modules/appmodules` | l'elenco viene dai contratti, non più scritto a mano (oggi `listModuleDefs()`, HARDCODED) |
+| annulla (Ctrl+Z, fase F) | — | il motore nel nucleo, le regole nei moduli |
+| salute | `modules/health` | — |
+| **eventi, porte e domande d'uso** | — (oggi solo nelle anagrafiche) | il meccanismo comune (§5.2), in `core/` |
+
+`apps/api/src/core/` resta l'infrastruttura (transazioni, errori, soldi, validazione, sicurezza). Il nucleo **non conosce nessun modulo**.
+
+### 4.2 I moduli
+
+| Modulo | Pagine (menù) | Tabelle | Settings | Spunte e permessi | Indirizzi API di oggi (dopo: sotto `/api/<modulo>/`, §8.2) |
+| --- | --- | --- | --- | --- | --- |
+| **budget** | BUDGET (aree), CASH FROM, BOUGHT FROM, CASH FLOW (inflow e BANK a mano), Gantt, analisi, TOTAL | `project`, `budget_line`, `line_figures`, `line_fund`, `fund`, `fund_contract`, `supplier`, `team_inflow`, `bank_snapshot` | Budget (interruttori del calcolo, priorità, aliquote degli sponsor) | spunta **Sponsors**; `canWrite` per area | `/projects`, `/lines`, `/funds`, `/suppliers`, `/inflows` (non `receive`), `/bank`, `/views/…`, `/lookups/priorities`, `/lookups/sponsor-rates`, `/lookups/vat-rules`, `/settings/calculation` |
+| **tesoreria** | CASH REGISTER, FINANCIAL STATEMENT | `cash_entry`, `cash_category` (Voci), `cash_method`, `cash_opening` | Register (Voci, metodi) | spunta **Treasury** | `/cash/entries`, `/cash/register`, `/cash/openings`, `/cash/categories`, `/cash/methods`, `/cash/import`, `/cash/statement` |
+| **inventario** | INVENTORY, pezzi, componenti, statistiche | `inventory_item`, `item_type`, `item_type_param`, `item_param_value`, `stock_movement`, `component_part`, `item_datasheet` (+file), `item_image`, `unit`, `location`, `category_field` | Inventory (tipi, unità, posti, campi per categoria) | `canManageInventory` | `/inventory/…` tranne `pending`, `projects` e il ricevere da una riga; `/settings/units`, `/settings/locations`, `/settings/uncategorized-fields`, `/lookups/units`, `/lookups/locations`, `/lookups/category-fields` |
+| **anagrafiche** | REGISTRY e le sue tabelle | `reg_*` | Registry (persone, tabelle) | permessi propri del registro | `/registry/…`, e quelli pubblici `/forms/…`, `/ext/…` |
+
+**CASH FLOW sta nel budget**: è la previsione dei soldi del budget (uscite delle righe, inflow, BANK). Senza tesoreria funziona come prima del registro, con il BANK scritto a mano, che c'è già (`bank_snapshot`).
+
+### 4.3 I ponti
+
+| Ponte | Cosa contiene | Tabelle sue | Indirizzi di oggi (dopo: sotto `/api/<ponte>/`, §8.2) |
+| --- | --- | --- | --- |
+| **tesoreria×budget** (`bridges/treasury-budget/`) | <ul><li>TO PAY (e gli ordini della fase D)</li><li>i pagamenti delle righe (`cash_entry_line`) e «Link to budget lines» nel registro</li><li>i pagamenti da legare</li><li>«paid» nel budget</li><li>l'area derivata **ADMINISTRATION**</li><li>il **BANK dal registro**</li><li>gli inflow **ricevuti** («Mark as received», «Not received»)</li><li>ACTUAL di CASH FLOW fatto dalle entrate del registro</li><li>la **Voce di partenza** di una categoria</li><li>la cancellazione scelta della fase C, per la parte registro</li></ul> | `cash_entry_line`, `inflow_receipt`, `category_voce`, `purchase_order` e `order_line` (fase D) | `/cash/to-pay`, `/cash/to-pay/pay`, `/cash/payable-lines`, `/cash/to-link`, `/cash/entries/:id/lines`, `/cash/category-defaults`, `/inflows/receivable`, `/inflows/:id/receive`, `/orders` |
+| **inventario×budget** (`bridges/inventory-budget/`) | <ul><li>PENDING</li><li>ricevere da una riga del budget</li><li>gli arrivi nel budget (ARRIVED, data d'arrivo ACTUAL, stati)</li><li>il progetto di un movimento e di una produzione («Make new»)</li><li>le statistiche per progetto</li><li>«from the budget» nei movimenti</li></ul> | `receipt_line`, `movement_project`, `item_make_project` | `/inventory/pending`, `/inventory/pending/:lineId/receive` (nuovo, staccato da `/inventory/receive`), `/inventory/projects` |
+| **anagrafiche×accesso** (`bridges/registry-access/`, oggi `modules/rolesync`) | i ruoli dell'ERP presi dal registro | `role_sync` | `/role-sync` |
+
+Un ponte **è acceso solo se lo sono tutti e due i suoi moduli**. Non ha un interruttore suo.
+
+### 4.4 Cosa succede spegnendo
+
+**Il budget**
+- **Sparisce**:
+  - i gruppi Budget, Views, Cash e Total del menù, e Settings › Budget;
+  - la spunta Sponsors;
+  - per i ponti spenti: TO PAY, PENDING, «Link to budget lines», «paid», ADMINISTRATION, il progetto nei form dell'inventario.
+- **Resta**:
+  - inventario (pezzi, movimenti senza progetto, componenti, statistiche per macchina, stagione, area, categoria, posto);
+  - registro e rendiconto;
+  - anagrafiche.
+
+**La tesoreria**
+- **Sparisce**:
+  - CASH REGISTER, FINANCIAL STATEMENT, Settings › Register, la spunta Treasury;
+  - TO PAY, ADMINISTRATION, «Mark as received», il BANK dal registro, l'ACTUAL di CASH FLOW dal registro, «paid».
+- **Resta**: budget, CASH FLOW con il BANK a mano, inventario, anagrafiche.
+- **Cambia nei numeri**: CASH FLOW e Gantt contano come prima del registro (BANK a mano, inflow ACTUAL scritti a mano): è il comportamento che c'è già senza registro. I pagamenti tornano a contare quando la tesoreria si riaccende.
+
+**L'inventario**
+- **Sparisce**: il gruppo Inventory, Settings › Inventory, PENDING, ARRIVED e la data d'arrivo ACTUAL nel budget, gli stati d'arrivo.
+- **Resta**: budget, tesoreria, anagrafiche.
+- **Cambia nei numeri**: nel budget nessuna riga risulta arrivata.
+
+**Le anagrafiche**
+- **Sparisce**: come oggi ([moduli.md](moduli.md)), più il ponte dei ruoli.
+- **Resta**: tutto il resto.
+
+**Per tutti i moduli**
+- **Spegnere non cancella niente**: le tabelle restano, le migrazioni girano sempre, e riaccendendo torna tutto com'era.
+- **Spento tutto** restano Users, Settings › App e History.
+- **La pagina iniziale** (deciso, §14):
+  - è la prima pagina del primo modulo acceso, nell'ordine budget → inventario → tesoreria → anagrafiche;
+  - per il budget, la prima area del menù;
+  - spento tutto, Settings.
+
+  Oggi è scritta a mano: `/budget/mt-dmt`.
+
+---
+
+## 5. Il contratto: le «API come funzioni»
+
+### 5.1 Un'unica porta
+
+- **Nel server**, ogni modulo e ogni ponte ha **un file `<nome>.public.ts`**. È l'unica cosa che gli altri possono importare. Le anagrafiche ce l'hanno già.
+- **Nel sito**, ogni modulo ha **`public.ts`** (componenti e funzioni che gli altri possono usare) e **`index.tsx`** (il suo manifesto, §7.2).
+
+### 5.2 Cosa c'è in un contratto
+
+| Tipo | Che cos'è | Esempi |
+| --- | --- | --- |
+| **Letture** | funzioni che restituiscono **dati semplici**, mai righe del database né tabelle | `budget.linesForPaying(seasonIds)`, `budget.lineLabels(ids)`, `budget.projectsOfSeason(seasonId)`, `treasury.entriesByIds(ids)`, `treasury.registerBalanceAt(day)`, `inventory.itemsByIds(ids)` |
+| **Azioni** | funzioni che scrivono, con gli **stessi controlli** delle rotte HTTP (permessi, stagione aperta, validazione) e un `tx` facoltativo per entrare nella transazione di chi chiama | `treasury.insertEntry(tx, input)`, `inventory.addReceipt(tx, input)`, `budget.assertLineWritable(tx, lineId)` |
+| **Eventi** | «è successo questo»: chi ascolta gira nella stessa transazione e può rifiutare lanciando un errore | `platform.onSeasonCreated(tx, season, from)`, `platform.onLookupRenamed(tx, kind, old, new)`, `onRegistryChange` (c'è già) |
+| **Porte** | una domanda che il modulo dichiara («quanto è stato pagato di queste righe?»), con la risposta di partenza («niente»); un ponte la riempie | `budget.payments`, `budget.receipts`, `budget.outsideBudget`, `budget.registerBank`, `inventory.projects`, `treasury.entryLinks` |
+| **Domande d'uso** | «chi usa questa cosa?», prima di cancellarla; è la versione generale di `onRegistryUse` | `platform.usedBy("category", nome)` → «12 budget lines, 3 items» |
+| **Dichiarazioni** | ciò che il nucleo raccoglie da tutti all'avvio: spunte, permessi, nomi per lo storico, regole di Ctrl+Z, indirizzi | `declareFlag`, `declarePermission`, `auditLabel`, `undoRules`, `routes` |
+
+### 5.3 Le regole di un contratto
+
+1. **Dati semplici**: oggetti con numeri, testi e booleani, che si possono scrivere in JSON. Soldi in centesimi interi o decimali in testo, date ISO (`YYYY-MM-DD`), id numerici, come in [CLAUDE.md](../CLAUDE.md). **Mai** tabelle Drizzle, righe del database o query.
+2. **Un'azione controlla come la sua rotta**: la rotta HTTP e la funzione pubblica chiamano lo stesso servizio. Una regola vale allo stesso modo per il sito, per n8n e per un altro modulo.
+3. **Nomi stabili e spiegati**: ogni funzione ha il suo commento. Una prova elenca i nomi esportati da ogni contratto (un'istantanea), così un cambio è sempre voluto.
+4. **Porte con risposta di partenza**: un modulo funziona anche se nessuno risponde. È ciò che rende possibile spegnere.
+5. **Il nucleo salta chi è spento**: eventi, porte e domande d'uso sono registrati all'avvio da tutti, con il nome del modulo o del ponte. Chi li chiama passa dal nucleo, che salta quelli dei moduli spenti. I moduli non devono sapere di poter essere spenti, come oggi le anagrafiche.
+
+### 5.4 HTTP e funzioni: le due facce
+
+```mermaid
+flowchart LR
+  Sito["Sito (browser)"] -- HTTP /api/... --> Rotte
+  N8N["n8n, servizi"] -- HTTP con token --> Rotte
+  subgraph Server["Server: un solo programma"]
+    Rotte["Rotte HTTP del modulo"] --> Servizi["Servizi del modulo"]
+    Contratto["Contratto: modulo.public.ts"] --> Servizi
+    Altro["Altro modulo o ponte"] -- "chiamata di funzione (stessa transazione)" --> Contratto
+    Servizi --> DB[("Tabelle del modulo")]
+  end
+```
+
+- **Le rotte HTTP** sono per il sito e per i servizi esterni.
+- **Il contratto** è per gli altri moduli e i ponti.
+- **Tutti e due passano dagli stessi servizi.** Un modulo non chiama mai le rotte HTTP di un altro.
+
+### 5.5 Esempi: com'è oggi e come sarà
+
+| Caso | Oggi | Dopo |
+| --- | --- | --- |
+| **«Pay» in TO PAY** | `cash-links.service.ts` legge `budget_line`, `project`, `season` e scrive `cash_entry` e `cash_entry_line` | il ponte tesoreria×budget, in una transazione: <ol><li>chiede le righe con `budget.linesForPaying`</li><li>scrive il movimento con `treasury.insertEntry(tx, …)`</li><li>scrive i legami nella sua tabella `cash_entry_line`</li></ol> |
+| **Cancellare una categoria** in Settings | `settings.service.ts` conta `budget_line` e `inventory_item` | il nucleo chiede `usedBy("category", nome)`: il budget risponde «12 budget lines», l'inventario «3 items» (solo i moduli accesi) |
+| **Rinominare una categoria** | `settings.service.ts` aggiorna il testo in `budget_line` e `inventory_item` | il nucleo manda `onLookupRenamed(tx, "category", vecchio, nuovo)`: ognuno aggiorna le sue righe, anche da spento (§8.3) |
+| **Stagione nuova** | `seasons.service.ts` copia progetti e sponsor | il nucleo crea la stagione e manda `onSeasonCreated(tx, nuova, precedente)`: il budget copia progetti e sponsor e aggiunge il «Team's fund» |
+| **Il calcolo** | `snapshot.ts` legge tutto | lo snapshot diventa **del budget**: legge le sue tabelle e chiede alle porte `payments`, `receipts`, `outsideBudget` e `registerBank`. Le risposte di partenza («nessun pagamento», «niente arrivato», «nessuna area derivata», «BANK a mano») sono già quelle del calcolo senza registro e senza inventario. `packages/calc` non cambia. |
+| **«Use, move, count…» con il progetto** | `MovementForm` chiama `/inventory/projects`, che legge `project` | il form dell'inventario ha un **punto di aggancio** (§7.4) per «a cosa serve»; il ponte inventario×budget ci mette la scelta del progetto e salva il legame nella sua tabella `movement_project` |
+
+---
+
+## 6. I dati
+
+### 6.1 Uno schema per proprietario
+
+- **`db/schema.ts` si divide** in `db/schema/platform.ts`, `budget.ts`, `treasury.ts`, `inventory.ts`, `registry.ts` e uno per ponte. La configurazione di Drizzle (`apps/api/drizzle.config.ts`) prende tutti i file. Dividere **non cambia il database**: la prova è che `drizzle-kit generate` non trova differenze.
+- **Un servizio importa solo il suo file di schema.** Le tabelle degli altri si raggiungono dai loro contratti.
+- **Le chiavi esterne vanno solo verso il nucleo**; quelle di un ponte, verso i suoi due moduli.
+
+### 6.2 I cinque legami fra moduli diventano tabelle dei ponti
+
+**Deciso (26 novembre, domanda 1)**: tabelle dei ponti, non colonne lasciate dove sono.
+
+**Ogni tabella ha la sua colonna `id` intera.** Il trigger dello storico (`audit_row()`) scrive `NEW.id`, quindi ogni tabella che finisce nello storico ne ha bisogno. Il legame vero è un vincolo `unique`.
+
+| Oggi | Dopo (tabella del ponte) | Comportamento uguale a oggi |
+| --- | --- | --- |
+| `stock_movement.budget_line_id` | `receipt_line`: `id`, `movement_id` **unico** → `stock_movement` (cascade), `line_id` → `budget_line` (cascade) | cancellare la riga toglie il legame, come il set null di oggi |
+| `stock_movement.project_id` | `movement_project`: `id`, `movement_id` unico (cascade), `project_id` (cascade) | idem |
+| `inventory_item.make_project_id` | `item_make_project`: `id`, `item_id` unico (cascade), `project_id` (cascade) | idem |
+| `team_inflow.cash_entry_id` | `inflow_receipt`: `id`, `inflow_id` unico (cascade), `entry_id` unico (cascade) | cancellare l'entrata riporta l'inflow a «non ricevuto»; un inflow ha un'entrata, un'entrata un inflow, come oggi |
+| `category.default_voce_id` | `category_voce`: `id`, `category_id` unico (cascade), `voce_id` (cascade) | idem |
+| `cash_entry_line` | resta com'è (ha già `id`), ma è **del ponte** | — |
+
+**La migrazione**, una per legame, nel passo in cui si sposta quel codice (G4 o G5):
+1. crea la tabella, con il trigger dello storico;
+2. copia i dati dalla colonna;
+3. toglie la colonna.
+
+Va provata su una copia dei dati veri. Le query che usavano le colonne passano ai ponti; i punti sono quelli del §2.2.
+
+### 6.3 Il resto dei dati
+
+- **I collegamenti per nome** ([schema-database.md](schema-database.md)): la categoria scritta sulle righe e sui pezzi, l'unità e il posto sui pezzi e sui movimenti. Restano per nome. La rinomina arriva con l'evento `onLookupRenamed` e ogni modulo aggiorna le sue righe.
+- **`setting`** resta del nucleo. Ogni modulo usa le sue chiavi, con il suo nome davanti, e le legge solo lui.
+- **Storico**: i trigger non cambiano. I nomi leggibili li dà ogni modulo con `auditLabel(tabella, riga)`, al posto dello `switch` di `labelOf`.
+- **Area derivata** (ADMINISTRATION, `area.derived`): la riga resta nella tabella delle aree del nucleo, ma la riempie il ponte tesoreria×budget. Con la tesoreria spenta non compare.
+
+---
+
+## 7. Il sito
+
+### 7.1 Le cartelle
+
+```
+apps/web/src/
+  core/        request() all'API, componenti comuni (Table, SearchSelect, Peek, FormPanel, Picture…), lib generiche,
+               Shell e App costruiti dai manifesti, punti di aggancio (slot), bozze e Ctrl+Z (fasi E e F)
+  platform/    login, Users, Settings › App e liste comuni, History, stagioni
+  modules/
+    budget/    pagine (aree, CASH FROM, BOUGHT FROM, CASH FLOW, Gantt, analisi, TOTAL), api.ts, types.ts, index.tsx, public.ts
+    treasury/  CASH REGISTER, FINANCIAL STATEMENT, import, liste del registro…
+    inventory/ INVENTORY, pezzo, componenti, statistiche, tipi, form di movimenti e produzione…
+    registry/  le pagine e i componenti delle anagrafiche di oggi
+  bridges/
+    treasury-budget/  TO PAY, PayForm, PayLines, ReceiveInflow, ordini, e ciò che mette nelle pagine degli altri
+    inventory-budget/ PENDING, il ricevere da una riga, la scelta del progetto, ARRIVED nel budget
+    registry-access/  la parte «ruoli dell'ERP» di Settings › Registry
+```
+
+**Il client e i tipi si dividono.** `api/client.ts` e `api/types.ts` si dividono per proprietario. `request()` resta nel `core`; i tipi condivisi (utente, stagione, area) vanno in `platform`.
+
+### 7.2 Il manifesto di un modulo (`index.tsx`)
+
+Ogni modulo e ogni ponte dichiara in un solo oggetto:
+- `key` e, per un ponte, i suoi due moduli (`needs`);
+- gli **indirizzi delle pagine** (le `Route`);
+- il **suo gruppo del menù**, con le voci e chi le vede (dai permessi);
+- le **sezioni di Settings**;
+- le **spunte** che mostra in Users (dichiarate dal server, §8.5);
+- le **parti che mette nelle pagine degli altri** (§7.4).
+
+`App.tsx`, `Shell.tsx`, la pagina Settings e la pagina Users si costruiscono **dai manifesti dei moduli accesi**. Il server lo dice in `/me.modules`, e `/me.bridges` dice quali ponti sono accesi. Spento un modulo:
+- le sue pagine non esistono («This page does not exist», oppure la pagina iniziale);
+- il suo gruppo del menù non c'è;
+- le sue parti nelle pagine degli altri non compaiono.
+
+`IfModule` non serve più.
+
+### 7.3 Le regole del sito
+
+- **Le pagine di un modulo importano solo**: i loro file, `core`, `platform` e il `public.ts` degli altri moduli. Un modulo non importa mai un ponte.
+- **Un ponte importa** i `public.ts` dei suoi due moduli.
+- **`App.tsx` e `Shell.tsx`** conoscono i moduli solo dall'elenco dei manifesti.
+
+### 7.4 I punti di aggancio (slot)
+
+**Una pagina dichiara dove altri possono aggiungere qualcosa**, con le proprietà che passa. Un modulo o un ponte acceso ci aggiunge il suo pezzo. Il meccanismo è nel `core`: `defineSlot` e `<Slot name=… />`. È come le porte del server, ma per l'interfaccia.
+
+Elenco di partenza, preso dalle pagine di oggi:
+
+| Punto di aggancio | Di chi è | Chi lo riempie | Cosa ci mette |
+| --- | --- | --- | --- |
+| `budget.grid.columns` | budget | inventario×budget | ARRIVED e la data d'arrivo ACTUAL |
+| `budget.line.facts` (scheda su telefono) | budget | tesoreria×budget, inventario×budget | «Paid …», stato d'arrivo |
+| `budget.cashflow.inflowActions` | budget | tesoreria×budget | «Mark as received», «Not received» |
+| `budget.cashflow.actualSource` | budget | tesoreria×budget | l'ACTUAL dalle entrate del registro, con la sua spiegazione |
+| `budget.cashflow.deleteTargets` | budget | tesoreria×budget | il gruppo CASH REGISTER del popup di cancellazione (fase C) |
+| `treasury.register.rowActions` | tesoreria | tesoreria×budget | «Link to budget lines» |
+| `treasury.register.rowFacts` | tesoreria | tesoreria×budget | «paid …», «received the inflow …» |
+| `treasury.settings.voci` | tesoreria | tesoreria×budget | la Voce di partenza di ogni categoria |
+| `inventory.movement.purpose` | inventario | inventario×budget | la scelta del progetto in «Use, move, count…», «Make new», i valori di partenza di produzione |
+| `inventory.receive.sources` | inventario | inventario×budget | «da una riga del budget» in «More arrived» |
+| `inventory.item.movementFacts` | inventario | inventario×budget | «from the budget» |
+| `inventory.stats.cuts` | inventario | inventario×budget | «per progetto» |
+| `settings.registry.roles` | anagrafiche | anagrafiche×accesso | i ruoli dell'ERP dal registro |
+
+Ogni punto di aggancio ha un tipo (le proprietà che riceve) e una prova che lo verifica (§12).
+
+---
+
+## 8. Accendere e spegnere
+
+1. **L'elenco dei moduli viene dai contratti.** `appmodules` legge le dichiarazioni (chiave, nome, descrizione, indirizzi) di budget, tesoreria, inventario e anagrafiche, invece della lista scritta a mano. La riga di [hardcoded-registry.md](hardcoded-registry.md) sui moduli si toglie.
+2. **Ogni modulo e ogni ponte passa sotto il suo nome** (deciso, domanda 4): `/api/budget/…`, `/api/treasury/…`, `/api/inventory/…`, `/api/registry/…`, `/api/treasury-budget/…`, `/api/inventory-budget/…`, `/api/registry-access/…`. Il nucleo resta senza prefisso (`/api/me`, `/api/users`…): non si spegne mai.
+   - **In `app.ts`** ogni modulo e ponte si registra con il suo prefisso, preso dal manifesto (in Fastify, `register(rotte, { prefix })`).
+   - **Il cancello** (`addModuleGate`) guarda solo il primo pezzo dell'indirizzo. Gli elenchi di indirizzi non servono più. Risponde 404 per un modulo spento e per un ponte con uno dei due moduli spento.
+   - **Non cambiano**, perché sono già al loro posto o sono pubblici: `/api/registry/…`, `/api/registry/public/…`, `/ext/…`, `/forms/…`. Sono quelli che usa n8n.
+   - **Ogni passo (G3–G6) cambia insieme** gli indirizzi del server, le chiamate del sito, le prove e i documenti che li citano. Così l'app funziona dopo ogni passo.
+   - **Prima del passo G4**: controllare se qualcosa fuori dall'ERP (un flusso di n8n, uno script, un token di servizio) chiama i vecchi indirizzi di budget, tesoreria o inventario. Si guarda nei flussi di n8n e nel log del proxy. Se sì, va aggiornato nello stesso rilascio. **Non si tengono redirect**: due indirizzi per la stessa cosa sono esattamente ciò che si vuole togliere.
+
+   **La tabella dei nuovi indirizzi** (quelli che oggi non sono già sotto il nome giusto):
+
+   | Oggi | Dopo |
+   | --- | --- |
+   | `/api/projects`, `/api/lines`, `/api/funds`, `/api/suppliers`, `/api/bank` | `/api/budget/projects`, `/api/budget/lines`, `/api/budget/funds`, `/api/budget/suppliers`, `/api/budget/bank` |
+   | `/api/inflows` (aggiungere, elencare, cancellare) | `/api/budget/inflows` |
+   | `/api/views/…` (gantt, analysis, totals, cashflow, funds-summary, items, vat-report) | `/api/budget/views/…` |
+   | `/api/lookups/priorities`, `/api/lookups/sponsor-rates`, `/api/lookups/vat-rules` | `/api/budget/lookups/…` |
+   | `/api/settings/calculation` | `/api/budget/settings/calculation` |
+   | `/api/cash/entries`, `/api/cash/register`, `/api/cash/openings`, `/api/cash/categories`, `/api/cash/methods`, `/api/cash/import`, `/api/cash/statement` | `/api/treasury/entries`, `/api/treasury/register`, `/api/treasury/openings`, `/api/treasury/categories`, `/api/treasury/methods`, `/api/treasury/import`, `/api/treasury/statement` |
+   | `/api/settings/units`, `/api/settings/locations`, `/api/settings/uncategorized-fields` | `/api/inventory/settings/…` |
+   | `/api/lookups/units`, `/api/lookups/locations`, `/api/lookups/category-fields` | `/api/inventory/lookups/…` |
+   | `/api/cash/to-pay`, `/api/cash/to-pay/pay`, `/api/cash/payable-lines`, `/api/cash/to-link` | `/api/treasury-budget/to-pay`, `/api/treasury-budget/to-pay/pay`, `/api/treasury-budget/payable-lines`, `/api/treasury-budget/to-link` |
+   | `/api/cash/entries/:id/lines` | `/api/treasury-budget/entries/:id/lines` |
+   | `/api/cash/category-defaults` | `/api/treasury-budget/category-voci` |
+   | `/api/inflows/receivable`, `/api/inflows/:id/receive` | `/api/treasury-budget/inflows/receivable`, `/api/treasury-budget/inflows/:id/receive` |
+   | `/api/inventory/pending`, `/api/inventory/projects` | `/api/inventory-budget/pending`, `/api/inventory-budget/projects` |
+   | `/api/inventory/receive` con una riga del budget | `/api/inventory-budget/pending/:lineId/receive`. `/api/inventory/receive` resta per gli arrivi fuori budget |
+   | `/api/role-sync` | `/api/registry-access/role-sync` |
+   | `/api/areas` (oggi nelle rotte del budget) | resta `/api/areas`, ma del nucleo |
+
+   Gli indirizzi delle fasi nuove nascono già al loro posto: gli ordini (D) sotto `/api/treasury-budget/orders`, Ctrl+Z (F) sotto `/api/changes` (nucleo). La cancellazione scelta degli inflow (C), fatta prima della fase G, si sposta nel passo G4: la parte con il registro va sotto `/api/treasury-budget/…`.
+3. **Lo stato dei moduli si legge una volta per richiesta** e vale per tutta la richiesta (oggi `isModuleOn` legge il database a ogni domanda).
+4. **Settings › App › Modules** mostra i quattro moduli. Sotto ciascuno, cosa si spegne con lui, ponti compresi: «Turning off Budget also hides TO PAY, PENDING and the projects in the inventory». **I ponti non hanno un interruttore.**
+5. **Le spunte degli utenti le dichiarano i moduli** (deciso, domanda 2). Oggi sono colonne di `app_user` (`treasury`, `sponsors`).
+   - **La tabella del nucleo** `user_flag`: `id`, `user_id` → `app_user` (cascade), `flag` (testo), unico su `(user_id, flag)`, con il trigger dello storico.
+   - **Ogni modulo dichiara le sue spunte**: chiave, nome, spiegazione, ruoli che possono averla (oggi solo `pm`), permessi che dà. Treasury dalla tesoreria, Sponsors dal budget.
+   - **Users** mostra quelle dei moduli accesi.
+   - **La rotta che cambia un utente** accetta l'elenco delle spunte. Rifiuta quelle che nessun modulo dichiara, e quelle date a un ruolo che non può averle: oggi un viewer o un admin → 400, come adesso. Non tocca le spunte dei moduli spenti, che restano per quando si riaccendono.
+   - **Migrazione** (passo G1): copia le due colonne in `user_flag` e le toglie.
+   - **I permessi** (`canManageCash`, `canManageFunds`, `canChangeInflows`, `canManageInventory`…) li dichiara ciascun modulo con la sua regola.
+   - **Un ponte può allargare un permesso.** Esempio: oggi la Treasury può cambiare gli inflow, che sono del budget. Lo dichiara il ponte tesoreria×budget, non il budget.
+6. **Spento non vuol dire scaricato.** Il codice di tutti i moduli si carica sempre: eventi, porte e regole si registrano all'avvio, e il nucleo salta quelli spenti. Così riaccendere è immediato e non c'è niente da reinstallare.
+7. **Due tipi di eventi** (deciso, domanda 3):
+   - **funzionalità** (mostrare, calcolare, mandare un webhook, contare il «USED BY»): solo ai moduli accesi;
+   - **manutenzione dei dati**: **a tutti**, anche agli spenti, così riaccendendo i dati sono in ordine. Sono:
+     - `onLookupRenamed`: la categoria rinominata si aggiorna anche nelle righe del budget spento;
+     - `onSeasonCreated`: la stagione nuova ha i suoi progetti, gli sponsor e il Team's fund anche se il budget è spento.
+
+   Chi dichiara un evento dice di che tipo è. Il nucleo lo rispetta.
+
+---
+
+## 9. Le opzioni considerate
+
+| | A. Solo interruttori | B. Monolite modulare: contratti e ponti (**scelta**) | C. Servizi separati in HTTP | D. B più uno schema Postgres per modulo |
+| --- | --- | --- | --- | --- |
+| Cosa vuol dire | accendere e spegnere gli indirizzi e il menù dei moduli di oggi, senza toccare il codice | quello descritto qui | un programma e un database per modulo, che si parlano in HTTP | come B, ma ogni modulo ha il suo schema e il suo ruolo nel database, che rifiuta gli accessi agli altri |
+| Fatica | bassa | alta, ma a passi | molto alta | molto alta |
+| Spegnere un modulo è sicuro? | **no**: Settings, stagioni e calcolo leggono comunque le tabelle del budget; le parti miste (pagato, arrivato) restano a metà | sì: ciò che serve a due moduli è in un ponte, e le porte hanno risposte di partenza | sì | sì |
+| «Tutto o niente» fra moduli (pagare = movimento + legami) | sì | **sì** (stessa transazione) | **no**, servono compensazioni | sì |
+| Chi fa rispettare i confini | nessuno | le prove di architettura | la rete | il database |
+| Server da gestire | uno | uno | uno per modulo | uno |
+| Adatto a un team piccolo con un server | sì | **sì** | no | eccessivo oggi |
+
+**Perché B**:
+- è l'unica che rende davvero sicuro spegnere senza perdere le transazioni;
+- è la strada già presa con le anagrafiche, che funziona e ha le sue prove;
+- D si può aggiungere dopo, se mai servisse, sopra B.
+
+---
+
+## 10. Conseguenze
+
+**Diventa più facile**
+- Spegnere e riaccendere un modulo.
+- Capire chi usa cosa: basta leggere i contratti.
+- Cambiare l'interno di un modulo senza rompere gli altri.
+- Aggiungere un modulo nuovo: manifesto, contratto e ponti, senza toccare nucleo, menù o Settings.
+- Le fasi D e F: ordini nel ponte, regole di Ctrl+Z nei contratti.
+
+**Diventa più difficile**
+- Una funzione che serve a due moduli va pensata come ponte, con il suo contratto. Non basta più una query con un `join` in più.
+- Il codice si sposta molto: le cartelle cambiano, e i riferimenti nei documenti (percorsi di file) vanno aggiornati.
+
+**Da tenere d'occhio**
+- **Le prestazioni dello snapshot**: le porte sono funzioni nello stesso processo e fanno le stesse query di oggi, solo divise. Si misura prima e dopo.
+- **L'elenco delle porte e dei punti di aggancio** deve restare corto: si aggiunge solo ciò che serve davvero.
+
+---
+
+## 11. Il piano di lavoro (fase G, a passi)
+
+Ogni passo lascia l'app funzionante, con tutte le prove verdi e i documenti aggiornati, e si rilascia da solo.
+
+**Le prove di architettura del §12 nascono al primo passo** con un **elenco delle violazioni di oggi** (la «lista delle eccezioni»):
+- una violazione nuova fa fallire la prova;
+- una violazione tolta va cancellata dalla lista, così la lista può solo accorciarsi;
+- alla fine del passo G8 la lista è vuota.
+
+| Passo | Cosa | Fatto quando |
+| --- | --- | --- |
+| **G0** | Le regole come prove, con la lista delle eccezioni di oggi. Il meccanismo comune nel `core`: eventi, porte, domande d'uso, dichiarazioni, con il «salta chi è spento». | le prove girano e la lista elenca il §2.2 |
+| **G1** | Il **nucleo** in `platform/`: auth, users, seasons, aree (da `/areas` del budget), liste comuni, settings dell'app, audit, appmodules, health. Settings e stagioni smettono di leggere le tabelle degli altri (`usedBy`, `onLookupRenamed`, `onSeasonCreated`, `seasonUsage`); lo storico usa `auditLabel`. Le spunte diventano dichiarazioni (domanda 2). | il nucleo non importa nessun modulo |
+| **G2** | **Lo schema si divide** per proprietario. Nessuna migrazione. | `drizzle-kit generate` non vede differenze |
+| **G3** | **Anagrafiche** in `modules/registry`, e `rolesync` diventa `bridges/registry-access`. Sono già in regola: si spostano e si adattano le prove. | prove di oggi verdi con i percorsi nuovi |
+| **G4** | **Tesoreria** in `modules/treasury` con `treasury.public.ts`. Le parti miste (`cash-links`, `outside-budget`, `loadPayments`, inflow ricevuti, BANK dal registro, Voce di partenza) vanno in `bridges/treasury-budget`. Migrazione di `inflow_receipt` e `category_voce`. | tesoreria e ponte senza eccezioni |
+| **G5** | **Inventario** in `modules/inventory` con `inventory.public.ts`. PENDING, ricevere da una riga, arrivi, progetti e statistiche per progetto vanno in `bridges/inventory-budget`. Migrazione di `receipt_line`, `movement_project`, `item_make_project`. | idem |
+| **G6** | **Budget** in `modules/budget` con `budget.public.ts`: budget, fondi, fornitori, CASH FLOW a mano, viste, e lo **snapshot con le porte**. | idem; i numeri di prova del calcolo identici (stessi test, stesso foglio di riconciliazione) |
+| **G7** | **Il sito**: cartelle (§7.1), manifesti, punti di aggancio, client e tipi divisi, menù, indirizzi e Settings dai manifesti, prove del sito. | nessuna pagina importa un altro modulo se non dal suo `public.ts` |
+| **G8** | **Gli interruttori** per budget, tesoreria e inventario in Settings › App › Modules; `/me.bridges`; la prova di tutte le combinazioni (§12); la lista delle eccezioni vuota. | le 16 combinazioni passano |
+
+**I documenti da aggiornare alla fine**:
+- [architettura.md](architettura.md) (struttura del repository e livelli);
+- [moduli.md](moduli.md) (riscritto: tutti i moduli, come se ne aggiunge uno);
+- [schema-database.md](schema-database.md) (proprietari delle tabelle, tabelle dei ponti);
+- [come-funziona.md](come-funziona.md) e [stile-interfaccia.md](stile-interfaccia.md) (percorsi);
+- [accesso-e-storico.md](accesso-e-storico.md) (spunte e permessi dichiarati dai moduli);
+- [anagrafiche-architettura.md](anagrafiche-architettura.md) (rimando a questo ADR);
+- [hardcoded-registry.md](hardcoded-registry.md);
+- [collaudo.md](collaudo.md);
+- [CLAUDE.md](../CLAUDE.md) («Stato» e convenzioni: dove si mette il codice nuovo).
+
+---
+
+## 12. Le prove
+
+### Prove di architettura (server)
+
+Estendono `apps/api/src/architecture.test.ts`.
+1. Un modulo importa solo i suoi file, `core`, `platform`, i motori (`@erp/calc`, `@erp/registry` dove serve) e **nessun altro modulo**.
+2. Un ponte importa solo i suoi file, `core`, `platform` e i `*.public.ts` dei suoi due moduli.
+3. Nessuno importa un ponte, tranne `app.ts`, che li collega.
+4. Il nucleo non importa nessun modulo né ponte.
+5. Un servizio importa solo il suo file di schema.
+6. **Ogni tabella ha un solo proprietario.** Quelle con lo storico hanno anche la regola di Ctrl+Z (fase F).
+7. Ogni modulo e ponte registra le sue rotte solo sotto il suo prefisso, e il nucleo solo fuori dai prefissi dei moduli.
+8. I contratti non esportano tabelle o tipi di Drizzle. L'istantanea dei nomi esportati segnala ogni cambio.
+
+### Prove di architettura (sito)
+
+Le regole del §7.3, nello stesso stile di `lib/architecture.test.ts`.
+
+### Le combinazioni
+
+Una prova dell'API passa **tutte le 16 combinazioni** dei quattro interruttori, con `app.inject`. Per ognuna:
+- gli indirizzi dei moduli e dei ponti spenti rispondono 404;
+- una lettura rappresentativa di ogni modulo acceso risponde 200;
+- lo snapshot del budget si calcola.
+
+La prova si costruisce **dai manifesti**: un modulo nuovo vi entra da solo.
+
+Nel sito, una funzione pura `menuFor(modulesOn, permissions)` con la sua prova su tutte le combinazioni.
+
+### I numeri non cambiano
+
+Le prove del calcolo, quelle di riconciliazione con il foglio vero (che si saltano senza `fonti/`) e quelle delle API restano verdi a ogni passo. Spostare il codice non deve cambiare un centesimo.
+
+### Browser
+
+Per ogni modulo: spegnerlo, girare le pagine degli altri (nessun pezzo suo, nessun errore nella console), riaccenderlo, ritrovare tutto.
+
+---
+
+## 13. Cosa resta fuori
+
+- **I redirect dai vecchi indirizzi** (§8.2): non si tengono.
+- **La pagina iniziale scelta da ognuno** (domanda 5, strada C): si può aggiungere dopo, sopra la regola automatica.
+- **`packages/calc` resta un motore unico e puro.** Ha già file per argomento (inventario, registro, TO PAY…); dividerlo in pacchetti non serve per spegnere i moduli.
+- **Schemi Postgres separati per modulo** (opzione D): non ora.
+- **Moduli installati o tolti** (codice caricato o no): «spento» vuol dire nascosto e fermo, non disinstallato.
+- **Un sistema di plugin esterni** (moduli scritti da altri): non serve.
+
+## 14. Le decisioni (26 novembre 2026)
+
+Le cinque domande sono spiegate una per una, con esempi, pro e contro, in [moduli-domande.md](moduli-domande.md). L'utente ha scelto:
+
+| # | Domanda | Decisione | Dove è scritta |
+| --- | --- | --- | --- |
+| 1 | I cinque legami fra moduli | **tabelle dei ponti**, ognuna con la sua colonna `id` per lo storico | §6.2 |
+| 2 | Le spunte Treasury e Sponsors | **tabella generica `user_flag`**: ogni modulo dichiara le sue | §8.5 |
+| 3 | Stagione nuova con il budget spento | **il budget prepara lo stesso**: gli eventi di manutenzione dei dati arrivano a tutti | §8.7 |
+| 4 | Gli indirizzi dell'API | **ogni modulo e ponte sotto il suo nome** (`/api/budget/…`), senza redirect; anagrafiche e indirizzi pubblici invariati | §8.2 |
+| 5 | La pagina iniziale | **automatica**: la prima pagina del primo modulo acceso (budget → inventario → tesoreria → anagrafiche; per il budget la prima area del menù; spento tutto, Settings) | §4.4 |
+
+Per la 5, l'ordine sta nel corpo di una funzione del sito (per esempio `homePath(me)`), marcato `// HARDCODED:` e scritto in [hardcoded-registry.md](hardcoded-registry.md). Un giorno potrà diventare la scelta di ognuno (la strada C).

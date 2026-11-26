@@ -2,6 +2,8 @@
 
 **Stato: fatto (23 novembre 2026).** Per ora c'è un modulo che si può spegnere, **Registry** (le anagrafiche); l'elenco si allunga con una riga (sotto, «Come si aggiunge un modulo»).
 
+**In progetto (26 novembre 2026)**: spegnere anche budget, tesoreria e inventario. Non basta aggiungere righe a questo elenco, perché oggi quei moduli leggono le tabelle gli uni degli altri. Il design è in [moduli-architettura.md](moduli-architettura.md) (ADR-2): nucleo, moduli, ponti e «API come funzioni». Quando sarà fatto, questo documento va riscritto.
+
 ## 1. Cosa fa
 
 In **Settings › App › Modules** ogni modulo ha un interruttore **On / Off**. Un modulo **spento**:

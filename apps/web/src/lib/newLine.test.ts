@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { choosesOwnRate, EMPTY_PHASE, lineBody, newLineDraft, phaseFigures, type LineDraft, type LineLookups } from "./newLine";
+import type { Fund } from "../api/types";
+import { choosesOwnRate, EMPTY_PHASE, fundsOfBoth, isSameActual, lineBody, newLineDraft, phaseFigures, withSameActual, type LineDraft, type LineLookups } from "./newLine";
 
 const lookups: LineLookups = {
   fundByName: new Map([
@@ -12,6 +13,79 @@ const TODAY = "2026-10-29";
 /** A line as the form starts (purchase dates of today), with the name typed in. */
 const line = (change: Partial<LineDraft>): LineDraft => ({ ...newLineDraft(TODAY), item: "  Sensor ", ...change });
 const body = (draft: LineDraft) => lineBody(draft, lookups, TODAY);
+
+describe("lineBody, with ACTUAL same as EXPECTED", () => {
+  const written = { ...EMPTY_PHASE, quantity: "2", unitCost: "5", fund: "Sponsor A", supplier: "Amazon", purchaseDate: "2026-11-02", arrivalDate: "2026-11-09" };
+  const same = (change: Partial<LineDraft> = {}) => line({ fillIn: "both", sameActual: true, estimate: written, actual: { ...EMPTY_PHASE, quantity: "9" }, ...change });
+
+  it("starts without the tick", () => {
+    expect(newLineDraft(TODAY).sameActual).toBe(false);
+  });
+
+  it("gives both phases the same figures, so only the block of EXPECTED is read", () => {
+    const { estimate, actual } = body(same()).figures!;
+    expect(estimate).toEqual({ quantity: 2, unitNetCost: 5, fundIds: [2], supplierId: 7, purchaseDate: "2026-11-02", arrivalDate: "2026-11-09" });
+    expect(actual).toEqual({ quantity: 2, unitNetCost: 5, fundIds: [2], supplierId: 7, purchaseDate: "2026-11-02" });
+  });
+
+  it("leaves the arrival date out of ACTUAL: it is worked out from what arrives", () => {
+    expect(body(same()).figures!.actual).not.toHaveProperty("arrivalDate");
+  });
+
+  it("gives both phases the purchase date of today when it was not typed", () => {
+    const empty = same({ estimate: { ...EMPTY_PHASE, quantity: "1" } });
+    expect(body(empty).figures).toEqual({
+      estimate: { quantity: 1, purchaseDate: TODAY },
+      actual: { quantity: 1, purchaseDate: TODAY },
+    });
+  });
+
+  it("sends the price typed with the VAT the same way to both", () => {
+    const gross = same({ estimate: { ...written, priceMode: "gross", unitCost: "6.1" } });
+    expect(body(gross).figures!.actual).toMatchObject({ unitGrossCost: 6.1 });
+    expect(body(gross).figures!.actual).not.toHaveProperty("unitNetCost");
+  });
+
+  it("changes nothing without the tick, and the tick does not count unless both phases are filled in", () => {
+    const apart = same({ sameActual: false });
+    expect(body(apart).figures!.actual).toEqual({ quantity: 9, purchaseDate: TODAY });
+    for (const fillIn of ["estimate", "actual"] as const) {
+      expect(isSameActual(same({ fillIn }))).toBe(false);
+      expect(Object.keys(body(same({ fillIn })).figures!)).toEqual([fillIn]);
+    }
+    expect(body(same({ fillIn: "actual" })).figures!.actual).toEqual({ quantity: 9, purchaseDate: TODAY });
+  });
+});
+
+describe("withSameActual", () => {
+  const typed = { ...EMPTY_PHASE, quantity: "2", fund: "Sponsor A", arrivalDate: "2026-11-09" };
+
+  it("taking the tick off starts ACTUAL from what was written, without the arrival date", () => {
+    const draft = line({ fillIn: "both", sameActual: true, estimate: typed, actual: { ...EMPTY_PHASE, quantity: "9" } });
+    const apart = withSameActual(draft, false, []);
+    expect(apart.sameActual).toBe(false);
+    expect(apart.actual).toEqual({ ...typed, arrivalDate: "" });
+    expect(apart.estimate).toEqual(typed);
+  });
+
+  it("putting it on keeps the fund if both phases offer it, and drops it if not", () => {
+    const draft = line({ fillIn: "both", estimate: typed });
+    expect(withSameActual(draft, true, ["sponsor a", "Team's fund"]).estimate.fund).toBe("Sponsor A");
+    expect(withSameActual(draft, true, ["Team's fund"])).toMatchObject({ sameActual: true, estimate: { fund: "", quantity: "2" } });
+  });
+});
+
+describe("fundsOfBoth", () => {
+  const fund = (id: number) => ({ id, name: `Fund ${id}` }) as Fund;
+
+  it("keeps the funds that are in both lists, by id, in the order of EXPECTED", () => {
+    expect(fundsOfBoth({ funds: { estimate: [fund(3), fund(1), fund(2)], actual: [fund(2), fund(3), fund(9)] } }).map((f) => f.id)).toEqual([3, 2]);
+  });
+
+  it("is empty when no fund works in both", () => {
+    expect(fundsOfBoth({ funds: { estimate: [fund(1)], actual: [fund(2)] } })).toEqual([]);
+  });
+});
 
 describe("lineBody", () => {
   it("is the name and, for the phase chosen, the purchase date of today when nothing else is filled in", () => {

@@ -1,5 +1,5 @@
 import type { FiguresPatch } from "../api/client";
-import type { Phase } from "../api/types";
+import type { Fund, Phase } from "../api/types";
 
 // What the form of a new budget line collects, and how it becomes the body of the request: only what
 // was filled in, and only for the phases chosen.
@@ -40,6 +40,8 @@ export interface LineDraft {
   /** The season whose car the line is for, as its id; "" = the car of the line's own season. */
   car: string;
   fillIn: FillIn;
+  /** ACTUAL same as EXPECTED (only with "EXPECTED and ACTUAL"): one block of boxes, written in both phases. Not kept on the line. */
+  sameActual: boolean;
   estimate: PhaseDraft;
   actual: PhaseDraft;
 }
@@ -49,7 +51,7 @@ export const EMPTY_PHASE: PhaseDraft = { quantity: "", unitCost: "", priceMode: 
 /** A new line as the form starts: the purchase date is today (the arrival date is left empty: it is not known yet). */
 export function newLineDraft(today: string): LineDraft {
   const phase = { ...EMPTY_PHASE, purchaseDate: today };
-  return { item: "", brand: "", model: "", category: "", priority: "", car: "", fillIn: "estimate", estimate: phase, actual: phase };
+  return { item: "", brand: "", model: "", category: "", priority: "", car: "", fillIn: "estimate", sameActual: false, estimate: phase, actual: phase };
 }
 
 /** What the form needs to know about the funds and the suppliers (names are compared in lower case). */
@@ -79,6 +81,27 @@ export function phaseFigures(draft: PhaseDraft, lookups: LineLookups): FiguresPa
   return Object.keys(figures).length > 0 ? figures : undefined;
 }
 
+/** The funds that can pay in EXPECTED and in ACTUAL both (by id): all a line written in both phases at once may choose from. */
+export function fundsOfBoth(lookups: { funds: Record<Phase, Fund[]> }): Fund[] {
+  const inActual = new Set(lookups.funds.actual.map((f) => f.id));
+  return lookups.funds.estimate.filter((f) => inActual.has(f.id));
+}
+
+/** Whether the tick counts: only when both phases are filled in. */
+export const isSameActual = (draft: LineDraft) => draft.fillIn === "both" && draft.sameActual;
+
+/**
+ * The form with the tick put on or taken off. Taking it off gives ACTUAL a copy of what was written for both, so nothing
+ * is lost and only what differs is corrected (the arrival date is EXPECTED's alone). Putting it on drops a fund that cannot
+ * pay in both phases, because the list no longer offers it.
+ */
+export function withSameActual(draft: LineDraft, on: boolean, fundsOfBothNames: string[]): LineDraft {
+  if (!on) return { ...draft, sameActual: false, actual: { ...draft.estimate, arrivalDate: "" } };
+  const allowed = new Set(fundsOfBothNames.map((name) => name.toLowerCase()));
+  const fund = allowed.has(draft.estimate.fund.toLowerCase()) ? draft.estimate.fund : "";
+  return { ...draft, sameActual: true, estimate: { ...draft.estimate, fund } };
+}
+
 export interface NewLineBody {
   item: string;
   brand?: string;
@@ -92,11 +115,14 @@ export interface NewLineBody {
 /**
  * The request that adds the line: the phases that were not chosen are left out even if something was
  * typed in them, and a chosen phase without a purchase date gets `today`. The arrival date may stay empty.
+ * With the tick ACTUAL gets the figures of EXPECTED, without the arrival date: ACTUAL works that out from what arrives.
  */
 export function lineBody(draft: LineDraft, lookups: LineLookups, today: string): NewLineBody {
+  const same = isSameActual(draft);
   const figures: Partial<Record<Phase, FiguresPatch>> = {};
   for (const phase of PHASES_OF[draft.fillIn]) {
-    const filled = phaseFigures({ ...draft[phase], purchaseDate: draft[phase].purchaseDate || today }, lookups);
+    const typed = same && phase === "actual" ? { ...draft.estimate, arrivalDate: "" } : draft[phase];
+    const filled = phaseFigures({ ...typed, purchaseDate: typed.purchaseDate || today }, lookups);
     if (filled) figures[phase] = filled;
   }
   return {
