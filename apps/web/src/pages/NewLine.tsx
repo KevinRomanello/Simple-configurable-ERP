@@ -8,6 +8,8 @@ import { choosesOwnRate, fundsOfBoth, isSameActual, lineBody, newLineDraft, PHAS
 import { carLabel } from "../lib/season";
 import { todayIso } from "../lib/today";
 import { useAction } from "../lib/useAction";
+import { useDraft } from "../lib/useDraft";
+import { DraftNote } from "../components/DraftNote";
 import type { GridLookups } from "./areaColumns";
 
 const PHASE_TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
@@ -132,7 +134,9 @@ export function NewLine({ project, lookups, onDone }: { project: { id: number; n
   const act = useAction();
   const idPrefix = useId();
   const [today] = useState(() => todayIso());
-  const [draft, setDraft] = useState<LineDraft>(() => newLineDraft(today));
+  // what is written is kept while it is typed, so that going to another page does not lose it (docs/stile-interfaccia.md)
+  const [initial] = useState(() => newLineDraft(today));
+  const [draft, setDraft, saved] = useDraft<LineDraft>(`new-line:${project.id}`, initial);
   const change = (patch: Partial<LineDraft>) => setDraft((d) => ({ ...d, ...patch }));
   const changePhase = (phase: Phase) => (patch: Partial<PhaseDraft>) => setDraft((d) => ({ ...d, [phase]: { ...d[phase], ...patch } }));
 
@@ -140,7 +144,10 @@ export function NewLine({ project, lookups, onDone }: { project: { id: number; n
   const same = isSameActual(draft);
 
   const submit = async () => {
-    if (await act(() => api.createLine(project.id, lineBody(draft, lookups, today)))) onDone();
+    if (await act(() => api.createLine(project.id, lineBody(draft, lookups, today)))) {
+      saved.discard();
+      onDone();
+    }
   };
 
   return (
@@ -150,9 +157,10 @@ export function NewLine({ project, lookups, onDone }: { project: { id: number; n
       submitLabel="Add item"
       canSubmit={draft.item.trim() !== ""}
       onSubmit={submit}
-      onCancel={onDone}
+      onCancel={() => saved.leave(onDone)}
       layout="stack"
     >
+      <DraftNote draft={saved} />
       <Field label="Fill in">
         <Chips label="Fill in" value={draft.fillIn} onChange={(fillIn) => change({ fillIn })} options={FILL_IN} />
       </Field>

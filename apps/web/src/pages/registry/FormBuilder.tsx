@@ -6,10 +6,12 @@ import { registry, type RegTable, type RegView } from "../../api/registry";
 import { useDragOrder } from "../../lib/useDragOrder";
 import { Button, IconButton } from "../../components/Button";
 import { Chips } from "../../components/Chips";
+import { DraftNote } from "../../components/DraftNote";
 import { SearchSelect } from "../../components/SearchSelect";
 import { Field, FormPanel, Panel, RowAction, Table, TableScroll } from "../../components/ui";
 import { COMPUTED } from "../../lib/registry";
 import { useAction } from "../../lib/useAction";
+import { fieldSetter, useDraft, useRemembered } from "../../lib/useDraft";
 import { FilterEditor } from "./ViewTools";
 
 // The forms of a table (docs/anagrafiche.md, §8): who fills them in, whether they add a record or change one,
@@ -20,7 +22,8 @@ const formUrl = (slug: string) => `${window.location.origin}/forms/${slug}`;
 export function FormsTab({ table }: { table: RegTable }) {
   const act = useAction();
   const forms = table.views.filter((v) => v.type === "form");
-  const [editing, setEditing] = useState<RegView | "new" | null>(null);
+  // the form being edited (its id, or «new»), remembered with its form: coming back to the page it is open with what was written
+  const [editing, setEditing] = useRemembered<number | "new" | null>(`registry:forms:${table.id}:editing`, null, (id) => (id === null ? null : `registry:form:${table.id}:${id}`));
   return (
     <>
       <Panel title="Forms" actions={<Button small icon={faPlus} onClick={() => setEditing("new")}>New form</Button>}>
@@ -37,17 +40,17 @@ export function FormsTab({ table }: { table: RegTable }) {
               <tbody>
                 {forms.map((v) => (
                   <Fragment key={v.id}>
-                    <tr className={editing !== null && editing !== "new" && editing.id === v.id ? "row-selected" : undefined}>
+                    <tr className={editing === v.id ? "row-selected" : undefined}>
                       <td>{v.config.form?.title ?? v.name}</td>
                       <td className="muted">{v.config.form?.access.kind} · {v.config.form?.mode === "create" ? "adds a record" : `changes ${v.config.form?.target === "me" ? "the person's own record" : v.config.form?.target === "link" ? "the record of a personal link" : "a record picked"}`}</td>
                       <td className="mono"><a href={formUrl(v.slug ?? "")} target="_blank" rel="noreferrer">/forms/{v.slug}</a></td>
                       <td className="num nowrap">
                         <IconButton icon={faCopy} label="Copy the address" onClick={() => navigator.clipboard.writeText(formUrl(v.slug ?? ""))} />
-                        <IconButton icon={faPen} label="Change the form" onClick={() => setEditing(v)} />
+                        <IconButton icon={faPen} label="Change the form" onClick={() => setEditing(v.id)} />
                         <IconButton icon={faTrash} label="Delete the form" danger onClick={() => window.confirm("Delete this form? The records it made stay.") && act(() => registry.deleteView(v.id))} />
                       </td>
                     </tr>
-                    {editing !== null && editing !== "new" && editing.id === v.id && (
+                    {editing === v.id && (
                       <RowAction colSpan={4} eyebrow="Change form" title={v.config.form?.title ?? v.name} context={[["Address", `/forms/${v.slug}`]]} onClose={() => setEditing(null)}>
                         <FormEditor key={v.id} table={table} view={v} onDone={() => setEditing(null)} />
                       </RowAction>
@@ -64,15 +67,25 @@ export function FormsTab({ table }: { table: RegTable }) {
   );
 }
 
+/** What is written in the editor of a form: its name, its address and its settings. */
+interface FormDraft {
+  name: string;
+  slug: string;
+  form: FormConfig;
+}
+
 const EMPTY_FORM: FormConfig = { access: { kind: "members" }, mode: "create", fields: [], set: [] };
 
 function FormEditor({ table, view, onDone }: { table: RegTable; view: RegView | null; onDone: () => void }) {
   const act = useAction();
   const settings = useQuery({ queryKey: ["registry-settings"], queryFn: registry.settings });
-  const [name, setName] = useState(view?.name ?? "");
-  const [slug, setSlug] = useState(view?.slug ?? "");
-  const [form, setForm] = useState<FormConfig>(view?.config.form ?? EMPTY_FORM);
-  const set = (change: Partial<FormConfig>) => setForm({ ...form, ...change });
+  // what is written is kept while it is typed (docs/stile-interfaccia.md); it starts from the form as it was read
+  const [initial] = useState<FormDraft>(() => ({ name: view?.name ?? "", slug: view?.slug ?? "", form: view?.config.form ?? EMPTY_FORM }));
+  const [edit, setEdit, saved] = useDraft<FormDraft>(`registry:form:${table.id}:${view?.id ?? "new"}`, initial, { base: JSON.stringify(initial) });
+  const { name, slug, form } = edit;
+  const setField = fieldSetter(setEdit);
+  const [setName, setSlug] = [setField("name"), setField("slug")];
+  const set = (change: Partial<FormConfig>) => setEdit((e) => ({ ...e, form: { ...e.form, ...change } }));
   const askable = table.fields.filter((f) => !COMPUTED.includes(f.type) && !form.fields.some((q) => q.fieldId === f.id));
   const settable = table.fields.filter((f) => !COMPUTED.includes(f.type) && f.type !== "attachment");
   const groups = settings.data?.groups ?? [];
@@ -85,12 +98,16 @@ function FormEditor({ table, view, onDone }: { table: RegTable; view: RegView | 
   const save = async () => {
     const config = { form };
     const done = view ? await act(() => registry.updateView(view.id, { name, slug, config })) : await act(() => registry.createView(table.id, { name, type: "form", slug, config }));
-    if (done) onDone();
+    if (done) {
+      saved.discard();
+      onDone();
+    }
   };
   const grids = table.views.filter((v) => v.type === "grid");
 
   return (
-    <FormPanel title={view ? `The form ${view.name}` : "New form"} submitLabel={view ? "Save the form" : "Add the form"} canSubmit={name.trim() !== "" && /^[a-z0-9-]+$/.test(slug)} onSubmit={save} onCancel={onDone} layout="stack">
+    <FormPanel title={view ? `The form ${view.name}` : "New form"} submitLabel={view ? "Save the form" : "Add the form"} canSubmit={name.trim() !== "" && /^[a-z0-9-]+$/.test(slug)} onSubmit={save} onCancel={() => saved.leave(onDone)} layout="stack">
+      <DraftNote draft={saved} name={view?.name} />
       <div className="form-grid">
         <Field label="Name" htmlFor="form-name"><input id="form-name" className="input small" value={name} onChange={(e) => setName(e.target.value)} /></Field>
         <Field label="Address: /forms/…" htmlFor="form-slug"><input id="form-slug" className="input small" placeholder="apply" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase())} /></Field>

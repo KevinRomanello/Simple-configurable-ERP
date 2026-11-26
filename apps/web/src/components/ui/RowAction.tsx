@@ -1,6 +1,7 @@
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { DraftGuardContext, useGuardedClose } from "../../lib/draftGuard";
 import { effectiveMode, openerButton, popoverPlace, useRowActionMode, type RowActionMode } from "../../lib/rowAction";
 import { SCREEN, useMaxWidth } from "../../lib/screen";
 import { IconButton } from "../Button";
@@ -198,10 +199,14 @@ export function RowAction({ eyebrow, title, context, quick, onClose, colSpan, lo
   const actual = asked === "popover" && more ? "dialog" : asked;
   const popover = actual === "popover";
   const label = `${eyebrow}: ${typeof title === "string" ? title : eyebrow}`;
-  const card: CardProps = { eyebrow, title, context, onClose, more: popover ? () => setMore(true) : undefined, children: popover ? quick : children };
+  // the X and Esc ask before throwing away what was written in the form (the Cancel of the form does it itself)
+  const { report, close } = useGuardedClose(onClose);
+  const card: CardProps = { eyebrow, title, context, onClose: close, more: popover ? () => setMore(true) : undefined, children: popover ? quick : children };
 
-  if (actual === "under") return <Under colSpan={colSpan} label={label} card={card} onClose={onClose} />;
-  if (actual === "side") return <Side label={label} card={card} onClose={onClose} />;
-  if (popover && anchor) return <Popover anchor={anchor} label={label} card={card} onClose={onClose} />;
-  return <Dialog label={label} card={{ ...card, more: undefined, children }} onClose={onClose} />;
+  const shape =
+    actual === "under" ? <Under colSpan={colSpan} label={label} card={card} onClose={close} />
+    : actual === "side" ? <Side label={label} card={card} onClose={close} />
+    : popover && anchor ? <Popover anchor={anchor} label={label} card={card} onClose={close} />
+    : <Dialog label={label} card={{ ...card, more: undefined, children }} onClose={close} />;
+  return <DraftGuardContext.Provider value={report}>{shape}</DraftGuardContext.Provider>;
 }

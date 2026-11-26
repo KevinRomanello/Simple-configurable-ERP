@@ -1,11 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { Navigate, NavLink, useParams } from "react-router";
 import { api } from "../api/client";
 import type { BankCompare, Calculation, ItemField, SettingsView } from "../api/types";
 import { Button } from "../components/Button";
 import { Chips } from "../components/Chips";
 import { CommitInput } from "../components/CommitInput";
+import { DraftNote } from "../components/DraftNote";
 import { DeleteButton } from "../components/ListButtons";
 import { QuickAdd, usedBy } from "../components/QuickAdd";
 import { AddSection, DataTable, Field, FormPanel, Loading, Message, PageHeader, Panel, type Column } from "../components/ui";
@@ -15,6 +16,7 @@ import { currentSection, SECTION_LABELS, settingsSections } from "../lib/setting
 import { ROW_ACTION_MODES, useRowActionMode } from "../lib/rowAction";
 import { useTheme, type ThemeChoice } from "../lib/theme";
 import { useAction } from "../lib/useAction";
+import { fieldSetter, useDraft } from "../lib/useDraft";
 import { CashListsPanel } from "./CashListsPanel";
 import { ItemTypesPanel } from "./ItemTypesPanel";
 import { RegistrySettings } from "./registry/RegistrySettings";
@@ -66,7 +68,7 @@ export function SettingsPage() {
       {section === "budget" && view.data && (
         <>
           <SeasonsPanel />
-          <CalculationPanel calculation={view.data.calculation} />
+          <CalculationPanel key={JSON.stringify(view.data.calculation)} calculation={view.data.calculation} />
           <VatRatesPanel rates={view.data.vatRates} />
         </>
       )}
@@ -191,14 +193,15 @@ function Setting({ children, explanation }: { children: ReactNode; explanation: 
 function CalculationPanel({ calculation }: { calculation: Calculation }) {
   const act = useAction();
   const asDraft = (c: Calculation) => ({ ...c, variancePercent: String(Math.round(c.varianceThreshold * 10_000) / 100), inflowRate: String(c.inflowVatRate) });
-  const [draft, setDraft] = useState(asDraft(calculation));
-  useEffect(() => setDraft(asDraft(calculation)), [calculation]);
-  const changed = JSON.stringify(asDraft(calculation)) !== JSON.stringify(draft);
+  // what is written is kept while it is typed; the panel starts over (key) when the saved values change, and a draft started from other values says so
+  const [initial] = useState(() => asDraft(calculation));
+  const [draft, setDraft, saved] = useDraft("settings:calculation", initial, { base: JSON.stringify(initial) });
+  const changed = JSON.stringify(initial) !== JSON.stringify(draft);
   const set = (change: Partial<typeof draft>) => setDraft({ ...draft, ...change });
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    await act(() =>
+    const ok = await act(() =>
       api.updateCalculation({
         varianceThreshold: Number(draft.variancePercent) / 100,
         inflowVatRate: Number(draft.inflowRate),
@@ -206,6 +209,7 @@ function CalculationPanel({ calculation }: { calculation: Calculation }) {
         bankCompare: draft.bankCompare,
       }),
     );
+    if (ok) saved.discard();
   };
   const compareChoice = (id: string, value: BankCompare, onChange: (value: BankCompare) => void) => (
     <select id={id} className="input small" value={value} onChange={(e) => onChange(e.target.value as BankCompare)}>
@@ -217,6 +221,7 @@ function CalculationPanel({ calculation }: { calculation: Calculation }) {
   return (
     <Panel title="Calculation">
       <form className="stack" onSubmit={save}>
+        <DraftNote draft={saved} name="The calculation settings" />
         <Setting explanation="TOTAL highlights in red the variances between expected and actual outflow beyond this, up or down.">
           <Field label="Variance highlighted in TOTAL (%)" htmlFor="set-variance">
             <input id="set-variance" className="input small" type="number" min="0" max="100" step="0.01" value={draft.variancePercent} onChange={(e) => set({ variancePercent: e.target.value })} />
@@ -269,7 +274,7 @@ function CalculationPanel({ calculation }: { calculation: Calculation }) {
         </Setting>
         <div className="inline-form">
           <Button small type="submit" disabled={!changed}>Save</Button>
-          <Button small variant="ghost" disabled={!changed} onClick={() => setDraft(asDraft(calculation))}>Undo</Button>
+          <Button small variant="ghost" disabled={!changed} onClick={saved.discard}>Undo</Button>
         </div>
       </form>
     </Panel>
@@ -377,12 +382,15 @@ type LocationRow = SettingsView["locations"][number];
 /** The form of a new place: a room and, if it has them, a shelf and its levels (several levels, with a comma, are several places). */
 function NewPlace({ onDone }: { onDone: () => void }) {
   const act = useAction();
-  const [room, setRoom] = useState("");
-  const [shelf, setShelf] = useState("");
-  const [level, setLevel] = useState("");
+  const [form, setForm, saved] = useDraft("new-place", { room: "", shelf: "", level: "" });
+  const { room, shelf, level } = form;
+  const set = fieldSetter(setForm);
   const levels = level.split(",").map((l) => l.trim()).filter((l) => l !== "");
   const submit = async () => {
-    if (await act(() => api.createLocation({ room: room.trim(), ...(shelf.trim() ? { shelf: shelf.trim() } : {}), ...(levels.length > 0 ? { levels } : {}) }))) onDone();
+    if (await act(() => api.createLocation({ room: room.trim(), ...(shelf.trim() ? { shelf: shelf.trim() } : {}), ...(levels.length > 0 ? { levels } : {}) }))) {
+      saved.discard();
+      onDone();
+    }
   };
   return (
     <FormPanel
@@ -391,16 +399,17 @@ function NewPlace({ onDone }: { onDone: () => void }) {
       submitLabel={levels.length > 1 ? `Add ${levels.length} places` : "Add place"}
       canSubmit={room.trim() !== "" && (levels.length === 0 || shelf.trim() !== "")}
       onSubmit={submit}
-      onCancel={onDone}
+      onCancel={() => saved.leave(onDone)}
     >
+      <DraftNote draft={saved} />
       <Field label="Room" htmlFor="new-room">
-        <input id="new-room" className="input small" autoFocus value={room} onChange={(e) => setRoom(e.target.value)} />
+        <input id="new-room" className="input small" autoFocus value={room} onChange={(e) => set("room")(e.target.value)} />
       </Field>
       <Field label="Shelf" htmlFor="new-shelf">
-        <input id="new-shelf" className="input small" value={shelf} onChange={(e) => setShelf(e.target.value)} />
+        <input id="new-shelf" className="input small" value={shelf} onChange={(e) => set("shelf")(e.target.value)} />
       </Field>
       <Field label="Level" htmlFor="new-level">
-        <input id="new-level" className="input small" value={level} placeholder="1, 2, 3" onChange={(e) => setLevel(e.target.value)} />
+        <input id="new-level" className="input small" value={level} placeholder="1, 2, 3" onChange={(e) => set("level")(e.target.value)} />
       </Field>
     </FormPanel>
   );
@@ -425,7 +434,7 @@ function LocationsPanel({ locations }: { locations: SettingsView["locations"] })
         renaming a place keeps its history right. Used by: movements of the inventory.
       </p>
       <DataTable title="Places" columns={columns} rows={locations} rowKey={(l) => l.id} empty="No places" reorder={{ label: (l) => l.label, onOrder: (order) => act(() => api.orderLocations(order)) }} />
-      <AddSection label="New place" form={(close) => <NewPlace onDone={close} />} />
+      <AddSection label="New place" draftKey="new-place" form={(close) => <NewPlace onDone={close} />} />
     </Panel>
   );
 }

@@ -20,6 +20,8 @@ import { nameIn, registerSort } from "../lib/registerSort";
 import { useSort } from "../lib/sort";
 import { todayIso } from "../lib/today";
 import { useAction } from "../lib/useAction";
+import { useDraft, useRemembered } from "../lib/useDraft";
+import { DraftNote } from "../components/DraftNote";
 
 // The register of the team's money, as the treasury's sheet: every movement of Cassa, Banca and
 // Paypal with the balances after it. "New movement" types a new movement; a click on a cell changes it
@@ -84,7 +86,10 @@ const complete = (d: Draft) => d.on !== "" && Number(d.amount) > 0;
  */
 function MovementForm({ entry, categories, methods, onClose }: { entry?: CashEntryRow; categories: CashListItem[]; methods: CashListItem[]; onClose: () => void }) {
   const act = useAction();
-  const [draft, setDraft] = useState<Draft>(() => (entry ? draftOf(entry) : newDraft(todayIso(), "bank")));
+  // what an empty form is: after a movement is added the form stays open with the same day and account, and that is the new empty form
+  const [initial, setInitial] = useState<Draft>(() => (entry ? draftOf(entry) : newDraft(todayIso(), "bank")));
+  // what is written is kept while it is typed (docs/stile-interfaccia.md); an edit started from the values read, and if they change meanwhile it says so
+  const [draft, setDraft, saved] = useDraft<Draft>(entry ? `cash-movement:${entry.id}` : "cash-movement:new", initial, { base: entry ? JSON.stringify(draftOf(entry)) : null });
   const [last, setLast] = useState("");
   const form = entry ? "edit-move" : "new-move";
   const change = (part: Partial<Draft>) => setDraft((d) => ({ ...d, ...part }));
@@ -95,12 +100,18 @@ function MovementForm({ entry, categories, methods, onClose }: { entry?: CashEnt
   };
   const add = async () => {
     if (entry) {
-      if (await act(() => api.updateCashEntry(entry.id, bodyOf(draft)))) onClose();
+      if (await act(() => api.updateCashEntry(entry.id, bodyOf(draft)))) {
+        saved.discard();
+        onClose();
+      }
       return;
     }
     if (await act(() => api.createCashEntry(bodyOf(draft)))) {
       setLast(`Added: ${draft.description.trim() || "movement"}, ${draft.direction === "in" ? "Entrate" : "Uscite"} ${draft.amount} (${ACCOUNTS.find((a) => a.value === draft.account)?.label})`);
-      setDraft(newDraft(draft.on, draft.account));
+      const next = newDraft(draft.on, draft.account);
+      saved.discard();
+      setInitial(next);
+      setDraft(next);
     }
   };
   return (
@@ -110,9 +121,10 @@ function MovementForm({ entry, categories, methods, onClose }: { entry?: CashEnt
       submitLabel={entry ? "Save movement" : "Add movement"}
       canSubmit={complete(draft)}
       onSubmit={add}
-      onCancel={onClose}
+      onCancel={() => saved.leave(onClose)}
       layout="stack"
     >
+      <DraftNote draft={saved} name={entry?.description} />
       <div className="form-grid">
         <Field label="Data" htmlFor={`${form}-on`}>
           <input id={`${form}-on`} className="input small" type="date" min="2000-01-01" max="2100-12-31" value={draft.on} onChange={(e) => change({ on: e.target.value })} />
@@ -196,7 +208,8 @@ export function CashRegisterPage() {
   const [toCheck, setToCheck] = useState(false);
   const [importing, setImporting] = useState(false);
   // the movement being changed as a whole, or the one whose budget lines are being chosen: one popup at a time
-  const [panel, setPanel] = useState<{ kind: "edit" | "link"; id: number } | null>(null);
+  // (remembered with its form: coming back to the page the panel is open with what was written)
+  const [panel, setPanel] = useRemembered<{ kind: "edit" | "link"; id: number } | null>("cash-register:panel", null, (p) => (p === null ? null : p.kind === "edit" ? `cash-movement:${p.id}` : `pay-lines:${p.id}`));
   const sort = useSort(registerSort(categories.data ?? [], methods.data ?? []));
 
   if (!canManageCash) return <Message>Only the treasury and the admins can see the register.</Message>;
@@ -237,7 +250,7 @@ export function CashRegisterPage() {
       <PageHeader
         title="CASH REGISTER"
         description="The movements of the team's money (Cassa, Banca, Paypal), as in the sheet of the treasury. New movement adds one; click a box of a row to change it, the pencil changes the whole movement. The balances are worked out from the movements and are those of the whole year, even when a filter hides rows. The funds of the sponsors are not here."
-        add={{ label: "New movement", form: (close) => <MovementForm categories={voci} methods={methods.data} onClose={close} /> }}
+        add={{ label: "New movement", draftKey: "cash-movement:new", form: (close) => <MovementForm categories={voci} methods={methods.data} onClose={close} /> }}
         actions={
           <>
             <Field label="Year" htmlFor="register-year">

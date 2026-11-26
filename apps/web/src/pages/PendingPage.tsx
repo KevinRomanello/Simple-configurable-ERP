@@ -1,6 +1,6 @@
 import { faBoxOpen } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import { api } from "../api/client";
 import type { PendingRow } from "../api/types";
 import { ArrivalPill } from "../components/ArrivalPill";
@@ -14,6 +14,7 @@ import { TableBox } from "../components/ExportBlocks";
 import { SortTh } from "../components/SortTh";
 import { EmptyRow, PageHeader, Panel, RowAction, Table } from "../components/ui";
 import { useSort, type SortAccessors } from "../lib/sort";
+import { useRemembered } from "../lib/useDraft";
 
 const SORT: SortAccessors<PendingRow> = {
   item: (r) => r.item,
@@ -37,7 +38,8 @@ export function PendingPage() {
   const [price] = usePrice();
   const pending = useQuery({ queryKey: ["inventory-pending"], queryFn: api.pending });
   const items = useQuery({ queryKey: ["inventory-items", price, {}], queryFn: () => api.inventoryItems(price) });
-  const [open, setOpen] = useState<number | null>(null);
+  // the purchase whose panel is open, remembered with its form: coming back to the page the panel is open with what was written
+  const [open, setOpen] = useRemembered<number | null>("pending:open", null, (id) => (id === null ? null : `receive:line:${id}`));
   const sort = useSort(SORT);
   const rows = sort.sorted(pending.data ?? []);
 

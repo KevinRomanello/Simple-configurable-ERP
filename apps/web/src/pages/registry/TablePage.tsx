@@ -18,6 +18,7 @@ import { makeCell } from "../../lib/export/table";
 import { recordsAsXlsx } from "../../lib/registrySheet";
 import { todayIso } from "../../lib/today";
 import { useAction } from "../../lib/useAction";
+import { useRemembered } from "../../lib/useDraft";
 import { gridTheme } from "../../theme/grid";
 import { ManagePanels, type ManageTab } from "./ManagePanels";
 import { CalendarView, Gallery, Kanban, MapView, Timeline } from "./Boards";
@@ -59,9 +60,24 @@ function TableView({ table }: { table: RegTable }) {
   const [hidden, setHidden] = useState<number[] | null>(null);
   const [groupBy, setGroupBy] = useState<number[] | undefined>(undefined);
   const [tool, setTool] = useState<Tool>(null);
-  const [manage, setManage] = useState<ManageTab | null>(null);
+  // the settings panel is remembered while a form of it has something written (coming back to the page it is open)
+  const [manage, setManage] = useRemembered<ManageTab | null>(`registry:${table.id}:manage`, null, (tab) =>
+    tab === null ? null : {
+      fields: [`registry:field:${table.id}:*`],
+      views: [`registry:new-view:${table.id}`, `registry:view-settings:${table.id}:*`],
+      forms: [`registry:form:${table.id}:*`],
+      access: [`registry:access:${table.id}`],
+      webhooks: [`registry:webhook:${table.id}:*`],
+      import: [],
+      table: [`registry:table:${table.id}`],
+    }[tab]);
   // a record may be opened from its link (…?record=12)
-  const [open, setOpen] = useState<number | null | "new">(() => (Number(params.get("record")) > 0 ? Number(params.get("record")) : null));
+  // (and the open record is remembered with its form: coming back to the page it is open with what was written)
+  const [open, setOpen] = useRemembered<number | null | "new">(
+    `registry:${table.id}:open`,
+    Number(params.get("record")) > 0 ? Number(params.get("record")) : null,
+    (id) => (id === null ? null : `registry:record:${table.id}:${id === "new" ? "new" : id}`),
+  );
   const [summaries, setSummaries] = useState<{ field: number; fn: string }[]>([]);
   // the rows ticked, grid by grid (each group is a grid of its own)
   const [ticked, setTicked] = useState<Record<string, number[]>>({});

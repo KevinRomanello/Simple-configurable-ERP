@@ -356,6 +356,13 @@
   gap: var(--space-xs);
   flex-wrap: wrap;
 }
+/* the note of a form that came back with what was written (DraftNote): a line of its own at the top, not a box of the row */
+.inline-form > .hint,
+.form-grid > .hint {
+  flex: 1 0 100%;
+  grid-column: 1 / -1;
+  margin: 0;
+}
 .inline-form .field {
   flex: 1 1 160px;
   max-width: 280px;

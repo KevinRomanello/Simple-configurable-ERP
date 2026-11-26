@@ -3,8 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api/client";
 import { IconButton } from "../components/Button";
+import { DraftNote } from "../components/DraftNote";
 import { Field, FormPanel, Panel, Table, TableScroll } from "../components/ui";
 import { useAction } from "../lib/useAction";
+import { fieldSetter, useDraft } from "../lib/useDraft";
 
 // The keys of the services (n8n, the bot, the website) and the accounts they act as: they reach the whole ERP, not only the
 // registry, so they live in Settings › App (admins) and stay there when the Registry module is turned off (docs/moduli.md).
@@ -13,10 +15,12 @@ export function TokensPanel() {
   const act = useAction();
   const tokens = useQuery({ queryKey: ["tokens"], queryFn: api.tokens });
   const users = useQuery({ queryKey: ["users"], queryFn: api.users });
-  const [name, setName] = useState("");
-  const [userId, setUserId] = useState("");
+  // the token is shown once and is never kept: only what is written in the two forms is
+  const [token, setToken, savedToken] = useDraft("new-token", { name: "", userId: "" });
+  const [serviceEmail, setServiceEmail, savedAccount] = useDraft("new-service-account", "");
+  const { name, userId } = token;
+  const setField = fieldSetter(setToken);
   const [made, setMade] = useState<string | null>(null);
-  const [serviceEmail, setServiceEmail] = useState("");
   return (
     <>
       <Panel title="API tokens">
@@ -42,16 +46,18 @@ export function TokensPanel() {
           </Table>
         </TableScroll>
       </Panel>
-      <FormPanel title="New token" submitLabel="Make the key" canSubmit={name.trim() !== "" && userId !== ""} onSubmit={async () => { await act(async () => { setMade((await api.createToken(name.trim(), Number(userId))).token); setName(""); }); }} onCancel={() => setName("")}>
-        <Field label="Name" htmlFor="token-name"><input id="token-name" className="input small" placeholder="n8n" value={name} onChange={(e) => setName(e.target.value)} /></Field>
+      <FormPanel title="New token" submitLabel="Make the key" canSubmit={name.trim() !== "" && userId !== ""} onSubmit={async () => { await act(async () => { setMade((await api.createToken(name.trim(), Number(userId))).token); savedToken.discard(); }); }} onCancel={() => savedToken.leave(() => {})}>
+        <DraftNote draft={savedToken} />
+        <Field label="Name" htmlFor="token-name"><input id="token-name" className="input small" placeholder="n8n" value={name} onChange={(e) => setField("name")(e.target.value)} /></Field>
         <Field label="Acts as" htmlFor="token-user">
-          <select id="token-user" className="input small" value={userId} onChange={(e) => setUserId(e.target.value)}>
+          <select id="token-user" className="input small" value={userId} onChange={(e) => setField("userId")(e.target.value)}>
             <option value="">Choose…</option>
             {(users.data ?? []).map((u) => <option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}
           </select>
         </Field>
       </FormPanel>
-      <FormPanel title="New account for a service" description="An account nobody signs in with, for a token (a viewer: give it the rules it needs in the registry)." submitLabel="Add the account" canSubmit={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(serviceEmail)} onSubmit={async () => { if (await act(() => api.createUser({ email: serviceEmail, name: serviceEmail.split("@")[0]!, role: "viewer" }))) setServiceEmail(""); }} onCancel={() => setServiceEmail("")}>
+      <FormPanel title="New account for a service" description="An account nobody signs in with, for a token (a viewer: give it the rules it needs in the registry)." submitLabel="Add the account" canSubmit={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(serviceEmail)} onSubmit={async () => { if (await act(() => api.createUser({ email: serviceEmail, name: serviceEmail.split("@")[0]!, role: "viewer" }))) savedAccount.discard(); }} onCancel={() => savedAccount.leave(() => {})}>
+        <DraftNote draft={savedAccount} />
         <Field label="Email" htmlFor="service-email"><input id="service-email" className="input small" placeholder="n8n@service.eagletrt.it" value={serviceEmail} onChange={(e) => setServiceEmail(e.target.value)} /></Field>
       </FormPanel>
     </>

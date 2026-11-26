@@ -143,6 +143,7 @@ export function InventoryPage() {
           canEdit && lookups
             ? {
                 label: "Add goods",
+                draftKey: "receive:item:none",
                 form: (close) =>
                   everything.data && (
                     <Panel title="Add goods that were not in the budget">

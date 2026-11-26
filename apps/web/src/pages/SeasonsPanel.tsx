@@ -2,10 +2,12 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { Season } from "../api/types";
 import { CommitInput } from "../components/CommitInput";
+import { DraftNote } from "../components/DraftNote";
 import { AddSection, DataTable, Field, FormPanel, Panel, type Column } from "../components/ui";
 import { date } from "../lib/format";
 import { useSeasons } from "../lib/season";
 import { useAction } from "../lib/useAction";
+import { fieldSetter, useDraft } from "../lib/useDraft";
 
 // Settings › Seasons and cars (admins): each season is a budget and the car the team builds in it.
 // Not designed in Figma: built like the other lists of Settings. docs/stagioni-anni-fiscali-e-macchine.md
@@ -14,20 +16,26 @@ import { useAction } from "../lib/useAction";
 function NewSeason({ seasons, onDone }: { seasons: Season[]; onDone: () => void }) {
   const act = useAction();
   const latest = Math.max(...seasons.map((s) => Number(s.startsOn.slice(0, 4))));
-  const [year, setYear] = useState(String(latest + 1));
-  const [car, setCar] = useState("");
+  const [initial] = useState(() => ({ year: String(latest + 1), car: "" }));
+  const [form, setForm, saved] = useDraft("new-season", initial);
+  const { year, car } = form;
+  const set = fieldSetter(setForm);
   const startYear = Number(year);
   const valid = Number.isInteger(startYear) && startYear >= 2000 && startYear <= 2100 && car.trim() !== "";
   const submit = async () => {
-    if (await act(() => api.createSeason({ startYear, car: car.trim() }))) onDone();
+    if (await act(() => api.createSeason({ startYear, car: car.trim() }))) {
+      saved.discard();
+      onDone();
+    }
   };
   return (
-    <FormPanel title="New season" submitLabel="Add season" canSubmit={valid} onSubmit={submit} onCancel={onDone}>
+    <FormPanel title="New season" submitLabel="Add season" canSubmit={valid} onSubmit={submit} onCancel={() => saved.leave(onDone)}>
+      <DraftNote draft={saved} />
       <Field label="Starts in September of" htmlFor="new-season-year">
-        <input id="new-season-year" className="input small" type="number" min="2000" max="2100" step="1" autoFocus value={year} onChange={(e) => setYear(e.target.value)} />
+        <input id="new-season-year" className="input small" type="number" min="2000" max="2100" step="1" autoFocus value={year} onChange={(e) => set("year")(e.target.value)} />
       </Field>
       <Field label="Car" htmlFor="new-season-car">
-        <input id="new-season-car" className="input small" maxLength={60} value={car} onChange={(e) => setCar(e.target.value)} />
+        <input id="new-season-car" className="input small" maxLength={60} value={car} onChange={(e) => set("car")(e.target.value)} />
       </Field>
     </FormPanel>
   );
@@ -59,7 +67,7 @@ export function SeasonsPanel() {
         lines, the same sponsors without their money.
       </p>
       <DataTable title="Seasons" columns={columns} rows={seasons} rowKey={(s) => s.id} empty="No seasons" />
-      {seasons && <AddSection label="New season" form={(close) => <NewSeason seasons={seasons} onDone={close} />} />}
+      {seasons && <AddSection label="New season" draftKey="new-season" form={(close) => <NewSeason seasons={seasons} onDone={close} />} />}
     </Panel>
   );
 }

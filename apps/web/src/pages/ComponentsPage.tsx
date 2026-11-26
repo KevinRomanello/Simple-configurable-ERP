@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router";
 import { api } from "../api/client";
 import type { ComponentRow, ItemDraft } from "../api/types";
 import { AreaTypeFields, useAreaTypeFilter } from "../components/AreaTypeFilter";
+import { DraftNote } from "../components/DraftNote";
 import { ItemEditor } from "../components/ItemEditor";
 import { MakeDefaultsFields } from "../components/MakeDefaultsFields";
 import { PriceSelector } from "../components/PriceSelector";
@@ -14,6 +15,7 @@ import { moneyE4, quantity } from "../lib/format";
 import { draftBody, emptyDraft, emptyMakeDefaults, makeDefaultsBody, paramErrors, useInventoryLookups, type InventoryLookups } from "../lib/inventory";
 import { usePrice } from "../lib/price";
 import { useAction } from "../lib/useAction";
+import { useDraft } from "../lib/useDraft";
 
 const COLUMNS: Column<ComponentRow>[] = [
   {
@@ -69,7 +71,7 @@ export function ComponentsPage() {
       <PageHeader
         title="COMPONENTS"
         description="Things the team makes. Say what each is made of and the cost follows the prices paid for the materials; the list says how many can be made with what is on the shelf."
-        add={canEdit && lookups ? { label: "New component", form: (close) => <NewComponent lookups={lookups} onDone={close} /> } : undefined}
+        add={canEdit && lookups ? { label: "New component", draftKey: "new-component", form: (close) => <NewComponent lookups={lookups} onDone={close} /> } : undefined}
       />
       <Panel>
         <PriceSelector value={price} onChange={setPrice} date />
@@ -106,15 +108,19 @@ function NewComponent({ lookups, onDone }: { lookups: InventoryLookups; onDone: 
   const navigate = useNavigate();
   const act = useAction();
   // without a type it is a "Components" item of the budget; the type, when there is one, gives the category
-  const [draft, setDraft] = useState<ItemDraft>({ ...emptyDraft(), category: "Components" });
-  const [make, setMake] = useState(emptyMakeDefaults());
+  const [initial] = useState(() => ({ draft: { ...emptyDraft(), category: "Components" } as ItemDraft, make: emptyMakeDefaults() }));
+  const [form, setForm, saved] = useDraft("new-component", initial);
+  const { draft, make } = form;
 
   const create = async () => {
     let id = 0;
     const ok = await act(async () => {
       id = (await api.createItem({ ...draftBody(draft, lookups), ...makeDefaultsBody(make), origin: "made" })).id;
     });
-    if (ok) navigate(`/inventory/components/${id}`);
+    if (ok) {
+      saved.discard();
+      navigate(`/inventory/components/${id}`);
+    }
   };
 
   return (
@@ -124,11 +130,12 @@ function NewComponent({ lookups, onDone }: { lookups: InventoryLookups; onDone: 
       submitLabel="Add component"
       canSubmit={draft.name.trim() !== "" && Object.keys(paramErrors(draft, lookups.types)).length === 0}
       onSubmit={create}
-      onCancel={onDone}
+      onCancel={() => saved.leave(onDone)}
       layout="stack"
     >
-      <ItemEditor draft={draft} onChange={(change) => setDraft({ ...draft, ...change })} lookups={lookups} idPrefix="component" />
-      <MakeDefaultsFields value={make} onChange={(change) => setMake({ ...make, ...change })} lookups={lookups} idPrefix="component-make" />
+      <DraftNote draft={saved} />
+      <ItemEditor draft={draft} onChange={(change) => setForm((f) => ({ ...f, draft: { ...f.draft, ...change } }))} lookups={lookups} idPrefix="component" />
+      <MakeDefaultsFields value={make} onChange={(change) => setForm((f) => ({ ...f, make: { ...f.make, ...change } }))} lookups={lookups} idPrefix="component-make" />
     </FormPanel>
   );
 }

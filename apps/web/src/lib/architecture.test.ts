@@ -36,6 +36,22 @@ describe("the site and the engine of the registry", () => {
     expect(bare).toEqual([]);
   });
 
+  it("keeps what is written in every form (useDraft), so that leaving a page loses nothing", () => {
+    // not forms to keep: the frame of the forms, the choice of a file (a file is not kept), and the public form (nobody is logged in)
+    const never = ["../components/ui/FormPanel.tsx", "../components/Datasheets.tsx", "../pages/FormPage.tsx"];
+    // a form is a FormPanel, a bare form, or the editor of an item (the one form not built from the first two)
+    const hasForm = (text: string) => /<FormPanel\b|<form\b|<ItemEditor\b/.test(text);
+    // the call, not the import (the file of useDraft also holds useRemembered, which keeps only what is open)
+    const keeps = (text: string) => /\buseDraft\s*[<(]/.test(text);
+    const forms = Object.entries(files).filter(([, text]) => hasForm(text));
+    expect(forms.length).toBeGreaterThan(10);
+    const loses = forms.filter(([path, text]) => !keeps(text) && !never.includes(path)).map(([path]) => path);
+    expect(loses).toEqual([]);
+    // an excepted file must still exist and still have a form (a list of exceptions that only grows stale is no list)
+    const stale = never.filter((path) => !files[path] || !hasForm(files[path]!));
+    expect(stale).toEqual([]);
+  });
+
   it("moves rows with the handle, never with arrows: the order of a list is its drag handle (DataTable reorder, useDragOrder)", () => {
     // the arrows of sorting and of «open in a new tab» have other names (faSort…, faArrowUpRightFromSquare)
     const arrows = Object.entries(files).filter(([, text]) => /\bfaArrow(Up|Down)\b|"Move (up|down)"/.test(text)).map(([path]) => path);

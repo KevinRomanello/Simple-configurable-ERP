@@ -4,11 +4,13 @@ import { api } from "../api/client";
 import type { AreaSheet, CalcLine, Phase, PhaseCalc } from "../api/types";
 import { ArrivalPill } from "../components/ArrivalPill";
 import { Button, IconButton } from "../components/Button";
+import { DraftNote } from "../components/DraftNote";
 import { Field, FormActions, Panel, RowAction } from "../components/ui";
 import { money, moneyE4, quantity } from "../lib/format";
 import { editDraft, linePatch, PHASES, severalFunds, type EditDraft } from "../lib/lineEdit";
 import type { PhaseDraft } from "../lib/newLine";
 import { useAction } from "../lib/useAction";
+import { useDraft, useRemembered } from "../lib/useDraft";
 import { carSeasonOf, type GridLookups } from "./areaColumns";
 import { missingMake, missingMakeText } from "../lib/missingMake";
 import { BrandModelFields, CarField, PhaseFields } from "./NewLine";
@@ -40,7 +42,8 @@ export function LineCards({ project, phase, lookups, canEdit, onRemove, closed }
   /** The project is closed: only the card of the subtotal. */
   closed: boolean;
 }) {
-  const [open, setOpen] = useState<number | null>(null);
+  // the line whose panel is open, remembered with its form: coming back to the page the panel is open with what was written
+  const [open, setOpen] = useRemembered<number | null>(`line-cards:${project.id}`, null, (id) => (id === null ? null : `line-edit:${id}`));
   const subtotal = project.subtotal[phase];
   return (
     <ul className="line-cards">
@@ -102,7 +105,9 @@ function Amount({ amounts }: { amounts: Pick<PhaseCalc["amounts"], "outflowCents
 function EditLine({ line, lookups, onDone, onRemove }: { line: CalcLine; lookups: GridLookups; onDone: () => void; onRemove: () => void }) {
   const act = useAction();
   const idPrefix = useId();
-  const [draft, setDraft] = useState<EditDraft>(() => editDraft(line));
+  const [initial] = useState<EditDraft>(() => editDraft(line));
+  // what is written is kept while it is typed; if the line changed meanwhile (its version) the draft says so
+  const [draft, setDraft, saved] = useDraft<EditDraft>(`line-edit:${line.id}`, initial, { base: line.version });
   const patch = linePatch(draft, line, lookups);
   const changed = Object.keys(patch).length > 1;
   const change = (part: Partial<EditDraft>) => setDraft((d) => ({ ...d, ...part }));
@@ -110,12 +115,16 @@ function EditLine({ line, lookups, onDone, onRemove }: { line: CalcLine; lookups
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (await act(() => api.updateLine(line.id, patch))) onDone();
+    if (await act(() => api.updateLine(line.id, patch))) {
+      saved.discard();
+      onDone();
+    }
   };
 
   return (
     <Panel title={`Change ${line.item}`}>
       <form className="stack tight" onSubmit={save}>
+        <DraftNote draft={saved} name={line.item} />
         <div className="form-grid">
           <Field label="Item" htmlFor={`${idPrefix}-item`}>
             <input id={`${idPrefix}-item`} className="input small" maxLength={500} value={draft.item} onChange={(e) => change({ item: e.target.value })} />
@@ -141,7 +150,7 @@ function EditLine({ line, lookups, onDone, onRemove }: { line: CalcLine; lookups
         ))}
         <FormActions>
           <Button small type="submit" disabled={!changed || draft.item.trim() === ""}>Save</Button>
-          <Button small variant="ghost" onClick={onDone}>Cancel</Button>
+          <Button small variant="ghost" onClick={() => saved.leave(onDone)}>Cancel</Button>
           <span className="spacer" />
           <IconButton icon={faTrash} label={`Delete ${line.item}`} danger onClick={onRemove} />
         </FormActions>

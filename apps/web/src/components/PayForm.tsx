@@ -8,6 +8,8 @@ import { money } from "../lib/format";
 import { decimalText } from "../lib/lineEdit";
 import { todayIso } from "../lib/today";
 import { useAction } from "../lib/useAction";
+import { useDraft } from "../lib/useDraft";
+import { DraftNote } from "./DraftNote";
 
 const ACCOUNTS: { value: CashAccount; label: string }[] = [
   { value: "bank", label: "BANCA" },
@@ -21,6 +23,16 @@ const cents = (text: string) => Math.round(Number(text.replace(",", ".")) * 100)
  * left of each line (the net and the VAT), the Voce its category starts from and the method of the last payment;
  * an amount can be lowered (a line paid in instalments). One payment for several lines is one bank transfer.
  */
+/** What is written in the form of a payment. */
+interface PayDraft {
+  on: string;
+  account: CashAccount;
+  methodId: string;
+  voceId: string;
+  description: string;
+  amounts: Record<number, string>;
+}
+
 /** The title of the payment of these lines. */
 const payTitle = (rows: ToPayRow[]) => (rows.length === 1 ? `Pay: ${rows[0]!.item}` : `Pay ${rows.length} lines in one payment`);
 
@@ -34,21 +46,35 @@ export function PayForm({ rows, lastMethodId, compact = false, onDone }: { rows:
   const voci = useQuery({ queryKey: ["cash-categories"], queryFn: api.cashCategories });
 
   const suppliers = [...new Set(rows.map((r) => r.supplierName).filter((s): s is string => s !== null))];
-  const [on, setOn] = useState(todayIso());
-  const [account, setAccount] = useState<CashAccount>("bank");
-  const [methodId, setMethodId] = useState(lastMethodId === null ? "" : String(lastMethodId));
   // the Voce the categories of the lines start from, when they all agree
   const suggested = new Set(rows.map((r) => r.suggestedCategoryId));
-  const [voceId, setVoceId] = useState(suggested.size === 1 && !suggested.has(null) ? String([...suggested][0]) : "");
-  const [description, setDescription] = useState(`${suppliers.length > 0 ? `${suppliers.join(", ")} — ` : ""}${rows.map((r) => r.item).join(", ")}`.slice(0, 500));
-  const [amounts, setAmounts] = useState<Record<number, string>>(() => Object.fromEntries(rows.map((r) => [r.lineId, decimalText(r.dueCents, 2)])));
+  const [initial] = useState<PayDraft>(() => ({
+    on: todayIso(),
+    account: "bank",
+    methodId: lastMethodId === null ? "" : String(lastMethodId),
+    voceId: suggested.size === 1 && !suggested.has(null) ? String([...suggested][0]) : "",
+    description: `${suppliers.length > 0 ? `${suppliers.join(", ")} — ` : ""}${rows.map((r) => r.item).join(", ")}`.slice(0, 500),
+    amounts: Object.fromEntries(rows.map((r) => [r.lineId, decimalText(r.dueCents, 2)])),
+  }));
+  // what is written is kept while it is typed (the compact form and the full one are the same draft)
+  const [form, setForm, saved] = useDraft<PayDraft>(`pay:${rows.map((r) => r.lineId).join(",")}`, initial);
+  const { on, account, methodId, voceId, description, amounts } = form;
+  const setOn = (value: string) => setForm((f) => ({ ...f, on: value }));
+  const setAccount = (value: CashAccount) => setForm((f) => ({ ...f, account: value }));
+  const setMethodId = (value: string) => setForm((f) => ({ ...f, methodId: value }));
+  const setVoceId = (value: string) => setForm((f) => ({ ...f, voceId: value }));
+  const setDescription = (value: string) => setForm((f) => ({ ...f, description: value }));
+  const setAmounts = (value: Record<number, string>) => setForm((f) => ({ ...f, amounts: value }));
 
   const total = rows.reduce((sum, r) => sum + cents(amounts[r.lineId] ?? ""), 0);
   const tooMuch = rows.some((r) => cents(amounts[r.lineId] ?? "") > r.dueCents);
   const submit = async () => {
     const lines = rows.filter((r) => cents(amounts[r.lineId] ?? "") > 0).map((r) => ({ lineId: r.lineId, amount: decimalText(cents(amounts[r.lineId]!), 2) }));
     const body = { on, account, methodId: methodId === "" ? null : Number(methodId), categoryId: voceId === "" ? null : Number(voceId), description: description.trim() || undefined, lines };
-    if (await act(() => api.payLines(body))) onDone();
+    if (await act(() => api.payLines(body))) {
+      saved.discard();
+      onDone();
+    }
   };
 
   return (
@@ -58,9 +84,10 @@ export function PayForm({ rows, lastMethodId, compact = false, onDone }: { rows:
       submitLabel={`Pay ${money(total)}`}
       canSubmit={total > 0 && !tooMuch && on !== ""}
       onSubmit={submit}
-      onCancel={onDone}
+      onCancel={() => saved.leave(onDone)}
       layout="stack"
     >
+      <DraftNote draft={saved} />
       <div className="form-grid">
         <Field label="Data" htmlFor="pay-on">
           <input id="pay-on" className="input small" type="date" min="2000-01-01" max="2100-12-31" value={on} onChange={(e) => setOn(e.target.value)} />

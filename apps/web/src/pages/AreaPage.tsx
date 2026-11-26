@@ -8,6 +8,7 @@ import { api } from "../api/client";
 import type { AreaSheet, CalcLine, Phase } from "../api/types";
 import { Button, IconButton } from "../components/Button";
 import { Chips } from "../components/Chips";
+import { DraftNote } from "../components/DraftNote";
 import { useMe } from "../lib/auth";
 import { money } from "../lib/format";
 import { canEditArea } from "../lib/permissions";
@@ -16,6 +17,7 @@ import { useSeason, useSeasonOpen, useSeasons } from "../lib/season";
 import { SCREEN, useMaxWidth } from "../lib/screen";
 import { useAction } from "../lib/useAction";
 import { useDragOrder } from "../lib/useDragOrder";
+import { fieldSetter, useDraft } from "../lib/useDraft";
 import { useProjectView } from "../lib/useProjectView";
 import { gridTheme } from "../theme/grid";
 import { areaColumns, mostStatusIcons, needsMoreFunds, type Commit, type GridLookups, type MoreFunds, type Row, type SubtotalRow } from "./areaColumns";
@@ -108,7 +110,7 @@ export function AreaPage() {
               ? "Budget lines by project. You can look but not change this area."
               : "Budget lines by project. This season is read-only: nothing in its budget can be changed."
         }
-        add={canEdit ? { label: "New project", form: (close) => <NewProject areaCode={code} onDone={close} /> } : undefined}
+        add={canEdit ? { label: "New project", draftKey: `new-project:${code}`, form: (close) => <NewProject areaCode={code} onDone={close} /> } : undefined}
         actions={
           shown.length > 1 && (
             <>
@@ -276,7 +278,7 @@ function ProjectPanel({ project, buildColumns, canEdit, lookups, cards, closed, 
         />
       )}
 
-      {canEdit && !closed && <AddSection label="Add item" form={(close) => <NewLine project={project} lookups={lookups} onDone={close} />} />}
+      {canEdit && !closed && <AddSection label="Add item" draftKey={`new-line:${project.id}`} form={(close) => <NewLine project={project} lookups={lookups} onDone={close} />} />}
     </Panel>
   );
 }
@@ -284,20 +286,25 @@ function ProjectPanel({ project, buildColumns, canEdit, lookups, cards, closed, 
 /** The form to add a project to the area, opened from the header. */
 function NewProject({ areaCode, onDone }: { areaCode: string; onDone: () => void }) {
   const act = useAction();
-  const [name, setName] = useState("");
-  const [owner, setOwner] = useState("");
+  const [form, setForm, saved] = useDraft(`new-project:${areaCode}`, { name: "", owner: "" });
+  const { name, owner } = form;
+  const set = fieldSetter(setForm);
 
   const submit = async () => {
-    if (await act(() => api.createProject({ areaCode, name: name.trim(), ownerName: owner.trim() || null }))) onDone();
+    if (await act(() => api.createProject({ areaCode, name: name.trim(), ownerName: owner.trim() || null }))) {
+      saved.discard();
+      onDone();
+    }
   };
 
   return (
-    <FormPanel title="New project" submitLabel="Add project" canSubmit={name.trim() !== ""} onSubmit={submit} onCancel={onDone}>
+    <FormPanel title="New project" submitLabel="Add project" canSubmit={name.trim() !== ""} onSubmit={submit} onCancel={() => saved.leave(onDone)}>
+      <DraftNote draft={saved} />
       <Field label="Name" htmlFor="project-name">
-        <input id="project-name" className="input small" value={name} autoFocus onChange={(e) => setName(e.target.value)} />
+        <input id="project-name" className="input small" value={name} autoFocus onChange={(e) => set("name")(e.target.value)} />
       </Field>
       <Field label="Owner" htmlFor="project-owner">
-        <input id="project-owner" className="input small" value={owner} placeholder="Optional" onChange={(e) => setOwner(e.target.value)} />
+        <input id="project-owner" className="input small" value={owner} placeholder="Optional" onChange={(e) => set("owner")(e.target.value)} />
       </Field>
     </FormPanel>
   );

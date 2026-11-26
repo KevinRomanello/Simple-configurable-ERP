@@ -1,5 +1,6 @@
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { DraftGuardContext, useAdder } from "../../lib/draftGuard";
 import { Button } from "../Button";
 import { DownloadMenu } from "../DownloadMenu";
 
@@ -9,6 +10,8 @@ export interface AddAction {
   label: string;
   /** The form, shown in its own box under the header; `close` hides it again. */
   form: (close: () => void) => ReactNode;
+  /** The key of the draft of the form (`useDraft`): with a draft the form starts open, and «Close» asks before losing what was written. */
+  draftKey?: string;
 }
 
 /**
@@ -22,7 +25,7 @@ export function PageHeader({ title, description, add, actions }: {
   add?: AddAction;
   actions?: ReactNode;
 }) {
-  const [adding, setAdding] = useState(false);
+  const { adding, toggle, hide, report } = useAdder(add?.draftKey);
   return (
     <>
       <header className="page-header">
@@ -31,12 +34,12 @@ export function PageHeader({ title, description, add, actions }: {
           {description && <p className="muted">{description}</p>}
         </div>
         <div className="actions">
-          {add && <Button icon={faPlus} onClick={() => setAdding(!adding)}>{adding ? "Close" : add.label}</Button>}
+          {add && <Button icon={faPlus} onClick={toggle}>{adding ? "Close" : add.label}</Button>}
           {actions}
           <DownloadMenu />
         </div>
       </header>
-      {add && adding && add.form(() => setAdding(false))}
+      {add && adding && <DraftGuardContext.Provider value={report}>{add.form(hide)}</DraftGuardContext.Provider>}
     </>
   );
 }

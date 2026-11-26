@@ -8,6 +8,8 @@ import { draftBody, emptyDraft, itemLabel, paramErrors, type InventoryLookups } 
 import { carLabel, useSeasons } from "../lib/season";
 import { todayIso } from "../lib/today";
 import { useAction } from "../lib/useAction";
+import { fieldSetter, useDraft } from "../lib/useDraft";
+import { DraftNote } from "./DraftNote";
 import { Button } from "./Button";
 import { SearchSelect } from "./SearchSelect";
 import { ItemEditor } from "./ItemEditor";
@@ -18,6 +20,22 @@ import { Field, FormActions } from "./ui";
  * and the quantity still to arrive come from the budget; started on its own it is for goods
  * that were never in the budget, priced by hand. The goods are an existing item or a new one.
  */
+/** What is written in the form that receives goods. */
+interface ReceiveDraft {
+  mode: "existing" | "new";
+  itemId: string;
+  item: ItemDraft;
+  amount: string;
+  receivedOn: string;
+  location: string;
+  spot: string;
+  unitNet: string;
+  vatRate: number;
+  free: boolean;
+  projectId: string;
+  car: string;
+}
+
 export function ReceiveForm({
   line, items, presetItemId, lookups, onDone, onCancel,
 }: {
@@ -32,24 +50,41 @@ export function ReceiveForm({
   const act = useAction();
   const projects = useQuery({ queryKey: ["inventory-projects"], queryFn: api.inventoryProjects, enabled: line === undefined });
   const knownItem = line ? (line.receivedItemId ?? line.suggestedItemId) : (presetItemId ?? null);
-  const [mode, setMode] = useState<"existing" | "new">(knownItem !== null || (!line && items.length > 0) ? "existing" : "new");
-  const [itemId, setItemId] = useState(knownItem === null ? "" : String(knownItem));
   // a purchase of the budget belongs to an area: the new item starts in it
   const lineArea = lookups.areas.find((a) => a.code === line?.areaCode);
-  const [draft, setDraft] = useState<ItemDraft>({
-    ...emptyDraft(), name: line?.item ?? "", brand: line?.brand ?? "", model: line?.model ?? "", category: line?.category ?? "", areaId: lineArea ? String(lineArea.id) : "",
-  });
-  const [amount, setAmount] = useState(line ? String(line.remainingMilli / 1000) : "");
-  const [receivedOn, setReceivedOn] = useState(todayIso());
-  const [location, setLocation] = useState(lookups.locations[0]?.code ?? "");
-  const [spot, setSpot] = useState("");
-  const [unitNet, setUnitNet] = useState("");
-  const [vatRate, setVatRate] = useState(22);
-  const [free, setFree] = useState(false);
-  const [projectId, setProjectId] = useState("");
+  const [initial] = useState<ReceiveDraft>(() => ({
+    mode: knownItem !== null || (!line && items.length > 0) ? "existing" : "new",
+    itemId: knownItem === null ? "" : String(knownItem),
+    item: { ...emptyDraft(), name: line?.item ?? "", brand: line?.brand ?? "", model: line?.model ?? "", category: line?.category ?? "", areaId: lineArea ? String(lineArea.id) : "" },
+    amount: line ? String(line.remainingMilli / 1000) : "",
+    receivedOn: todayIso(),
+    location: lookups.locations[0]?.code ?? "",
+    spot: "",
+    unitNet: "",
+    vatRate: 22,
+    free: false,
+    projectId: "",
+    car: "",
+  }));
+  // what is written is kept while it is typed (docs/stile-interfaccia.md)
+  const [form, setForm, saved] = useDraft<ReceiveDraft>(line ? `receive:line:${line.lineId}` : `receive:item:${presetItemId ?? "none"}`, initial);
+  const { mode, itemId, amount, receivedOn, location, spot, unitNet, vatRate, free, projectId, car } = form;
+  const draft = form.item;
+  const set = fieldSetter(setForm);
+  const setMode = set("mode");
+  const setItemId = set("itemId");
+  const setDraft = set("item");
+  const setAmount = set("amount");
+  const setReceivedOn = set("receivedOn");
+  const setLocation = set("location");
+  const setSpot = set("spot");
+  const setUnitNet = set("unitNet");
+  const setVatRate = set("vatRate");
+  const setFree = set("free");
+  const setProjectId = set("projectId");
+  const setCar = set("car");
   // goods from outside the budget are for the car of the season of their date, unless another is chosen
   const seasons = useSeasons().data ?? [];
-  const [car, setCar] = useState("");
   const dateSeason = seasons.find((s) => s.startsOn <= receivedOn && receivedOn <= s.endsOn);
 
   const ready =
@@ -70,11 +105,15 @@ export function ReceiveForm({
       if (projectId) body.projectId = Number(projectId);
       if (car) body.carSeasonId = Number(car);
     }
-    if (await act(() => api.receive(body))) onDone();
+    if (await act(() => api.receive(body))) {
+      saved.discard();
+      onDone();
+    }
   };
 
   return (
     <form className="receive" onSubmit={submit}>
+      <DraftNote draft={saved} />
       {line ? (
         <p className="muted">
           From the budget: <strong>{line.item}</strong>, {line.projectName} ({line.areaName})
@@ -151,7 +190,7 @@ export function ReceiveForm({
 
       <FormActions>
         <Button small icon={faCheck} type="submit" disabled={!ready}>Put on the shelf</Button>
-        {onCancel && <Button small variant="ghost" onClick={onCancel}>Cancel</Button>}
+        {onCancel && <Button small variant="ghost" onClick={() => saved.leave(onCancel)}>Cancel</Button>}
       </FormActions>
     </form>
   );

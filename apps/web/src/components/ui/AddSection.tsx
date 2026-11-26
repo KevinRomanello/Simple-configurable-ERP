@@ -1,5 +1,6 @@
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { DraftGuardContext, useAdder } from "../../lib/draftGuard";
 import { Button } from "../Button";
 
 /**
@@ -7,17 +8,19 @@ import { Button } from "../Button";
  * Pressing it opens the form with all its boxes right under it (the button then says "Close"),
  * like the yellow button of a page header does for the page.
  */
-export function AddSection({ label, form }: {
+export function AddSection({ label, form, draftKey }: {
   /** "Add item", "New category"… */
   label: string;
   /** The form, as a `FormPanel`; `close` hides it again. */
   form: (close: () => void) => ReactNode;
+  /** The key of the draft of the form (`useDraft`): with a draft the form starts open, and «Close» asks before losing what was written. */
+  draftKey?: string;
 }) {
-  const [adding, setAdding] = useState(false);
+  const { adding, toggle, hide, report } = useAdder(draftKey);
   return (
     <div className="add-section">
-      <Button icon={faPlus} onClick={() => setAdding(!adding)}>{adding ? "Close" : label}</Button>
-      {adding && form(() => setAdding(false))}
+      <Button icon={faPlus} onClick={toggle}>{adding ? "Close" : label}</Button>
+      {adding && <DraftGuardContext.Provider value={report}>{form(hide)}</DraftGuardContext.Provider>}
     </div>
   );
 }

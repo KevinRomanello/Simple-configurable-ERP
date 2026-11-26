@@ -6,11 +6,13 @@ import { Fragment, useState } from "react";
 import { registry, type RegField, type RegTable, type RegView, type Webhook, type WebhookOptions } from "../../api/registry";
 import { Button, IconButton } from "../../components/Button";
 import { Chips } from "../../components/Chips";
+import { DraftNote } from "../../components/DraftNote";
 import { DataTable, Field, FormPanel, Panel, RowAction, Table, TableScroll, type Column } from "../../components/ui";
 import { useMe } from "../../lib/auth";
 import { canBeName, COMPUTED, FIELD_TYPE_LABELS, groupLevels, NEW_FIELD_TYPES } from "../../lib/registry";
 import { sheetAsCsv } from "../../lib/registrySheet";
 import { useAction } from "../../lib/useAction";
+import { fieldSetter, useDraft, useRemembered } from "../../lib/useDraft";
 import { FormsTab } from "./FormBuilder";
 import { FieldsChooser, FilterEditor } from "./ViewTools";
 
@@ -34,10 +36,10 @@ export function ManagePanels({ table, view, tab, onTab }: { table: RegTable; vie
       {tab === "fields" && <FieldsTab table={table} />}
       {tab === "views" && <ViewsTab table={table} view={view} />}
       {tab === "forms" && <FormsTab table={table} />}
-      {tab === "access" && <AccessTab table={table} />}
+      {tab === "access" && <AccessTab key={JSON.stringify(table.access ?? [])} table={table} />}
       {tab === "webhooks" && <WebhooksTab table={table} />}
       {tab === "import" && <ImportTab table={table} />}
-      {tab === "table" && <TableTab table={table} />}
+      {tab === "table" && <TableTab key={JSON.stringify([table.name, table.section, table.icon, table.description])} table={table} />}
     </div>
   );
 }
@@ -46,7 +48,8 @@ export function ManagePanels({ table, view, tab, onTab }: { table: RegTable; vie
 
 function FieldsTab({ table }: { table: RegTable }) {
   const act = useAction();
-  const [editing, setEditing] = useState<RegField | "new" | null>(null);
+  // the field being changed (its id, or «new»), remembered with its form: coming back to the page it is open with what was written
+  const [editing, setEditing] = useRemembered<number | "new" | null>(`registry:fields:${table.id}:editing`, null, (id) => (id === null ? null : `registry:field:${table.id}:${id}`));
   const columns: Column<RegField>[] = [
     {
       key: "name",
@@ -87,7 +90,7 @@ function FieldsTab({ table }: { table: RegTable }) {
       className: "num nowrap",
       cell: (f) => (
         <>
-          <IconButton icon={faPen} label={`Change ${f.name}`} onClick={() => setEditing(f)} />
+          <IconButton icon={faPen} label={`Change ${f.name}`} onClick={() => setEditing(f.id)} />
           <IconButton icon={faClone} label={`Duplicate ${f.name}`} absent={["link", "uuid"].includes(f.type)} onClick={() => act(() => registry.duplicateField(f.id))} />
           <IconButton icon={faTrash} label={`Delete ${f.name}`} danger onClick={() => window.confirm(`Delete ${f.name} and all its values?`) && act(() => registry.deleteField(f.id))} />
         </>
@@ -111,9 +114,9 @@ function FieldsTab({ table }: { table: RegTable }) {
         columns={columns}
         rows={table.fields}
         rowKey={(f) => f.id}
-        rowClass={(f) => (editing !== null && editing !== "new" && editing.id === f.id ? "row-selected" : undefined)}
+        rowClass={(f) => (editing === f.id ? "row-selected" : undefined)}
         expand={(f, colSpan) =>
-          editing !== null && editing !== "new" && editing.id === f.id && (
+          editing === f.id && (
             <RowAction colSpan={colSpan} eyebrow="Change field" title={f.name} context={[["Type", f.type]]} onClose={() => setEditing(null)}>
               <FieldForm table={table} field={f} onDone={() => setEditing(null)} />
             </RowAction>
@@ -154,23 +157,46 @@ const DURATION_FORMATS: DurationFormat[] = ["h:mm", "h:mm:ss", "h:mm:ss.s", "h:m
 // the kinds of barcode of the engine (BARCODE_FORMATS): the site uses only the types of @erp/registry
 const BARCODE_FORMATS: BarcodeFormat[] = ["CODE128", "EAN13", "EAN8", "EAN5", "EAN2", "UPC", "CODE39", "ITF14", "MSI", "pharmacode", "codabar"];
 
+/** What is written in the form of a field. */
+interface FieldDraft {
+  name: string;
+  type: FieldType;
+  o: FieldOptions;
+  required: boolean;
+  unique: boolean;
+  description: string;
+  inverseName: string;
+  inverseMultiple: boolean;
+  /** One per line. */
+  choices: string;
+  button: "webhook" | "url";
+}
+
 function FieldForm({ table, field, onDone }: { table: RegTable; field: RegField | null; onDone: () => void }) {
   const act = useAction();
-  const [name, setName] = useState(field?.name ?? "");
-  const [type, setType] = useState<FieldType>(field?.type ?? "text");
-  const [o, setO] = useState<FieldOptions>(field?.options ?? {});
-  const [required, setRequired] = useState(field?.required ?? false);
-  const [unique, setUnique] = useState(field?.unique ?? false);
-  const [description, setDescription] = useState(field?.description ?? "");
-  const [inverseName, setInverseName] = useState("");
-  const [inverseMultiple, setInverseMultiple] = useState(true);
-  const [choices, setChoices] = useState((field?.options.choices ?? []).map((c) => c.name).join("\n"));
+  // what is written is kept while it is typed (docs/stile-interfaccia.md); it starts from the field as it was read
+  const [initial] = useState<FieldDraft>(() => ({
+    name: field?.name ?? "",
+    type: field?.type ?? "text",
+    o: field?.options ?? {},
+    required: field?.required ?? false,
+    unique: field?.unique ?? false,
+    description: field?.description ?? "",
+    inverseName: "",
+    inverseMultiple: true,
+    choices: (field?.options.choices ?? []).map((c) => c.name).join("\n"),
+    button: field?.options.url ? "url" : "webhook",
+  }));
+  const [form, setForm, saved] = useDraft<FieldDraft>(`registry:field:${table.id}:${field?.id ?? "new"}`, initial, { base: JSON.stringify(initial) });
+  const { name, type, o, required, unique, description, inverseName, inverseMultiple, choices, button } = form;
+  const setOf = fieldSetter(setForm);
+  const [setName, setType, setRequired, setUnique, setDescription, setInverseName, setInverseMultiple, setChoices, setButton] =
+    [setOf("name"), setOf("type"), setOf("required"), setOf("unique"), setOf("description"), setOf("inverseName"), setOf("inverseMultiple"), setOf("choices"), setOf("button")];
   const tables = useQuery({ queryKey: ["registry-tables"], queryFn: registry.tables });
   const link = table.fields.find((f) => f.id === o.linkFieldId);
   const target = useQuery({ queryKey: ["registry-table", link?.options.tableId], queryFn: () => registry.table(link!.options.tableId!), enabled: link?.options.tableId !== undefined });
   const hooks = useQuery({ queryKey: ["registry-webhooks", table.id], queryFn: () => registry.webhooks(table.id), enabled: type === "button" });
-  const [button, setButton] = useState<"webhook" | "url">(field?.options.url ? "url" : "webhook");
-  const set = (change: FieldOptions) => setO({ ...o, ...change });
+  const set = (change: FieldOptions) => setForm((f) => ({ ...f, o: { ...f.o, ...change } }));
   const num = (text: string) => (text === "" ? undefined : Number(text));
 
   const submit = async () => {
@@ -183,12 +209,19 @@ function FieldForm({ table, field, onDone }: { table: RegTable; field: RegField 
     if (button === "webhook") delete options.url;
     if (button === "url") delete options.webhookId;
     if (field) {
-      if (await act(() => registry.updateField(field.id, { name, type, options, required, unique, description }))) onDone();
-    } else if (await act(() => registry.createField(table.id, { name, type, options, required, unique, description, ...(type === "link" ? { inverseName: inverseName || undefined, inverseMultiple } : {}) }))) onDone();
+      if (await act(() => registry.updateField(field.id, { name, type, options, required, unique, description }))) {
+        saved.discard();
+        onDone();
+      }
+    } else if (await act(() => registry.createField(table.id, { name, type, options, required, unique, description, ...(type === "link" ? { inverseName: inverseName || undefined, inverseMultiple } : {}) }))) {
+      saved.discard();
+      onDone();
+    }
   };
   const computed = COMPUTED.includes(type);
   return (
-    <FormPanel title={field ? `Change ${field.name}` : "New field"} submitLabel={field ? "Save" : "Add field"} canSubmit={name.trim() !== ""} onSubmit={submit} onCancel={onDone} layout="stack">
+    <FormPanel title={field ? `Change ${field.name}` : "New field"} submitLabel={field ? "Save" : "Add field"} canSubmit={name.trim() !== ""} onSubmit={submit} onCancel={() => saved.leave(onDone)} layout="stack">
+      <DraftNote draft={saved} name={field?.name} />
       <div className="form-grid">
         <Field label="Name" htmlFor="field-name"><input id="field-name" className="input small" value={name} autoFocus onChange={(e) => setName(e.target.value)} /></Field>
         <Field label="Type" htmlFor="field-type">
@@ -361,12 +394,21 @@ const VIEW_KINDS: { value: ViewKind; label: string }[] = [
 ];
 const DATE_TYPES = ["date", "datetime", "created", "modified", "formula", "lookup"];
 
+/** What is written in the form of a new view. */
+interface NewViewDraft {
+  name: string;
+  type: ViewKind;
+  by: string;
+  until: string;
+}
+
 function ViewsTab({ table, view }: { table: RegTable; view: RegView | undefined }) {
   const act = useAction();
-  const [name, setName] = useState("");
-  const [type, setType] = useState<ViewKind>("grid");
-  const [by, setBy] = useState("");
-  const [until, setUntil] = useState("");
+  const [initial] = useState<NewViewDraft>({ name: "", type: "grid", by: "", until: "" });
+  const [form, setForm, saved] = useDraft<NewViewDraft>(`registry:new-view:${table.id}`, initial);
+  const { name, type, by, until } = form;
+  const setOf = fieldSetter(setForm);
+  const [setName, setType, setBy, setUntil] = [setOf("name"), setOf("type"), setOf("by"), setOf("until")];
   const dates = table.fields.filter((f) => DATE_TYPES.includes(f.type));
   const choices = table.fields.filter((f) => f.type === "select");
   const pictures = table.fields.filter((f) => f.type === "attachment");
@@ -377,15 +419,16 @@ function ViewsTab({ table, view }: { table: RegTable; view: RegView | undefined 
       : type === "calendar" || type === "timeline" ? { dateField: Number(by), ...(type === "timeline" && until ? { endDateField: Number(until) } : {}) }
       : type === "map" ? { geoField: Number(by) }
       : {};
-    if (await act(() => registry.createView(table.id, { name, type, config }))) setName("");
+    if (await act(() => registry.createView(table.id, { name, type, config }))) saved.discard();
   };
   return (
     <>
-      {view && <ViewSettings key={view.id} table={table} view={view} />}
-      <FormPanel title="New view" submitLabel="Add view" canSubmit={name.trim() !== "" && (!["kanban", "calendar", "timeline", "map"].includes(type) || by !== "")} onSubmit={add} onCancel={() => setName("")}>
+      {view && <ViewSettings key={`${view.id}:${JSON.stringify([view.name, view.slug, view.config])}`} table={table} view={view} />}
+      <FormPanel title="New view" submitLabel="Add view" canSubmit={name.trim() !== "" && (!["kanban", "calendar", "timeline", "map"].includes(type) || by !== "")} onSubmit={add} onCancel={() => saved.leave(() => {})}>
+        <DraftNote draft={saved} />
         <Field label="Name" htmlFor="new-view-name"><input id="new-view-name" className="input small" value={name} onChange={(e) => setName(e.target.value)} /></Field>
         <Field label="Kind" htmlFor="new-view-kind">
-          <select id="new-view-kind" className="input small" value={type} onChange={(e) => { setType(e.target.value as typeof type); setBy(""); }}>
+          <select id="new-view-kind" className="input small" value={type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as ViewKind, by: "" }))}>
             {VIEW_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
           </select>
         </Field>
@@ -434,17 +477,29 @@ function ViewsTab({ table, view }: { table: RegTable; view: RegView | undefined 
   );
 }
 
+/** What is written in the settings of a view (not its password). */
+interface ViewSettingsDraft {
+  name: string;
+  config: RegView["config"];
+  slug: string;
+}
+
 function ViewSettings({ table, view }: { table: RegTable; view: RegView }) {
   const act = useAction();
-  const [name, setName] = useState(view.name);
-  const [config, setConfig] = useState(() => {
+  // what is written is kept while it is typed (docs/stile-interfaccia.md), except the password; the panel starts over (key) when the view is saved
+  const [initial] = useState<ViewSettingsDraft>(() => {
     // the site never has the password: left out, the one the view has stays
     const { hasPassword: _has, sharedPassword: _hash, ...rest } = view.config;
-    return rest as RegView["config"];
+    return { name: view.name, config: rest as RegView["config"], slug: view.slug ?? "" };
   });
+  const [form, setForm, saved] = useDraft<ViewSettingsDraft>(`registry:view-settings:${table.id}:${view.id}`, initial, { base: JSON.stringify(initial) });
+  const { name, config, slug } = form;
+  const setOf = fieldSetter(setForm);
+  const [setName, setConfig, setSlug] = [setOf("name"), setOf("config"), setOf("slug")];
   const [password, setPassword] = useState<string | null | undefined>(undefined);
-  const [slug, setSlug] = useState(view.slug ?? "");
-  const save = () => act(() => registry.updateView(view.id, { name, config: { ...config, ...(password !== undefined ? { sharedPassword: password } : {}) }, slug: config.shared ? slug || null : view.slug }));
+  const save = async () => {
+    if (await act(() => registry.updateView(view.id, { name, config: { ...config, ...(password !== undefined ? { sharedPassword: password } : {}) }, slug: config.shared ? slug || null : view.slug }))) saved.discard();
+  };
   const publicUrl = view.slug && view.config.shared ? `${window.location.origin}/api/registry/public/views/${view.slug}` : null;
   const choiceFields = table.fields.filter((f) => f.type === "select" || f.type === "multiselect");
   const rules: ColorRule[] = config.colors ?? [];
@@ -461,6 +516,7 @@ function ViewSettings({ table, view }: { table: RegTable; view: RegView }) {
       }
     >
       <div className="stack tight">
+        <DraftNote draft={saved} name={view.name} />
         <label className="checkbox">
           <input type="checkbox" checked={config.locked === true} onChange={(e) => setConfig({ ...config, locked: e.target.checked })} />
           Locked: nobody changes its filter, fields and columns until it is unlocked here
@@ -585,7 +641,9 @@ const LEVELS: { value: AccessLevel; label: string }[] = [{ value: "read", label:
 function AccessTab({ table }: { table: RegTable }) {
   const act = useAction();
   const settings = useQuery({ queryKey: ["registry-settings"], queryFn: registry.settings });
-  const [rules, setRules] = useState<AccessRule[]>(table.access ?? []);
+  // what is written is kept while it is typed; the panel starts over (key) when the rules are saved
+  const [initial] = useState<AccessRule[]>(table.access ?? []);
+  const [rules, setRules, saved] = useDraft<AccessRule[]>(`registry:access:${table.id}`, initial, { base: JSON.stringify(initial) });
   const groups = settings.data?.groups ?? [];
   const peopleLinks = table.fields.filter((f) => f.type === "link" && f.options.tableId === settings.data?.peopleTableId);
   const update = (i: number, change: Partial<AccessRule>) => setRules(rules.map((r, k) => (k === i ? { ...r, ...change } : r)));
@@ -601,6 +659,7 @@ function AccessTab({ table }: { table: RegTable }) {
         The admins of the ERP always manage everything. The rules add up: the highest level wins; a field is seen if one rule shows it. Without rules, only the admins see the table.
         {groups.length === 0 && " There are no groups yet: a group is a view of the people table marked as a group."}
       </p>
+      <DraftNote draft={saved} name="The access rules" />
       {rules.map((r, i) => (
         <div key={i} className="rule stack tight">
           <div className="inline-form">
@@ -621,7 +680,7 @@ function AccessTab({ table }: { table: RegTable }) {
           )}
         </div>
       ))}
-      <div><Button small onClick={() => act(() => registry.updateTable(table.id, { access: rules }))}>Save the rules</Button></div>
+      <div><Button small onClick={async () => { if (await act(() => registry.updateTable(table.id, { access: rules }))) saved.discard(); }}>Save the rules</Button></div>
     </Panel>
   );
 }
@@ -637,7 +696,8 @@ const headersFrom = (text: string) => Object.fromEntries(text.split("\n").map((l
 function WebhooksTab({ table }: { table: RegTable }) {
   const act = useAction();
   const hooks = useQuery({ queryKey: ["registry-webhooks", table.id], queryFn: () => registry.webhooks(table.id) });
-  const [editing, setEditing] = useState<Webhook | "new" | null>(null);
+  // the webhook being changed (its id, or «new»), remembered with its form: coming back to the page it is open with what was written
+  const [editing, setEditing] = useRemembered<number | "new" | null>(`registry:webhooks:${table.id}:editing`, null, (id) => (id === null ? null : `registry:webhook:${table.id}:${id}`));
   const [logOf, setLogOf] = useState<number | null>(null);
   const log = useQuery({ queryKey: ["registry-webhook-log", logOf], queryFn: () => registry.webhookLog(logOf!), enabled: logOf !== null });
   return (
@@ -655,7 +715,7 @@ function WebhooksTab({ table }: { table: RegTable }) {
             <tbody>
               {(hooks.data ?? []).map((h) => (
                 <Fragment key={h.id}>
-                  <tr className={logOf === h.id || (editing !== null && editing !== "new" && editing.id === h.id) ? "row-selected" : undefined}>
+                  <tr className={logOf === h.id || editing === h.id ? "row-selected" : undefined}>
                     <td>{h.name}{!h.active && <span className="pill teal"> off</span>}</td>
                     <td className="mono">{h.options.method ?? "POST"} {h.url}</td>
                     <td>{h.events.join(", ")}{h.options.when === "becomes" ? " · when it starts matching" : ""}{h.options.fields?.length ? ` · ${h.options.fields.join(", ")}` : ""}</td>
@@ -664,7 +724,7 @@ function WebhooksTab({ table }: { table: RegTable }) {
                       <Button small variant="ghost" onClick={() => act(() => registry.testWebhook(h.id)).then(() => setLogOf(h.id))}>Test</Button>
                       <Button small variant="ghost" onClick={() => setLogOf(h.id)}>Log</Button>
                       <Button small variant="ghost" onClick={() => act(() => registry.updateWebhook(h.id, { active: !h.active }))}>{h.active ? "Turn off" : "Turn on"}</Button>
-                      <IconButton icon={faPen} label={`Change ${h.name}`} onClick={() => setEditing(h)} />
+                      <IconButton icon={faPen} label={`Change ${h.name}`} onClick={() => setEditing(h.id)} />
                       <IconButton icon={faClone} label={`Duplicate ${h.name}`} onClick={() => act(() => registry.duplicateWebhook(h.id))} />
                       <IconButton icon={faTrash} label={`Delete ${h.name}`} danger onClick={() => act(() => registry.deleteWebhook(h.id))} />
                     </td>
@@ -677,7 +737,7 @@ function WebhooksTab({ table }: { table: RegTable }) {
                       </ol>
                     </RowAction>
                   )}
-                  {editing !== null && editing !== "new" && editing.id === h.id && (
+                  {editing === h.id && (
                     <RowAction colSpan={5} eyebrow="Change webhook" title={h.name} context={[["Address", `${h.options.method ?? "POST"} ${h.url}`]]} onClose={() => setEditing(null)}>
                       <WebhookForm key={h.id} table={table} hook={h} onDone={() => setEditing(null)} />
                     </RowAction>
@@ -692,24 +752,48 @@ function WebhooksTab({ table }: { table: RegTable }) {
   );
 }
 
+/** What is written in the form of a webhook (not its headers). */
+interface WebhookDraft {
+  name: string;
+  url: string;
+  events: string[];
+  filter: NonNullable<Webhook["filter"]> | undefined;
+  method: NonNullable<WebhookOptions["method"]>;
+  body: string;
+  fields: string[];
+  when: NonNullable<WebhookOptions["when"]>;
+}
+
 /** A webhook as NocoDB makes them: address, method, headers, a body from a template, when it is called. */
 function WebhookForm({ table, hook, onDone }: { table: RegTable; hook: Webhook | null; onDone: () => void }) {
   const act = useAction();
-  const [name, setName] = useState(hook?.name ?? "");
-  const [url, setUrl] = useState(hook?.url ?? "");
-  const [events, setEvents] = useState<string[]>(hook?.events ?? ["create", "update"]);
-  const [filter, setFilter] = useState(hook?.filter ?? undefined);
-  const [method, setMethod] = useState<NonNullable<WebhookOptions["method"]>>(hook?.options.method ?? "POST");
+  // what is written is kept while it is typed (docs/stile-interfaccia.md), except the headers: they often hold a key (Authorization)
+  const [initial] = useState<WebhookDraft>(() => ({
+    name: hook?.name ?? "",
+    url: hook?.url ?? "",
+    events: hook?.events ?? ["create", "update"],
+    filter: hook?.filter ?? undefined,
+    method: hook?.options.method ?? "POST",
+    body: hook?.options.body ?? "",
+    fields: hook?.options.fields ?? [],
+    when: hook?.options.when ?? "matches",
+  }));
+  const [form, setForm, saved] = useDraft<WebhookDraft>(`registry:webhook:${table.id}:${hook?.id ?? "new"}`, initial, { base: JSON.stringify(initial) });
+  const { name, url, events, filter, method, body, fields, when } = form;
+  const setOf = fieldSetter(setForm);
+  const [setName, setUrl, setEvents, setFilter, setMethod, setBody, setFields, setWhen] =
+    [setOf("name"), setOf("url"), setOf("events"), setOf("filter"), setOf("method"), setOf("body"), setOf("fields"), setOf("when")];
   const [headers, setHeaders] = useState(headersText(hook?.options.headers));
-  const [body, setBody] = useState(hook?.options.body ?? "");
-  const [fields, setFields] = useState<string[]>(hook?.options.fields ?? []);
-  const [when, setWhen] = useState<NonNullable<WebhookOptions["when"]>>(hook?.options.when ?? "matches");
   const submit = async () => {
     const values = { name, url, events, filter: filter && filter.items.length ? filter : null, method, headers: headersFrom(headers), body: body.trim() || null, fields, when };
-    if (await act(() => (hook ? registry.updateWebhook(hook.id, values) : registry.createWebhook(table.id, values)))) onDone();
+    if (await act(() => (hook ? registry.updateWebhook(hook.id, values) : registry.createWebhook(table.id, values)))) {
+      saved.discard();
+      onDone();
+    }
   };
   return (
-    <FormPanel title={hook ? `Change ${hook.name}` : "New webhook"} submitLabel={hook ? "Save" : "Add webhook"} canSubmit={name.trim() !== "" && /^https?:\/\//.test(url) && events.length > 0} onSubmit={submit} onCancel={onDone} layout="stack">
+    <FormPanel title={hook ? `Change ${hook.name}` : "New webhook"} submitLabel={hook ? "Save" : "Add webhook"} canSubmit={name.trim() !== "" && /^https?:\/\//.test(url) && events.length > 0} onSubmit={submit} onCancel={() => saved.leave(onDone)} layout="stack">
+      <DraftNote draft={saved} name={hook?.name} />
       <div className="form-grid">
         <Field label="Name" htmlFor="hook-name"><input id="hook-name" className="input small" value={name} onChange={(e) => setName(e.target.value)} /></Field>
         <Field label="Method" htmlFor="hook-method">
@@ -782,10 +866,12 @@ function ImportTab({ table }: { table: RegTable }) {
 function TableTab({ table }: { table: RegTable }) {
   const act = useAction();
   const isAdmin = useMe().role === "admin";
-  const [name, setName] = useState(table.name);
-  const [section, setSection] = useState(table.section);
-  const [icon, setIcon] = useState(table.icon);
-  const [description, setDescription] = useState(table.description);
+  // what is written is kept while it is typed; the panel starts over (key) when the table is saved
+  const [initial] = useState({ name: table.name, section: table.section, icon: table.icon, description: table.description });
+  const [form, setForm, saved] = useDraft(`registry:table:${table.id}`, initial, { base: JSON.stringify(initial) });
+  const { name, section, icon, description } = form;
+  const setOf = fieldSetter(setForm);
+  const [setName, setSection, setIcon, setDescription] = [setOf("name"), setOf("section"), setOf("icon"), setOf("description")];
   const [withRecords, setWithRecords] = useState(true);
   const duplicate = async () => {
     let id = 0;
@@ -797,13 +883,14 @@ function TableTab({ table }: { table: RegTable }) {
   };
   return (
     <Panel title="The table" actions={isAdmin && <IconButton icon={faTrash} label="Delete the table" danger onClick={() => window.confirm(`Delete ${table.name} with all its records? It cannot be undone.`) && act(() => registry.deleteTable(table.id)).then((done) => done && window.location.assign("/registry"))} />}>
+      <DraftNote draft={saved} name={table.name} />
       <div className="form-grid">
         <Field label="Name" htmlFor="table-name"><input id="table-name" className="input small" value={name} onChange={(e) => setName(e.target.value)} /></Field>
         <Field label="Section of the menu" htmlFor="table-section"><input id="table-section" className="input small" placeholder="HR & Recruitment" value={section} onChange={(e) => setSection(e.target.value)} /></Field>
         <Field label="Icon (an emoji)" htmlFor="table-icon"><input id="table-icon" className="input small" value={icon} onChange={(e) => setIcon(e.target.value)} /></Field>
         <Field label="What it is for" htmlFor="table-description" className="wide"><input id="table-description" className="input small" value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
       </div>
-      <div><Button small onClick={() => act(() => registry.updateTable(table.id, { name, section, icon, description }))}>Save</Button></div>
+      <div><Button small onClick={async () => { if (await act(() => registry.updateTable(table.id, { name, section, icon, description }))) saved.discard(); }}>Save</Button></div>
       {isAdmin && (
         <div className="inline-form">
           <Button small variant="ghost" icon={faClone} onClick={duplicate}>Duplicate the table</Button>

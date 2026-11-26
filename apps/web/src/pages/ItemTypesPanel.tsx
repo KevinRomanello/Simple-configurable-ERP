@@ -6,9 +6,11 @@ import type { Area, ItemType, ParamKind, TypeParam } from "../api/types";
 import { Button, IconButton } from "../components/Button";
 import { TypeTree } from "../components/TypeTree";
 import { CommitInput } from "../components/CommitInput";
+import { DraftNote } from "../components/DraftNote";
 import { DeleteButton } from "../components/ListButtons";
 import { AddSection, DataTable, Field, FormPanel, Loading, Panel, RowAction, type Column } from "../components/ui";
 import { useAction } from "../lib/useAction";
+import { fieldSetter, useDraft, useRemembered } from "../lib/useDraft";
 
 // The types of the inventory on the Settings page (admins and project managers): a type (Resistor),
 // its area, whether its items are asked the hazards, and its parameters. docs/inventario.md, §19.
@@ -49,9 +51,10 @@ export function ItemTypesPanel({ categories }: { categories: BudgetCategory[] })
   const act = useAction();
   const types = useQuery({ queryKey: ["item-types"], queryFn: api.itemTypes });
   const areas = useQuery({ queryKey: ["areas"], queryFn: api.areas });
-  const [open, setOpen] = useState<number | null>(null);
-  /** The type a new sub-type is being made under. */
-  const [under, setUnder] = useState<number | null>(null);
+  // the type whose parameters are open, remembered while its «Add parameter» form has something written
+  const [open, setOpen] = useRemembered<number | null>("item-types:open", null, (id) => (id === null ? null : `new-param:${id}`));
+  // the type a new sub-type is being made under, remembered with its form (coming back to the page it is open with what was written)
+  const [under, setUnder] = useRemembered<number | null>("item-types:under", null, (id) => (id === null ? null : `new-type:${id}`));
   /** Whether the types are drawn as a tree above the table. */
   const [tree, setTree] = useState(false);
   if (!types.data || !areas.data) return <Panel title="Item types"><Loading /></Panel>;
@@ -160,36 +163,48 @@ export function ItemTypesPanel({ categories }: { categories: BudgetCategory[] })
         )}
         empty="No types yet"
       />
-      <AddSection label="New type" form={(close) => <NewType areas={allAreas} categories={categories} onDone={(id) => { close(); if (id !== null) setOpen(id); }} />} />
+      <AddSection label="New type" draftKey="new-type:root" form={(close) => <NewType areas={allAreas} categories={categories} onDone={(id) => { close(); if (id !== null) setOpen(id); }} />} />
     </Panel>
   );
+}
+
+/** What is written in the form that adds a type. */
+interface TypeDraft {
+  name: string;
+  areaId: number | null;
+  categoryId: number | null;
+  hazards: boolean;
 }
 
 /** A new type, of its own or (with `parent`) a kind of another, which starts from the area, the category and the hazards of its parent. */
 function NewType({ parent, areas, categories, onDone }: { parent?: ItemType; areas: Area[]; categories: BudgetCategory[]; onDone: (id: number | null) => void }) {
   const act = useAction();
-  const [name, setName] = useState("");
-  const [areaId, setAreaId] = useState<number | null>(parent?.areaId ?? null);
-  const [categoryId, setCategoryId] = useState<number | null>(parent?.categoryId ?? null);
-  const [hazards, setHazards] = useState(parent?.hazards ?? true);
+  const [initial] = useState<TypeDraft>({ name: "", areaId: parent?.areaId ?? null, categoryId: parent?.categoryId ?? null, hazards: parent?.hazards ?? true });
+  const [form, setForm, saved] = useDraft<TypeDraft>(`new-type:${parent?.id ?? "root"}`, initial);
+  const { name, areaId, categoryId, hazards } = form;
+  const set = fieldSetter(setForm);
   const submit = async () => {
     let createdId: number | null = null;
     // the new type opens at once, ready for its parameters
-    if (await act(async () => { createdId = (await api.createType({ name: name.trim(), areaId, hazards, categoryId: categoryId!, ...(parent ? { parentId: parent.id } : {}) })).id; })) onDone(createdId);
+    if (await act(async () => { createdId = (await api.createType({ name: name.trim(), areaId, hazards, categoryId: categoryId!, ...(parent ? { parentId: parent.id } : {}) })).id; })) {
+      saved.discard();
+      onDone(createdId);
+    }
   };
   return (
-    <FormPanel title={parent ? `New sub-type of ${parent.path}` : "New type"} submitLabel="Add type" canSubmit={name.trim() !== "" && categoryId !== null} onSubmit={submit} onCancel={() => onDone(null)}>
+    <FormPanel title={parent ? `New sub-type of ${parent.path}` : "New type"} submitLabel="Add type" canSubmit={name.trim() !== "" && categoryId !== null} onSubmit={submit} onCancel={() => saved.leave(() => onDone(null))}>
+      <DraftNote draft={saved} />
       <Field label="Name" htmlFor="new-type-name">
-        <input id="new-type-name" className="input small" maxLength={100} autoFocus placeholder="Resistor" value={name} onChange={(e) => setName(e.target.value)} />
+        <input id="new-type-name" className="input small" maxLength={100} autoFocus placeholder="Resistor" value={name} onChange={(e) => set("name")(e.target.value)} />
       </Field>
       <Field label="Area" htmlFor="new-type-area">
-        <AreaSelect id="new-type-area" value={areaId} areas={areas} onChange={setAreaId} />
+        <AreaSelect id="new-type-area" value={areaId} areas={areas} onChange={set("areaId")} />
       </Field>
       <Field label="Budget category" htmlFor="new-type-category">
-        <CategorySelect id="new-type-category" value={categoryId} categories={categories} onChange={setCategoryId} />
+        <CategorySelect id="new-type-category" value={categoryId} categories={categories} onChange={set("categoryId")} />
       </Field>
       <label className="checkbox">
-        <input type="checkbox" checked={hazards} onChange={(e) => setHazards(e.target.checked)} />
+        <input type="checkbox" checked={hazards} onChange={(e) => set("hazards")(e.target.checked)} />
         Ask flammable, toxic, carcinogenic
       </label>
     </FormPanel>
@@ -251,7 +266,7 @@ function ParamsPanel({ type, types }: { type: ItemType; types: ItemType[] }) {
       </p>
       <DataTable title={`Parameters of ${type.name}`} columns={columns} rows={type.params} rowKey={(p) => p.id} empty="Nothing yet: add the first parameter"
         reorder={{ label: (p) => p.name, movable: (p) => !p.inherited, onOrder: (order) => act(() => api.orderParams(type.id, order)) }} />
-      <AddSection label="Add parameter" form={(close) => <NewParam typeId={type.id} onDone={close} />} />
+      <AddSection label="Add parameter" draftKey={`new-param:${type.id}`} form={(close) => <NewParam typeId={type.id} onDone={close} />} />
     </Panel>
   );
 }
@@ -280,13 +295,21 @@ function Choices({ param }: { param: TypeParam }) {
   );
 }
 
+/** What is written in the form that adds a parameter to a type. */
+interface ParamDraft {
+  name: string;
+  kind: ParamKind;
+  unit: string;
+  prefixes: boolean;
+  choices: string;
+}
+
 function NewParam({ typeId, onDone }: { typeId: number; onDone: () => void }) {
   const act = useAction();
-  const [name, setName] = useState("");
-  const [kind, setKind] = useState<ParamKind>("number");
-  const [unit, setUnit] = useState("");
-  const [prefixes, setPrefixes] = useState(true);
-  const [choices, setChoices] = useState("");
+  const [initial] = useState<ParamDraft>({ name: "", kind: "number", unit: "", prefixes: true, choices: "" });
+  const [form, setForm, saved] = useDraft<ParamDraft>(`new-param:${typeId}`, initial);
+  const { name, kind, unit, prefixes, choices } = form;
+  const set = fieldSetter(setForm);
   const submit = async () => {
     const body = {
       name: name.trim(),
@@ -294,32 +317,36 @@ function NewParam({ typeId, onDone }: { typeId: number; onDone: () => void }) {
       ...(kind === "number" ? { unit: unit.trim() === "" ? null : unit.trim(), prefixes } : {}),
       ...(kind === "list" ? { choices: choices.split(",").map((c) => c.trim()).filter((c) => c !== "") } : {}),
     };
-    if (await act(() => api.addParam(typeId, body))) onDone();
+    if (await act(() => api.addParam(typeId, body))) {
+      saved.discard();
+      onDone();
+    }
   };
   return (
-    <FormPanel title="Add parameter" submitLabel="Add parameter" canSubmit={name.trim() !== ""} onSubmit={submit} onCancel={onDone}>
+    <FormPanel title="Add parameter" submitLabel="Add parameter" canSubmit={name.trim() !== ""} onSubmit={submit} onCancel={() => saved.leave(onDone)}>
+      <DraftNote draft={saved} />
       <Field label="Name" htmlFor="new-param-name">
-        <input id="new-param-name" className="input small" maxLength={100} autoFocus placeholder="Resistance" value={name} onChange={(e) => setName(e.target.value)} />
+        <input id="new-param-name" className="input small" maxLength={100} autoFocus placeholder="Resistance" value={name} onChange={(e) => set("name")(e.target.value)} />
       </Field>
       <Field label="Kind" htmlFor="new-param-kind">
-        <select id="new-param-kind" className="input small" value={kind} onChange={(e) => setKind(e.target.value as ParamKind)}>
+        <select id="new-param-kind" className="input small" value={kind} onChange={(e) => set("kind")(e.target.value as ParamKind)}>
           {KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
         </select>
       </Field>
       {kind === "number" && (
         <>
           <Field label="Unit" htmlFor="new-param-unit">
-            <input id="new-param-unit" className="input small" maxLength={20} placeholder="Ω" value={unit} onChange={(e) => setUnit(e.target.value)} />
+            <input id="new-param-unit" className="input small" maxLength={20} placeholder="Ω" value={unit} onChange={(e) => set("unit")(e.target.value)} />
           </Field>
           <label className="checkbox">
-            <input type="checkbox" checked={prefixes} onChange={(e) => setPrefixes(e.target.checked)} />
+            <input type="checkbox" checked={prefixes} onChange={(e) => set("prefixes")(e.target.checked)} />
             Written with k, M, m, µ…
           </label>
         </>
       )}
       {kind === "list" && (
         <Field label="Choices, separated by commas" htmlFor="new-param-choices">
-          <input id="new-param-choices" className="input small" maxLength={2000} placeholder="0402, 0603, 0805" value={choices} onChange={(e) => setChoices(e.target.value)} />
+          <input id="new-param-choices" className="input small" maxLength={2000} placeholder="0402, 0603, 0805" value={choices} onChange={(e) => set("choices")(e.target.value)} />
         </Field>
       )}
     </FormPanel>

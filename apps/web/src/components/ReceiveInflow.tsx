@@ -7,6 +7,8 @@ import { Field, FormPanel } from "./ui";
 import { date, moneyFromDecimal } from "../lib/format";
 import { todayIso } from "../lib/today";
 import { useAction } from "../lib/useAction";
+import { fieldSetter, useDraft } from "../lib/useDraft";
+import { DraftNote } from "./DraftNote";
 
 const ACCOUNTS: { value: CashAccount; label: string }[] = [
   { value: "bank", label: "BANCA" },
@@ -20,23 +22,39 @@ const ACCOUNTS: { value: CashAccount; label: string }[] = [
  * or imported from the sheet of the treasury) and only gets tied to the inflow.
  */
 /** `compact` is the short form for the popover: the day, the account and the amount of a new movement (the Voce is the sponsorships' one). */
+/** What is written in the form that marks an inflow as received. */
+interface ReceiveInflowDraft {
+  mode: "new" | "existing";
+  on: string;
+  account: CashAccount;
+  amount: string;
+  categoryId: string;
+  methodId: string;
+  entryId: string;
+}
+
 export function ReceiveInflow({ inflow, compact = false, onClose }: { inflow: Inflow; compact?: boolean; onClose: () => void }) {
   const act = useAction();
   const categories = useQuery({ queryKey: ["cash-categories"], queryFn: api.cashCategories });
   const methods = useQuery({ queryKey: ["cash-methods"], queryFn: api.cashMethods });
   const receivable = useQuery({ queryKey: ["receivable"], queryFn: api.receivable });
-  const [mode, setMode] = useState<"new" | "existing">("new");
-  const [on, setOn] = useState(todayIso());
-  const [account, setAccount] = useState<CashAccount>("bank");
-  const [amount, setAmount] = useState(inflow.amount);
-  const [categoryId, setCategoryId] = useState("");
-  const [methodId, setMethodId] = useState("");
-  const [entryId, setEntryId] = useState("");
+  const [initial] = useState<ReceiveInflowDraft>(() => ({ mode: "new", on: todayIso(), account: "bank", amount: inflow.amount, categoryId: "", methodId: "", entryId: "" }));
+  // what is written is kept while it is typed (the compact form and the full one are the same draft)
+  const [form, setForm, saved] = useDraft<ReceiveInflowDraft>(`receive-inflow:${inflow.id}`, initial);
+  const { mode, on, account, amount, categoryId, methodId, entryId } = form;
+  const set = fieldSetter(setForm);
+  const setMode = set("mode");
+  const setOn = set("on");
+  const setAccount = set("account");
+  const setAmount = set("amount");
+  const setCategoryId = set("categoryId");
+  const setMethodId = set("methodId");
+  const setEntryId = set("entryId");
 
   // a sponsorship goes under the Voce of the sponsorships, as the sheet of the treasury does
   const sponsorshipVoce = inflow.sponsorship ? categories.data?.find((c) => c.sponsorship)?.id : undefined;
   useEffect(() => {
-    if (sponsorshipVoce !== undefined) setCategoryId((current) => current || String(sponsorshipVoce));
+    if (sponsorshipVoce !== undefined) setForm((f) => ({ ...f, categoryId: f.categoryId || String(sponsorshipVoce) }));
   }, [sponsorshipVoce]);
 
   // the movements of the same amount first: most likely the one
@@ -49,7 +67,10 @@ export function ReceiveInflow({ inflow, compact = false, onClose }: { inflow: In
       mode === "existing"
         ? { entryId: Number(entryId) }
         : { on, account, amount, categoryId: categoryId === "" ? null : Number(categoryId), methodId: methodId === "" ? null : Number(methodId) };
-    if (await act(() => api.receiveInflow(inflow.id, body))) onClose();
+    if (await act(() => api.receiveInflow(inflow.id, body))) {
+      saved.discard();
+      onClose();
+    }
   };
 
   return (
@@ -59,9 +80,10 @@ export function ReceiveInflow({ inflow, compact = false, onClose }: { inflow: In
       submitLabel="Mark as received"
       canSubmit={mode === "existing" ? entryId !== "" : on !== "" && Number(amount) > 0}
       onSubmit={submit}
-      onCancel={onClose}
+      onCancel={() => saved.leave(onClose)}
       layout="stack"
     >
+      <DraftNote draft={saved} name={inflow.sourceName} />
       {!compact && (
         <div className="inline-form">
           <label className="checkbox">

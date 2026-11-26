@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Fund, FundSummaryRow, NewContract, Phase } from "../api/types";
 import { IconButton } from "../components/Button";
+import { DraftNote } from "../components/DraftNote";
 import { CommitInput } from "../components/CommitInput";
 import { TableBox } from "../components/ExportBlocks";
 import { MonthlyInflows } from "../components/MonthlyInflows";
@@ -14,6 +15,7 @@ import { givesBody, givesOf, hasMoney, type Gives } from "../lib/gives";
 import { useSort, type SortAccessors } from "../lib/sort";
 import { useCanEditShared } from "../lib/season";
 import { useAction } from "../lib/useAction";
+import { fieldSetter, useDraft } from "../lib/useDraft";
 
 const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
 
@@ -36,7 +38,7 @@ export function FundsPage() {
       <PageHeader
         title="CASH FROM"
         description="Sponsors and their contracts. Choose a sponsor in the budget and the VAT is worked out from how it is defined here."
-        add={canEdit ? { label: "New sponsor", form: (close) => <NewSponsor onDone={close} /> } : undefined}
+        add={canEdit ? { label: "New sponsor", draftKey: "new-sponsor", form: (close) => <NewSponsor onDone={close} /> } : undefined}
       />
       <SponsorsPanel />
       <div className="two-columns">
@@ -63,19 +65,28 @@ const PHASES_CHOICE = {
 } as const satisfies Record<string, readonly Phase[]>;
 
 /** The form of a new sponsor: how it works and the money it brings. It opens from the button at the top. */
+/** What is written in the form that adds a sponsor. */
+interface SponsorDraft {
+  name: string;
+  gives: Gives;
+  rate: string;
+  group: string;
+  amount: string;
+  day: string;
+  counts: keyof typeof PHASES_CHOICE;
+}
+
 function NewSponsor({ onDone }: { onDone: () => void }) {
   const act = useAction();
   const funds = useQuery({ queryKey: ["funds"], queryFn: () => api.funds() });
   const rates = useQuery({ queryKey: ["vat-rates"], queryFn: api.vatRates });
   const fixedRates = useQuery({ queryKey: ["fixed-sponsor-rates"], queryFn: api.fixedSponsorRates });
 
-  const [name, setName] = useState("");
-  const [gives, setGives] = useState<Gives>("fund");
-  const [rate, setRate] = useState("");
-  const [group, setGroup] = useState("");
-  const [amount, setAmount] = useState("");
-  const [day, setDay] = useState("");
-  const [counts, setCounts] = useState<keyof typeof PHASES_CHOICE>("both");
+  const [initial] = useState<SponsorDraft>({ name: "", gives: "fund", rate: "", group: "", amount: "", day: "", counts: "both" });
+  const [form, setForm, saved] = useDraft<SponsorDraft>("new-sponsor", initial);
+  const { name, gives, rate, group, amount, day, counts } = form;
+  const set = fieldSetter(setForm);
+  const [setName, setGives, setRate, setGroup, setAmount, setDay, setCounts] = [set("name"), set("gives"), set("rate"), set("group"), set("amount"), set("day"), set("counts")];
 
   // goods have a VAT rate that is not chosen (none, or the one of the counter-invoice): the server's
   const fixed = fixedRates.data?.[givesBody(gives).type];
@@ -88,7 +99,10 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
     const ok = await act(() =>
       api.createFund({ name: name.trim(), ...givesBody(gives), vatRate: fixed ?? Number(rate), group: group.trim() || null, contracts }),
     );
-    if (ok) onDone();
+    if (ok) {
+      saved.discard();
+      onDone();
+    }
   };
 
   return (
@@ -98,9 +112,10 @@ function NewSponsor({ onDone }: { onDone: () => void }) {
       submitLabel="Add sponsor"
       canSubmit={ready}
       onSubmit={submit}
-      onCancel={onDone}
+      onCancel={() => saved.leave(onDone)}
       layout="stack"
     >
+      <DraftNote draft={saved} />
       <div className="form-grid">
         <Field label="Name" htmlFor="sponsor-name">
           <input id="sponsor-name" className="input small" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />

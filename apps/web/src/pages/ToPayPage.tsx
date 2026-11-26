@@ -12,6 +12,7 @@ import { EmptyRow, Field, Loading, Message, PageHeader, Panel, RowAction, Table 
 import { useMe } from "../lib/auth";
 import { date, money } from "../lib/format";
 import { useSort, type SortAccessors } from "../lib/sort";
+import { useRemembered } from "../lib/useDraft";
 
 const SORT: SortAccessors<ToPayRow> = {
   item: (r) => r.item,
@@ -42,7 +43,8 @@ export function ToPayPage() {
   const [allSeasons, setAllSeasons] = useState(false);
   const [text, setText] = useState("");
   // the lines the panel pays: one (its Pay button, the panel opens under its row) or the ticked ones (it belongs to no row)
-  const [paying, setPaying] = useState<number[] | null>(null);
+  // (remembered with its form: coming back to the page the panel is open with what was written)
+  const [paying, setPaying] = useRemembered<number[] | null>("to-pay:paying", null, (ids) => (ids ? `pay:${ids.join(",")}` : null));
   const [picked, setPicked] = useState<number[]>([]);
   const toPay = useQuery({ queryKey: ["to-pay", allSeasons], queryFn: () => api.toPay(allSeasons), enabled: canManageCash });
   const sort = useSort(SORT);
@@ -165,8 +167,8 @@ export function ToPayPage() {
 /** The payments of the register (of the season) that pay no line of the budget: tie them to the lines they paid. */
 function ToLink() {
   const list = useQuery({ queryKey: ["to-link"], queryFn: api.toLink });
-  const [open, setOpen] = useState(false);
-  const [linking, setLinking] = useState<number | null>(null);
+  const [linking, setLinking] = useRemembered<number | null>("to-pay:linking", null, (id) => (id === null ? null : `pay-lines:${id}`));
+  const [open, setOpen] = useState(linking !== null);
   if (!list.data) return null;
   const rows: ToLinkRow[] = list.data;
 

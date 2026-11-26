@@ -8,6 +8,8 @@ import type { InventoryLookups } from "../lib/inventory";
 import { todayIso } from "../lib/today";
 import { SearchSelect } from "./SearchSelect";
 import { useAction } from "../lib/useAction";
+import { fieldSetter, useDraft } from "../lib/useDraft";
+import { DraftNote } from "./DraftNote";
 import { Button } from "./Button";
 import { Field, FormActions } from "./ui";
 
@@ -19,6 +21,18 @@ const KINDS = [
 ] as const;
 
 /** What can be done with the goods that are at one place: use them, move them, count them, throw them away. */
+/** What is written in the form that uses, moves or counts goods. */
+interface MovementDraft {
+  kind: MovementBody["kind"];
+  amount: string;
+  counted: string;
+  occurredOn: string;
+  toLocation: string;
+  toSpot: string;
+  projectId: string;
+  note: string;
+}
+
 export function MovementForm({
   item, place, lookups, onDone, onCancel, kind: firstKind = "use",
 }: {
@@ -32,14 +46,28 @@ export function MovementForm({
 }) {
   const act = useAction();
   const projects = useQuery({ queryKey: ["inventory-projects"], queryFn: api.inventoryProjects });
-  const [kind, setKind] = useState<MovementBody["kind"]>(firstKind);
-  const [amount, setAmount] = useState("");
-  const [counted, setCounted] = useState(String(place.quantityMilli / 1000));
-  const [occurredOn, setOccurredOn] = useState(todayIso());
-  const [toLocation, setToLocation] = useState(lookups.locations.find((l) => l.code !== place.location)?.code ?? place.location);
-  const [toSpot, setToSpot] = useState("");
-  const [projectId, setProjectId] = useState("");
-  const [note, setNote] = useState("");
+  const [initial] = useState<MovementDraft>(() => ({
+    kind: firstKind,
+    amount: "",
+    counted: String(place.quantityMilli / 1000),
+    occurredOn: todayIso(),
+    toLocation: lookups.locations.find((l) => l.code !== place.location)?.code ?? place.location,
+    toSpot: "",
+    projectId: "",
+    note: "",
+  }));
+  // what is written is kept while it is typed (docs/stile-interfaccia.md); the thing it is for is the item and the place
+  const [form, setForm, saved] = useDraft<MovementDraft>(`stock:${item.id}:${place.location}:${place.spot}`, initial);
+  const { kind, amount, counted, occurredOn, toLocation, toSpot, projectId, note } = form;
+  const set = fieldSetter(setForm);
+  const setKind = set("kind");
+  const setAmount = set("amount");
+  const setCounted = set("counted");
+  const setOccurredOn = set("occurredOn");
+  const setToLocation = set("toLocation");
+  const setToSpot = set("toSpot");
+  const setProjectId = set("projectId");
+  const setNote = set("note");
 
   const ready = kind === "adjustment" ? counted !== "" : amount !== "";
 
@@ -54,11 +82,15 @@ export function MovementForm({
     }
     if (kind === "use" && projectId) body.projectId = Number(projectId);
     if (note.trim()) body.note = note.trim();
-    if (await act(() => api.addMovement(body))) onDone();
+    if (await act(() => api.addMovement(body))) {
+      saved.discard();
+      onDone();
+    }
   };
 
   return (
     <form className="receive" onSubmit={submit}>
+      <DraftNote draft={saved} />
       <p className="muted">
         At {place.label}{place.spot ? ` (${place.spot})` : ""}: {showQuantity(place.quantityMilli)} {item.unit}
       </p>
@@ -107,7 +139,7 @@ export function MovementForm({
       </div>
       <FormActions>
         <Button small icon={faCheck} type="submit" disabled={!ready}>Save</Button>
-        <Button small variant="ghost" onClick={onCancel}>Cancel</Button>
+        <Button small variant="ghost" onClick={() => saved.leave(onCancel)}>Cancel</Button>
       </FormActions>
     </form>
   );

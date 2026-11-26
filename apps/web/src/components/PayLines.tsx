@@ -10,6 +10,8 @@ import { FormActions, Loading, Table, TableScroll } from "./ui";
 import { money } from "../lib/format";
 import { decimalText } from "../lib/lineEdit";
 import { useAction } from "../lib/useAction";
+import { useDraft } from "../lib/useDraft";
+import { DraftNote } from "./DraftNote";
 
 const SHOWN = 40;
 const cents = (text: string) => Math.round(Number(text.replace(",", ".")) * 100) || 0;
@@ -23,9 +25,9 @@ const cents = (text: string) => Math.round(Number(text.replace(",", ".")) * 100)
 export function PayLines({ entry, onClose }: { entry: Payment; onClose: () => void }) {
   const act = useAction();
   const lines = useQuery({ queryKey: ["payable-lines"], queryFn: api.payableLines });
-  const [amounts, setAmounts] = useState<Record<number, string>>(() =>
-    Object.fromEntries(entry.lines.map((l) => [l.lineId, decimalText(l.cents, 2)])),
-  );
+  const [initial] = useState<Record<number, string>>(() => Object.fromEntries(entry.lines.map((l) => [l.lineId, decimalText(l.cents, 2)])));
+  // what is written is kept while it is typed; the lines the payment paid when it started are what the draft is checked against
+  const [amounts, setAmounts, saved] = useDraft<Record<number, string>>(`pay-lines:${entry.id}`, initial, { base: JSON.stringify(initial) });
   const [text, setText] = useState("");
   if (!lines.data) return <Loading />;
 
@@ -46,11 +48,15 @@ export function PayLines({ entry, onClose }: { entry: Payment; onClose: () => vo
 
   const save = async () => {
     const chosen = Object.entries(amounts).filter(([, a]) => cents(a) > 0).map(([lineId, a]) => ({ lineId: Number(lineId), amount: decimalText(cents(a), 2) }));
-    if (await act(() => api.setCashEntryLines(entry.id, chosen))) onClose();
+    if (await act(() => api.setCashEntryLines(entry.id, chosen))) {
+      saved.discard();
+      onClose();
+    }
   };
 
   return (
     <div className="stack tight">
+      <DraftNote draft={saved} />
       <p className="muted">
         Which lines of the budget this payment of {money(payment)} paid (ACTUAL: what the team pays for them, the net out of its fund and the VAT; a payment covers the net first). A line with payments counts in the cash flow only what is still to pay.
       </p>
@@ -90,7 +96,7 @@ export function PayLines({ entry, onClose }: { entry: Payment; onClose: () => vo
       <FormActions>
         <span className={over ? "hint error" : "muted"}>Paid on lines: {money(total + inOtherSeasons)} of {money(payment)}</span>
         <Button small disabled={over} onClick={save}>Save</Button>
-        <Button small variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button small variant="ghost" onClick={() => saved.leave(onClose)}>Cancel</Button>
       </FormActions>
     </div>
   );

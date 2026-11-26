@@ -7,7 +7,9 @@ import { quantity as showQuantity } from "../lib/format";
 import { makeDefaultsOf, missingText, takesText, type InventoryLookups, type MakeDefaults } from "../lib/inventory";
 import { todayIso } from "../lib/today";
 import { useAction } from "../lib/useAction";
+import { fieldSetter, useDraft } from "../lib/useDraft";
 import { Button } from "./Button";
+import { DraftNote } from "./DraftNote";
 import { MakeDefaultsFields } from "./MakeDefaultsFields";
 import { Column, DataTable, Field, FormPanel } from "./ui";
 
@@ -38,6 +40,18 @@ function Verdict({ plan, unit }: { plan: PlanView; unit: string }) {
   return <p className="verdict ok">Everything is there for {many}.</p>;
 }
 
+/** What is written in the form that makes new pieces. */
+interface BuildDraft {
+  where: MakeDefaults;
+  wantsChange: boolean;
+  amount: string;
+  builtOn: string;
+  /** Part id -> the only place it is taken from; the others come from wherever they are. */
+  takeFrom: Record<number, string>;
+  method: "average" | "last";
+  note: string;
+}
+
 /**
  * «Make new»: type how many and see what it takes, part by part, against the shelf of every place, and where each part is
  * taken from (the place with the most first; a menu on each row takes it from one place only). When everything is there
@@ -49,21 +63,19 @@ export function BuildForm({ item, lookups, onDone }: { item: InventoryItem; look
   const projects = useQuery({ queryKey: ["inventory-projects"], queryFn: api.inventoryProjects });
   const firstPlace = lookups.locations[0]?.code ?? "";
   // what the item was created with; a place it has none for starts on the first one
-  const [where, setWhere] = useState<MakeDefaults>(() => {
-    const saved = makeDefaultsOf(item);
-    return { ...saved, to: saved.to || firstPlace };
+  const [initial] = useState<BuildDraft>(() => {
+    const defaults = makeDefaultsOf(item);
+    return { where: { ...defaults, to: defaults.to || firstPlace }, wantsChange: false, amount: "1", builtOn: todayIso(), takeFrom: {}, method: "average", note: "" };
   });
+  // what is written is kept while it is typed (docs/stile-interfaccia.md)
+  const [form, setForm, saved] = useDraft<BuildDraft>(`build:${item.id}`, initial);
+  const { where, wantsChange, amount, builtOn, takeFrom, method, note } = form;
+  const set = fieldSetter(setForm);
+  const [setWhere, setWantsChange, setAmount, setBuiltOn, setTakeFrom, setMethod, setNote] = [set("where"), set("wantsChange"), set("amount"), set("builtOn"), set("takeFrom"), set("method"), set("note")];
   // projects are of a season: the one saved with the item counts only if it is among those of the season on the screen
   const known = projects.data ? projects.data.some((p) => String(p.id) === where.projectId) : where.projectId !== "";
   const projectId = known ? where.projectId : "";
-  const [wantsChange, setWantsChange] = useState(false);
   const changing = wantsChange || projectId === "" || item.makeTo === null;
-  const [amount, setAmount] = useState("1");
-  const [builtOn, setBuiltOn] = useState(todayIso());
-  /** Part id -> the only place it is taken from; the others come from wherever they are. */
-  const [takeFrom, setTakeFrom] = useState<Record<number, string>>({});
-  const [method, setMethod] = useState<"average" | "last">("average");
-  const [note, setNote] = useState("");
 
   const asked = Number(amount) > 0 ? amount : null;
   const plan = useQuery({
@@ -83,7 +95,10 @@ export function BuildForm({ item, lookups, onDone }: { item: InventoryItem; look
   };
   const submit = async () => {
     const body = { componentId: item.id, projectId: Number(projectId), quantity: amount, builtOn: builtOn || todayIso(), takeFrom, toLocation: where.to, toSpot: where.spot.trim(), method };
-    if (await act(() => api.build({ ...body, ...(note.trim() ? { note: note.trim() } : {}) }))) onDone();
+    if (await act(() => api.build({ ...body, ...(note.trim() ? { note: note.trim() } : {}) }))) {
+      saved.discard();
+      onDone();
+    }
   };
   const projectName = projects.data?.find((p) => String(p.id) === projectId);
 
@@ -124,9 +139,10 @@ export function BuildForm({ item, lookups, onDone }: { item: InventoryItem; look
       submitLabel="Make them"
       canSubmit={ready}
       onSubmit={submit}
-      onCancel={onDone}
+      onCancel={() => saved.leave(onDone)}
       layout="stack"
     >
+      <DraftNote draft={saved} />
       <div className="form-grid">
         <Field label={<>How many ({item.unit})</>} htmlFor="build-quantity">
           <input id="build-quantity" className="input small" type="number" min="0" step="0.001" value={amount} autoFocus onChange={(e) => setAmount(e.target.value)} />

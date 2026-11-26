@@ -4,9 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Fragment, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api, type MovementBody } from "../api/client";
-import type { BomLine, ItemDraft, ItemField, MovementRow, StockPlace } from "../api/types";
+import type { BomLine, InventoryItem, ItemField, MovementRow, ParamValues, StockPlace } from "../api/types";
 import { Button, IconButton } from "../components/Button";
 import { Datasheets } from "../components/Datasheets";
+import { DraftNote } from "../components/DraftNote";
 import { HazardPills } from "../components/HazardPills";
 import { ItemEditor } from "../components/ItemEditor";
 import { MakeDefaultsFields } from "../components/MakeDefaultsFields";
@@ -19,11 +20,13 @@ import { ReceiveForm } from "../components/ReceiveForm";
 import { useMe } from "../lib/auth";
 import { date, money, moneyE4, quantity } from "../lib/format";
 import { prepareImage } from "../lib/image";
-import { draftBody, draftOf, emptyMakeDefaults, FIELD_LABELS, makeDefaultsBody, makeDefaultsOf, paramErrors, useInventoryLookups } from "../lib/inventory";
+import { draftBody, draftOf, FIELD_LABELS, makeDefaultsBody, makeDefaultsOf, paramErrors, useInventoryLookups, type InventoryLookups } from "../lib/inventory";
 import { showValue } from "../lib/params";
 import { usePrice } from "../lib/price";
 import { SCREEN, useMaxWidth } from "../lib/screen";
 import { useAction } from "../lib/useAction";
+import { DraftGuardContext, useAdder } from "../lib/draftGuard";
+import { useDraft, useRemembered } from "../lib/useDraft";
 import { TableBox } from "../components/ExportBlocks";
 import { SortTh } from "../components/SortTh";
 import { Card, Cards, DataTable, DetailHeader, EmptyRow, Loading, Message, Panel, RowAction, Table, type Column } from "../components/ui";
@@ -80,6 +83,31 @@ const movementColumns = (canEdit: boolean, undo: (m: MovementRow) => void): Colu
   },
 ];
 
+/** The form that changes an item (and, for a thing the team makes, what «Make new» starts from). What is written is kept; it starts from the values read. */
+function ItemEditPanel({ item, values, lookups, onDone }: { item: InventoryItem; values: ParamValues; lookups: InventoryLookups; onDone: () => void }) {
+  const act = useAction();
+  const [initial] = useState(() => ({ draft: draftOf(item, values, lookups.types), make: makeDefaultsOf(item) }));
+  const [form, setForm, saved] = useDraft(`item-edit:${item.id}`, initial, { base: JSON.stringify(initial) });
+  const { draft, make } = form;
+  const save = async () => {
+    if (await act(() => api.updateItem(item.id, { ...draftBody(draft, lookups), ...(item.origin === "made" ? makeDefaultsBody(make) : {}) }))) {
+      saved.discard();
+      onDone();
+    }
+  };
+  return (
+    <Panel>
+      <DraftNote draft={saved} name={item.name} />
+      <ItemEditor draft={draft} onChange={(change) => setForm((f) => ({ ...f, draft: { ...f.draft, ...change } }))} lookups={lookups} idPrefix="edit" />
+      {item.origin === "made" && <MakeDefaultsFields value={make} onChange={(change) => setForm((f) => ({ ...f, make: { ...f.make, ...change } }))} lookups={lookups} idPrefix="edit-make" />}
+      <div className="inline-form">
+        <Button small onClick={save} disabled={draft.name.trim() === "" || Object.keys(paramErrors(draft, lookups.types)).length > 0}>Save</Button>
+        <Button small variant="ghost" onClick={() => saved.leave(onDone)}>Cancel</Button>
+      </div>
+    </Panel>
+  );
+}
+
 /** One item: its picture and information, where it is, what it cost over time and what happened to it. */
 export function ItemPage() {
   const itemId = Number(useParams().id);
@@ -91,14 +119,14 @@ export function ItemPage() {
   const lookups = useInventoryLookups();
   const detail = useQuery({ queryKey: ["inventory-item", itemId, price], queryFn: () => api.inventoryItem(itemId, price) });
   const items = useQuery({ queryKey: ["inventory-items", price, {}], queryFn: () => api.inventoryItems(price) });
-  const [draft, setDraft] = useState<ItemDraft | null>(null);
-  // what «Make new» starts from, edited with the item when the team makes it
-  const [make, setMake] = useState(emptyMakeDefaults());
+  // the form that changes the item: it starts open when it has a draft, and closing it with the button asks first when something is written
+  const editor = useAdder(`item-edit:${itemId}`);
   /** The place whose form is open, and what the form starts on. */
-  const [placeOpen, setPlaceOpen] = useState<{ key: string; kind: MovementBody["kind"] } | null>(null);
+  // (remembered with its form: coming back to the page the form is open with what was written)
+  const [placeOpen, setPlaceOpen] = useRemembered<{ key: string; kind: MovementBody["kind"] } | null>(`item:${itemId}:place`, null, (p) => (p === null ? null : `stock:${itemId}:${p.key.replace("\u0000", ":")}`));
   // on a phone, where the shelf is, each thing to do has its own big button
   const phone = useMaxWidth(SCREEN.phone);
-  const [receiving, setReceiving] = useState(false);
+  const [receiving, setReceiving] = useRemembered(`item:${itemId}:receiving`, false, (open) => (open ? `receive:item:${itemId}` : null));
   const picker = useRef<HTMLInputElement>(null);
   const byPlace = useSort(PLACES_SORT);
 
@@ -107,9 +135,6 @@ export function ItemPage() {
   const { item, values, datasheets, stock, history, movements, bom } = detail.data;
   const placeKey = (p: StockPlace) => `${p.location}\u0000${p.spot}`;
 
-  const save = async () => {
-    if (draft && (await act(() => api.updateItem(itemId, { ...draftBody(draft, lookups), ...(item.origin === "made" ? makeDefaultsBody(make) : {}) })))) setDraft(null);
-  };
   const remove = async () => {
     if (window.confirm(`Delete "${item.name}"?`) && (await act(() => api.deleteItem(itemId)))) navigate("/inventory");
   };
@@ -148,7 +173,7 @@ export function ItemPage() {
       >
         {canEdit && (
           <div className="inline-form">
-            <Button small variant="ghost" icon={faPen} onClick={() => { setMake(makeDefaultsOf(item)); setDraft(draft ? null : draftOf(item, values, lookups.types)); }}>{draft ? "Close" : "Edit"}</Button>
+            <Button small variant="ghost" icon={faPen} onClick={editor.toggle}>{editor.adding ? "Close" : "Edit"}</Button>
             <Button small variant="ghost" icon={faImage} onClick={() => picker.current?.click()}>{detail.data.hasImage ? "Change picture" : "Add picture"}</Button>
             {detail.data.hasImage && <Button small variant="ghost" onClick={() => act(() => api.removeImage(itemId))}>Remove picture</Button>}
             <IconButton icon={faTrash} label="Delete item" danger onClick={remove} />
@@ -157,18 +182,13 @@ export function ItemPage() {
         )}
       </DetailHeader>
 
-      {draft && (
-        <Panel>
-          <ItemEditor draft={draft} onChange={(change) => setDraft({ ...draft, ...change })} lookups={lookups} idPrefix="edit" />
-          {item.origin === "made" && <MakeDefaultsFields value={make} onChange={(change) => setMake({ ...make, ...change })} lookups={lookups} idPrefix="edit-make" />}
-          <div className="inline-form">
-            <Button small onClick={save} disabled={draft.name.trim() === "" || Object.keys(paramErrors(draft, lookups.types)).length > 0}>Save</Button>
-            <Button small variant="ghost" onClick={() => setDraft(null)}>Cancel</Button>
-          </div>
-        </Panel>
+      {editor.adding && (
+        <DraftGuardContext.Provider value={editor.report}>
+          <ItemEditPanel item={item} values={values} lookups={lookups} onDone={editor.hide} />
+        </DraftGuardContext.Provider>
       )}
 
-      {!draft && (written.length > 0 || params.length > 0) && (
+      {!editor.adding && (written.length > 0 || params.length > 0) && (
         <dl className="facts">
           {params.map((param) => (
             <div key={`p${param.id}`} className="fact">

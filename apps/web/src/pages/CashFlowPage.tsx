@@ -1,16 +1,19 @@
 import { faCheck, faPen, faRotateLeft, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { api } from "../api/client";
-import type { Inflow, Phase } from "../api/types";
+import type { Bank, Inflow, Phase } from "../api/types";
 import { Button, IconButton } from "../components/Button";
+import { DraftNote } from "../components/DraftNote";
 import { MonthlyInflows } from "../components/MonthlyInflows";
 import { DeleteInflow } from "../components/DeleteInflow";
 import { ReceiveInflow } from "../components/ReceiveInflow";
 import { Cards, DataTable, Field, FormPanel, MoneyCard, PageHeader, Panel, RowAction, type Column } from "../components/ui";
+import { DraftGuardContext, useAdder } from "../lib/draftGuard";
 import { date, moneyFromDecimal } from "../lib/format";
 import { useCanChangeInflows, useCanManageCash } from "../lib/season";
 import { useAction } from "../lib/useAction";
+import { fieldSetter, useDraft, useRemembered } from "../lib/useDraft";
 
 const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
 
@@ -18,7 +21,8 @@ const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
 export function CashFlowPage() {
   const canEdit = useCanManageCash();
   const canChange = useCanChangeInflows();
-  const [editingBank, setEditingBank] = useState(false);
+  // the BANK form starts open when it has a draft; closing it with the button asks first when something is written
+  const bankForm = useAdder("bank");
   // a BANK that the register gives is not written here
   const fromRegister = useQuery({ queryKey: ["bank"], queryFn: api.bank }).data?.source === "register";
 
@@ -27,10 +31,10 @@ export function CashFlowPage() {
       <PageHeader
         title="CASH FLOW"
         description="Left value = BANK + inflows after the BANK date − the team's purchases and VAT after that date. The BANK is what the register holds in Cassa and Banca today, when the register has it; then an expected inflow is marked as received when the money arrives, and one that is late counts from the day after the BANK. An inflow of sponsorship owes 11% VAT, paid on the first day of the next quarter."
-        add={canChange ? { label: "New inflow", form: (close) => <NewInflow fromRegister={fromRegister} onDone={close} /> } : undefined}
+        add={canChange ? { label: "New inflow", draftKey: "new-inflow", form: (close) => <NewInflow fromRegister={fromRegister} onDone={close} /> } : undefined}
         actions={
           canEdit && !fromRegister && (
-            <Button variant="ghost" icon={faPen} onClick={() => setEditingBank(!editingBank)}>{editingBank ? "Close" : "Set BANK"}</Button>
+            <Button variant="ghost" icon={faPen} onClick={bankForm.toggle}>{bankForm.adding ? "Close" : "Set BANK"}</Button>
           )
         }
       />
@@ -38,27 +42,16 @@ export function CashFlowPage() {
         <PhaseCashFlow phase="estimate" />
         <PhaseCashFlow phase="actual" />
       </div>
-      <BankBox editing={editingBank} onDone={() => setEditingBank(false)} />
+      <DraftGuardContext.Provider value={bankForm.report}>
+        <BankBox editing={bankForm.adding} onDone={bankForm.hide} />
+      </DraftGuardContext.Provider>
     </>
   );
 }
 
 function BankBox({ editing, onDone }: { editing: boolean; onDone: () => void }) {
-  const act = useAction();
   const canEdit = useCanManageCash();
   const bank = useQuery({ queryKey: ["bank"], queryFn: api.bank });
-  const [amount, setAmount] = useState("");
-  const [day, setDay] = useState("");
-
-  useEffect(() => {
-    setAmount(bank.data?.amount ?? "");
-    setDay(bank.data?.asOfDate ?? "");
-  }, [bank.data]);
-
-  const save = async (event: FormEvent) => {
-    event.preventDefault();
-    if (await act(() => api.setBank({ amount, asOfDate: day || null }))) onDone();
-  };
 
   return (
     <Panel title="BANK">
@@ -70,33 +63,71 @@ function BankBox({ editing, onDone }: { editing: boolean; onDone: () => void }) 
       {bank.data?.source === "register" && (
         <p className="muted">From the register: Cassa + Banca at the end of that day. To change it, change the movements of the register.</p>
       )}
-      {canEdit && editing && bank.data?.source !== "register" && (
-        <form className="inline-form" onSubmit={save}>
-          <Field label="Cash value" htmlFor="bank-amount">
-            <input id="bank-amount" className="input small" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          </Field>
-          <Field label="In date" htmlFor="bank-date">
-            <input id="bank-date" className="input small" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
-          </Field>
-          <Button small type="submit" disabled={amount === ""}>Save BANK</Button>
-          <Button small variant="ghost" disabled={!bank.data} onClick={async () => { if (await act(() => api.clearBank())) onDone(); }}>Clear</Button>
-        </form>
-      )}
+      {canEdit && editing && bank.isFetched && bank.data?.source !== "register" && <BankForm bank={bank.data ?? null} onDone={onDone} />}
     </Panel>
   );
+}
+
+/** The form that writes the BANK by hand; it starts from the saved one, and what is written is kept (key `bank`). */
+function BankForm({ bank, onDone }: { bank: Bank | null; onDone: () => void }) {
+  const act = useAction();
+  const [initial] = useState(() => ({ amount: bank?.amount ?? "", day: bank?.asOfDate ?? "" }));
+  // the saved BANK is what the draft started from: if it is another when the draft is found, someone changed it meanwhile
+  const [form, setForm, saved] = useDraft("bank", initial, { base: JSON.stringify(initial) });
+  const { amount, day } = form;
+
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    if (await act(() => api.setBank({ amount, asOfDate: day || null }))) {
+      saved.discard();
+      onDone();
+    }
+  };
+  const clear = async () => {
+    if (await act(() => api.clearBank())) {
+      saved.discard();
+      onDone();
+    }
+  };
+
+  return (
+    <form className="inline-form" onSubmit={save}>
+      <DraftNote draft={saved} name="The BANK" />
+      <Field label="Cash value" htmlFor="bank-amount">
+        <input id="bank-amount" className="input small" type="number" min="0" step="0.01" value={amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} />
+      </Field>
+      <Field label="In date" htmlFor="bank-date">
+        <input id="bank-date" className="input small" type="date" value={day} onChange={(e) => setForm((f) => ({ ...f, day: e.target.value }))} />
+      </Field>
+      <Button small type="submit" disabled={amount === ""}>Save BANK</Button>
+      <Button small variant="ghost" disabled={!bank} onClick={clear}>Clear</Button>
+    </form>
+  );
+}
+
+/** What is written in the form that adds an inflow. */
+interface InflowDraft {
+  phase: Phase;
+  name: string;
+  amount: string;
+  day: string;
+  sponsorship: boolean;
 }
 
 /** The form to add money coming in, for the expected or the actual side. */
 function NewInflow({ fromRegister, onDone }: { fromRegister: boolean; onDone: () => void }) {
   const act = useAction();
-  const [phase, setPhase] = useState<Phase>("estimate");
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("");
-  const [day, setDay] = useState("");
-  const [sponsorship, setSponsorship] = useState(true);
+  const [initial] = useState<InflowDraft>({ phase: "estimate", name: "", amount: "", day: "", sponsorship: true });
+  const [form, setForm, saved] = useDraft<InflowDraft>("new-inflow", initial);
+  const { phase, name, amount, day, sponsorship } = form;
+  const set = fieldSetter(setForm);
+  const [setPhase, setName, setAmount, setDay, setSponsorship] = [set("phase"), set("name"), set("amount"), set("day"), set("sponsorship")];
 
   const add = async () => {
-    if (await act(() => api.createInflow({ phase, sourceName: name.trim(), amount, inflowDate: day || null, sponsorship }))) onDone();
+    if (await act(() => api.createInflow({ phase, sourceName: name.trim(), amount, inflowDate: day || null, sponsorship }))) {
+      saved.discard();
+      onDone();
+    }
   };
 
   return (
@@ -106,8 +137,9 @@ function NewInflow({ fromRegister, onDone }: { fromRegister: boolean; onDone: ()
       submitLabel="Add inflow"
       canSubmit={name.trim() !== "" && amount !== ""}
       onSubmit={add}
-      onCancel={onDone}
+      onCancel={() => saved.leave(onDone)}
     >
+      <DraftNote draft={saved} />
       {!fromRegister && (
         <Field label="Side" htmlFor="inflow-phase">
           <select id="inflow-phase" className="input small" value={phase} onChange={(e) => setPhase(e.target.value as Phase)}>
@@ -140,7 +172,8 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
   const inflows = useQuery({ queryKey: ["inflows", phase], queryFn: () => api.inflows(phase) });
   const view = useQuery({ queryKey: ["cashflow"], queryFn: api.cashFlow });
   const summary = view.data?.[phase].summary;
-  const [receiving, setReceiving] = useState<Inflow | null>(null);
+  // the inflow whose panel is open, remembered with its form: coming back to the page the panel is open with what was written
+  const [receivingId, setReceiving] = useRemembered<number | null>(`cash-flow:${phase}:receiving`, null, (id) => (id === null ? null : `receive-inflow:${id}`));
   // the row whose inflow is being deleted: it opens a panel that lists everything of the company, so that the person chooses where from
   const [deleting, setDeleting] = useState<Inflow | null>(null);
   const fromRegister = inflows.data?.some((i) => i.source === "register") ?? false;
@@ -172,7 +205,7 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
           <>
             {/* receiving is the treasury's; the sponsors add and delete, but cannot delete what is already received */}
             {canEdit && phase === "estimate" && (i.cashEntryId === null
-              ? <IconButton icon={faCheck} label="Mark as received" onClick={() => setReceiving(i)} />
+              ? <IconButton icon={faCheck} label="Mark as received" onClick={() => setReceiving(i.id)} />
               : <IconButton icon={faRotateLeft} label="Not received" onClick={() => act(() => api.unreceiveInflow(i.id))} />)}
             {canChange && (canEdit || i.cashEntryId === null) && (
               <IconButton icon={faTrash} label="Delete inflow" danger onClick={() => setDeleting(i)} />
@@ -190,7 +223,7 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
         columns={columns}
         rows={inflows.data}
         rowKey={(i) => i.id}
-        rowClass={(i) => (receiving?.id === i.id || deleting?.id === i.id ? "row-selected" : undefined)}
+        rowClass={(i) => (receivingId === i.id || deleting?.id === i.id ? "row-selected" : undefined)}
         expand={(i, colSpan) => (
           <>
             {deleting?.id === i.id && (
@@ -198,7 +231,7 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
                 <DeleteInflow from={i.source === "register" ? { cashEntryId: i.id } : { inflowId: i.id }} onClose={() => setDeleting(null)} />
               </RowAction>
             )}
-            {receiving?.id === i.id && (
+            {receivingId === i.id && (
                 <RowAction
                 colSpan={colSpan}
                 eyebrow="Mark as received"

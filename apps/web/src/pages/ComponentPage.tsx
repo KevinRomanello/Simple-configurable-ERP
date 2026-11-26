@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router";
 import { api } from "../api/client";
 import type { BomLine, ItemRow } from "../api/types";
 import { IconButton } from "../components/Button";
+import { DraftNote } from "../components/DraftNote";
 import { BuildForm } from "../components/BuildForm";
 import { HazardPills } from "../components/HazardPills";
 import { ItemThumb } from "../components/ItemThumb";
@@ -17,33 +18,39 @@ import { money, moneyE4, monthOfDate, quantity } from "../lib/format";
 import { itemLabel, useInventoryLookups } from "../lib/inventory";
 import { usePrice } from "../lib/price";
 import { useAction } from "../lib/useAction";
+import { fieldSetter, useDraft } from "../lib/useDraft";
 
 /** The form to add a part to what the team makes, opened from the yellow «Add part». */
 function AddPart({ componentId, candidates, onDone }: { componentId: number; candidates: ItemRow[]; onDone: () => void }) {
   const act = useAction();
-  const [partId, setPartId] = useState("");
-  const [amount, setAmount] = useState("1");
-  const [note, setNote] = useState("");
+  const [initial] = useState({ partId: "", amount: "1", note: "" });
+  const [form, setForm, saved] = useDraft(`new-part:${componentId}`, initial);
+  const { partId, amount, note } = form;
+  const set = fieldSetter(setForm);
 
   const submit = async () => {
-    if (await act(() => api.addPart(componentId, { partId: Number(partId), quantity: amount, ...(note.trim() ? { note: note.trim() } : {}) }))) onDone();
+    if (await act(() => api.addPart(componentId, { partId: Number(partId), quantity: amount, ...(note.trim() ? { note: note.trim() } : {}) }))) {
+      saved.discard();
+      onDone();
+    }
   };
 
   return (
-    <FormPanel title="Add a part" submitLabel="Add part" canSubmit={partId !== "" && amount !== ""} onSubmit={submit} onCancel={onDone}>
+    <FormPanel title="Add a part" submitLabel="Add part" canSubmit={partId !== "" && amount !== ""} onSubmit={submit} onCancel={() => saved.leave(onDone)}>
+      <DraftNote draft={saved} />
       <Field label="Part" htmlFor="part-item">
         <SearchSelect
           id="part-item"
           value={partId}
-          onChange={setPartId}
+          onChange={set("partId")}
           choices={[{ value: "", label: "Choose…" }, ...candidates.map((i) => ({ value: String(i.id), label: `${itemLabel(i)}${i.origin === "made" ? " (made)" : ""}` }))]}
         />
       </Field>
       <Field label="Quantity in one" htmlFor="part-quantity">
-        <input id="part-quantity" className="input small" type="number" min="0" step="0.001" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <input id="part-quantity" className="input small" type="number" min="0" step="0.001" value={amount} onChange={(e) => set("amount")(e.target.value)} />
       </Field>
       <Field label="Note" htmlFor="part-note">
-        <input id="part-note" className="input small" maxLength={500} placeholder="Optional" value={note} onChange={(e) => setNote(e.target.value)} />
+        <input id="part-note" className="input small" maxLength={500} placeholder="Optional" value={note} onChange={(e) => set("note")(e.target.value)} />
       </Field>
     </FormPanel>
   );
@@ -159,7 +166,7 @@ export function ComponentPage() {
 
       {canEdit && lookups && bom.lines.length > 0 && (
         <Panel>
-          <AddSection label="Make new" form={(close) => <BuildForm item={item} lookups={lookups} onDone={close} />} />
+          <AddSection label="Make new" draftKey={`build:${item.id}`} form={(close) => <BuildForm item={item} lookups={lookups} onDone={close} />} />
         </Panel>
       )}
 
@@ -172,7 +179,7 @@ export function ComponentPage() {
           empty="No parts yet"
           footer={bom.totalCents !== null && <tr className="total"><td colSpan={4}>Total</td><td className="num">{money(bom.totalCents)}</td><td colSpan={2} /></tr>}
         />
-        {canEdit && <AddSection label="Add part" form={(close) => <AddPart componentId={componentId} candidates={candidates} onDone={close} />} />}
+        {canEdit && <AddSection label="Add part" draftKey={`new-part:${componentId}`} form={(close) => <AddPart componentId={componentId} candidates={candidates} onDone={close} />} />}
       </Panel>
     </>
   );

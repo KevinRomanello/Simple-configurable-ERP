@@ -10,7 +10,7 @@ Sette richieste dell'utente:
 | B | Le azioni di una riga (collegare, pagare, ricevere, cambiare…) si aprono in un **popup** invece che in cima alla pagina | piccolo-medio — **fatta** (26 novembre 2026) |
 | C | **Cancellare un inflow** di CASH FLOW scegliendo da dove: EXPECTED, ACTUAL, registro di cassa | piccolo-medio — **fatta** (26 novembre 2026) |
 | D | **TO PAY** visibile a chi tiene il budget, e gli **ordini** (più righe comprate in un solo ordine) | medio-grande |
-| E | **Non perdere quello che si sta scrivendo** quando si cambia pagina (bozze) | medio |
+| E | **Non perdere quello che si sta scrivendo** quando si cambia pagina (bozze) | medio — **fatta** (26 novembre 2026, in due passi: E1 la base e i form più usati, E2 tutti gli altri) |
 | F | **Ctrl+Z** (annulla) e Ctrl+Shift+Z (rifai) | grande |
 | G | **I moduli**: budget, tesoreria, inventario e anagrafiche spegnibili, che si parlano solo con «API come funzioni». Design a parte: [moduli-architettura.md](moduli-architettura.md) (ADR-2) | molto grande, a passi |
 
@@ -217,6 +217,26 @@ Qui sotto i nomi di oggi, per ritrovare il codice.
 ---
 
 ## 5. Fase E — Non perdere quello che si sta scrivendo
+
+### 5.0 Stato: fatta (E1 e E2, 26 novembre 2026)
+
+La fase si fa in due passi (decisione dell'utente, 26 novembre 2026).
+
+**E1 — fatta (26 novembre 2026).** La base comune (`lib/drafts.ts`, `lib/useDraft.ts` con `useDraft` e `useRemembered`, `lib/draftGuard.tsx`, `components/DraftNote.tsx`; `RowAction`, `AddSection` e `PageHeader` che chiedono prima di chiudere; `dropAllDrafts` al logout) e questi form: new item (`new-line:<progetto>`), modifica di una riga sul telefono (`line-edit:<riga>`, base `version`), Pay, Link to budget lines, Receive / More arrived / Add goods, Use-move-count, Mark as received, New inflow, Set BANK, il movimento del registro (nuovo e modifica). «Cosa è aperto» è ricordato su TO PAY (il pannello Pay e il collegamento ai pagamenti), PENDING, CASH REGISTER, CASH FLOW (i due lati), pagina del pezzo (posto e «Add goods»), schede del telefono. La prova di architettura c'è, con l'elenco delle eccezioni. Documentato in [stile-interfaccia.md](stile-interfaccia.md), punto 33.
+
+**E2 — fatta (26 novembre 2026).** Tutti gli altri form: «New project» (`new-project:<area>`), «New sponsor» (`new-sponsor`), «New supplier», «New season», le liste delle impostazioni (`quick-add:<lista>`, `new-place`), il pannello Calculation (`settings:calculation`), Item types (`new-type:<padre o root>`, `new-param:<tipo>`), «Edit» di un pezzo (`item-edit:<pezzo>`), «New component», «Add a part», «Make new» (`build:<componente>`), i due form dei token (`new-token`, `new-service-account`) e, nelle anagrafiche, «New table», il record (`registry:record:<tabella>:<record o new>`, solo i campi cambiati), il campo, la vista nuova e le impostazioni della vista, le regole di accesso, il webhook, il modulo (form builder) e le impostazioni della tabella. La prova di architettura **non ha più l'elenco dei form da fare**: restano solo le tre eccezioni (la cornice `FormPanel`, la scelta di un file in `Datasheets`, il modulo pubblico `FormPage`). «Cosa è aperto» è ricordato anche per Item types, il record aperto di una tabella e il pannello delle impostazioni di una tabella (`useRemembered` con un elenco di chiavi o l'inizio di chiavi con `*`, `hasDraft`).
+
+**Non tenuto, di proposito:** le intestazioni di un webhook (di solito c'è una chiave: `Authorization`), la password di una vista pubblica, il token appena creato, i file scelti (CSV delle anagrafiche e «New table» da un file, import dell'Excel, schede tecniche). Il pannello «Import» delle anagrafiche e i form senza pulsante Save (celle, spunte, `CommitInput`) salvano da soli o non hanno nulla da tenere.
+
+**Da sapere per chi aggiunge un form** (cose imparate nella E1 e nella E2):
+- `initial` di `useDraft` è «il form vuoto» e serve a sapere se c'è qualcosa di scritto: se il form di partenza dipende da dati che arrivano dopo (un valore letto dal server), il form va montato solo quando i dati ci sono (vedi `BankForm`).
+- I form con più viste dello stesso (il form «rapido» del popover e quello intero) usano la stessa chiave: la bozza è una sola.
+- Un form che dopo «Add» resta aperto per un altro inserimento (il movimento nuovo del registro) deve fare `saved.discard()` e poi rimettere sé stesso a un valore iniziale nuovo (`setInitial`/`setDraft`).
+- Una lista di cose aperte con più copie nella stessa pagina (i due lati di CASH FLOW, un progetto per scheda) vuole la chiave di `useRemembered` con ciò che le distingue.
+- `FormPanel` e `.inline-form` mettono `DraftNote` su una riga sola in alto (`.inline-form > .hint`, `.form-grid > .hint`).
+- Un pannello che resta aperto dopo il Save (le impostazioni di una tabella, il pannello Calculation) si rimonta con una `key` fatta dei valori salvati: così riparte dai valori nuovi, e una bozza partita da valori vecchi lo dice. Dopo il Save si chiama `saved.discard()` prima del nuovo rendering.
+- Un form dentro un pannello che vive più a lungo (il record di una tabella, tra un record e l'altro) va in un componente con una `key` per cosa riguarda (`RecordFields`); la conferma «Discard what you wrote?» la chiede il contenitore (`useGuard`, `run`).
+- Lo stato aperto che teneva un oggetto intero (`RegView`, `Webhook`, `RegField`) tiene ora solo l'id: la bozza dice quale form è, e l'oggetto si ritrova dalla lista.
 
 ### 5.1 Cosa vede l'utente
 

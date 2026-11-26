@@ -3,6 +3,7 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { api, ApiError } from "../api/client";
 import type { Me } from "../api/types";
 import { LoginPage } from "../pages/LoginPage";
+import { dropAllDrafts } from "./drafts";
 import { isReadOnlyHere, lockEditing } from "./permissions";
 import { SCREEN, useMaxWidth } from "./screen";
 
@@ -20,7 +21,10 @@ export function useMe(): Me {
 }
 
 /** Forgets the signed-in person: the gate then shows the sign-in page. */
-export const forgetUser = (queryClient: QueryClient) => queryClient.setQueryData(["me"], null);
+export const forgetUser = (queryClient: QueryClient) => {
+  dropAllDrafts(); // what was written and not saved does not stay in this browser after the logout
+  queryClient.setQueryData(["me"], null);
+};
 
 /**
  * Wraps the whole app. It asks the server who is signed in; nobody means the sign-in page, so
