@@ -11,7 +11,7 @@ import { CommitInput } from "../components/CommitInput";
 import { EditCell } from "../components/EditCell";
 import { TableBox } from "../components/ExportBlocks";
 import { SearchSelect } from "../components/SearchSelect";
-import { Cards, Field, FormPanel, Loading, Message, MoneyCard, PageHeader, Panel, Table } from "../components/ui";
+import { Cards, Field, FormPanel, Loading, Message, MoneyCard, PageHeader, RowAction, Table } from "../components/ui";
 import { SortTh } from "../components/SortTh";
 import { useMe } from "../lib/auth";
 import { date, money } from "../lib/format";
@@ -195,9 +195,8 @@ export function CashRegisterPage() {
   const [text, setText] = useState("");
   const [toCheck, setToCheck] = useState(false);
   const [importing, setImporting] = useState(false);
-  // the movement being changed as a whole, or the one whose budget lines are being chosen: one panel at a time
+  // the movement being changed as a whole, or the one whose budget lines are being chosen: one popup at a time
   const [panel, setPanel] = useState<{ kind: "edit" | "link"; id: number } | null>(null);
-  const panelEntry = register.data?.entries.find((e) => e.id === panel?.id);
   const sort = useSort(registerSort(categories.data ?? [], methods.data ?? []));
 
   if (!canManageCash) return <Message>Only the treasury and the admins can see the register.</Message>;
@@ -215,6 +214,20 @@ export function CashRegisterPage() {
       (!toCheck || !e.invoiceChecked) &&
       (text === "" || e.description.toLowerCase().includes(text.toLowerCase())),
   );
+  /** The panel of the action that is open for a movement: which row it belongs to is in what it says. */
+  const rowAction = (e: CashEntryRow) => {
+    const context: [string, string][] = [["Date", date(e.on)], ["Account", ACCOUNTS.find((a) => a.value === e.account)?.label ?? ""], [e.cents < 0 ? "Paid" : "Received", money(Math.abs(e.cents))]];
+    const close = () => setPanel(null);
+    return panel?.kind === "edit" ? (
+      <RowAction colSpan={17} eyebrow="Change movement" title={e.description || "this movement"} context={context} onClose={close}>
+        <MovementForm key={e.id} entry={e} categories={voci} methods={methods.data!} onClose={close} />
+      </RowAction>
+    ) : (
+      <RowAction colSpan={17} eyebrow="Link to budget lines" title={e.description || "this payment"} context={context} onClose={close}>
+        <PayLines entry={e} onClose={close} />
+      </RowAction>
+    );
+  };
   const remove = (e: CashEntryRow) => {
     if (window.confirm(`Delete "${e.description || "this movement"}" of ${date(e.on)}?`)) void act(() => api.deleteCashEntry(e.id));
   };
@@ -237,14 +250,6 @@ export function CashRegisterPage() {
         }
       />
       {importing && <CashImport categories={voci} methods={methods.data} onClose={() => setImporting(false)} />}
-      {panelEntry && panel?.kind === "edit" && (
-        <MovementForm key={panelEntry.id} entry={panelEntry} categories={voci} methods={methods.data} onClose={() => setPanel(null)} />
-      )}
-      {panelEntry && panel?.kind === "link" && (
-        <Panel title={`Budget lines paid by: ${panelEntry.description || "this payment"} (${date(panelEntry.on)})`}>
-          <PayLines entry={panelEntry} onClose={() => setPanel(null)} />
-        </Panel>
-      )}
       <Cards>
         <MoneyCard caption="Cassa" cents={data.closing.cash} />
         <MoneyCard caption="Banca" cents={data.closing.bank} />
@@ -307,55 +312,58 @@ export function CashRegisterPage() {
           <tbody>
             <OpeningRow register={data} />
             {sort.sorted(shown).map((e) => (
-              <tr key={e.id}>
-                <td>
-                  <EditCell kind="date" value={e.on} display={date(e.on)} label="the date" onCommit={(v) => v !== "" && update(e, { on: v })} />
-                </td>
-                <td className="lines">
-                  <EditCell kind="text" value={e.description} label="the description" onCommit={(v) => update(e, { description: v })} />
-                  {e.inflow && <span className="muted">received the inflow {e.inflow.sourceName}</span>}
-                  {e.lines.length > 0 && <span className="muted">paid {e.lines.map((l) => `${l.item} ${money(l.cents)}`).join(", ")}</span>}
-                </td>
-                <td className="lines">
-                  <EditCell
-                    kind="choice"
-                    value={String(e.categoryId ?? "")}
-                    display={nameOf(voci, e.categoryId) || undefined}
-                    label="the Voce"
-                    options={[{ value: "", label: "—" }, ...voci.map((v) => ({ value: String(v.id), label: v.name }))]}
-                    onCommit={(v) => update(e, { categoryId: v === "" ? null : Number(v) })}
-                  />
-                </td>
-                <td>
-                  <EditCell
-                    kind="choice"
-                    value={String(e.methodId ?? "")}
-                    display={nameOf(methods.data, e.methodId) || undefined}
-                    label="the payment method"
-                    options={[{ value: "", label: "—" }, ...methods.data.map((m) => ({ value: String(m.id), label: m.name }))]}
-                    onCommit={(v) => update(e, { methodId: v === "" ? null : Number(v) })}
-                  />
-                </td>
-                <td><input type="checkbox" aria-label="Check fattura" checked={e.invoiceChecked} onChange={(event) => update(e, { invoiceChecked: event.target.checked })} /></td>
-                <td><input type="checkbox" aria-label="Sponsorship" disabled={e.cents < 0} checked={e.sponsorship} onChange={(event) => update(e, { sponsorship: event.target.checked })} /></td>
-                {ACCOUNTS.map((a) => (
-                  <Fragment key={a.value}>
-                    <td className="num group-start">
-                      {e.account === a.value && e.cents > 0 && <EditCell kind="amount" value={decimalText(e.cents, 2)} display={money(e.cents)} label="the amount" onCommit={(v) => update(e, { amount: v })} />}
-                    </td>
-                    <td className="num">
-                      {e.account === a.value && e.cents < 0 && <EditCell kind="amount" value={decimalText(-e.cents, 2)} display={money(-e.cents)} label="the amount" onCommit={(v) => update(e, { amount: v })} />}
-                    </td>
-                    <td className={`num sum${e.account === a.value ? "" : " muted"}`}>{money(e.balances[a.value])}</td>
-                  </Fragment>
-                ))}
-                <td className="num sum">{money(e.total)}</td>
-                <td className="num">
-                  {e.cents < 0 && <IconButton icon={faLink} label="Link to budget lines" onClick={() => setPanel(panel?.kind === "link" && panel.id === e.id ? null : { kind: "link", id: e.id })} />}
-                  <IconButton icon={faPen} label="Change the whole movement" onClick={() => setPanel(panel?.kind === "edit" && panel.id === e.id ? null : { kind: "edit", id: e.id })} />
-                  <IconButton icon={faTrash} label="Delete movement" danger onClick={() => remove(e)} />
-                </td>
-              </tr>
+              <Fragment key={e.id}>
+                <tr className={panel?.id === e.id ? "row-selected" : undefined}>
+                  <td>
+                    <EditCell kind="date" value={e.on} display={date(e.on)} label="the date" onCommit={(v) => v !== "" && update(e, { on: v })} />
+                  </td>
+                  <td className="lines">
+                    <EditCell kind="text" value={e.description} label="the description" onCommit={(v) => update(e, { description: v })} />
+                    {e.inflow && <span className="muted">received the inflow {e.inflow.sourceName}</span>}
+                    {e.lines.length > 0 && <span className="muted">paid {e.lines.map((l) => `${l.item} ${money(l.cents)}`).join(", ")}</span>}
+                  </td>
+                  <td className="lines">
+                    <EditCell
+                      kind="choice"
+                      value={String(e.categoryId ?? "")}
+                      display={nameOf(voci, e.categoryId) || undefined}
+                      label="the Voce"
+                      options={[{ value: "", label: "—" }, ...voci.map((v) => ({ value: String(v.id), label: v.name }))]}
+                      onCommit={(v) => update(e, { categoryId: v === "" ? null : Number(v) })}
+                    />
+                  </td>
+                  <td>
+                    <EditCell
+                      kind="choice"
+                      value={String(e.methodId ?? "")}
+                      display={nameOf(methods.data, e.methodId) || undefined}
+                      label="the payment method"
+                      options={[{ value: "", label: "—" }, ...methods.data.map((m) => ({ value: String(m.id), label: m.name }))]}
+                      onCommit={(v) => update(e, { methodId: v === "" ? null : Number(v) })}
+                    />
+                  </td>
+                  <td><input type="checkbox" aria-label="Check fattura" checked={e.invoiceChecked} onChange={(event) => update(e, { invoiceChecked: event.target.checked })} /></td>
+                  <td><input type="checkbox" aria-label="Sponsorship" disabled={e.cents < 0} checked={e.sponsorship} onChange={(event) => update(e, { sponsorship: event.target.checked })} /></td>
+                  {ACCOUNTS.map((a) => (
+                    <Fragment key={a.value}>
+                      <td className="num group-start">
+                        {e.account === a.value && e.cents > 0 && <EditCell kind="amount" value={decimalText(e.cents, 2)} display={money(e.cents)} label="the amount" onCommit={(v) => update(e, { amount: v })} />}
+                      </td>
+                      <td className="num">
+                        {e.account === a.value && e.cents < 0 && <EditCell kind="amount" value={decimalText(-e.cents, 2)} display={money(-e.cents)} label="the amount" onCommit={(v) => update(e, { amount: v })} />}
+                      </td>
+                      <td className={`num sum${e.account === a.value ? "" : " muted"}`}>{money(e.balances[a.value])}</td>
+                    </Fragment>
+                  ))}
+                  <td className="num sum">{money(e.total)}</td>
+                  <td className="num">
+                    {e.cents < 0 && <IconButton icon={faLink} label="Link to budget lines" onClick={() => setPanel({ kind: "link", id: e.id })} />}
+                    <IconButton icon={faPen} label="Change the whole movement" onClick={() => setPanel({ kind: "edit", id: e.id })} />
+                    <IconButton icon={faTrash} label="Delete movement" danger onClick={() => remove(e)} />
+                  </td>
+                </tr>
+                {panel?.id === e.id && rowAction(e)}
+              </Fragment>
             ))}
             {shown.length === 0 && (
               <tr><td colSpan={17} className="empty">{data.entries.length === 0 ? "No movements in this year yet" : "No movement matches the filters"}</td></tr>

@@ -1,13 +1,13 @@
 import { faCopy, faGripVertical, faPen, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import type { FormAccess, FormConfig, FormField, FormSet } from "@erp/registry";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { registry, type RegTable, type RegView } from "../../api/registry";
 import { useDragOrder } from "../../lib/useDragOrder";
 import { Button, IconButton } from "../../components/Button";
 import { Chips } from "../../components/Chips";
 import { SearchSelect } from "../../components/SearchSelect";
-import { Field, FormPanel, Panel, Table, TableScroll } from "../../components/ui";
+import { Field, FormPanel, Panel, RowAction, Table, TableScroll } from "../../components/ui";
 import { COMPUTED } from "../../lib/registry";
 import { useAction } from "../../lib/useAction";
 import { FilterEditor } from "./ViewTools";
@@ -24,6 +24,11 @@ export function FormsTab({ table }: { table: RegTable }) {
   return (
     <>
       <Panel title="Forms" actions={<Button small icon={faPlus} onClick={() => setEditing("new")}>New form</Button>}>
+        {editing === "new" && (
+          <RowAction loose eyebrow="New form" title={`In ${table.name}`} onClose={() => setEditing(null)}>
+            <FormEditor key="new" table={table} view={null} onDone={() => setEditing(null)} />
+          </RowAction>
+        )}
         {forms.length === 0 && <p className="muted">No forms yet. A form adds a record (an application) or changes one (onboarding, exit, an HR assessment).</p>}
         {forms.length > 0 && (
           <TableScroll>
@@ -31,23 +36,29 @@ export function FormsTab({ table }: { table: RegTable }) {
               <thead><tr><th>FORM</th><th>WHO AND WHAT</th><th>ADDRESS</th><th /></tr></thead>
               <tbody>
                 {forms.map((v) => (
-                  <tr key={v.id}>
-                    <td>{v.config.form?.title ?? v.name}</td>
-                    <td className="muted">{v.config.form?.access.kind} · {v.config.form?.mode === "create" ? "adds a record" : `changes ${v.config.form?.target === "me" ? "the person's own record" : v.config.form?.target === "link" ? "the record of a personal link" : "a record picked"}`}</td>
-                    <td className="mono"><a href={formUrl(v.slug ?? "")} target="_blank" rel="noreferrer">/forms/{v.slug}</a></td>
-                    <td className="num nowrap">
-                      <IconButton icon={faCopy} label="Copy the address" onClick={() => navigator.clipboard.writeText(formUrl(v.slug ?? ""))} />
-                      <IconButton icon={faPen} label="Change the form" onClick={() => setEditing(v)} />
-                      <IconButton icon={faTrash} label="Delete the form" danger onClick={() => window.confirm("Delete this form? The records it made stay.") && act(() => registry.deleteView(v.id))} />
-                    </td>
-                  </tr>
+                  <Fragment key={v.id}>
+                    <tr className={editing !== null && editing !== "new" && editing.id === v.id ? "row-selected" : undefined}>
+                      <td>{v.config.form?.title ?? v.name}</td>
+                      <td className="muted">{v.config.form?.access.kind} · {v.config.form?.mode === "create" ? "adds a record" : `changes ${v.config.form?.target === "me" ? "the person's own record" : v.config.form?.target === "link" ? "the record of a personal link" : "a record picked"}`}</td>
+                      <td className="mono"><a href={formUrl(v.slug ?? "")} target="_blank" rel="noreferrer">/forms/{v.slug}</a></td>
+                      <td className="num nowrap">
+                        <IconButton icon={faCopy} label="Copy the address" onClick={() => navigator.clipboard.writeText(formUrl(v.slug ?? ""))} />
+                        <IconButton icon={faPen} label="Change the form" onClick={() => setEditing(v)} />
+                        <IconButton icon={faTrash} label="Delete the form" danger onClick={() => window.confirm("Delete this form? The records it made stay.") && act(() => registry.deleteView(v.id))} />
+                      </td>
+                    </tr>
+                    {editing !== null && editing !== "new" && editing.id === v.id && (
+                      <RowAction colSpan={4} eyebrow="Change form" title={v.config.form?.title ?? v.name} context={[["Address", `/forms/${v.slug}`]]} onClose={() => setEditing(null)}>
+                        <FormEditor key={v.id} table={table} view={v} onDone={() => setEditing(null)} />
+                      </RowAction>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </Table>
           </TableScroll>
         )}
       </Panel>
-      {editing && <FormEditor key={editing === "new" ? "new" : editing.id} table={table} view={editing === "new" ? null : editing} onDone={() => setEditing(null)} />}
       {forms.some((v) => v.config.form?.target === "link") && <PersonalLinks table={table} forms={forms.filter((v) => v.config.form?.target === "link")} />}
     </>
   );

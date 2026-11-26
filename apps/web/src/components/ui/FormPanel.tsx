@@ -1,12 +1,14 @@
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import type { FormEvent, ReactNode } from "react";
 import { Button } from "../Button";
+import { FormActions } from "./FormActions";
 import { Panel } from "./Panel";
 
 /**
  * The box of a form that adds something: title, a line of explanation if needed, the fields and,
  * last, the same two buttons everywhere (the one that adds, and Cancel). `layout="inline"` puts
- * the fields and the buttons on one row; `"stack"` for a longer form (fields in rows or sections).
+ * the fields and the buttons on one row; `"stack"` for a longer form (fields in rows or sections). Inside the panel of an
+ * action (`RowAction`) it has no box of its own and its buttons are the bar at the bottom of the panel.
  */
 export function FormPanel({ title, description, submitLabel, canSubmit = true, onSubmit, onCancel, layout = "inline", children }: {
   title: ReactNode;
@@ -34,12 +36,12 @@ export function FormPanel({ title, description, submitLabel, canSubmit = true, o
       {layout === "inline" ? (
         <form className="inline-form" onSubmit={submit}>
           {children}
-          {buttons}
+          <FormActions>{buttons}</FormActions>
         </form>
       ) : (
         <form className="stack tight" onSubmit={submit}>
           {children}
-          <div className="inline-form">{buttons}</div>
+          <FormActions>{buttons}</FormActions>
         </form>
       )}
     </Panel>

@@ -18,6 +18,7 @@ Verifica rapida che il registro sia completo: `grep -rn "HARDCODED" apps package
 | 11 | Il server delle mappe della vista mappa delle anagrafiche | `tileAddress` (registry, `tiles.service.ts`) ↔ `GET /api/registry/tiles/:z/:x/:y.png` | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | un'impostazione del registro (Settings › Registry), per un server di mattonelle del team ([anagrafiche.md](anagrafiche.md), §12) |
 | 10 | La categoria del budget delle righe dell'area derivata ADMINISTRATION (le spese fuori budget calcolate dal registro): **«Administration»** | `getDerivedAreaCategory` (lookups) ↔ `GET /api/lookups/derived-area-category` (futuro) | «Administration» | un valore della pagina Settings, scelto fra le categorie ([spese-fuori-budget.md](spese-fuori-budget.md)) |
 | 12 | I moduli dell'ERP che si possono spegnere | `listModuleDefs` (appmodules) ↔ `GET /api/modules` | solo `registry` (anagrafiche), con i prefissi `/api/registry` e `/api/role-sync` | l'elenco ricavato dalle rotte che ogni modulo registra |
+| 13 | Come si apre un'azione di una riga: sotto la riga, dialogo, pannello laterale o popover | `rowActionMode` (`apps/web/src/lib/rowAction.ts`) ↔ un'impostazione del sito o della persona | «sotto la riga» (`under`), se il browser non ha una scelta salvata (`erp.rowActionMode`, scelta in Settings › App › Appearance) | un'impostazione salvata nel database, per sito o per persona ([stile-interfaccia.md](stile-interfaccia.md), punto 31) |
 
 ### Implementato (6 novembre 2026): la stagione corrente
 

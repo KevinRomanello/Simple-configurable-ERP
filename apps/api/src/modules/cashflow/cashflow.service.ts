@@ -23,7 +23,7 @@ async function assertCanManageShared() {
 }
 
 /** Adding and deleting inflows is also for the sponsors: some inflows are their money. Receiving them and the BANK are not. */
-async function assertCanChangeInflows() {
+export async function assertCanChangeInflows() {
   const actor = await getCurrentUser();
   if (!(await canChangeInflows(actor))) throw forbidden("You cannot change the inflows");
   return actor;

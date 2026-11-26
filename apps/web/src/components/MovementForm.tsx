@@ -9,7 +9,7 @@ import { todayIso } from "../lib/today";
 import { SearchSelect } from "./SearchSelect";
 import { useAction } from "../lib/useAction";
 import { Button } from "./Button";
-import { Field } from "./ui";
+import { Field, FormActions } from "./ui";
 
 const KINDS = [
   { value: "use", label: "Use" },
@@ -105,10 +105,10 @@ export function MovementForm({
           <input id="move-note" className="input small" maxLength={5000} value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
       </div>
-      <div className="inline-form">
+      <FormActions>
         <Button small icon={faCheck} type="submit" disabled={!ready}>Save</Button>
         <Button small variant="ghost" onClick={onCancel}>Cancel</Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

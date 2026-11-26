@@ -12,7 +12,7 @@ import { useInventoryLookups } from "../lib/inventory";
 import { usePrice } from "../lib/price";
 import { TableBox } from "../components/ExportBlocks";
 import { SortTh } from "../components/SortTh";
-import { EmptyRow, PageHeader, Panel, Table } from "../components/ui";
+import { EmptyRow, PageHeader, Panel, RowAction, Table } from "../components/ui";
 import { useSort, type SortAccessors } from "../lib/sort";
 
 const SORT: SortAccessors<PendingRow> = {
@@ -49,7 +49,6 @@ export function PendingPage() {
       />
 
       <Panel>
-        {/* rows that open a form under them: built from the common pieces rather than DataTable */}
         <TableBox title="Pending" cards>
           <Table className="phone-cards">
             <thead>
@@ -72,7 +71,7 @@ export function PendingPage() {
             <tbody>
               {rows.map((row) => (
                 <Fragment key={row.lineId}>
-                  <tr>
+                  <tr className={open === row.lineId ? "row-selected" : undefined}>
                     <td className="cell-title">{row.item}{row.category && <div className="muted">{row.category}</div>}</td>
                     <td>{row.brand ?? <span className="muted">—</span>}</td>
                     <td>{row.model ?? <span className="muted">—</span>}</td>
@@ -87,18 +86,20 @@ export function PendingPage() {
                     <td><ArrivalPill status={row.status} /></td>
                     <td className="num">
                       {canEdit && lookups && (
-                        <Button small icon={faBoxOpen} variant={open === row.lineId ? "ghost" : "primary"} onClick={() => setOpen(open === row.lineId ? null : row.lineId)}>
-                          {open === row.lineId ? "Close" : "Receive"}
-                        </Button>
+                        <Button small icon={faBoxOpen} onClick={() => setOpen(row.lineId)}>Receive</Button>
                       )}
                     </td>
                   </tr>
                   {open === row.lineId && lookups && items.data && (
-                    <tr className="row-panel">
-                      <td colSpan={13}>
-                        <ReceiveForm line={row} items={items.data} lookups={lookups} onDone={() => setOpen(null)} onCancel={() => setOpen(null)} />
-                      </td>
-                    </tr>
+                    <RowAction
+                      colSpan={13}
+                      eyebrow="Receive"
+                      title={row.item}
+                      context={[["Project", row.projectName], ["Bought from", row.supplierName ?? "—"], ["Bought", `${quantity(row.boughtMilli)} · arrived ${quantity(row.receivedMilli)}`], ["Per unit", `${moneyE4(row.prices.net)} net`]]}
+                      onClose={() => setOpen(null)}
+                    >
+                      <ReceiveForm line={row} items={items.data} lookups={lookups} onDone={() => setOpen(null)} onCancel={() => setOpen(null)} />
+                    </RowAction>
                   )}
                 </Fragment>
               ))}

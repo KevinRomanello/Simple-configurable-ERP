@@ -97,6 +97,8 @@ Fino al 26 ottobre 2026 esisteva anche uno sponsor «in cassa» (`mode = cash`).
 - un inflow **senza data** non ha un giorno in cui pagare: l'IVA non compare finché non lo si data;
 - **la casella per escludere l'IVA c'è dal 10/11/2026**: la spunta **Sponsorship** (`team_inflow.sponsorship`, di base vera, quindi i numeri di prima non cambiano). Un inflow non spuntato è denaro normale (una quota associativa): conta in CASH FLOW e nel Gantt ma **non paga l'11%**. Lo stesso vale per le entrate del registro di cassa ([registro-di-cassa.md](registro-di-cassa.md)).
 
+**Cancellare un inflow** (26 novembre 2026): lo stesso sponsor è spesso in tre posti (l'inflow atteso, quello arrivato, il movimento del registro che l'ha ricevuto). Il cestino di CASH FLOW apre un pannello che li elenca tutti e fa scegliere da dove toglierlo, uno solo o insieme (tutto o niente): chi ha la spunta Sponsors cancella gli inflow non ricevuti; quelli ricevuti e i movimenti del registro sono della tesoreria ([registro-di-cassa.md](registro-di-cassa.md), §5.2).
+
 La migrazione `0009_one_kind_of_sponsor.sql` ha trasformato gli sponsor in cassa rimasti in inflow (un inflow per ogni contratto, con la stessa fase, valore e data) e poi ha tolto le colonne `mode` e `pays_vat` e il tipo `fund_mode`: nessun dato perso. Provata su una copia dei dati reali di quel giorno.
 
 ## 6. Dove sta il codice

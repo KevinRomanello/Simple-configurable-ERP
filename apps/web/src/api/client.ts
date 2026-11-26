@@ -1,5 +1,5 @@
 import type {
-  Analysis, ApiTokenRow, AppModule, Area, AreaSheet, Bank, ApplyBody, CategoryDefault, ToLinkRow, ToPay, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, PlanView, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, CashScope, SponsorBody, Statement, StatsResult, Supplier, TotalsView, TypeParam, UserRow, VatReport,
+  Analysis, RelatedInflows, ApiTokenRow, AppModule, Area, AreaSheet, Bank, ApplyBody, CategoryDefault, ToLinkRow, ToPay, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, PlanView, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, CashScope, SponsorBody, Statement, StatsResult, Supplier, TotalsView, TypeParam, UserRow, VatReport,
 } from "./types";
 import type { NewLineBody } from "../lib/newLine";
 import { chosenSeasonId } from "../lib/seasonChoice";
@@ -375,6 +375,9 @@ export const api = {
   createInflow: (body: { phase: Phase; sourceName: string; amount: string; inflowDate?: string | null; sponsorship?: boolean }) =>
     post("/inflows", body),
   deleteInflow: (id: number) => del(`/inflows/${id}`),
+  relatedInflows: (from: { inflowId: number } | { cashEntryId: number }) =>
+    get<RelatedInflows>(`/inflows/related?${"inflowId" in from ? `inflowId=${from.inflowId}` : `cashEntryId=${from.cashEntryId}`}`),
+  deleteInflows: (body: { inflowIds: number[]; cashEntryIds: number[] }) => post<void>("/inflows/delete", body),
   receivable: () => get<Receivable[]>("/inflows/receivable"),
   /** An expected inflow arrived: a new movement of the register, or one that is already there. */
   receiveInflow: (id: number, body: { entryId: number } | { on: string; account: CashAccount; amount?: string; categoryId?: number | null; methodId?: number | null }) =>

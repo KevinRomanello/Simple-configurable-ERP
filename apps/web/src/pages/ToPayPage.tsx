@@ -8,7 +8,7 @@ import { TableBox } from "../components/ExportBlocks";
 import { PayForm } from "../components/PayForm";
 import { PayLines } from "../components/PayLines";
 import { SortTh } from "../components/SortTh";
-import { EmptyRow, Field, Loading, Message, PageHeader, Panel, Table } from "../components/ui";
+import { EmptyRow, Field, Loading, Message, PageHeader, Panel, RowAction, Table } from "../components/ui";
 import { useMe } from "../lib/auth";
 import { date, money } from "../lib/format";
 import { useSort, type SortAccessors } from "../lib/sort";
@@ -41,7 +41,7 @@ export function ToPayPage() {
   const { canManageCash } = useMe().permissions;
   const [allSeasons, setAllSeasons] = useState(false);
   const [text, setText] = useState("");
-  // the lines the form above the table pays: one (its Pay button) or the ticked ones
+  // the lines the panel pays: one (its Pay button, the panel opens under its row) or the ticked ones (it belongs to no row)
   const [paying, setPaying] = useState<number[] | null>(null);
   const [picked, setPicked] = useState<number[]>([]);
   const toPay = useQuery({ queryKey: ["to-pay", allSeasons], queryFn: () => api.toPay(allSeasons), enabled: canManageCash });
@@ -59,7 +59,26 @@ export function ToPayPage() {
     setPicked([]);
   };
   const paid = all.filter((r) => paying?.includes(r.lineId));
-  const same = (ids: number[]) => paying !== null && paying.length === ids.length && ids.every((id) => paying.includes(id));
+  /** The panel that pays `lines`: under the row of the one line, or loose when several are paid together. */
+  const payAction = (lines: ToPayRow[]) => {
+    const one = lines.length === 1 ? lines[0]! : null;
+    const context: [string, string][] = one
+      ? [["Project", one.projectName], ["Bought from", one.supplierName ?? "—"], ["To pay", money(one.dueCents)]]
+      : [["Lines", String(lines.length)], ["To pay", money(lines.reduce((sum, r) => sum + r.dueCents, 0))]];
+    return (
+      <RowAction
+        colSpan={one ? 10 : undefined}
+        loose={!one}
+        eyebrow="Pay"
+        title={one ? one.item : `${lines.length} lines in one payment`}
+        context={context}
+        quick={one ? <PayForm key={`quick-${one.lineId}`} rows={lines} lastMethodId={lastMethodId} compact onDone={done} /> : undefined}
+        onClose={done}
+      >
+        <PayForm key={lines.map((r) => r.lineId).join(",")} rows={lines} lastMethodId={lastMethodId} onDone={done} />
+      </RowAction>
+    );
+  };
 
   return (
     <>
@@ -76,15 +95,13 @@ export function ToPayPage() {
               All seasons
             </label>
             {chosen.length > 1 && (
-              <Button icon={faMoneyBillWave} onClick={() => setPaying(same(chosen.map((r) => r.lineId)) ? null : chosen.map((r) => r.lineId))}>
-                {same(chosen.map((r) => r.lineId)) ? "Close" : `Pay the ${chosen.length} ticked`}
-              </Button>
+              <Button icon={faMoneyBillWave} onClick={() => setPaying(chosen.map((r) => r.lineId))}>Pay the {chosen.length} ticked</Button>
             )}
           </>
         }
       />
 
-      {paid.length > 0 && <PayForm key={paid.map((r) => r.lineId).join(",")} rows={paid} lastMethodId={lastMethodId} onDone={done} />}
+      {paid.length > 1 && payAction(paid)}
 
       <Panel>
         <TableBox title="To pay" cards>
@@ -106,7 +123,7 @@ export function ToPayPage() {
             <tbody>
               {rows.map((row) => (
                 <Fragment key={row.lineId}>
-                  <tr>
+                  <tr className={paid.length === 1 && paid[0]!.lineId === row.lineId ? "row-selected" : undefined}>
                     <td><input type="checkbox" aria-label={`Tick ${row.item}`} checked={picked.includes(row.lineId)} disabled={row.dueCents <= 0} onChange={() => toggle(row.lineId)} /></td>
                     <td className="cell-title">{row.item}{row.category && <div className="muted">{row.category}</div>}</td>
                     <td>{row.projectName}<div className="muted">{row.areaName}{allSeasons ? ` · ${row.seasonName}` : ""}</div></td>
@@ -126,12 +143,11 @@ export function ToPayPage() {
                     <td><span className={`pill ${STATUS[row.status].pill}`}>{STATUS[row.status].label}</span></td>
                     <td className="num">
                       {row.dueCents > 0 && (
-                        <Button small icon={faMoneyBillWave} variant={same([row.lineId]) ? "ghost" : "primary"} onClick={() => setPaying(same([row.lineId]) ? null : [row.lineId])}>
-                          {same([row.lineId]) ? "Close" : "Pay"}
-                        </Button>
+                        <Button small icon={faMoneyBillWave} onClick={() => setPaying([row.lineId])}>Pay</Button>
                       )}
                     </td>
                   </tr>
+                  {paid.length === 1 && paid[0]!.lineId === row.lineId && payAction(paid)}
                 </Fragment>
               ))}
               {rows.length === 0 && <EmptyRow colSpan={10}>{all.length === 0 ? "Everything that was bought has been paid" : "No line matches the search"}</EmptyRow>}
@@ -153,7 +169,6 @@ function ToLink() {
   const [linking, setLinking] = useState<number | null>(null);
   if (!list.data) return null;
   const rows: ToLinkRow[] = list.data;
-  const linkingRow = rows.find((e) => e.id === linking);
 
   return (
     <Panel title={`Payments to tie to a line (${rows.length})`}>
@@ -163,11 +178,6 @@ function ToLink() {
         area ADMINISTRATION, and the ones the budget ignores (VAT) are nobody&apos;s.
       </p>
       <Button small variant="ghost" onClick={() => setOpen(!open)}>{open ? "Hide the list" : "Show the list"}</Button>
-      {open && linkingRow && (
-        <Panel title={`Lines paid by: ${linkingRow.description || "this payment"} (${date(linkingRow.on)})`}>
-          <PayLines entry={linkingRow} onClose={() => setLinking(null)} />
-        </Panel>
-      )}
       {open && (
         <TableBox title="Payments to tie" cards>
           <Table className="phone-cards">
@@ -177,15 +187,26 @@ function ToLink() {
             <tbody>
               {rows.map((e) => (
                 <Fragment key={e.id}>
-                  <tr>
+                  <tr className={linking === e.id ? "row-selected" : undefined}>
                     <td>{date(e.on)}</td>
                     <td className="cell-title">{e.description}</td>
                     <td>{e.account === "cash" ? "CASSA" : e.account === "bank" ? "BANCA" : "PAYPAL"}</td>
                     <td className="num">{money(-e.cents)}</td>
                     <td className="num">
-                      <Button small variant={linking === e.id ? "ghost" : "primary"} onClick={() => setLinking(linking === e.id ? null : e.id)}>{linking === e.id ? "Close" : "Link to lines"}</Button>
+                      <Button small onClick={() => setLinking(e.id)}>Link to lines</Button>
                     </td>
                   </tr>
+                  {linking === e.id && (
+                    <RowAction
+                      colSpan={5}
+                      eyebrow="Link to lines"
+                      title={e.description || "this payment"}
+                      context={[["Date", date(e.on)], ["Account", e.account === "cash" ? "CASSA" : e.account === "bank" ? "BANCA" : "PAYPAL"], ["Paid", money(-e.cents)]]}
+                      onClose={() => setLinking(null)}
+                    >
+                      <PayLines entry={e} onClose={() => setLinking(null)} />
+                    </RowAction>
+                  )}
                 </Fragment>
               ))}
               {rows.length === 0 && <EmptyRow colSpan={5}>Every payment of this season pays a line</EmptyRow>}

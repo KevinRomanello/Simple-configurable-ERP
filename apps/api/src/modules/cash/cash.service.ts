@@ -194,12 +194,15 @@ export async function updateEntry(entryId: number, input: UpdateEntryInput) {
   });
 }
 
+/** Deletes a movement inside a transaction that is already open (deleting an inflow can take its movements with it). */
+export async function deleteEntryIn(tx: Tx, entryId: number) {
+  const deleted = await tx.delete(cashEntry).where(eq(cashEntry.id, entryId)).returning({ id: cashEntry.id });
+  if (deleted.length === 0) throw notFound("Movement");
+}
+
 export async function deleteEntry(entryId: number) {
   const actor = await assertCanManageCash();
-  await runWrite(actor, async (tx) => {
-    const deleted = await tx.delete(cashEntry).where(eq(cashEntry.id, entryId)).returning({ id: cashEntry.id });
-    if (deleted.length === 0) throw notFound("Movement");
-  });
+  await runWrite(actor, (tx) => deleteEntryIn(tx, entryId));
 }
 
 /** Sets what an account held on 1 January of a year; without an amount the year starts from the year before again. */

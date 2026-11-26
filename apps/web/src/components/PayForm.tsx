@@ -21,7 +21,14 @@ const cents = (text: string) => Math.round(Number(text.replace(",", ".")) * 100)
  * left of each line (the net and the VAT), the Voce its category starts from and the method of the last payment;
  * an amount can be lowered (a line paid in instalments). One payment for several lines is one bank transfer.
  */
-export function PayForm({ rows, lastMethodId, onDone }: { rows: ToPayRow[]; lastMethodId: number | null; onDone: () => void }) {
+/** The title of the payment of these lines. */
+const payTitle = (rows: ToPayRow[]) => (rows.length === 1 ? `Pay: ${rows[0]!.item}` : `Pay ${rows.length} lines in one payment`);
+
+/**
+ * `compact` is the short form of one line for the popover: the day, the account and the amount; the method, the Voce and the
+ * description are the ones the full form starts from (the same payment, with fewer boxes to see).
+ */
+export function PayForm({ rows, lastMethodId, compact = false, onDone }: { rows: ToPayRow[]; lastMethodId: number | null; compact?: boolean; onDone: () => void }) {
   const act = useAction();
   const methods = useQuery({ queryKey: ["cash-methods"], queryFn: api.cashMethods });
   const voci = useQuery({ queryKey: ["cash-categories"], queryFn: api.cashCategories });
@@ -46,8 +53,8 @@ export function PayForm({ rows, lastMethodId, onDone }: { rows: ToPayRow[]; last
 
   return (
     <FormPanel
-      title={rows.length === 1 ? `Pay: ${rows[0]!.item}` : `Pay ${rows.length} lines in one payment`}
-      description="The payment is made in the register, tied to the lines, and they leave this list. It covers the net first and then the VAT: lower an amount to pay a line in instalments."
+      title={payTitle(rows)}
+      description={compact ? undefined : "The payment is made in the register, tied to the lines, and they leave this list. It covers the net first and then the VAT: lower an amount to pay a line in instalments."}
       submitLabel={`Pay ${money(total)}`}
       canSubmit={total > 0 && !tooMuch && on !== ""}
       onSubmit={submit}
@@ -63,20 +70,37 @@ export function PayForm({ rows, lastMethodId, onDone }: { rows: ToPayRow[]; last
             {ACCOUNTS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
           </select>
         </Field>
-        <Field label="Metodo di pagamento" htmlFor="pay-method">
-          <select id="pay-method" className="input small" value={methodId} onChange={(e) => setMethodId(e.target.value)}>
-            <option value="">—</option>
-            {(methods.data ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
-        </Field>
-        <Field label="Voce" htmlFor="pay-voce">
-          <SearchSelect id="pay-voce" value={voceId} onChange={setVoceId} choices={[{ value: "", label: "—" }, ...(voci.data ?? []).map((v) => ({ value: String(v.id), label: v.name }))]} />
-        </Field>
-        <Field label="Descrizione" htmlFor="pay-description" className="wide">
-          <input id="pay-description" className="input small" maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} />
-        </Field>
+        {!compact && (
+          <>
+            <Field label="Metodo di pagamento" htmlFor="pay-method">
+              <select id="pay-method" className="input small" value={methodId} onChange={(e) => setMethodId(e.target.value)}>
+                <option value="">—</option>
+                {(methods.data ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Voce" htmlFor="pay-voce">
+              <SearchSelect id="pay-voce" value={voceId} onChange={setVoceId} choices={[{ value: "", label: "—" }, ...(voci.data ?? []).map((v) => ({ value: String(v.id), label: v.name }))]} />
+            </Field>
+            <Field label="Descrizione" htmlFor="pay-description" className="wide">
+              <input id="pay-description" className="input small" maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} />
+            </Field>
+          </>
+        )}
+        {compact && rows[0] && (
+          <Field label="Importo (€)" htmlFor="pay-amount" className="wide">
+            <input
+              id="pay-amount"
+              className={`input small${cents(amounts[rows[0].lineId] ?? "") > rows[0].dueCents ? " error" : ""}`}
+              type="number"
+              min="0"
+              step="0.01"
+              value={amounts[rows[0].lineId] ?? ""}
+              onChange={(e) => setAmounts({ ...amounts, [rows[0]!.lineId]: e.target.value })}
+            />
+          </Field>
+        )}
       </div>
-      <TableScroll>
+      {!compact && <TableScroll>
         <Table>
           <thead>
             <tr><th>LINE</th><th className="num">LEFT TO PAY</th><th className="num">THIS PAYMENT</th></tr>
@@ -101,7 +125,7 @@ export function PayForm({ rows, lastMethodId, onDone }: { rows: ToPayRow[]; last
             ))}
           </tbody>
         </Table>
-      </TableScroll>
+      </TableScroll>}
       {tooMuch && <p className="hint error">An amount is above what is left to pay of its line.</p>}
     </FormPanel>
   );

@@ -1,7 +1,7 @@
 import { faImage, faPen, faPlus, faRotateLeft, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api, type MovementBody } from "../api/client";
 import type { BomLine, ItemDraft, ItemField, MovementRow, StockPlace } from "../api/types";
@@ -26,7 +26,7 @@ import { SCREEN, useMaxWidth } from "../lib/screen";
 import { useAction } from "../lib/useAction";
 import { TableBox } from "../components/ExportBlocks";
 import { SortTh } from "../components/SortTh";
-import { Card, Cards, DataTable, DetailHeader, EmptyRow, Loading, Message, Panel, Table, type Column } from "../components/ui";
+import { Card, Cards, DataTable, DetailHeader, EmptyRow, Loading, Message, Panel, RowAction, Table, type Column } from "../components/ui";
 import { useSort, type SortAccessors } from "../lib/sort";
 
 const PART_COLUMNS: Column<BomLine>[] = [
@@ -241,26 +241,37 @@ export function ItemPage() {
             <tbody>
               {byPlace.sorted(stock).map((place) => {
                 const key = placeKey(place);
-                const open = placeOpen?.key === key;
-                const toggle = (kind: MovementBody["kind"]) => setPlaceOpen(open && placeOpen?.kind === kind ? null : { key, kind });
+                const open = (kind: MovementBody["kind"]) => setPlaceOpen({ key, kind });
                 return (
-                  <FragmentRow key={key} colSpan={4} open={open}
-                    panel={<MovementForm key={placeOpen?.kind} item={item} place={place} lookups={lookups} kind={placeOpen?.kind} onDone={() => setPlaceOpen(null)} onCancel={() => setPlaceOpen(null)} />}>
-                    <td className="cell-title">{place.label}</td>
-                    <td>{place.spot || <span className="muted">—</span>}</td>
-                    <td className={`num${place.quantityMilli < 0 ? " cell-negative" : ""}`}>{quantity(place.quantityMilli)} {item.unit}</td>
-                    <td className="num">
-                      {canEdit && (phone ? (
-                        <span className="place-actions">
-                          <Button small variant="ghost" onClick={() => toggle("use")}>Use</Button>
-                          <Button small variant="ghost" onClick={() => toggle("transfer")}>Move</Button>
-                          <Button small variant="ghost" onClick={() => toggle("adjustment")}>Count</Button>
-                        </span>
-                      ) : (
-                        <Button small variant="ghost" onClick={() => toggle("use")}>{open ? "Close" : "Use, move, count…"}</Button>
-                      ))}
-                    </td>
-                  </FragmentRow>
+                  <Fragment key={key}>
+                    <tr className={placeOpen?.key === key ? "row-selected" : undefined}>
+                      <td className="cell-title">{place.label}</td>
+                      <td>{place.spot || <span className="muted">—</span>}</td>
+                      <td className={`num${place.quantityMilli < 0 ? " cell-negative" : ""}`}>{quantity(place.quantityMilli)} {item.unit}</td>
+                      <td className="num">
+                        {canEdit && (phone ? (
+                          <span className="place-actions">
+                            <Button small variant="ghost" onClick={() => open("use")}>Use</Button>
+                            <Button small variant="ghost" onClick={() => open("transfer")}>Move</Button>
+                            <Button small variant="ghost" onClick={() => open("adjustment")}>Count</Button>
+                          </span>
+                        ) : (
+                          <Button small variant="ghost" onClick={() => open("use")}>Use, move, count…</Button>
+                        ))}
+                      </td>
+                    </tr>
+                    {placeOpen?.key === key && (
+                      <RowAction
+                        colSpan={4}
+                        eyebrow="Use, move, count"
+                        title={place.label}
+                        context={[["Place", place.label], ["Exactly", place.spot || "—"], ["On hand", `${quantity(place.quantityMilli)} ${item.unit}`]]}
+                        onClose={() => setPlaceOpen(null)}
+                      >
+                        <MovementForm key={placeOpen.kind} item={item} place={place} lookups={lookups} kind={placeOpen.kind} onDone={() => setPlaceOpen(null)} onCancel={() => setPlaceOpen(null)} />
+                      </RowAction>
+                    )}
+                  </Fragment>
                 );
               })}
               {stock.length === 0 && <EmptyRow colSpan={4}>None on the shelf</EmptyRow>}
@@ -274,16 +285,6 @@ export function ItemPage() {
       <Panel title="What happened">
         <DataTable title="What happened" columns={movementColumns(canEdit, undo)} rows={movements} rowKey={(m) => m.id} empty="Nothing yet" />
       </Panel>
-    </>
-  );
-}
-
-/** A table row that can open a panel under itself. */
-function FragmentRow({ children, panel, open, colSpan }: { children: React.ReactNode; panel: React.ReactNode; open: boolean; colSpan: number }) {
-  return (
-    <>
-      <tr>{children}</tr>
-      {open && <tr className="row-panel"><td colSpan={colSpan}>{panel}</td></tr>}
     </>
   );
 }

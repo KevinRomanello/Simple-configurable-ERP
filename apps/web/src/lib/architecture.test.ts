@@ -26,6 +26,16 @@ describe("the site and the engine of the registry", () => {
     expect(own).toEqual([]);
   });
 
+  it("opens the form of an action on a row with RowAction, never in a row of its own or in a bare popup", () => {
+    // the old ways: a table row of the class row-panel (or a FragmentRow that made one) with the form in it, and a Peek (the big
+    // rectangle of the record of the registry) used as the popup of an action
+    const under = Object.entries(files).filter(([, text]) => /\brow-panel\b|\bFragmentRow\b/.test(text)).map(([path]) => path);
+    expect(under).toEqual([]);
+    const allowed = ["../components/ui/Peek.tsx", "../components/ui/index.ts", "../pages/registry/RecordPanel.tsx"];
+    const bare = Object.entries(files).filter(([path, text]) => !allowed.includes(path) && /<Peek\b/.test(text)).map(([path]) => path);
+    expect(bare).toEqual([]);
+  });
+
   it("moves rows with the handle, never with arrows: the order of a list is its drag handle (DataTable reorder, useDragOrder)", () => {
     // the arrows of sorting and of «open in a new tab» have other names (faSort…, faArrowUpRightFromSquare)
     const arrows = Object.entries(files).filter(([, text]) => /\bfaArrow(Up|Down)\b|"Move (up|down)"/.test(text)).map(([path]) => path);

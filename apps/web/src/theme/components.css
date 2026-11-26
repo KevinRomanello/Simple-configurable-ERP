@@ -668,12 +668,15 @@
 .data-table td input.input[type="date"] {
   width: 112px;
 }
+/* a text box of a cell fills its cell, so it grows and shrinks with the column (the width of a column is dragged on its header); the floor keeps it readable */
 .data-table td input.input:not([type]),
 .data-table td input.input[type="text"] {
-  width: 84px;
+  width: 100%;
+  min-width: 84px;
 }
 .data-table td input.input.wide {
-  width: 140px;
+  width: 100%;
+  min-width: 140px;
 }
 /* a header you can click to sort by: looks like the text, with a small arrow */
 .th-sort {
@@ -1207,10 +1210,6 @@ textarea.input {
   gap: var(--space-s);
   padding: var(--space-s) 0;
 }
-.row-panel > td {
-  background: var(--bg-soft);
-  white-space: normal;
-}
 .facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -1704,19 +1703,28 @@ body.no-scroll {
   .data-table.phone-cards tr.total td::before {
     color: var(--on-primary);
   }
-  /* a row that opens a form under it (PENDING, "Where it is"): the form takes the whole card */
-  .data-table.phone-cards tr.row-panel td,
   .data-table.phone-cards td.empty {
     display: block;
     text-align: left;
   }
-  .data-table.phone-cards tr.row-panel td::before,
   .data-table.phone-cards td.empty::before {
     content: none;
   }
-  /* the boxes of that form are as wide as the card, not as narrow as the cells of a table */
-  .data-table.phone-cards tr.row-panel td .input,
-  .data-table.phone-cards tr.row-panel td .search-select {
+  /* the panel of an action under a card: no card of its own, and its boxes as wide as it is (not as narrow as the cells of a table) */
+  .data-table.phone-cards tr.ra-row {
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  .data-table.phone-cards td.ra-under {
+    display: block;
+    text-align: left;
+  }
+  .data-table.phone-cards td.ra-under::before {
+    content: none;
+  }
+  .data-table.phone-cards td.ra-under .input,
+  .data-table.phone-cards td.ra-under .search-select {
     width: 100%;
   }
   .data-table.phone-cards td .btn {
@@ -1792,6 +1800,215 @@ body.no-scroll {
 }
 .data-table.register td.lines {
   min-width: 180px;
+}
+
+/* --- the panel of an action on a row (components/ui/RowAction.tsx; docs/stile-interfaccia.md, point 31) ------------------------
+   One card in four shapes: under the row (`.ra-under`), a dialog (`.ra-dialog`), a side panel (`.ra-side`), a popover (`.ra-pop`). */
+.ra {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-weak);
+  color: var(--text-strong);
+  outline: none;
+}
+.eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-sub);
+}
+.ra-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-s);
+  padding: var(--space-s) var(--space-m) var(--space-xs);
+}
+.ra-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+.ra-title h3 {
+  overflow-wrap: anywhere;
+}
+.ra-more {
+  padding: var(--space-3xs) var(--space-2xs);
+  border: 0;
+  background: none;
+  color: var(--text-sub);
+  font-size: 11px;
+  text-transform: uppercase;
+  text-decoration: underline;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ra-ctx {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-l);
+  padding: var(--space-xs) var(--space-m);
+  background: var(--bg-soft);
+  border-top: 1px solid var(--stroke-sub);
+  border-bottom: 1px solid var(--stroke-sub);
+}
+.ra-ctx > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ra-ctx span {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-sub);
+}
+.ra-ctx b {
+  font-weight: 450;
+  overflow-wrap: anywhere;
+}
+.ra-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
+  min-height: 0;
+  padding: var(--space-m) var(--space-m) 0;
+  overflow: auto;
+}
+/* the space under the contents, unless the bar of the buttons ends them */
+.ra-body::after {
+  content: "";
+  flex: none;
+  height: var(--space-m);
+}
+.ra-body:has(.form-actions)::after {
+  display: none;
+}
+/* the buttons of the form: a bar at the bottom of the panel, always in sight */
+.ra-body .form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: var(--space-3xs) calc(-1 * var(--space-m)) 0;
+  padding: var(--space-xs) var(--space-m);
+  background: var(--bg-null);
+  border-top: 1px solid var(--stroke-sub);
+  align-items: center;
+}
+.ra .form-grid,
+.ra .stack {
+  width: 100%;
+}
+.form-actions .spacer {
+  flex: 1;
+}
+/* B: under the row. The cell holds a panel as wide as the box that scrolls, which keeps to the left of the table */
+.ra-under {
+  padding: var(--space-xs) !important;
+  background: var(--bg-weak);
+  white-space: normal;
+}
+/* the panel has a border of its own, in the yellow of the row it belongs to: without it, it would look like more rows of the table */
+.ra-under-box {
+  position: sticky;
+  left: var(--space-xs);
+  width: calc(var(--w, 100%) - 2 * var(--space-xs));
+  background: var(--bg-null);
+  border: 1px solid var(--primary-default);
+  border-radius: var(--radius-3xs);
+  white-space: normal; /* the cells of a table do not wrap their text, a panel in one does */
+}
+div.ra-under .ra-under-box {
+  position: static;
+  width: auto;
+}
+.ra-under-box .ra-body {
+  overflow: visible;
+}
+/* the panel under a row sits inside a cell of the table, whose rules for the boxes of a cell (as wide as their content) are not for it: its boxes fill their field */
+.data-table td .ra .field .input,
+.data-table td .ra .field input.input[type="number"],
+.data-table td .ra .field input.input[type="date"],
+.data-table td .ra .field input.input:not([type]),
+.data-table td .ra .field input.input[type="text"],
+.data-table td .ra .field input.input.wide {
+  width: 100%;
+}
+/* the row an action is open for */
+tr.row-selected > td {
+  background: var(--bg-soft);
+}
+tr.row-selected > td:first-child {
+  box-shadow: inset 3px 0 0 var(--primary-default);
+}
+/* A: a dialog */
+.ra-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-l);
+  background: rgb(0 0 0 / 0.45);
+}
+.ra-dialog {
+  width: min(780px, 100%);
+  max-height: 100%;
+  border: 1px solid var(--stroke-strong);
+  border-radius: var(--radius-3xs);
+}
+/* C: a side panel */
+.ra-side {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  width: min(460px, 100%);
+  border-left: 1px solid var(--stroke-strong);
+}
+/* D: a popover, by the button that opened it (its place is worked out in lib/rowAction.ts) */
+.ra-pop {
+  position: fixed;
+  z-index: 60;
+  width: 340px;
+  max-height: calc(100vh - 16px);
+  border: 1px solid var(--stroke-strong);
+  border-radius: var(--radius-3xs);
+}
+.ra-pop::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: var(--arrow, 24px);
+  width: 10px;
+  height: 10px;
+  background: var(--bg-weak);
+  border-left: 1px solid var(--stroke-strong);
+  border-top: 1px solid var(--stroke-strong);
+  transform: rotate(45deg);
+}
+.ra-pop.above::before {
+  top: auto;
+  bottom: -6px;
+  transform: rotate(225deg);
+}
+@media (max-width: 767px) {
+  .ra-scrim {
+    padding: 0;
+  }
+  .ra-dialog {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border: 0;
+  }
+  .ra-side {
+    width: 100%;
+    border-left: 0;
+  }
 }
 
 /* --- the registry (docs/anagrafiche.md, §11) ----------------------------------------------------
@@ -2393,4 +2610,17 @@ body.no-scroll {
   text-transform: uppercase;
   color: var(--text-sub);
   margin-left: var(--space-xs);
+}
+
+/* A box with a search is as wide as its place wherever it is (a form, a cell, the panel of an action): its arrow is at the end of the box and never beside it.
+   Last in the file, so that it wins over the rules of the boxes of a table cell. */
+.search-select {
+  display: block;
+  width: 100%;
+}
+.data-table td .search-select input.input,
+.search-select input.input {
+  width: 100%;
+  padding-right: var(--space-l);
+  text-overflow: ellipsis;
 }

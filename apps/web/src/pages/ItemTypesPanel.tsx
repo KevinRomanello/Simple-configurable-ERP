@@ -7,7 +7,7 @@ import { Button, IconButton } from "../components/Button";
 import { TypeTree } from "../components/TypeTree";
 import { CommitInput } from "../components/CommitInput";
 import { DeleteButton } from "../components/ListButtons";
-import { AddSection, DataTable, Field, FormPanel, Loading, Panel, type Column } from "../components/ui";
+import { AddSection, DataTable, Field, FormPanel, Loading, Panel, RowAction, type Column } from "../components/ui";
 import { useAction } from "../lib/useAction";
 
 // The types of the inventory on the Settings page (admins and project managers): a type (Resistor),
@@ -98,12 +98,10 @@ export function ItemTypesPanel({ categories }: { categories: BudgetCategory[] })
     },
     { key: "params", header: "WHAT IS WRITTEN ABOUT IT", cell: (t) => (t.params.length ? t.params.map(paramLabel).join(" · ") : <span className="muted">nothing yet</span>) },
     { key: "items", header: "ITEMS", num: true, sort: (t) => t.items, cell: (t) => t.items || "" },
-    { key: "open", header: "", cell: (t) => <Button small variant="ghost" onClick={() => setOpen(open === t.id ? null : t.id)}>{open === t.id ? "Close" : "Parameters"}</Button> },
-    { key: "sub", header: "", cell: (t) => <Button small variant="ghost" onClick={() => setUnder(under === t.id ? null : t.id)}>{under === t.id ? "Close" : "Add sub-type"}</Button> },
+    { key: "open", header: "", cell: (t) => <Button small variant="ghost" onClick={() => setOpen(t.id)}>Parameters</Button> },
+    { key: "sub", header: "", cell: (t) => <Button small variant="ghost" onClick={() => setUnder(t.id)}>Add sub-type</Button> },
     { key: "delete", header: "", num: true, cell: (t) => <DeleteButton label={t.name} usedBy={t.items} onDelete={() => act(() => api.deleteType(t.id))} /> },
   ];
-  const opened = types.data.find((t) => t.id === open);
-  const parentOfNew = types.data.find((t) => t.id === under);
   /** Whether a type is somewhere under the type `id` (so `id` cannot go under it). */
   const isUnder = (type: ItemType, id: number): boolean => {
     for (let t: ItemType | undefined = type; t !== undefined; t = types.data.find((o) => o.id === t!.parentId)) if (t.parentId === id) return true;
@@ -135,14 +133,33 @@ export function ItemTypesPanel({ categories }: { categories: BudgetCategory[] })
         <TypeTree
           types={types.data}
           openId={open}
-          onOpen={(id) => setOpen(open === id ? null : id)}
+          onOpen={(id) => setOpen(id)}
           onAdd={(id) => setUnder(id)}
           onMove={(id, parentId) => void act(() => api.updateType(id, { parentId }))}
         />
       )}
-      {parentOfNew && <NewType key={parentOfNew.id} parent={parentOfNew} areas={allAreas} categories={categories} onDone={(id) => { setUnder(null); if (id !== null) setOpen(id); }} />}
-      <DataTable title="Item types" columns={columns} rows={types.data} rowKey={(t) => t.id} empty="No types yet" />
-      {opened && <ParamsPanel type={opened} types={types.data} />}
+      <DataTable
+        title="Item types"
+        columns={columns}
+        rows={types.data}
+        rowKey={(t) => t.id}
+        rowClass={(t) => (open === t.id || under === t.id ? "row-selected" : undefined)}
+        expand={(t, colSpan) => (
+          <>
+            {under === t.id && (
+              <RowAction colSpan={colSpan} eyebrow="Add sub-type" title={`New sub-type of ${t.path}`} context={[["Type", t.path], ["Items", String(t.items)]]} onClose={() => setUnder(null)}>
+                <NewType key={t.id} parent={t} areas={allAreas} categories={categories} onDone={(id) => { setUnder(null); if (id !== null) setOpen(id); }} />
+              </RowAction>
+            )}
+            {open === t.id && (
+              <RowAction colSpan={colSpan} eyebrow="Parameters" title={`What is written about each ${t.name}`} context={[["Type", t.path], ["Items", String(t.items)]]} onClose={() => setOpen(null)}>
+                <ParamsPanel type={t} types={types.data} />
+              </RowAction>
+            )}
+          </>
+        )}
+        empty="No types yet"
+      />
       <AddSection label="New type" form={(close) => <NewType areas={allAreas} categories={categories} onDone={(id) => { close(); if (id !== null) setOpen(id); }} />} />
     </Panel>
   );

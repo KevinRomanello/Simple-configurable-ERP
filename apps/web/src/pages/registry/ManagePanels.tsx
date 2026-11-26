@@ -2,11 +2,11 @@ import { faClone, faCopy, faPen, faPlus, faStar, faTrash } from "@fortawesome/fr
 import type { AccessLevel, AccessRule, BarcodeFormat, ColorRule, DurationFormat, FieldOptions, FieldType, RollupFn } from "@erp/registry";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { registry, type RegField, type RegTable, type RegView, type Webhook, type WebhookOptions } from "../../api/registry";
 import { Button, IconButton } from "../../components/Button";
 import { Chips } from "../../components/Chips";
-import { DataTable, Field, FormPanel, Panel, Table, TableScroll, type Column } from "../../components/ui";
+import { DataTable, Field, FormPanel, Panel, RowAction, Table, TableScroll, type Column } from "../../components/ui";
 import { useMe } from "../../lib/auth";
 import { canBeName, COMPUTED, FIELD_TYPE_LABELS, groupLevels, NEW_FIELD_TYPES } from "../../lib/registry";
 import { sheetAsCsv } from "../../lib/registrySheet";
@@ -96,7 +96,11 @@ function FieldsTab({ table }: { table: RegTable }) {
   ];
   return (
     <Panel title="Fields" actions={<Button small icon={faPlus} onClick={() => setEditing("new")}>Add a field</Button>}>
-      {editing && <FieldForm table={table} field={editing === "new" ? null : editing} onDone={() => setEditing(null)} />}
+      {editing === "new" && (
+        <RowAction loose eyebrow="New field" title={`In ${table.name}`} onClose={() => setEditing(null)}>
+          <FieldForm table={table} field={null} onDone={() => setEditing(null)} />
+        </RowAction>
+      )}
       <p className="muted">
         The <FontAwesomeIcon icon={faStar} /> marks the field that is the <strong>name of the records</strong>: its value is what a link from another table, the title of a record, a card or a list shows for each one. There is one for the table and you can change it
         whenever you like (the values do not change); a text, a number, a date, a choice or a formula can be it.
@@ -107,6 +111,14 @@ function FieldsTab({ table }: { table: RegTable }) {
         columns={columns}
         rows={table.fields}
         rowKey={(f) => f.id}
+        rowClass={(f) => (editing !== null && editing !== "new" && editing.id === f.id ? "row-selected" : undefined)}
+        expand={(f, colSpan) =>
+          editing !== null && editing !== "new" && editing.id === f.id && (
+            <RowAction colSpan={colSpan} eyebrow="Change field" title={f.name} context={[["Type", f.type]]} onClose={() => setEditing(null)}>
+              <FieldForm table={table} field={f} onDone={() => setEditing(null)} />
+            </RowAction>
+          )
+        }
         phone="scroll"
         listed={false}
         reorder={{ label: (f) => f.name, onOrder: (ids) => act(() => registry.orderFields(table.id, ids)) }}
@@ -631,38 +643,51 @@ function WebhooksTab({ table }: { table: RegTable }) {
   return (
     <>
       <Panel title="Webhooks" actions={<Button small icon={faPlus} onClick={() => setEditing("new")}>Add a webhook</Button>}>
+        {editing === "new" && (
+          <RowAction loose eyebrow="New webhook" title={`In ${table.name}`} onClose={() => setEditing(null)}>
+            <WebhookForm key="new" table={table} hook={null} onDone={() => setEditing(null)} />
+          </RowAction>
+        )}
         <p className="muted">After a change is saved the server sends the record to the address (n8n), signed: header X-Registry-Signature = sha256=HMAC of the body with the secret.</p>
         <TableScroll>
           <Table>
             <thead><tr><th>NAME</th><th>ADDRESS</th><th>EVENTS</th><th>SECRET</th><th /></tr></thead>
             <tbody>
               {(hooks.data ?? []).map((h) => (
-                <tr key={h.id}>
-                  <td>{h.name}{!h.active && <span className="pill teal"> off</span>}</td>
-                  <td className="mono">{h.options.method ?? "POST"} {h.url}</td>
-                  <td>{h.events.join(", ")}{h.options.when === "becomes" ? " · when it starts matching" : ""}{h.options.fields?.length ? ` · ${h.options.fields.join(", ")}` : ""}</td>
-                  <td><IconButton icon={faCopy} label="Copy the secret" onClick={() => navigator.clipboard.writeText(h.secret)} /></td>
-                  <td className="num nowrap">
-                    <Button small variant="ghost" onClick={() => act(() => registry.testWebhook(h.id)).then(() => setLogOf(h.id))}>Test</Button>
-                    <Button small variant="ghost" onClick={() => setLogOf(logOf === h.id ? null : h.id)}>Log</Button>
-                    <Button small variant="ghost" onClick={() => act(() => registry.updateWebhook(h.id, { active: !h.active }))}>{h.active ? "Turn off" : "Turn on"}</Button>
-                    <IconButton icon={faPen} label={`Change ${h.name}`} onClick={() => setEditing(h)} />
-                    <IconButton icon={faClone} label={`Duplicate ${h.name}`} onClick={() => act(() => registry.duplicateWebhook(h.id))} />
-                    <IconButton icon={faTrash} label={`Delete ${h.name}`} danger onClick={() => act(() => registry.deleteWebhook(h.id))} />
-                  </td>
-                </tr>
+                <Fragment key={h.id}>
+                  <tr className={logOf === h.id || (editing !== null && editing !== "new" && editing.id === h.id) ? "row-selected" : undefined}>
+                    <td>{h.name}{!h.active && <span className="pill teal"> off</span>}</td>
+                    <td className="mono">{h.options.method ?? "POST"} {h.url}</td>
+                    <td>{h.events.join(", ")}{h.options.when === "becomes" ? " · when it starts matching" : ""}{h.options.fields?.length ? ` · ${h.options.fields.join(", ")}` : ""}</td>
+                    <td><IconButton icon={faCopy} label="Copy the secret" onClick={() => navigator.clipboard.writeText(h.secret)} /></td>
+                    <td className="num nowrap">
+                      <Button small variant="ghost" onClick={() => act(() => registry.testWebhook(h.id)).then(() => setLogOf(h.id))}>Test</Button>
+                      <Button small variant="ghost" onClick={() => setLogOf(h.id)}>Log</Button>
+                      <Button small variant="ghost" onClick={() => act(() => registry.updateWebhook(h.id, { active: !h.active }))}>{h.active ? "Turn off" : "Turn on"}</Button>
+                      <IconButton icon={faPen} label={`Change ${h.name}`} onClick={() => setEditing(h)} />
+                      <IconButton icon={faClone} label={`Duplicate ${h.name}`} onClick={() => act(() => registry.duplicateWebhook(h.id))} />
+                      <IconButton icon={faTrash} label={`Delete ${h.name}`} danger onClick={() => act(() => registry.deleteWebhook(h.id))} />
+                    </td>
+                  </tr>
+                  {logOf === h.id && (
+                    <RowAction colSpan={5} eyebrow="Webhook calls" title={h.name} onClose={() => setLogOf(null)}>
+                      <ol className="history-list">
+                        {(log.data ?? []).map((c) => <li key={c.id}>{c.at.slice(0, 19).replace("T", " ")} · {c.event} {c.recordId ? `#${c.recordId}` : ""} · {c.status ?? "no answer"} {c.error ?? ""}</li>)}
+                        {log.data?.length === 0 && <li className="muted">No calls yet.</li>}
+                      </ol>
+                    </RowAction>
+                  )}
+                  {editing !== null && editing !== "new" && editing.id === h.id && (
+                    <RowAction colSpan={5} eyebrow="Change webhook" title={h.name} context={[["Address", `${h.options.method ?? "POST"} ${h.url}`]]} onClose={() => setEditing(null)}>
+                      <WebhookForm key={h.id} table={table} hook={h} onDone={() => setEditing(null)} />
+                    </RowAction>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </Table>
         </TableScroll>
-        {logOf !== null && (
-          <ol className="history-list">
-            {(log.data ?? []).map((c) => <li key={c.id}>{c.at.slice(0, 19).replace("T", " ")} · {c.event} {c.recordId ? `#${c.recordId}` : ""} · {c.status ?? "no answer"} {c.error ?? ""}</li>)}
-            {log.data?.length === 0 && <li className="muted">No calls yet.</li>}
-          </ol>
-        )}
       </Panel>
-      {editing && <WebhookForm key={editing === "new" ? "new" : editing.id} table={table} hook={editing === "new" ? null : editing} onDone={() => setEditing(null)} />}
     </>
   );
 }

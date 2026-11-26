@@ -12,6 +12,7 @@ import { AddSection, DataTable, Field, FormPanel, Loading, Message, PageHeader, 
 import { useMe } from "../lib/auth";
 import { FIELD_LABELS } from "../lib/inventory";
 import { currentSection, SECTION_LABELS, settingsSections } from "../lib/settingsSections";
+import { ROW_ACTION_MODES, useRowActionMode } from "../lib/rowAction";
 import { useTheme, type ThemeChoice } from "../lib/theme";
 import { useAction } from "../lib/useAction";
 import { CashListsPanel } from "./CashListsPanel";
@@ -99,16 +100,25 @@ const THEMES: { value: ThemeChoice; label: string }[] = [
   { value: "system", label: "Like my device" },
 ];
 
-/** Light or dark, for whoever is signed in (a viewer too): kept in this browser, not in the database, and not in the History. */
+/**
+ * Light or dark, and how the actions on a row open (pay, receive, change…), for whoever is signed in (a viewer too): kept in this
+ * browser, not in the database, and not in the History.
+ */
 function AppearancePanel() {
   const [theme, setTheme] = useTheme();
+  const [rowAction, setRowAction] = useRowActionMode();
   return (
     <Panel title="Appearance">
       <p className="muted">
-        The colours of the site: light or dark. «Like my device» follows the light or dark of your computer or phone. The choice is for this browser only:
+        The colours of the site: light or dark. «Like my device» follows the light or dark of your computer or phone. The choices here are for this browser only:
         on another computer or phone you choose again.
       </p>
       <Chips label="Theme" options={THEMES} value={theme} onChange={setTheme} />
+      <p className="muted">
+        Where an action on a row opens (Pay, Receive, Change…): in a panel under the row, in a dialog in the middle of the page, in a side panel, or in a small popover by the button.
+        The popover is for the actions that have a short form (Pay, Mark as received); the others open as a dialog. An action that belongs to no row opens as a dialog when the choice is «Under the row».
+      </p>
+      <Chips label="Row actions" options={ROW_ACTION_MODES} value={rowAction} onChange={setRowAction} />
     </Panel>
   );
 }

@@ -460,7 +460,7 @@ Non c'è un disegno su Figma per queste pagine: usano i token e i componenti che
   - i commenti: modifica, risolto;
   - lo storico;
   - «copia il link» (`?record=<id>` apre il record) e «duplica».
-- **Gestione** (chi ha `manage`, pulsante «Table settings»):
+- **Gestione** (chi ha `manage`, pulsante «Table settings»). I form di un campo, di un webhook e di un modulo, e il log di un webhook, si aprono in un **pannello sotto la riga** ([stile-interfaccia.md](stile-interfaccia.md), punto 31; «Add a field», «Add a webhook» e «New form» non hanno una riga e si aprono come dialogo):
   - campi: aggiungere, cambiare (con il valore predefinito), duplicare, spostare, scegliere quello che dà il nome;
   - viste: filtro, campi, gruppo, colori, righe, colonne ferme, blocco, frecce della timeline, pubblica con password e download, duplicare;
   - moduli: il costruttore, con i controlli delle risposte, la precompilazione, una domanda alla volta, «invia un'altra»; l'indirizzo da copiare; i link personali;

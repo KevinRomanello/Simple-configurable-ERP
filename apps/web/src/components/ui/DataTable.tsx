@@ -1,5 +1,5 @@
 import { faGripVertical } from "@fortawesome/free-solid-svg-icons";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { useDragOrder } from "../../lib/useDragOrder";
 import { useSort, type SortState, type SortValue } from "../../lib/sort";
 import { IconButton } from "../Button";
@@ -56,12 +56,14 @@ export function EmptyRow({ colSpan, children }: { colSpan: number; children: Rea
  * each row is a card (`phone="scroll"` keeps the table, scrolling sideways). With `reorder` the rows
  * (their `rowKey` must be a number) have a handle, in a first column, to drag them into another order.
  */
-export function DataTable<T>({ title, columns, rows, rowKey, rowClass, empty, footer, initialSort = null, className, phone = "cards", reorder, listed = true }: {
+export function DataTable<T>({ title, columns, rows, rowKey, rowClass, expand, empty, footer, initialSort = null, className, phone = "cards", reorder, listed = true }: {
   title: string;
   columns: Column<T>[];
   rows: T[] | undefined;
   rowKey: (row: T) => string | number;
   rowClass?: (row: T) => string | undefined;
+  /** What goes right after a row: the panel of the action that is open for it (a `RowAction`), given the number of columns to span. */
+  expand?: (row: T, colSpan: number) => ReactNode;
   empty?: ReactNode;
   footer?: ReactNode;
   initialSort?: SortState | null;
@@ -100,16 +102,19 @@ export function DataTable<T>({ title, columns, rows, rowKey, rowClass, empty, fo
             const id = Number(rowKey(row));
             const moves = movable(row);
             return (
-              <tr key={rowKey(row)} className={classes(rowClass?.(row), moves && drag.classOf(id))} {...(moves ? drag.boxProps(id) : {})}>
-                {reorder && (
-                  <td className="drag-cell">
-                    {moves && movableIds.length > 1 && <IconButton icon={faGripVertical} className="drag-handle" label={`Drag to move ${reorder.label(row)} (or use the up and down arrow keys)`} {...drag.handle(id)} />}
-                  </td>
-                )}
-                {columns.map((c) => (
-                  <td key={c.key} className={classes(columnClass(c), c.cellClass?.(row))}>{c.cell(row)}</td>
-                ))}
-              </tr>
+              <Fragment key={rowKey(row)}>
+                <tr className={classes(rowClass?.(row), moves && drag.classOf(id))} {...(moves ? drag.boxProps(id) : {})}>
+                  {reorder && (
+                    <td className="drag-cell">
+                      {moves && movableIds.length > 1 && <IconButton icon={faGripVertical} className="drag-handle" label={`Drag to move ${reorder.label(row)} (or use the up and down arrow keys)`} {...drag.handle(id)} />}
+                    </td>
+                  )}
+                  {columns.map((c) => (
+                    <td key={c.key} className={classes(columnClass(c), c.cellClass?.(row))}>{c.cell(row)}</td>
+                  ))}
+                </tr>
+                {expand?.(row, columns.length + (reorder ? 1 : 0))}
+              </Fragment>
             );
           })}
           {rows !== undefined && rows.length === 0 && empty && <EmptyRow colSpan={columns.length + (reorder ? 1 : 0)}>{empty}</EmptyRow>}

@@ -2,6 +2,7 @@ import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { IconButton } from "../Button";
+import { InAction } from "./inAction";
 
 /**
  * The details of one thing, in a big rectangle in the middle of the screen, over everything else (the expanded record of NocoDB):
@@ -25,7 +26,7 @@ export function Peek({ label, title, leading, actions, side, onClose, children }
   close.current = onClose;
   useEffect(() => {
     const before = document.activeElement as HTMLElement | null;
-    box.current?.focus();
+    if (!box.current?.contains(document.activeElement)) box.current?.focus();
     const key = (e: KeyboardEvent) => {
       // Esc in a box being written in (a search, a list) is for that box, not for the whole record
       if (e.key !== "Escape" || (e.target as HTMLElement | null)?.closest?.("input, textarea, select, [role=listbox]")) return;
@@ -52,7 +53,9 @@ export function Peek({ label, title, leading, actions, side, onClose, children }
           <IconButton icon={faXmark} label="Close" onClick={onClose} />
         </header>
         <div className="peek-body">
-          <div className="peek-main">{children}</div>
+          <div className="peek-main">
+            <InAction.Provider value>{children}</InAction.Provider>
+          </div>
           {side && <aside className="peek-side">{side}</aside>}
         </div>
       </div>

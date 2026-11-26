@@ -19,7 +19,8 @@ const ACCOUNTS: { value: CashAccount; label: string }[] = [
  * (the day, the account and the amount that really came in), or it is already there (typed by hand,
  * or imported from the sheet of the treasury) and only gets tied to the inflow.
  */
-export function ReceiveInflow({ inflow, onClose }: { inflow: Inflow; onClose: () => void }) {
+/** `compact` is the short form for the popover: the day, the account and the amount of a new movement (the Voce is the sponsorships' one). */
+export function ReceiveInflow({ inflow, compact = false, onClose }: { inflow: Inflow; compact?: boolean; onClose: () => void }) {
   const act = useAction();
   const categories = useQuery({ queryKey: ["cash-categories"], queryFn: api.cashCategories });
   const methods = useQuery({ queryKey: ["cash-methods"], queryFn: api.cashMethods });
@@ -54,23 +55,25 @@ export function ReceiveInflow({ inflow, onClose }: { inflow: Inflow; onClose: ()
   return (
     <FormPanel
       title={`Mark as received: ${inflow.sourceName}`}
-      description={`Expected ${moneyFromDecimal(inflow.amount)}${inflow.inflowDate ? ` on ${date(inflow.inflowDate)}` : ""}. From then on the cash flow counts the day and the amount of the movement, and the money is in the BANK.`}
+      description={compact ? undefined : `Expected ${moneyFromDecimal(inflow.amount)}${inflow.inflowDate ? ` on ${date(inflow.inflowDate)}` : ""}. From then on the cash flow counts the day and the amount of the movement, and the money is in the BANK.`}
       submitLabel="Mark as received"
       canSubmit={mode === "existing" ? entryId !== "" : on !== "" && Number(amount) > 0}
       onSubmit={submit}
       onCancel={onClose}
       layout="stack"
     >
-      <div className="inline-form">
-        <label className="checkbox">
-          <input type="radio" name="receive-mode" checked={mode === "new"} onChange={() => setMode("new")} />
-          Add the movement to the register
-        </label>
-        <label className="checkbox">
-          <input type="radio" name="receive-mode" checked={mode === "existing"} onChange={() => setMode("existing")} />
-          It is already in the register
-        </label>
-      </div>
+      {!compact && (
+        <div className="inline-form">
+          <label className="checkbox">
+            <input type="radio" name="receive-mode" checked={mode === "new"} onChange={() => setMode("new")} />
+            Add the movement to the register
+          </label>
+          <label className="checkbox">
+            <input type="radio" name="receive-mode" checked={mode === "existing"} onChange={() => setMode("existing")} />
+            It is already in the register
+          </label>
+        </div>
+      )}
       {mode === "new" ? (
         <div className="form-grid">
           <Field label="Data" htmlFor="receive-on">
@@ -84,15 +87,19 @@ export function ReceiveInflow({ inflow, onClose }: { inflow: Inflow; onClose: ()
           <Field label="Importo (€)" htmlFor="receive-amount">
             <input id="receive-amount" className="input small" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </Field>
-          <Field label="Voce" htmlFor="receive-voce">
-            <SearchSelect id="receive-voce" value={categoryId} onChange={setCategoryId} choices={[{ value: "", label: "—" }, ...(categories.data ?? []).map((c) => ({ value: String(c.id), label: c.name }))]} />
-          </Field>
-          <Field label="Metodo di pagamento" htmlFor="receive-method">
-            <select id="receive-method" className="input small" value={methodId} onChange={(e) => setMethodId(e.target.value)}>
-              <option value="">—</option>
-              {(methods.data ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-          </Field>
+          {!compact && (
+            <>
+              <Field label="Voce" htmlFor="receive-voce">
+                <SearchSelect id="receive-voce" value={categoryId} onChange={setCategoryId} choices={[{ value: "", label: "—" }, ...(categories.data ?? []).map((c) => ({ value: String(c.id), label: c.name }))]} />
+              </Field>
+              <Field label="Metodo di pagamento" htmlFor="receive-method">
+                <select id="receive-method" className="input small" value={methodId} onChange={(e) => setMethodId(e.target.value)}>
+                  <option value="">—</option>
+                  {(methods.data ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </Field>
+            </>
+          )}
         </div>
       ) : (
         <Field label="Movement of the register (money in, not yet tied to an inflow)" htmlFor="receive-entry">

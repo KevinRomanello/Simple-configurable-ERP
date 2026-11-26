@@ -98,6 +98,33 @@ export interface Inflow {
   late: boolean;
 }
 
+/** One thing that can be deleted from CASH FLOW: an inflow (expected or actual) or a movement of the register (GET /api/inflows/related). */
+export interface RelatedVoice {
+  kind: "inflow" | "entry";
+  id: number;
+  name: string;
+  amount: string;
+  date: string | null;
+  /** An expected inflow that a movement of the register received. */
+  received: boolean;
+  receivedOn: string | null;
+  /** False for an actual inflow typed by hand while the BANK comes from the register: the cash flow does not count it. */
+  counted: boolean;
+  /** The row that was pressed. */
+  pressed: boolean;
+  canDelete: boolean;
+  /** Why it cannot be deleted, when it cannot. */
+  why: string | null;
+}
+
+/** Everything of one company in the season; the movements of the register only for whoever can see the register (else how many there are). */
+export interface RelatedInflows {
+  expected: RelatedVoice[];
+  actual: RelatedVoice[];
+  register: RelatedVoice[];
+  registerHidden: number;
+}
+
 /** GET /api/inflows/receivable: a movement of money in that can receive an expected inflow. */
 export interface Receivable {
   id: number;

@@ -4,7 +4,7 @@ import { api } from "../api/client";
 import type { AreaSheet, CalcLine, Phase, PhaseCalc } from "../api/types";
 import { ArrivalPill } from "../components/ArrivalPill";
 import { Button, IconButton } from "../components/Button";
-import { Field, Panel } from "../components/ui";
+import { Field, FormActions, Panel, RowAction } from "../components/ui";
 import { money, moneyE4, quantity } from "../lib/format";
 import { editDraft, linePatch, PHASES, severalFunds, type EditDraft } from "../lib/lineEdit";
 import type { PhaseDraft } from "../lib/newLine";
@@ -15,7 +15,7 @@ import { BrandModelFields, CarField, PhaseFields } from "./NewLine";
 
 // A project of the budget on a phone, where the grid does not fit: one card per line with what
 // matters for the phase chosen (EXPECTED or ACTUAL), the yellow subtotal last. Touching a line opens
-// the form that changes it, with every box of the grid. docs/stile-interfaccia.md
+// the popup that changes it, with every box of the grid. docs/stile-interfaccia.md
 
 type SheetProject = AreaSheet["projects"][number];
 
@@ -65,13 +65,17 @@ export function LineCards({ project, phase, lookups, canEdit, onRemove, closed }
         return (
           <li key={line.id}>
             {canEdit ? (
-              <button type="button" className="line-card" aria-expanded={open === line.id} onClick={() => setOpen(open === line.id ? null : line.id)}>
+              <button type="button" className="line-card" aria-expanded={open === line.id} onClick={() => setOpen(line.id)}>
                 {body}
               </button>
             ) : (
               <div className="line-card">{body}</div>
             )}
-            {open === line.id && <EditLine line={line} lookups={lookups} onDone={() => setOpen(null)} onRemove={() => onRemove(line)} />}
+            {open === line.id && (
+              <RowAction eyebrow="Change line" title={line.item} context={[["Category", line.category ?? "—"], [phase === "estimate" ? "Expected" : "Actual", money(calc.amounts.outflowCents)]]} onClose={() => setOpen(null)}>
+                <EditLine line={line} lookups={lookups} onDone={() => setOpen(null)} onRemove={() => onRemove(line)} />
+              </RowAction>
+            )}
           </li>
         );
       })}
@@ -135,12 +139,12 @@ function EditLine({ line, lookups, onDone, onRemove }: { line: CalcLine; lookups
           <PhaseFields key={phase} idPrefix={idPrefix} phase={phase} draft={draft[phase]} lookups={lookups} onChange={changePhase(phase)}
             fixedFunds={severalFunds(line, phase) ? (line[phase].fundName ?? "") : undefined} />
         ))}
-        <div className="actions">
+        <FormActions>
           <Button small type="submit" disabled={!changed || draft.item.trim() === ""}>Save</Button>
           <Button small variant="ghost" onClick={onDone}>Cancel</Button>
           <span className="spacer" />
           <IconButton icon={faTrash} label={`Delete ${line.item}`} danger onClick={onRemove} />
-        </div>
+        </FormActions>
       </form>
     </Panel>
   );

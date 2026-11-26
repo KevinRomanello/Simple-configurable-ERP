@@ -11,7 +11,7 @@ import { useAction } from "../lib/useAction";
 import { Button } from "./Button";
 import { SearchSelect } from "./SearchSelect";
 import { ItemEditor } from "./ItemEditor";
-import { Field } from "./ui";
+import { Field, FormActions } from "./ui";
 
 /**
  * Puts goods on the shelf. Started from a purchase of the budget (`line`) the prices, the project
@@ -149,10 +149,10 @@ export function ReceiveForm({
         )}
       </div>
 
-      <div className="inline-form">
+      <FormActions>
         <Button small icon={faCheck} type="submit" disabled={!ready}>Put on the shelf</Button>
         {onCancel && <Button small variant="ghost" onClick={onCancel}>Cancel</Button>}
-      </div>
+      </FormActions>
     </form>
   );
 }

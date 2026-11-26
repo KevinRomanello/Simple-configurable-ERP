@@ -5,8 +5,9 @@ import { api } from "../api/client";
 import type { Inflow, Phase } from "../api/types";
 import { Button, IconButton } from "../components/Button";
 import { MonthlyInflows } from "../components/MonthlyInflows";
+import { DeleteInflow } from "../components/DeleteInflow";
 import { ReceiveInflow } from "../components/ReceiveInflow";
-import { Cards, DataTable, Field, FormPanel, MoneyCard, PageHeader, Panel, type Column } from "../components/ui";
+import { Cards, DataTable, Field, FormPanel, MoneyCard, PageHeader, Panel, RowAction, type Column } from "../components/ui";
 import { date, moneyFromDecimal } from "../lib/format";
 import { useCanChangeInflows, useCanManageCash } from "../lib/season";
 import { useAction } from "../lib/useAction";
@@ -140,6 +141,8 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
   const view = useQuery({ queryKey: ["cashflow"], queryFn: api.cashFlow });
   const summary = view.data?.[phase].summary;
   const [receiving, setReceiving] = useState<Inflow | null>(null);
+  // the row whose inflow is being deleted: it opens a panel that lists everything of the company, so that the person chooses where from
+  const [deleting, setDeleting] = useState<Inflow | null>(null);
   const fromRegister = inflows.data?.some((i) => i.source === "register") ?? false;
 
   const columns: Column<Inflow>[] = [
@@ -162,14 +165,17 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
       header: "",
       num: true,
       cell: (i) =>
-        i.source === "typed" && (
+        i.source === "register" ? (
+          // an actual inflow that is a movement of the register: only the treasury deletes it, from here too
+          canEdit && <IconButton icon={faTrash} label="Delete inflow" danger onClick={() => setDeleting(i)} />
+        ) : (
           <>
             {/* receiving is the treasury's; the sponsors add and delete, but cannot delete what is already received */}
             {canEdit && phase === "estimate" && (i.cashEntryId === null
               ? <IconButton icon={faCheck} label="Mark as received" onClick={() => setReceiving(i)} />
               : <IconButton icon={faRotateLeft} label="Not received" onClick={() => act(() => api.unreceiveInflow(i.id))} />)}
             {canChange && (canEdit || i.cashEntryId === null) && (
-              <IconButton icon={faTrash} label="Delete inflow" danger onClick={() => act(() => api.deleteInflow(i.id))} />
+              <IconButton icon={faTrash} label="Delete inflow" danger onClick={() => setDeleting(i)} />
             )}
           </>
         ),
@@ -178,13 +184,34 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
 
   return (
     <Panel title={TITLE[phase]}>
-      {receiving && <ReceiveInflow inflow={receiving} onClose={() => setReceiving(null)} />}
       {phase === "actual" && fromRegister && <p className="muted">The sponsorship movements of the register in this season, as they are there (add or change them in the register).</p>}
       <DataTable
         title={`${phase === "estimate" ? "Expected" : "Actual"} cash inflows`}
         columns={columns}
         rows={inflows.data}
         rowKey={(i) => i.id}
+        rowClass={(i) => (receiving?.id === i.id || deleting?.id === i.id ? "row-selected" : undefined)}
+        expand={(i, colSpan) => (
+          <>
+            {deleting?.id === i.id && (
+              <RowAction colSpan={colSpan} eyebrow="Delete" title={i.sourceName} context={[["Row", moneyFromDecimal(i.amount)], ["Date", date(i.inflowDate) || "—"]]} onClose={() => setDeleting(null)}>
+                <DeleteInflow from={i.source === "register" ? { cashEntryId: i.id } : { inflowId: i.id }} onClose={() => setDeleting(null)} />
+              </RowAction>
+            )}
+            {receiving?.id === i.id && (
+                <RowAction
+                colSpan={colSpan}
+                eyebrow="Mark as received"
+                title={i.sourceName}
+                context={[["Contract value", moneyFromDecimal(i.amount)], ["Inflow date", date(i.inflowDate) || "—"]]}
+                quick={<ReceiveInflow key={`quick-${i.id}`} inflow={i} compact onClose={() => setReceiving(null)} />}
+                onClose={() => setReceiving(null)}
+              >
+                <ReceiveInflow inflow={i} onClose={() => setReceiving(null)} />
+              </RowAction>
+            )}
+          </>
+        )}
         empty="No inflows yet"
       />
       {summary && (

@@ -7,8 +7,8 @@ Sette richieste dell'utente:
 | Fase | Cosa | Peso |
 | --- | --- | --- |
 | A | La spunta **«ACTUAL same as EXPECTED»** nel form «Add item» | piccolo — **fatta** (26 novembre 2026) |
-| B | Le azioni di una riga (collegare, pagare, ricevere, cambiare…) si aprono in un **popup** invece che in cima alla pagina | piccolo-medio |
-| C | **Cancellare un inflow** di CASH FLOW scegliendo da dove: EXPECTED, ACTUAL, registro di cassa | piccolo-medio |
+| B | Le azioni di una riga (collegare, pagare, ricevere, cambiare…) si aprono in un **popup** invece che in cima alla pagina | piccolo-medio — **fatta** (26 novembre 2026) |
+| C | **Cancellare un inflow** di CASH FLOW scegliendo da dove: EXPECTED, ACTUAL, registro di cassa | piccolo-medio — **fatta** (26 novembre 2026) |
 | D | **TO PAY** visibile a chi tiene il budget, e gli **ordini** (più righe comprate in un solo ordine) | medio-grande |
 | E | **Non perdere quello che si sta scrivendo** quando si cambia pagina (bozze) | medio |
 | F | **Ctrl+Z** (annulla) e Ctrl+Shift+Z (rifai) | grande |
@@ -58,131 +58,21 @@ Ciò che descriveva è passato nei documenti stabili: come funziona la spunta ne
 
 ---
 
-## 2. Fase B — Le azioni di una riga si aprono in un popup
+## 2. Fase B — Le azioni di una riga si aprono in un popup: **fatta** (26 novembre 2026)
 
-### 2.1 Il problema
+Ciò che descriveva è passato nei documenti stabili: la regola, `Peek` in modalità `form`, il contesto `InPeek` e la prova di architettura in [stile-interfaccia.md](stile-interfaccia.md) (punto 31); dove si apre ogni azione in [registro-di-cassa.md](registro-di-cassa.md) (§5.2–5.4), [inventario.md](inventario.md) e [anagrafiche.md](anagrafiche.md); le prove e cosa non è coperto in [collaudo.md](collaudo.md).
 
-Nel registro di cassa, premendo «Link to budget lines» su una riga in basso, il pannello con le righe da scegliere si apre **in cima alla pagina** (`CashRegisterPage.tsx`, `panel`, reso prima delle `Cards`). Bisogna risalire, scegliere, ridiscendere. Lo stesso succede in altre pagine (tabella al §2.4).
+**Poi ridisegnata (stesso giorno):** i popup della prima versione «non c'entravano con l'app», e al loro posto c'è `RowAction` con quattro modi, di base sotto la riga ([stile-interfaccia.md](stile-interfaccia.md), punto 31).
 
-### 2.2 La scelta: popup
-
-L'utente ha proposto due modi: popup, oppure il pannello appena sotto la riga. **Scelto il popup** (confermato dall'utente: ovunque), cioè il rettangolo grande al centro sopra la pagina, lo stesso del record delle anagrafiche che all'utente piace. Motivi:
-
-- **Tabelle che scorrono di lato** (CASH REGISTER ha 17 colonne): un pannello sotto la riga è largo quanto la tabella e può finire fuori vista a destra o a sinistra.
-- **Il popup è sempre davanti agli occhi** e la pagina dietro resta ferma dov'era: si chiude e si è al punto di prima.
-- **Sul telefono** il popup prende lo schermo intero (lo fa già `Peek`).
-- **Un modo solo ovunque**. Oggi convivono tre modi: in cima, sotto la tabella, sotto la riga (PENDING, «Where it is»).
-
-### 2.3 La base comune
-
-- **`components/ui/Peek.tsx` è la base.** Oggi mostra il record delle anagrafiche: portale, sfondo scuro, Esc, la pagina che non scorre, il focus restituito. Diventa il popup di ogni azione di riga.
-- **Una proprietà nuova per i form**: il clic fuori dal popup **non** lo chiude (un clic sbagliato farebbe perdere ciò che si è scritto). Chiudono la ×, Esc (con la regola di oggi: non dentro una casella) e Cancel. La chiusura passa sempre dal «Cancel» del form, che dalla fase E chiede conferma se c'è qualcosa di scritto.
-- **Un `FormPanel` dentro il popup non disegna la sua scatola** né il suo titolo: il titolo va in quello del popup, per non avere una scatola dentro l'altra. Per esempio una proprietà del `FormPanel`, o un contesto che il popup gli passa.
-- **Il titolo del popup nomina la riga**: «Budget lines paid by: <descrizione> (<data>)», «Pay: <item>», «Mark as received: <azienda>»…
-- **Le liste delle caselle con ricerca funzionano già dentro il popup**: `SearchSelect` galleggia nel `body` con `z-index` 80, sopra il popup a 60.
-
-### 2.4 I punti da cambiare
-
-| Pagina | Azione | Oggi | File |
-| --- | --- | --- | --- |
-| CASH REGISTER | «Link to budget lines» (`PayLines`) | in cima alla pagina | `pages/CashRegisterPage.tsx` |
-| CASH REGISTER | «Change the whole movement» (`MovementForm` del registro) | in cima alla pagina | `pages/CashRegisterPage.tsx` |
-| TO PAY | «Pay» e «Pay the N ticked» (`PayForm`) | sopra la tabella | `pages/ToPayPage.tsx` |
-| TO PAY | «Link to lines» nei pagamenti da legare (`PayLines`) | sopra l'elenco | `pages/ToPayPage.tsx` (`ToLink`) |
-| CASH FLOW | «Mark as received» (`ReceiveInflow`) | in cima al riquadro della fase | `pages/CashFlowPage.tsx` |
-| PENDING | «Receive» (`ReceiveForm`) | sotto la riga | `pages/PendingPage.tsx` |
-| Pagina di un pezzo | «Use, move, count…» (`MovementForm` dell'inventario) | sotto la riga | `pages/ItemPage.tsx` |
-| Settings › Inventory › Item types | «Parameters» (`ParamsPanel`) | sotto tutta la tabella | `pages/ItemTypesPanel.tsx` |
-| Settings › Inventory › Item types | «Add sub-type» (`NewType`) | sopra la tabella | `pages/ItemTypesPanel.tsx` |
-| Anagrafiche › Settings | matita di un campo (`FieldForm`), di un webhook (`WebhookForm`), «Log» di un webhook | sopra o sotto l'elenco | `pages/registry/ManagePanels.tsx` |
-| Anagrafiche › Forms | matita di un modulo (`FormEditor`) | sotto l'elenco | `pages/registry/FormBuilder.tsx` |
-| Budget su telefono | tocco su una riga (`EditLine`) | sotto la scheda | `pages/LineCards.tsx` |
-
-**Non cambiano**: il pulsante giallo dell'intestazione e `AddSection` (il form si apre subito sotto il pulsante, dove si sta guardando), «Edit» della pagina di un pezzo (sotto l'intestazione), «More arrived» (pulsante del riquadro), «Filters», «Set BANK».
-
-### 2.5 La regola per il futuro
-
-In [stile-interfaccia.md](stile-interfaccia.md): «un'azione di una riga apre il suo form nel popup». Una prova in `lib/architecture.test.ts` vieta il vecchio schema sotto la riga, cioè la classe `row-panel` e il componente `FragmentRow`, così nessuno lo rimette.
-
-### 2.6 Prove
-
-Prova di architettura (sopra). Nel browser, per ogni punto della tabella: il popup si apre dove si è, la pagina dietro non si muove, Esc dentro una casella chiude solo la casella, il clic fuori non chiude un form, Save chiude e la riga mostra il nuovo stato, la lista di una casella con ricerca si vede intera. Anche su telefono (viewport mobile).
-
-### 2.7 Documenti da aggiornare
-
-[stile-interfaccia.md](stile-interfaccia.md), [registro-di-cassa.md](registro-di-cassa.md) (§5.2–5.4: dove si apre), [inventario.md](inventario.md) (PENDING, pagina del pezzo), [anagrafiche.md](anagrafiche.md) (impostazioni della tabella), [collaudo.md](collaudo.md).
+**Decisioni prese con l'utente facendola:** il popup è alto quanto il suo contenuto (stesso massimo del record), non sempre grande; «Add a field», «Add a webhook» e «New form» aprono il popup come la matita; salvataggio vero provato solo dove si poteva rimettere a posto; il telefono provato accendendo per un momento la modifica da telefono.
 
 ---
 
-## 3. Fase C — Cancellare un inflow scegliendo da dove
+## 3. Fase C — Cancellare un inflow scegliendo da dove: **fatta** (26 novembre 2026)
 
-### 3.1 Com'è oggi
+Ciò che descriveva è passato nei documenti stabili: come funziona il pannello «Delete <azienda>», cosa è «della stessa azienda», le regole di chi può cancellare cosa e i due endpoint in [registro-di-cassa.md](registro-di-cassa.md) (§5.2); le prove e cosa non è coperto in [collaudo.md](collaudo.md).
 
-Le regole sono in [registro-di-cassa.md](registro-di-cassa.md) §5.2 e in `apps/api/src/modules/cashflow/cashflow.service.ts`.
-
-- Un inflow **EXPECTED** (`team_inflow`, fase `estimate`) è denaro promesso. «Mark as received» lo lega a un'entrata del registro (`team_inflow.cash_entry_id`).
-- Il lato **ACTUAL** è:
-  - con il BANK dal registro: le **entrate del registro con la spunta Sponsorship**, in sola lettura in CASH FLOW;
-  - con il BANK a mano: gli inflow ACTUAL scritti a mano.
-- Il cestino cancella **una** riga di `team_inflow`:
-  - chi ha la spunta Sponsors cancella solo inflow non ricevuti;
-  - la tesoreria cancella anche quelli ricevuti, e l'entrata del registro resta.
-- Lo stesso sponsor compare spesso in tre posti: atteso, arrivato, movimento del registro. Oggi va cancellato posto per posto, e il movimento solo dal registro.
-
-### 3.2 Cosa vede l'utente
-
-- **Il cestino** di un inflow (EXPECTED o ACTUAL, anche ACTUAL dal registro, per la tesoreria) apre un **popup** (fase B) «Delete <azienda>».
-- **Il popup elenca** in tre gruppi, **EXPECTED**, **ACTUAL**, **CASH REGISTER**, tutto ciò che di quell'azienda c'è nella stagione. Ogni voce ha una casella, la data, l'importo e lo stato («received on …», «not counted now» per un ACTUAL scritto a mano mentre il BANK è dal registro).
-- **Di base è spuntata solo la riga su cui si è premuto**, così il comportamento di partenza è quello di oggi. «Tick all» spunta tutto ciò che si può.
-- **Le voci che la persona non può cancellare** sono grigie, con il motivo. Per esempio, per chi ha solo la spunta Sponsors: «Only the treasury can delete a movement of the register» e «Only the treasury can delete a received inflow».
-- **«Delete N»** cancella tutto insieme, oppure nulla se una voce è rifiutata. Dopo la fase F lo si annulla con un solo Ctrl+Z.
-
-### 3.3 Cosa è «della stessa azienda»
-
-- **Si parte dalla riga premuta:**
-  - un inflow scritto a mano (EXPECTED o ACTUAL): il suo `source_name`;
-  - un'entrata del registro: il `source_name` dell'inflow EXPECTED che l'ha ricevuta. Se nessuno l'ha ricevuta, c'è solo quell'entrata.
-- **Inflow EXPECTED e ACTUAL scritti a mano**: quelli della stagione con lo stesso `source_name`, confrontato senza maiuscole e spazi ai bordi. Così si vedono anche le rate dello stesso sponsor.
-- **Movimenti del registro**: **solo quelli legati** agli inflow EXPECTED elencati, tramite `cash_entry_id`. Non si confrontano le descrizioni del registro, che sono testo libero.
-
-### 3.4 API (modulo `cashflow`)
-
-Gli indirizzi qui sotto sono quelli di oggi, perché la fase C si fa prima della G. Nel passo G4 la parte che tocca il registro passa sotto `/api/treasury-budget/…` ([moduli-architettura.md](moduli-architettura.md) §8.2).
-
-- **`GET /api/inflows/related?inflowId=…` oppure `?cashEntryId=…`** → `{ expected: […], actual: […], register: […] }`.
-  - Ogni voce: `id`, tipo (`inflow` / `entry`), nome, importo, data, ricevuto sì o no, `counted` (per gli ACTUAL a mano), `canDelete` e `why` (il motivo, se non si può).
-  - Chi la chiede: chi può cambiare gli inflow (`canChangeInflows`). Le voci del registro sono incluse **solo se la persona può vedere il registro** (`canManageCash`); per gli altri compare solo quante sono, per spiegare la voce grigia.
-- **`POST /api/inflows/delete`** `{ inflowIds: number[], cashEntryIds: number[] }`, tutto in **una transazione**. Controlli per ogni voce:
-  - inflow: `canChangeInflows`, e se ricevuto `canManageCash` (regola di oggi);
-  - entrate: `canManageCash`;
-  - tutte: della stagione scelta e stagione aperta (`assertSeasonOpen`).
-
-  Un solo rifiuto annulla tutto: 403 o 409 con il nome della voce.
-- **Cancellare un'entrata che ha ricevuto un inflow che resta** riporta l'inflow a «non ricevuto»: la chiave esterna lo fa già. Le entrate di denaro non pagano righe del budget, quindi non c'è `cash_entry_line` da toccare. Se ce ne fosse uno (un dato strano), va rifiutato: «it pays budget lines: remove them in the register first».
-- **`DELETE /api/inflows/:id` resta** com'è, per chi lo usa via API.
-
-### 3.5 Sito
-
-`pages/CashFlowPage.tsx`: il cestino apre il popup (un componente nuovo, per esempio `components/DeleteInflow.tsx`). Le righe ACTUAL dal registro hanno il cestino solo per la tesoreria. «Not received» non cambia.
-
-### 3.6 Prove
-
-- **API**:
-  - elenco dei collegati partendo da un EXPECTED, da un ACTUAL a mano e da un'entrata;
-  - rate con lo stesso nome;
-  - maiuscole diverse;
-  - descrizione del registro diversa ma legata;
-  - cancellare solo EXPECTED: l'entrata resta e ACTUAL non cambia;
-  - cancellare solo l'entrata: l'inflow torna non ricevuto;
-  - cancellare tutto;
-  - il pm con la spunta Sponsors non cancella entrate né inflow ricevuti, e tutto il resto della richiesta non è fatto;
-  - stagione in sola lettura;
-  - viewer → 403.
-- **Browser**: i tre gruppi, le spunte di partenza, le voci grigie per un pm con la sola spunta Sponsors.
-
-### 3.7 Documenti da aggiornare
-
-[registro-di-cassa.md](registro-di-cassa.md) §5.2, [sponsor-e-fondi.md](sponsor-e-fondi.md) §5, [collaudo.md](collaudo.md).
+**Decisioni prese con l'utente facendola:** con un movimento spuntato compare l'avviso «N movements of the register will be deleted»; un movimento che paga righe del budget si rifiuta con un messaggio; la prova con il pm che ha la sola spunta Sponsors è nelle prove dell'API (nel browser non si può senza cambiare l'utente di sviluppo). Il pannello è un `RowAction` (sotto la riga di base).
 
 ---
 

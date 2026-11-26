@@ -6,7 +6,7 @@ import type { CashEntryRow } from "../api/types";
 /** What the panel needs of a payment: the register row, or a payment that pays no line yet. */
 type Payment = Pick<CashEntryRow, "id" | "cents" | "lines">;
 import { Button } from "./Button";
-import { Loading, Table, TableScroll } from "./ui";
+import { FormActions, Loading, Table, TableScroll } from "./ui";
 import { money } from "../lib/format";
 import { decimalText } from "../lib/lineEdit";
 import { useAction } from "../lib/useAction";
@@ -87,11 +87,11 @@ export function PayLines({ entry, onClose }: { entry: Payment; onClose: () => vo
         </Table>
       </TableScroll>
       {open.length > SHOWN && <p className="muted">{open.length - SHOWN} more lines: search to narrow them.</p>}
-      <div className="inline-form">
+      <FormActions>
         <span className={over ? "hint error" : "muted"}>Paid on lines: {money(total + inOtherSeasons)} of {money(payment)}</span>
         <Button small disabled={over} onClick={save}>Save</Button>
         <Button small variant="ghost" onClick={onClose}>Cancel</Button>
-      </div>
+      </FormActions>
     </div>
   );
 }
