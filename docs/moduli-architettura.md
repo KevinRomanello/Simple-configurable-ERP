@@ -415,12 +415,16 @@ Ogni punto di aggancio ha un tipo (le proprietà che riceve) e una prova che lo 
    - **Un ponte può allargare un permesso.** Esempio: oggi la Treasury può cambiare gli inflow, che sono del budget. Lo dichiara il ponte tesoreria×budget, non il budget.
 6. **Spento non vuol dire scaricato.** Il codice di tutti i moduli si carica sempre: eventi, porte e regole si registrano all'avvio, e il nucleo salta quelli spenti. Così riaccendere è immediato e non c'è niente da reinstallare.
 7. **Due tipi di eventi** (deciso, domanda 3):
-   - **funzionalità** (mostrare, calcolare, mandare un webhook, contare il «USED BY»): solo ai moduli accesi;
+   - **funzionalità** (mostrare, calcolare, mandare un webhook): solo ai moduli accesi;
    - **manutenzione dei dati**: **a tutti**, anche agli spenti, così riaccendendo i dati sono in ordine. Sono:
      - `onLookupRenamed`: la categoria rinominata si aggiorna anche nelle righe del budget spento;
      - `onSeasonCreated`: la stagione nuova ha i suoi progetti, gli sponsor e il Team's fund anche se il budget è spento.
+   - **i controlli che proteggono i dati sono sempre «data»** (corretto il 27 novembre 2026, dalla revisione della pull request di G). Vale per ogni domanda o evento che serve a **rifiutare** una modifica: i legami restano nel database anche a modulo spento, e un controllo saltato li rovina in un modo che si vede solo riaccendendo. Sono tre:
+     - `usedBy` («chi usa questa categoria, aliquota, stagione?»): una categoria che le righe del budget spento scrivono per nome è ancora in uso, e non si cancella. Anche la colonna USED BY di Settings conta quindi i moduli spenti;
+     - `entryChanging`: un movimento del registro che ha pagato righe o ricevuto un inflow non cambia verso né scende sotto i suoi legami, anche con il budget spento;
+     - `inflowDeleting`: un inflow ricevuto lo cancella solo la tesoreria, anche con la tesoreria spenta.
 
-   Chi dichiara un evento dice di che tipo è. Il nucleo lo rispetta.
+   Chi dichiara un evento dice di che tipo è. Il nucleo lo rispetta. **Prima di dichiarare «feature» un evento o una domanda, chiedersi: se chi risponde è spento e salta, i dati restano giusti? Se no, è «data».**
 
 ---
 
@@ -509,7 +513,7 @@ Ogni passo lascia l'app funzionante, con tutte le prove verdi e i documenti aggi
 ### G1: come sono fatte le domande e gli eventi (26 novembre 2026)
 
 - **`platform/platform.public.ts`** è ciò che i moduli usano del nucleo:
-  - `usedBy` (la domanda «chi usa questo?» per categorie, aliquote, unità, posti, stagioni) con `usageOf` e `totalUse`;
+  - `usedBy` (la domanda «chi usa questo?» per categorie, aliquote, unità, posti, stagioni) con `usageOf` e `totalUse`; di tipo `data` dal 27 novembre (§8.7): risponde anche chi è spento;
   - gli eventi `lookupRenamed` e `seasonCreated`, di manutenzione dei dati (arrivano anche ai moduli spenti);
   - la dichiarazione `auditLabels` (come lo storico nomina le righe);
   - `currentActive()` (chi è acceso: oggi tutti, riga 15 di [hardcoded-registry.md](hardcoded-registry.md)).

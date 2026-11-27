@@ -52,6 +52,17 @@ describe("users", () => {
     expect((await api.as({ email: "me-boxes@team.test", role: "pm", treasury: true, sponsors: true }).get("/api/me")).body.flags).toEqual(["sponsors", "treasury"]);
   });
 
+  it("keeps the box of a module that is off while it waits, but a person made something else loses it", async () => {
+    const person = await createUser({ email: "sleeping-box@team.test", role: "pm", treasury: true, sponsors: true });
+    expect((await api.patch("/api/modules/treasury", { enabled: false })).status).toBe(204);
+    // the treasury is off: its box is not offered, and changing the others leaves it where it is
+    expect((await api.patch(`/api/users/${person.id}`, { flags: [] })).body.flags).toEqual(["treasury"]);
+    // made a viewer, the person can have neither box: the one of the module that is off goes too
+    expect((await api.patch(`/api/users/${person.id}`, { role: "viewer" })).body.flags).toEqual([]);
+    expect((await api.patch("/api/modules/treasury", { enabled: true })).status).toBe(204);
+    expect((await api.get("/api/users")).body.find((u: { id: number }) => u.id === person.id).flags).toEqual([]);
+  });
+
   it("changes role, areas and the active flag", async () => {
     const person = await createUser({ email: "someone@team.test", role: "viewer" });
     const sw = await areaId("sw");

@@ -5,7 +5,7 @@ import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
 import { appUser, area, userArea, userFlag } from "../../db/schema/platform";
 import { getCurrentUser, requireAdmin, type Role, type User } from "../auth/auth.service";
-import { declaredFlags } from "../platform.public";
+import { declaredFlags, everyFlag } from "../platform.public";
 
 /** The person with their areas and their boxes: read with one query, since every request starts here. */
 async function withAreas(reader: Db, row: typeof appUser.$inferSelect): Promise<User> {
@@ -126,8 +126,8 @@ export async function listFlags() {
 /**
  * Changes role, boxes (`flags`: the whole list that is wanted), active flag and assigned areas of a person (admins only).
  * A box says which roles may have it (the treasury and the sponsors boxes are for project managers): asking for one for another
- * role is refused, and a person made something else loses the boxes that role cannot have. A box that no module that is on
- * declares is left as it is: it is waiting for its module to be turned on again.
+ * role is refused, and a person made something else loses the boxes that role cannot have, also those of a module that is off. A box
+ * of a module that is off is otherwise left as it is: it is waiting for its module to be turned on again.
  */
 export async function updateUser(
   userId: number,
@@ -176,9 +176,13 @@ export async function updateUser(
     }
     const have = (await tx.select({ flag: userFlag.flag }).from(userFlag).where(eq(userFlag.userId, userId))).map((r) => r.flag);
     const wanted = patch.flags ?? have;
+    const all = everyFlag();
     const keep = (key: string) => {
       const box = boxes.find((b) => b.key === key);
-      return box === undefined || (wanted.includes(key) && box.roles.includes(role));
+      if (box) return wanted.includes(key) && box.roles.includes(role);
+      // a box of a module that is off waits for it, but only if the person's role may have it: a pm made a viewer loses it now
+      const sleeping = all.find((b) => b.key === key);
+      return sleeping === undefined || sleeping.roles.includes(role);
     };
     const next = [...new Set([...have, ...wanted])].filter(keep);
     const drop = have.filter((key) => !next.includes(key));

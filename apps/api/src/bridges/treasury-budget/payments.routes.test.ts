@@ -111,6 +111,22 @@ describe("an expected inflow that arrives", () => {
     expect((await api.post(`/api/treasury-budget/inflows/${gala.id}/receive`, {})).status).toBe(400);
   });
 
+  it("keeps its tie while a module is off: only the treasury deletes it, and its movement stays money in", async () => {
+    await openRegister();
+    const gala = await inflow();
+    expect((await api.as(TREASURER).post(`/api/treasury-budget/inflows/${gala.id}/receive`, { on: today(), account: "bank" })).status).toBe(204);
+    const wire = (await register()).entries.find((e: { inflow: unknown }) => e.inflow);
+
+    // the treasury off: the sponsors box still adds and deletes inflows, but not one the treasury received
+    expect((await api.patch("/api/modules/treasury", { enabled: false })).status).toBe(204);
+    expect((await api.as(SP).del(`/api/budget/inflows/${gala.id}`)).status).toBe(403);
+
+    // the budget off instead: the movement that received the inflow still does not turn into a payment
+    expect((await api.patch("/api/modules/treasury", { enabled: true })).status).toBe(204);
+    expect((await api.patch("/api/modules/budget", { enabled: false })).status).toBe(204);
+    expect((await api.patch(`/api/treasury/entries/${wire.id}`, { direction: "out" })).status).toBe(409);
+  });
+
   it("is not a thing when the BANK is written by hand: the expected inflows count as they always did", async () => {
     await api.put("/api/budget/bank", { amount: "100", asOfDate: later(-10) });
     await inflow({ amount: "500", inflowDate: later(-5) });
@@ -243,6 +259,18 @@ describe("a payment that paid lines of the budget", () => {
     expect((await pay(big.id, [{ lineId: sensor, amount: "820" }])).status).toBe(204);
 
     // a payment cannot shrink below its links, nor turn into money in
+    expect((await api.patch(`/api/treasury/entries/${bill.id}`, { amount: "300" })).status).toBe(409);
+    expect((await api.patch(`/api/treasury/entries/${bill.id}`, { direction: "in" })).status).toBe(409);
+    expect((await api.patch(`/api/treasury/entries/${bill.id}`, { amount: "450" })).status).toBe(200);
+  });
+
+  it("keeps its links while the budget is off: it still cannot shrink below them nor turn into money in", async () => {
+    await openRegister();
+    const sensor = await line(later(20));
+    const bill = await entry({ direction: "out", amount: "400", on: later(-1) });
+    expect((await pay(bill.id, [{ lineId: sensor, amount: "400" }])).status).toBe(204);
+
+    expect((await api.patch("/api/modules/budget", { enabled: false })).status).toBe(204);
     expect((await api.patch(`/api/treasury/entries/${bill.id}`, { amount: "300" })).status).toBe(409);
     expect((await api.patch(`/api/treasury/entries/${bill.id}`, { direction: "in" })).status).toBe(409);
     expect((await api.patch(`/api/treasury/entries/${bill.id}`, { amount: "450" })).status).toBe(200);

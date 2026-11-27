@@ -114,6 +114,19 @@ describe("categories", () => {
     expect(refused.body.error).toMatch(/1 item types/);
   });
 
+  it("is still in use while the module that uses it is off: it cannot be deleted while that module sleeps", async () => {
+    await lineOf("Asset");
+    await api.post("/api/inventory/items", { name: "Drill", category: "Software" });
+    expect((await api.patch("/api/modules/budget", { enabled: false })).status).toBe(204);
+    expect((await api.patch("/api/modules/inventory", { enabled: false })).status).toBe(204);
+    const asset = await api.del(`/api/settings/categories/${await categoryId("Asset")}`);
+    expect(asset.status).toBe(409);
+    expect(asset.body.error).toMatch(/1 budget lines/);
+    const software = await api.del(`/api/settings/categories/${await categoryId("Software")}`);
+    expect(software.status).toBe(409);
+    expect(software.body.error).toMatch(/1 items/);
+  });
+
   it("keeps the order it is given, which TOTAL and the Gantt follow", async () => {
     const ids = (await settings()).categories.map((c: { id: number }) => c.id);
     expect((await api.put("/api/settings/categories/order", { ids: [...ids].reverse() })).status).toBe(204);
@@ -141,6 +154,17 @@ describe("VAT rates", () => {
     expect(used.usedBy).toBe(1);
     expect((await api.del(`/api/settings/vat-rates/${used.id}`)).status).toBe(409);
     expect((await api.del(`/api/settings/vat-rates/${rates.find((r) => r.rate === 0)!.id}`)).status).toBe(204);
+  });
+
+  it("a rate a sponsor uses stays in use while the budget is off", async () => {
+    await sponsorId(api, "Sponsor"); // 22%
+    expect((await api.patch("/api/modules/budget", { enabled: false })).status).toBe(204);
+    const rates = (await settings()).vatRates as { id: number; rate: number; usedBy: number }[];
+    const used = rates.find((r) => r.rate === 22)!;
+    expect(used.usedBy).toBe(1);
+    const refused = await api.del(`/api/settings/vat-rates/${used.id}`);
+    expect(refused.status).toBe(409);
+    expect(refused.body.error).toMatch(/1 sponsors/);
   });
 });
 

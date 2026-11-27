@@ -94,6 +94,13 @@ describe("what is recorded", () => {
     expect(entry.changes).toEqual([{ field: "role", before: "viewer", after: "pm" }]);
   });
 
+  it("names a box given to a person with who and which: the boxes are rows of their own", async () => {
+    const person = await createUser({ email: "boxed@team.test", role: "pm" });
+    await api.patch(`/api/users/${person.id}`, { flags: ["treasury"] });
+    const entry = (await history("?table=user_flag")).entries[0];
+    expect(entry).toMatchObject({ action: "insert", label: `user ${person.id}, box treasury`, actor: { email: "admin@team.test" } });
+  });
+
   it("leaves no trace of a request that failed", async () => {
     await api.post("/api/budget/suppliers", { name: "Acme" });
     expect((await api.post("/api/budget/suppliers", { name: "ACME" })).status).toBe(409);

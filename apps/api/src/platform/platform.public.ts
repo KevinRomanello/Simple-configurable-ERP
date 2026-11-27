@@ -56,10 +56,14 @@ export interface UsageRow {
   count: number;
 }
 
-/** «Who uses these?»: every module that is on answers with what of it uses the entries. */
-export const usedBy = defineQuestion<{ kind: UsageKind; subjects: UsageSubject[] }, UsageRow[]>("usedBy", "feature");
+/**
+ * «Who uses these?»: every module answers with what of it uses the entries, **on or off**. It guards a deletion: a category that the lines
+ * of a budget turned off still hold by name is in use, and deleting it would leave those lines with a category that is gone when the
+ * budget is turned on again (docs/moduli-architettura.md, §8.7).
+ */
+export const usedBy = defineQuestion<{ kind: UsageKind; subjects: UsageSubject[] }, UsageRow[]>("usedBy", "data");
 
-/** What uses each of `subjects`, by key: the labels with their counts, in the order of the modules; an entry nobody uses is not there. */
+/** What uses each of `subjects`, by key: the labels with their counts, in the order of the modules (off ones too); an entry nobody uses is not there. */
 export async function usageOf(db: Db, kind: UsageKind, subjects: UsageSubject[]): Promise<Map<string, UsageRow[]>> {
   const answers = (await contracts.collect(usedBy, currentActive(), db, { kind, subjects })).flat();
   const byKey = new Map<string, UsageRow[]>();
@@ -114,6 +118,9 @@ export const userFlags = defineDeclaration<UserFlag>("userFlags");
 
 /** The boxes of the modules that are on, in the order the modules were read. */
 export const declaredFlags = (): UserFlag[] => contracts.declared(userFlags, currentActive());
+
+/** Every box any module declares, on or off: what a role may keep does not depend on the switches. */
+export const everyFlag = (): UserFlag[] => contracts.declared(userFlags, ALL_ACTIVE);
 
 // --- what a person may do ------------------------------------------------------------------------
 

@@ -160,7 +160,7 @@ const PUBLIC_NAMES: Record<string, string[]> = {
     "CreateEntryInput", "DayRange", "EntryFact", "EntryLink", "OutsideFact", "assertCanManageCash", "assertListed", "deleteEntryIn", "entriesByIds", "entryChanging", "entryLinks", "getStatementLayout", "insertEntry", "lastPaymentMethodId", "moneyInBetween", "outsideBetween", "paymentsBetween", "registerBalanceAt", "sponsorshipMoneyBetween",
   ],
   "platform/platform.public": [
-    "AuditRow", "BridgeInfo", "ModuleInfo", "PermissionRule", "UsageKind", "UsageRow", "UsageSubject", "UserFlag", "auditLabels", "auditText", "bridgeInfo", "can", "categoryCreated", "currentActive", "declaredFlags", "lookupRenamed", "moduleInfo", "permissionRules", "seasonCreated", "totalUse", "usageOf", "usedBy", "userFlags",
+    "AuditRow", "BridgeInfo", "ModuleInfo", "PermissionRule", "UsageKind", "UsageRow", "UsageSubject", "UserFlag", "auditLabels", "auditText", "bridgeInfo", "can", "categoryCreated", "currentActive", "declaredFlags", "everyFlag", "lookupRenamed", "moduleInfo", "permissionRules", "seasonCreated", "totalUse", "usageOf", "usedBy", "userFlags",
   ],
   "modules/registry/registry.public": ["PersonInRegistry", "RegistryListener", "RegistryUseCheck", "groupsOfRegistry", "onRegistryChange", "onRegistryUse", "peopleInViews"],
 };

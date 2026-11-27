@@ -6,6 +6,7 @@ import { auditLabels, auditText } from "../platform.public";
 contracts.declare(auditLabels, "platform", {
   app_user: (row) => auditText(row, "email"),
   user_area: (row) => `user ${String(row.user_id ?? "")}, area ${String(row.area_id ?? "")}`,
+  user_flag: (row) => `user ${String(row.user_id ?? "")}, box ${auditText(row, "flag")}`,
   vat_rate: (row) => `${String(row.rate ?? "")}%`,
   setting: () => "settings",
   app_module: (row) => `module ${auditText(row, "key")}`,

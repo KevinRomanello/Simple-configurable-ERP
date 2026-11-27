@@ -40,8 +40,11 @@ export const linePayments = definePort<{ lineIds: number[] }, { lineId: number; 
 /** What the register says is outside the budget, as the projects, lines and money in of the derived area; none when there is no register. */
 export const outsideBudgetOf = definePort<{ season: { startsOn: string; endsOn: string }; area: AreaInput }, OutsideBudget | null>("outsideBudgetOf", "budget", () => null);
 
-/** An inflow is about to be deleted from CASH FLOW: whoever tied it to something may refuse, by throwing (the treasury keeps the received ones). */
-export const inflowDeleting = defineEvent<{ inflowId: number; actor: User }>("inflowDeleting", "feature");
+/**
+ * An inflow is about to be deleted from CASH FLOW: whoever tied it to something may refuse, by throwing (the treasury keeps the received
+ * ones). It reaches the bridge even when the treasury is off: the tie to the register stays in the database, and only the treasury may undo it.
+ */
+export const inflowDeleting = defineEvent<{ inflowId: number; actor: User }>("inflowDeleting", "data");
 
 // --- what the budget asks the inventory (the answer comes from the bridge to the inventory) --------------
 
