@@ -35,7 +35,7 @@ Lo spegnimento va nello storico come ogni altra modifica (tabella `app_module`, 
 
 1. Una voce in `listModuleDefs` (chiave, nome, descrizione, prefissi delle sue rotte API) e una riga in [hardcoded-registry.md](hardcoded-registry.md) se cambia.
 2. Nel sito, il suo **manifesto** (`modules/<chiave>/index.tsx`: pagine, gruppi e voci del menù, sezioni di Settings; [moduli-architettura.md](moduli-architettura.md), §7.2) e una riga nell'elenco `MANIFESTS` (`apps/web/src/manifests.ts`). Spento, le sue pagine portano alla prima pagina e il resto sparisce da solo.
-3. Se qualcosa di un altro modulo dipende da lui (come i ruoli dal Registry), quel ponte chiede `isModuleOn("chiave")`.
+3. Se qualcosa di un altro modulo dipende da lui (come i ruoli dal Registry), quel ponte chiede `isModuleOn("chiave")`. Nel sito un ponte ha il suo manifesto in `bridges/<a>-<b>/index.tsx` con `needs` (si accende solo con tutti e due i moduli) e mette le sue parti nelle pagine dei moduli con i `fills`, nei punti di aggancio che ogni modulo definisce nel suo `slots.ts` e presta dal suo `public.ts` ([moduli-architettura.md](moduli-architettura.md), §7.3 e §7.4).
 4. Prove: lo stato spento dà 404 sui suoi indirizzi e li ridà riaccesi (`appmodules.routes.test.ts`).
 
 Non serve nessuna migrazione.

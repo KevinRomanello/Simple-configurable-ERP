@@ -480,7 +480,7 @@ Ogni passo lascia l'app funzionante, con tutte le prove verdi e i documenti aggi
 | **G4 — fatto (27 novembre 2026)** | **Tesoreria** in `modules/treasury` con `treasury.public.ts`. Le parti miste (`cash-links`, `outside-budget`, `loadPayments`, inflow ricevuti, BANK dal registro, Voce di partenza) vanno in `bridges/treasury-budget`. Migrazione di `inflow_receipt` e `category_voce`. | tesoreria e ponte senza eccezioni |
 | **G5 — fatto (27 novembre 2026)** | **Inventario** in `modules/inventory` con `inventory.public.ts`. PENDING, ricevere da una riga, arrivi, progetti e statistiche per progetto vanno in `bridges/inventory-budget`. Migrazione di `receipt_line`, `movement_project`, `item_make_project`. | idem |
 | **G6 — fatto (27 novembre 2026)** | **Budget** in `modules/budget` con `budget.public.ts`: budget, fondi, fornitori, CASH FLOW a mano, viste, e lo **snapshot con le porte**. | idem; i numeri di prova del calcolo identici (stessi test, stesso foglio di riconciliazione) |
-| **G7** | **Il sito**: cartelle (§7.1), manifesti, punti di aggancio, client e tipi divisi, menù, indirizzi e Settings dai manifesti, prove del sito. | nessuna pagina importa un altro modulo se non dal suo `public.ts` |
+| **G7 — fatto (27 novembre 2026)** | **Il sito**: cartelle (§7.1), manifesti, punti di aggancio, client e tipi divisi, menù, indirizzi e Settings dai manifesti, prove del sito. | nessuna pagina importa un altro modulo se non dal suo `public.ts` |
 | **G8** | **Gli interruttori** per budget, tesoreria e inventario in Settings › App › Modules; `/me.bridges`; la prova di tutte le combinazioni (§12); la lista delle eccezioni vuota. | le 16 combinazioni passano |
 
 ### G0: cosa c'è (26 novembre 2026)
@@ -638,6 +638,21 @@ Cinque tappe: le cartelle con il client e i tipi divisi (1), i manifesti (2), i 
     - l'inventario: `purposeProjects`, i tipi `ProjectRef` e `PurchaseToReceive`, `ReceiveForm`, `useInventoryLookups`, `usePrice`, `inventoryItems` (quel che serve a PENDING).
   - **Due regole nuove** in `architecture.test.ts`: i nomi di ogni `public.ts` sono scritti nella prova (`SITE_PUBLIC`, come `PUBLIC_NAMES` del server), e `defineSlot` sta solo nei `slots.ts`. `SITE_EXCEPTIONS` resta, vuota: una riga nuova è una scelta da discutere.
   - **Le tre liste dei conti** (Cassa, Banca, Paypal) restano tre: il registro mette prima la Cassa, il pagamento e l'incasso del ponte prima la Banca (quella di partenza).
+- **Tappa 5, la chiusura:** nel browser sul database di sviluppo, con il Registry spento e riacceso da Settings › App › Modules:
+  - **spento:** niente gruppo Registry nel menù, niente scheda Registry in Settings; `/registry` e `/registry/<tabella>` portano alla prima pagina, `/settings/registry` alla prima sezione; `/api/registry/…` risponde 404 e il modulo pubblico dice «The Registry module is turned off»; le altre pagine, ponti compresi (TO PAY, PENDING), restano dove sono;
+  - **riacceso:** tutto torna (il gruppo con le sue voci, la scheda, le pagine), con le stesse impronte di prima;
+  - **sul telefono** il menù ha gli stessi gruppi del computer, senza scorrere di lato.
+
+  Le prove: sito 282, API 599 (non toccata in G7). Il passo G7 è finito.
+- **Cosa resta per G8** (raccolto nelle cinque tappe):
+  - gli interruttori di budget, tesoreria e inventario, `/me.bridges` (oggi il sito accende un ponte quando sono accesi i suoi moduli) e la pagina iniziale automatica (oggi `/budget/mt-dmt`);
+  - con l'inventario spento, la colonna ARRIVED del budget resta vuota: nasconderla o no;
+  - con la tesoreria spenta, CASH FLOW non ha modo di cancellare un inflow (la cancellazione è tutta del ponte): il budget avrà bisogno della sua;
+  - con il ponte inventario×budget spento, i moduli dell'inventario mostrano la scelta del progetto vuota: nasconderla;
+  - dove stanno le liste del nucleo quando il modulo che le mostra è spento: le categorie sono nella sezione Inventory di Settings, le stagioni e le aliquote IVA in quella Budget;
+  - il ponte anagrafiche×accesso nel sito: la parte «ruoli dell'ERP» di Settings › Registry è ancora nel modulo registry;
+  - appena spento un modulo, il sito chiede un'ultima volta i suoi dati (due 404 in console) prima che `/api/me` dica che è spento: succedeva anche prima di G7, non si vede niente;
+  - la prova delle 16 combinazioni (§12).
 
 **I documenti da aggiornare alla fine**:
 - [architettura.md](architettura.md) (struttura del repository e livelli);
