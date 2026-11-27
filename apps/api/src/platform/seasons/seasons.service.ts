@@ -1,10 +1,12 @@
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
+import { contracts } from "../../core/contracts";
 import { conflict, notFound } from "../../core/errors";
 import { today } from "../../core/today";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { budgetLine, fund, project, season } from "../../db/schema";
+import { season } from "../../db/schema/platform";
 import { getCurrentUser, requireAdmin } from "../auth/auth.service";
+import { currentActive, seasonCreated, totalUse, usageOf } from "../platform.public";
 import { seasonStorage } from "./seasons.context";
 
 // Seasons and their cars: one budget per season, chosen in the menu (docs/stagioni-anni-fiscali-e-macchine.md).
@@ -53,13 +55,9 @@ export async function getSeasonByName(name: string): Promise<Season> {
 export async function listSeasons() {
   const seasons = await allSeasons();
   const current = seasons.length > 0 ? seasonOfToday(seasons).id : null;
-  const counts = await db
-    .select({ seasonId: project.seasonId, lines: sql<number>`count(${budgetLine.id})::int` })
-    .from(project)
-    .innerJoin(budgetLine, eq(budgetLine.projectId, project.id))
-    .groupBy(project.seasonId);
-  const lines = new Map(counts.map((c) => [c.seasonId, c.lines]));
-  return seasons.reverse().map((s) => ({ ...s, current: s.id === current, lines: lines.get(s.id) ?? 0 }));
+  // how many budget lines each season has: the modules that keep something in a season say how much (the budget, for now)
+  const used = await usageOf(db, "season", seasons.map((s) => ({ key: String(s.id), name: s.name, id: s.id })));
+  return seasons.reverse().map((s) => ({ ...s, current: s.id === current, lines: totalUse(used.get(String(s.id))) }));
 }
 
 /** The name and the days of the season that starts in September of `startYear`. */
@@ -69,8 +67,8 @@ export function seasonDates(startYear: number) {
 }
 
 /**
- * Adds a season (POST /api/seasons, admin). It starts from the latest one, for convenience: the same
- * projects (empty) and the same sponsors (without their money), and its own Team's fund.
+ * Adds a season (POST /api/seasons, admin). It starts from the latest one, for convenience: the modules that keep something in a season
+ * prepare their part of the new one (the budget: the same projects, empty, the same sponsors without their money, and its own Team's fund).
  */
 export async function createSeason(input: { startYear: number; car: string }) {
   const actor = await getCurrentUser();
@@ -82,26 +80,9 @@ export async function createSeason(input: { startYear: number; car: string }) {
     if (taken) throw conflict(`The season ${dates.name} already exists`);
 
     const [created] = await tx.insert(season).values({ ...dates, car: input.car }).returning();
-    await tx.insert(fund).values({ seasonId: created!.id, name: "Team's fund", kind: "team" });
-    if (latest) await copyStructure(tx, latest.id, created!.id);
+    await contracts.emit(seasonCreated, currentActive(), tx, { seasonId: created!.id, fromSeasonId: latest?.id ?? null });
     return created!;
   });
-}
-
-/** The projects and the sponsors of a season, into a new one: no lines, no money. */
-async function copyStructure(tx: Tx, fromId: number, toId: number) {
-  const projects = await tx.select().from(project).where(eq(project.seasonId, fromId));
-  if (projects.length > 0) {
-    await tx.insert(project).values(
-      projects.map((p) => ({ seasonId: toId, areaId: p.areaId, name: p.name, ownerName: p.ownerName, position: p.position })),
-    );
-  }
-  const sponsors = (await tx.select().from(fund).where(eq(fund.seasonId, fromId))).filter((f) => f.kind === "external");
-  if (sponsors.length > 0) {
-    await tx.insert(fund).values(
-      sponsors.map((f) => ({ seasonId: toId, name: f.name, kind: f.kind, type: f.type, vatRate: f.vatRate, groupName: f.groupName, unlimited: f.unlimited })),
-    );
-  }
 }
 
 /** Renames the car of a season or locks it (PATCH /api/seasons/:id, admin). */

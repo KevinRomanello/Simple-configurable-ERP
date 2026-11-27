@@ -4,7 +4,7 @@ import { id, shortText } from "../../core/validation";
 import { registryOpenApi } from "./openapi.service";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "../../db/client";
-import { appUser } from "../../db/schema";
+import { appUser } from "../../db/schema/platform";
 import { addComment, deleteComment, editComment, listComments, resolveComment } from "./comments.service";
 import { duplicateField, duplicateTable, duplicateView, tableFromCsv } from "./copies.service";
 import { exportCsv, exportIcs, exportJson } from "./exports.service";

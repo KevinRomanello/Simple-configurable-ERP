@@ -95,7 +95,7 @@ Le idee da portarsi a casa:
 - **Chiave primaria** (`id`): identifica una riga. Da noi è un contatore automatico (`GENERATED ALWAYS AS IDENTITY`).
 - **Chiave esterna**: `budget_line.project_id` punta a `project.id`. Il database *rifiuta* una voce con un progetto che non esiste, e rifiuta di cancellare un progetto che ha voci (a meno di `ON DELETE CASCADE`, che usiamo apposta per cancellare le voci insieme al progetto).
 - **Vincoli**: `NOT NULL`, `UNIQUE`, `CHECK (quantity >= 0)`. Sono regole che il database fa rispettare *sempre*, anche se un giorno scrivessimo male il codice dell'API.
-- **Indici univoci speciali** (in `schema.ts`):
+- **Indici univoci speciali** (nei file di `db/schema/`):
   - `UNIQUE (season_id, lower(name))`: i nomi dei fondi sono unici *senza distinzione di maiuscole*.
   - `UNIQUE (season_id) WHERE kind = 'team'`: un indice *parziale*; garantisce che ci sia **un solo** "Team's fund" per stagione.
 - **Indici sulle chiavi esterne**: PostgreSQL non li crea da solo. Ogni colonna che punta a un'altra tabella ha un indice (o è la prima colonna di un vincolo univoco), altrimenti i controlli «è usato?» (un fornitore, un fondo, un progetto) e le cancellazioni a cascata leggono tutta la tabella. Chi aggiunge una chiave esterna in `schema.ts` aggiunge anche `index("tabella_colonna").on(t.colonna)`; la query che trova quelle senza indice è in [controllo-bug-e-prestazioni.md](controllo-bug-e-prestazioni.md) (§4) e deve dare zero righe.
@@ -119,7 +119,7 @@ select name, kind from fund;         -- i fondi
 
 **Trappole.** Le colonne `numeric` arrivano a JavaScript come *stringhe* ("1220.00"): è voluto, per non perdere esattezza; la conversione è in un solo file (`apps/api/src/core/money.ts`).
 
-**Dove guardare:** `apps/api/src/db/schema.ts` (le tabelle), `apps/api/drizzle/0000_*.sql` (lo stesso in SQL).
+**Dove guardare:** `apps/api/src/db/schema/` (le tabelle, un file per proprietario), `apps/api/drizzle/0000_*.sql` (lo stesso in SQL).
 
 ---
 
@@ -301,7 +301,7 @@ const [existing] = await tx
 
 **Come funziona.** Una **migrazione** è un file SQL che porta il database da uno stato al successivo.
 
-1. Modifichi `schema.ts`.
+1. Modifichi il file dello schema del proprietario (`db/schema/<proprietario>.ts`).
 2. `pnpm db:generate` (drizzle-kit): confronta lo schema con l'ultima "fotografia" salvata in `apps/api/drizzle/meta/` e **scrive un nuovo file SQL** (`0001_….sql`) con solo la differenza.
 3. `pnpm db:migrate`: esegue i file non ancora applicati e annota ognuno nella tabella `drizzle.__drizzle_migrations` del database. Per questo si può rilanciare: salta ciò che è già fatto.
 
@@ -311,7 +311,7 @@ Questi file SQL **si committano**: sono la storia della struttura.
 
 È il **driver**: la libreria che apre la connessione TCP a Postgres e spedisce l'SQL. Gestisce un **pool** di connessioni riusate (in `db/client.ts`: `new pg.Pool(...)`), così ogni richiesta non ne apre una nuova.
 
-**Dove guardare:** `apps/api/src/db/schema.ts`, `client.ts`, `migrate.ts`, `apps/api/drizzle.config.ts`, `apps/api/drizzle/`.
+**Dove guardare:** `apps/api/src/db/schema/` (e `schema.ts`, che le riunisce per il client), `client.ts`, `migrate.ts`, `apps/api/drizzle.config.ts`, `apps/api/drizzle/`.
 
 ---
 

@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../db/client";
-import { cashEntryLine } from "../../db/schema";
+import { cashEntryLine } from "../../db/schema/treasury-budget";
 import { resetData, testApp } from "../../../test/helpers";
 
 // Deleting an inflow of CASH FLOW choosing where from: the expected one, the actual one, the movement of the register.

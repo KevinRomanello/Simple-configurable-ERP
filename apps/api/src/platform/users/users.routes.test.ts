@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { ADMIN, createUser, resetData, testApp } from "../../../test/helpers";
 import { db } from "../../db/client";
-import { appUser, area } from "../../db/schema";
+import { appUser, area } from "../../db/schema/platform";
 
 const api = testApp();
 afterAll(() => api.close());
@@ -29,6 +29,27 @@ describe("users", () => {
       email: "pm@team.test", role: "pm", active: true, areaIds: [...pm.areaIds].sort((a, b) => a - b),
     });
     expect((await api.as({ email: "pm@team.test", role: "pm" }).get("/api/users")).status).toBe(403);
+  });
+
+  it("offers the boxes the modules declare, to the admins, and says who may have each", async () => {
+    const boxes = (await api.get("/api/flags")).body;
+    expect(boxes.map((b: { key: string }) => b.key)).toEqual(["treasury", "sponsors"]);
+    expect(boxes[0]).toMatchObject({ key: "treasury", label: "Treasury", roles: ["pm"] });
+    expect(boxes[1]).toMatchObject({ key: "sponsors", label: "Sponsors", roles: ["pm"] });
+    expect((await api.as({ email: "pm@team.test", role: "pm" }).get("/api/flags")).status).toBe(403);
+  });
+
+  it("sets the whole list of boxes at once, refuses one nobody declares or one the role cannot have, and tells the person who they are", async () => {
+    const person = await createUser({ email: "boxes@team.test", role: "pm" });
+    expect((await api.patch(`/api/users/${person.id}`, { flags: ["sponsors", "treasury"] })).body.flags).toEqual(["sponsors", "treasury"]);
+    expect((await api.patch(`/api/users/${person.id}`, { flags: ["treasury"] })).body.flags).toEqual(["treasury"]); // the list is what is wanted
+    expect((await api.patch(`/api/users/${person.id}`, { active: false })).body.flags).toEqual(["treasury"]); // what is not mentioned stays
+    expect((await api.patch(`/api/users/${person.id}`, { flags: ["payroll"] })).status).toBe(400);
+    const refused = await api.patch(`/api/users/${(await createUser({ email: "viewer-box@team.test", role: "viewer" })).id}`, { flags: ["treasury"] });
+    expect(refused.status).toBe(400);
+    expect(refused.body.error).toMatch(/Treasury box is for project managers/);
+    expect((await api.get("/api/users")).body.find((u: { id: number }) => u.id === person.id).flags).toEqual(["treasury"]);
+    expect((await api.as({ email: "me-boxes@team.test", role: "pm", treasury: true, sponsors: true }).get("/api/me")).body.flags).toEqual(["sponsors", "treasury"]);
   });
 
   it("changes role, areas and the active flag", async () => {

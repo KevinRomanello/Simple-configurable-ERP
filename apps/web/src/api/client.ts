@@ -1,5 +1,5 @@
 import type {
-  Analysis, RelatedInflows, ApiTokenRow, AppModule, Area, AreaSheet, Bank, ApplyBody, CategoryDefault, ToLinkRow, ToPay, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, PlanView, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, CashScope, SponsorBody, Statement, StatsResult, Supplier, TotalsView, TypeParam, UserRow, VatReport,
+  Analysis, RelatedInflows, ApiTokenRow, AppModule, Area, AreaSheet, Bank, ApplyBody, CategoryDefault, ToLinkRow, ToPay, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, PlanView, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, CashScope, SponsorBody, Statement, StatsResult, Supplier, TotalsView, TypeParam, UserFlag, UserRow, VatReport,
 } from "./types";
 import type { NewLineBody } from "../lib/newLine";
 import { chosenSeasonId } from "../lib/seasonChoice";
@@ -216,7 +216,10 @@ export const api = {
   // users and history
   users: () => get<UserRow[]>("/users"),
   createUser: (body: { email: string; name: string; role: Role }) => post<UserRow>("/users", body),
-  updateUser: (id: number, body: { role?: Role; treasury?: boolean; sponsors?: boolean; active?: boolean; areaIds?: number[] }) =>
+  /** The boxes of the modules that are on, for the Users page. */
+  flags: () => get<UserFlag[]>("/flags"),
+  /** `flags` is the whole list of boxes wanted for the person. */
+  updateUser: (id: number, body: { role?: Role; flags?: string[]; active?: boolean; areaIds?: number[] }) =>
     patch<UserRow>(`/users/${id}`, body),
   history: (query: { table?: string; before?: number }) => {
     const params = new URLSearchParams({ limit: "50" });

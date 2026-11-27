@@ -7,7 +7,8 @@ import { postgresCode } from "../core/errors";
 import { assertNotSuperuser, ensureAppRole } from "./app-role";
 import { db } from "./client";
 import * as schema from "./schema";
-import { auditLog, supplier } from "./schema";
+import { supplier } from "./schema/budget";
+import { auditLog } from "./schema/platform";
 
 // The whole suite already runs as the API's limited user (see test/db-urls.ts); these tests say
 // exactly what that user can and cannot do.

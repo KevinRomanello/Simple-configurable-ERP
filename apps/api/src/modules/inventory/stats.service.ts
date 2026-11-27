@@ -2,7 +2,9 @@ import { computeLines, stats, type PriceBasis, type StatsDimension } from "@erp/
 import { eq, sql } from "drizzle-orm";
 import { today } from "../../core/today";
 import { db } from "../../db/client";
-import { budgetLine, project, season, stockMovement } from "../../db/schema";
+import { budgetLine, project } from "../../db/schema/budget";
+import { stockMovement } from "../../db/schema/inventory";
+import { season } from "../../db/schema/platform";
 import { loadSnapshot } from "../../snapshot";
 import { listLocations } from "../../platform/lookups/lookups.service";
 import { getCurrentSeason } from "../../platform/seasons/seasons.service";

@@ -1,8 +1,11 @@
 import { and, desc, eq, lt, ne, notLike } from "drizzle-orm";
+import { ALL_ACTIVE, contracts } from "../../core/contracts";
 import { forbidden } from "../../core/errors";
 import { db } from "../../db/client";
-import { appUser, auditLog } from "../../db/schema";
+import { appUser, auditLog } from "../../db/schema/platform";
 import { canViewHistory, getCurrentUser } from "../auth/auth.service";
+import { auditLabels, auditText, type AuditRow } from "../platform.public";
+import "./audit.labels";
 
 export interface FieldChange {
   field: string;
@@ -41,52 +44,10 @@ function changesOf(before: Json, after: Json): FieldChange[] {
   return meaningful.length > 0 ? meaningful : changes;
 }
 
-function labelOf(table: string, row: Json): string {
+/** The name of a row: each owner says it for its tables (`auditLabels`); a table nobody names is named by its `name`. */
+function labelOf(labels: Record<string, (row: AuditRow) => string>, table: string, row: Json): string {
   if (!row) return "";
-  const pick = (key: string) => (typeof row[key] === "string" ? (row[key] as string) : "");
-  switch (table) {
-    case "budget_line":
-      return pick("item");
-    case "line_figures":
-      return `figures (${pick("phase")}) of line ${String(row.line_id ?? "")}`;
-    case "fund_contract":
-      return `contract of fund ${String(row.fund_id ?? "")}`;
-    case "line_fund":
-      return `fund ${String(row.fund_id ?? "")} (no. ${String(row.position ?? "")}) of figures ${String(row.figures_id ?? "")}`;
-    case "team_inflow":
-      return pick("source_name");
-    case "app_user":
-      return pick("email");
-    case "user_area":
-      return `user ${String(row.user_id ?? "")}, area ${String(row.area_id ?? "")}`;
-    case "bank_snapshot":
-      return "BANK";
-    case "inventory_item":
-      return pick("name");
-    case "cash_entry":
-      return pick("description");
-    case "cash_opening":
-      return `${pick("account")} on 1 January ${String(row.year ?? "")}`;
-    case "stock_movement":
-      return `${pick("kind")} of item ${String(row.item_id ?? "")}`;
-    case "category_field":
-      return `${pick("field")} of ${row.category_id == null ? "items without a category" : `category ${String(row.category_id)}`}`;
-    case "vat_rate":
-      return `${String(row.rate ?? "")}%`;
-    case "location":
-      // a place was a site and a room before it was a room, a shelf and a level: the older rows have the site
-      return [pick("site"), pick("room"), pick("shelf"), pick("level")].filter((part) => part !== "").join(" / ");
-    case "setting":
-      return "settings";
-    case "app_module":
-      return `module ${pick("key")}`;
-    case "component_part":
-      return `part ${String(row.part_id ?? "")} of item ${String(row.component_id ?? "")}`;
-    case "item_param_value":
-      return `parameter ${String(row.param_id ?? "")} of item ${String(row.item_id ?? "")}`;
-    default:
-      return pick("name");
-  }
+  return (labels[table] ?? ((r: AuditRow) => auditText(r, "name")))(row);
 }
 
 export interface HistoryQuery {
@@ -121,6 +82,8 @@ export async function listHistory(query: HistoryQuery): Promise<{ entries: Histo
     .orderBy(desc(auditLog.id))
     .limit(query.limit + 1);
 
+  // every owner's names, even a module that is off: a row of the History is named the same whatever is on
+  const labels: Record<string, (row: AuditRow) => string> = Object.assign({}, ...contracts.declared(auditLabels, ALL_ACTIVE));
   const page = rows.slice(0, query.limit);
   return {
     entries: page.map(({ entry, actor }) => ({
@@ -130,7 +93,7 @@ export async function listHistory(query: HistoryQuery): Promise<{ entries: Histo
       table: entry.tableName,
       rowId: entry.rowId,
       action: entry.action as HistoryEntry["action"],
-      label: labelOf(entry.tableName, (entry.after ?? entry.before) as Json),
+      label: labelOf(labels, entry.tableName, (entry.after ?? entry.before) as Json),
       changes: changesOf(entry.before as Json, entry.after as Json),
     })),
     next: rows.length > query.limit ? page.at(-1)!.entry.id : null,

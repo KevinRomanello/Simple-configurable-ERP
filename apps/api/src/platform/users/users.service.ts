@@ -1,15 +1,18 @@
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
+import type { Db } from "../../core/contracts";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
-import { appUser, area, userArea } from "../../db/schema";
+import { appUser, area, userArea, userFlag } from "../../db/schema/platform";
 import { getCurrentUser, requireAdmin, type Role, type User } from "../auth/auth.service";
+import { declaredFlags } from "../platform.public";
 
-type Reader = Pick<typeof db, "select">;
-
-async function withAreas(reader: Reader, row: typeof appUser.$inferSelect): Promise<User> {
-  const areas = await reader.select({ areaId: userArea.areaId }).from(userArea).where(eq(userArea.userId, row.id));
-  return { id: row.id, email: row.email, name: row.name, role: row.role, treasury: row.treasury, sponsors: row.sponsors, areaIds: areas.map((a) => a.areaId).sort((a, b) => a - b) };
+/** The person with their areas and their boxes: read with one query, since every request starts here. */
+async function withAreas(reader: Db, row: typeof appUser.$inferSelect): Promise<User> {
+  const { rows } = await reader.execute<{ area_ids: number[]; flags: string[] }>(sql`select
+    coalesce((select array_agg(area_id order by area_id) from user_area where user_id = ${row.id}), '{}') as area_ids,
+    coalesce((select array_agg(flag order by flag) from user_flag where user_id = ${row.id}), '{}') as flags`);
+  return { id: row.id, email: row.email, name: row.name, role: row.role, flags: rows[0]!.flags, areaIds: rows[0]!.area_ids };
 }
 
 /** The active user with this id, or null (unknown or deactivated people have no access). */
@@ -80,14 +83,14 @@ export async function listUsers(): Promise<UserRow[]> {
   requireAdmin(await getCurrentUser());
   const rows = await db.select().from(appUser).orderBy(asc(sql`lower(${appUser.name})`));
   const links = await db.select().from(userArea);
+  const flags = await db.select().from(userFlag).orderBy(asc(userFlag.flag));
   const managed = await managedCheck(rows.map((r) => r.email.toLowerCase()));
   return rows.map((row) => ({
     id: row.id,
     email: row.email,
     name: row.name,
     role: row.role,
-    treasury: row.treasury,
-    sponsors: row.sponsors,
+    flags: flags.filter((f) => f.userId === row.id).map((f) => f.flag),
     active: row.active,
     managed: managed.has(row.email.toLowerCase()),
     areaIds: links.filter((l) => l.userId === row.id).map((l) => l.areaId).sort((a, b) => a - b),
@@ -108,13 +111,27 @@ export async function createUser(input: { email: string; name: string; role: Rol
   return (await listUsers()).find((u) => u.id === row!.id)!;
 }
 
+/** Ticks or clears one box of a person, inside the transaction of whoever decides it (the registry gives the roles in `rolesync`). */
+export async function setUserFlag(tx: Db, userId: number, flag: string, on: boolean) {
+  if (on) await tx.insert(userFlag).values({ userId, flag }).onConflictDoNothing();
+  else await tx.delete(userFlag).where(and(eq(userFlag.userId, userId), eq(userFlag.flag, flag)));
+}
+
+/** The boxes the modules that are on offer, for the Users page (admins only). */
+export async function listFlags() {
+  requireAdmin(await getCurrentUser());
+  return declaredFlags();
+}
+
 /**
- * Changes role, treasury and sponsors boxes, active flag and assigned areas of a person (admins only).
- * The two boxes are for project managers: they are cleared when the person is anything else.
+ * Changes role, boxes (`flags`: the whole list that is wanted), active flag and assigned areas of a person (admins only).
+ * A box says which roles may have it (the treasury and the sponsors boxes are for project managers): asking for one for another
+ * role is refused, and a person made something else loses the boxes that role cannot have. A box that no module that is on
+ * declares is left as it is: it is waiting for its module to be turned on again.
  */
 export async function updateUser(
   userId: number,
-  patch: { role?: Role; treasury?: boolean; sponsors?: boolean; active?: boolean; areaIds?: number[] },
+  patch: { role?: Role; flags?: string[]; active?: boolean; areaIds?: number[] },
 ): Promise<UserRow> {
   const actor = await getCurrentUser();
   requireAdmin(actor);
@@ -122,6 +139,10 @@ export async function updateUser(
   if (person && (await managedCheck([person.email.toLowerCase()])).has(person.email.toLowerCase())) {
     throw conflict("This person's role comes from the registry (Settings › Access): change it there");
   }
+
+  const boxes = declaredFlags();
+  const unknown = (patch.flags ?? []).filter((key) => !boxes.some((b) => b.key === key));
+  if (unknown.length > 0) throw invalid(`Unknown box: ${unknown.join(", ")}`);
 
   if (patch.areaIds) {
     const unique = [...new Set(patch.areaIds)];
@@ -148,15 +169,25 @@ export async function updateUser(
       if ((others?.n ?? 0) === 0) throw conflict("There must be at least one active admin");
     }
 
-    if (patch.treasury === true && role !== "pm") throw invalid("The treasury box is for project managers: make the person a pm first");
-    const treasury = role === "pm" && (patch.treasury ?? target.treasury);
-    if (patch.sponsors === true && role !== "pm") throw invalid("The sponsors box is for project managers: make the person a pm first");
-    const sponsors = role === "pm" && (patch.sponsors ?? target.sponsors);
+    // the boxes: the ones asked for must suit the role; the ones a role cannot have are cleared; the ones of a module that is off stay
+    for (const key of patch.flags ?? []) {
+      const box = boxes.find((b) => b.key === key)!;
+      if (!box.roles.includes(role)) throw invalid(`The ${box.label} box is for ${box.roles.map((r) => (r === "pm" ? "project managers" : `${r}s`)).join(" and ")}: change the role first`);
+    }
+    const have = (await tx.select({ flag: userFlag.flag }).from(userFlag).where(eq(userFlag.userId, userId))).map((r) => r.flag);
+    const wanted = patch.flags ?? have;
+    const keep = (key: string) => {
+      const box = boxes.find((b) => b.key === key);
+      return box === undefined || (wanted.includes(key) && box.roles.includes(role));
+    };
+    const next = [...new Set([...have, ...wanted])].filter(keep);
+    const drop = have.filter((key) => !next.includes(key));
+    if (drop.length > 0) await tx.delete(userFlag).where(and(eq(userFlag.userId, userId), inArray(userFlag.flag, drop)));
+    const add = next.filter((key) => !have.includes(key));
+    if (add.length > 0) await tx.insert(userFlag).values(add.map((flag) => ({ userId, flag })));
 
     const changes: Partial<typeof appUser.$inferInsert> = {};
     if (patch.role !== undefined && patch.role !== target.role) changes.role = patch.role;
-    if (treasury !== target.treasury) changes.treasury = treasury;
-    if (sponsors !== target.sponsors) changes.sponsors = sponsors;
     if (patch.active !== undefined && patch.active !== target.active) changes.active = patch.active;
     if (Object.keys(changes).length > 0) await tx.update(appUser).set(changes).where(eq(appUser.id, userId));
 

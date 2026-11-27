@@ -470,10 +470,10 @@ Ogni passo lascia l'app funzionante, con tutte le prove verdi e i documenti aggi
 | Passo | Cosa | Fatto quando |
 | --- | --- | --- |
 | **G0 — fatto (26 novembre 2026)** | Le regole come prove, con la lista delle eccezioni di oggi. Il meccanismo comune nel `core`: eventi, porte, domande d'uso, dichiarazioni, con il «salta chi è spento». | le prove girano e la lista elenca il §2.2 (fatto: `architecture.map.ts`, `core/contracts.ts`, [prestazioni.md](prestazioni.md)) |
-| **G1** (in corso: lo spostamento delle cartelle e `/api/areas` sono fatti, 26 novembre 2026) | Il **nucleo** in `platform/`: auth, users, seasons, aree (da `/areas` del budget), liste comuni, settings dell'app, audit, appmodules, health. Settings e stagioni smettono di leggere le tabelle degli altri (`usedBy`, `onLookupRenamed`, `onSeasonCreated`, `seasonUsage`); lo storico usa `auditLabel`. Le spunte diventano dichiarazioni (domanda 2). | il nucleo non importa nessun modulo |
-| **G2** | **Lo schema si divide** per proprietario. Nessuna migrazione. | `drizzle-kit generate` non vede differenze |
-| **G3** | **Anagrafiche** in `modules/registry`, e `rolesync` diventa `bridges/registry-access`. Sono già in regola: si spostano e si adattano le prove. | prove di oggi verdi con i percorsi nuovi |
-| **G4** | **Tesoreria** in `modules/treasury` con `treasury.public.ts`. Le parti miste (`cash-links`, `outside-budget`, `loadPayments`, inflow ricevuti, BANK dal registro, Voce di partenza) vanno in `bridges/treasury-budget`. Migrazione di `inflow_receipt` e `category_voce`. | tesoreria e ponte senza eccezioni |
+| **G1 — fatto (26–27 novembre 2026)** | Il **nucleo** in `platform/`: auth, users, seasons, aree (da `/areas` del budget), liste comuni, settings dell'app, audit, appmodules, health. Settings e stagioni smettono di leggere le tabelle degli altri (`usedBy`, `onLookupRenamed`, `onSeasonCreated`, `seasonUsage`); lo storico usa `auditLabel`. Le spunte diventano dichiarazioni (domanda 2). | il nucleo non importa nessun modulo |
+| **G2 — fatto (27 novembre 2026)** | **Lo schema si divide** per proprietario. Nessuna migrazione. | `drizzle-kit generate` non vede differenze (fatto: «No schema changes») |
+| **G3 — fatto (27 novembre 2026)** | **Anagrafiche** in `modules/registry`, e `rolesync` diventa `bridges/registry-access`. Sono già in regola: si spostano e si adattano le prove. | prove di oggi verdi con i percorsi nuovi |
+| **G4** (in corso: tappa 1, i dati, fatta il 27 novembre 2026) | **Tesoreria** in `modules/treasury` con `treasury.public.ts`. Le parti miste (`cash-links`, `outside-budget`, `loadPayments`, inflow ricevuti, BANK dal registro, Voce di partenza) vanno in `bridges/treasury-budget`. Migrazione di `inflow_receipt` e `category_voce`. | tesoreria e ponte senza eccezioni |
 | **G5** | **Inventario** in `modules/inventory` con `inventory.public.ts`. PENDING, ricevere da una riga, arrivi, progetti e statistiche per progetto vanno in `bridges/inventory-budget`. Migrazione di `receipt_line`, `movement_project`, `item_make_project`. | idem |
 | **G6** | **Budget** in `modules/budget` con `budget.public.ts`: budget, fondi, fornitori, CASH FLOW a mano, viste, e lo **snapshot con le porte**. | idem; i numeri di prova del calcolo identici (stessi test, stesso foglio di riconciliazione) |
 | **G7** | **Il sito**: cartelle (§7.1), manifesti, punti di aggancio, client e tipi divisi, menù, indirizzi e Settings dai manifesti, prove del sito. | nessuna pagina importa un altro modulo se non dal suo `public.ts` |
@@ -501,6 +501,30 @@ Ogni passo lascia l'app funzionante, con tutte le prove verdi e i documenti aggi
 
   Ognuno è registrato con il nome del suo proprietario; chi chiede passa `Active` (chi è acceso in questa richiesta, da `activeOwners`), e gli spenti vengono saltati. Gli eventi e le domande di tipo `data` (manutenzione dei dati) arrivano anche agli spenti, quelli di tipo `feature` no (§8.7). 11 prove in `core/contracts.test.ts`.
 - **Il benchmark** (`pnpm bench`) e la **baseline**: [prestazioni.md](prestazioni.md). Alla fine di ogni passo G1–G8 si confronta con la baseline.
+
+### G1: come sono fatte le domande e gli eventi (26 novembre 2026)
+
+- **`platform/platform.public.ts`** è ciò che i moduli usano del nucleo:
+  - `usedBy` (la domanda «chi usa questo?» per categorie, aliquote, unità, posti, stagioni) con `usageOf` e `totalUse`;
+  - gli eventi `lookupRenamed` e `seasonCreated`, di manutenzione dei dati (arrivano anche ai moduli spenti);
+  - la dichiarazione `auditLabels` (come lo storico nomina le righe);
+  - `currentActive()` (chi è acceso: oggi tutti, riga 15 di [hardcoded-registry.md](hardcoded-registry.md)).
+- **I moduli rispondono dal loro `*.contract.ts`**: `budget.contract.ts` (righe e sponsor per categoria e aliquota, righe per stagione, la categoria rinominata nelle righe, il Team's fund e la copia di progetti e sponsor in una stagione nuova), `inventory.contract.ts` (pezzi, tipi, unità, posti, la rinomina), `cash.contract.ts` (i nomi del registro nello storico). Si leggono all'avvio (`app.ts`), e il budget prima dell'inventario, così i messaggi restano «N budget lines and M items».
+- **Settings, stagioni e storico** non importano più nessuna tabella di budget o inventario: da 33 a 24 le eccezioni di tabella (restano le liste dell'inventario che Settings gestisce, fino a G5).
+- **Le spunte (tappa 4):** la tabella `user_flag` (utente, spunta; migrazione `0040`, con lo storico) al posto delle colonne `app_user.treasury` e `app_user.sponsors`. Le dichiarano i moduli (`userFlags` in `platform.public.ts`): Treasury dal registro di cassa, Sponsors dal budget. `User.flags` si legge nella stessa query delle aree. `GET /api/flags` le elenca alla pagina Users; `PATCH /api/users/:id` accetta `flags` (l'elenco intero), rifiuta una spunta che nessuno dichiara o che il ruolo non può avere, e toglie quelle che il nuovo ruolo non può avere. Le regole dei permessi restano in `auth.service.ts` e leggono le spunte: passano ai moduli in G4 e G6.
+- **Più veloce, non più lento:** una domanda per elenco con una query raggruppata per modulo, al posto di una query per voce: la pagina Settings passa da 3,3 a 1,7 ms alla taglia reale ([prestazioni.md](prestazioni.md)).
+
+### G2: come è diviso lo schema (27 novembre 2026)
+
+- **`apps/api/src/db/schema/`**: un file per proprietario, con le sue tabelle e i suoi enum: `platform.ts` (11 tabelle), `budget.ts` (9), `treasury.ts` (4), `inventory.ts` (12), `registry.ts` (11) e i ponti `treasury-budget.ts` (1: `cash_entry_line`) e `registry-access.ts` (1: `role_sync`). `columns.ts` ha ciò che serve a tutti (`id()`, `bytea`). Nessun nome di tabella o di colonna cambia: **`drizzle-kit generate` dice «No schema changes»**.
+- **`db/schema.ts`** riunisce i file (`export * from`) per chi vuole tutte le tabelle: il client del database, gli strumenti e le prove. **Un servizio importa il file del suo proprietario** (`../../db/schema/budget`) e di nessun altro: la prova di architettura lo fa rispettare con la stessa regola degli import, e la vecchia mappa «tabella → proprietario» e la sua lista di eccezioni non servono più: il proprietario di una tabella è il file in cui sta. La regola vale anche per i file dello schema fra loro (le chiavi esterne vanno verso il nucleo; quelle di un ponte, verso i suoi due moduli).
+- **Le chiavi esterne che attraversano i moduli sono nella lista delle eccezioni**: `team_inflow.cash_entry_id` e `category.default_voce_id` (verso la tesoreria, G4) e `stock_movement`/`inventory_item` verso progetti e righe (G5). Le eccezioni sono ora 30: 9 import di codice fra proprietari e 21 file dello schema di un altro proprietario (prima erano 33 tabelle, ora contate per file).
+
+### G3: il primo ponte (27 novembre 2026)
+
+- **`modules/rolesync` è `apps/api/src/bridges/registry-access/`** (i file sono gli stessi: `rolesync.service.ts`, `rolesync.routes.ts`). Le anagrafiche erano già un modulo in regola e restano dov'erano.
+- **Risponde sotto il nome del ponte:** `/api/registry-access/role-sync` (e `/preview`) al posto di `/api/role-sync`, registrato in `app.ts` con il suo prefisso (`register(rotte, { prefix: "/registry-access" })`). Nessun redirect dal vecchio indirizzo (§8.2). L'interruttore dei moduli lo conosce: con il Registry spento anche `/api/registry-access/…` dà 404. Il sito (`api/registry.ts`) usa il nuovo indirizzo.
+- **Le regole di architettura** leggono la cartella `bridges/` (una cartella di ponti ha il nome di un ponte che esiste, e il suo proprietario è quel ponte). Cercando un modo per provarle ho visto che **non vedevano un `import "x"` senza `from`**, cioè un file caricato per quello che fa: ora lo vedono, e una prova a mano (un file di un modulo che importa il ponte e un altro modulo) fa fallire tre prove come deve.
 
 **I documenti da aggiornare alla fine**:
 - [architettura.md](architettura.md) (struttura del repository e livelli);

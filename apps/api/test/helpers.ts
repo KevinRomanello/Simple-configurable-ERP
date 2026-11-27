@@ -6,7 +6,8 @@ import { buildApp } from "../src/app";
 import { loadAuthConfig } from "../src/core/auth-config";
 import type { RateLimits } from "../src/core/security";
 import { db, pool } from "../src/db/client";
-import { appUser, area, fund, userArea } from "../src/db/schema";
+import { fund } from "../src/db/schema/budget";
+import { appUser, area, userArea, userFlag } from "../src/db/schema/platform";
 import type { User } from "../src/platform/auth/auth.service";
 import { SESSION_COOKIE } from "../src/platform/auth/auth.routes";
 import type { GoogleClient } from "../src/platform/auth/google";
@@ -45,8 +46,12 @@ export async function createUser(person: Person): Promise<User & { active: boole
   const email = person.email.toLowerCase();
   const [existing] = await db.select().from(appUser).where(sql`lower(${appUser.email}) = ${email}`);
   const [row] = existing
-    ? await db.update(appUser).set({ role: person.role, treasury: person.treasury ?? false, sponsors: person.sponsors ?? false, active: true }).where(eq(appUser.id, existing.id)).returning()
-    : await db.insert(appUser).values({ email, name: email.split("@")[0]!, role: person.role, treasury: person.treasury ?? false, sponsors: person.sponsors ?? false }).returning();
+    ? await db.update(appUser).set({ role: person.role, active: true }).where(eq(appUser.id, existing.id)).returning()
+    : await db.insert(appUser).values({ email, name: email.split("@")[0]!, role: person.role }).returning();
+
+  await db.delete(userFlag).where(eq(userFlag.userId, row!.id));
+  const flags = [person.treasury ? "treasury" : null, person.sponsors ? "sponsors" : null].filter((flag): flag is string => flag !== null);
+  if (flags.length > 0) await db.insert(userFlag).values(flags.map((flag) => ({ userId: row!.id, flag })));
 
   await db.delete(userArea).where(eq(userArea.userId, row!.id));
   const areaIds: number[] = [];
@@ -55,7 +60,7 @@ export async function createUser(person: Person): Promise<User & { active: boole
     await db.insert(userArea).values({ userId: row!.id, areaId: found!.id });
     areaIds.push(found!.id);
   }
-  return { id: row!.id, email, name: row!.name, role: row!.role, treasury: row!.treasury, sponsors: row!.sponsors, areaIds, active: true };
+  return { id: row!.id, email, name: row!.name, role: row!.role, flags, areaIds, active: true };
 }
 
 /** The Cookie header of a signed-in user. */

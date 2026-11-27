@@ -22,7 +22,7 @@ Lo spegnimento va nello storico come ogni altra modifica (tabella `app_module`, 
 
 | Pezzo | Dove | Cosa fa |
 | --- | --- | --- |
-| elenco dei moduli | `listModuleDefs` in `apps/api/src/platform/appmodules/appmodules.service.ts` | per ogni modulo: chiave, nome, descrizione, **indirizzi API** (`/api/registry`, `/api/role-sync`). Valore fisso nel corpo della funzione, con `// HARDCODED:` ([hardcoded-registry.md](hardcoded-registry.md)) |
+| elenco dei moduli | `listModuleDefs` in `apps/api/src/platform/appmodules/appmodules.service.ts` | per ogni modulo: chiave, nome, descrizione, **indirizzi API** (`/api/registry`, `/api/registry-access`). Valore fisso nel corpo della funzione, con `// HARDCODED:` ([hardcoded-registry.md](hardcoded-registry.md)) |
 | stato | tabella `app_module` (chiave, acceso), migrazione `0039_app_module.sql` | **una riga solo per chi è stato spento o riacceso**: un modulo senza riga è acceso. Nello storico |
 | il controllo | `addModuleGate` (`appmodules.routes.ts`), una riga in `app.ts` | prima delle rotte: un indirizzo di un modulo spento risponde 404. Solo se l'indirizzo è di un modulo legge lo stato (una lettura di una riga) |
 | leggere e cambiare | `GET /api/modules` e `PATCH /api/modules/:key` `{ enabled }` | solo admin (403 agli altri; 404 a un modulo che non c'è) |

@@ -8,7 +8,8 @@ import { createField, createTable, createView, getTable, setRegistrySettings, up
 import { createWebhook } from "../modules/registry/webhooks.service";
 import { loadUser } from "../platform/users/users.service";
 import { db, pool } from "./client";
-import { appUser, regTable } from "./schema";
+import { appUser } from "./schema/platform";
+import { regTable } from "./schema/registry";
 
 // A made-up registry shaped like the team's (docs/anagrafiche.md, §1.1), only to look at and try: areas,
 // projects and workgroups, roles, people from the application to the exit (with their pictures, comments and colours

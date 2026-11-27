@@ -7,7 +7,7 @@ import { invalid } from "../../core/errors";
 import { fromCents, toCents } from "../../core/money";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { cashCategory, cashEntry, cashMethod, cashOpening } from "../../db/schema";
+import { cashCategory, cashEntry, cashMethod, cashOpening } from "../../db/schema/treasury";
 import { loadRegister, assertCanManageCash } from "./cash.service";
 import type { ApplyInput, SheetInput, SheetRowInput } from "./cash.schema";
 

@@ -23,7 +23,7 @@ I valori di partenza li mette la migrazione `0024` sulle Voci che il registro ha
 1. la sua Voce è *Outside the budget*;
 2. la data è dentro la **stagione** scelta nel menù (settembre–agosto);
 3. **non è collegato a una riga del budget**: se lo è conta la riga, e non si somma due volte (se si toglie il collegamento, torna in ADMINISTRATION);
-4. **non ha ricevuto un inflow** (`team_inflow.cash_entry_id`) e **non ha la spunta Sponsorship**: sono già inflow di CASH FLOW;
+4. **non ha ricevuto un inflow** (`inflow_receipt`) e **non ha la spunta Sponsorship**: sono già inflow di CASH FLOW;
 5. conta in qualsiasi conto (Cassa, Banca, Paypal): sono soldi veri del team.
 
 Un movimento senza Voce, o di una Voce *On a project* non collegata, **non conta da nessuna parte**: i totali del budget non si gonfiano per sbaglio, e il pagamento resta in «Payments to tie to a line» (TO PAY), che ora elenca **solo** i pagamenti senza Voce o di Voci *On a project* (le altre non sono da collegare).

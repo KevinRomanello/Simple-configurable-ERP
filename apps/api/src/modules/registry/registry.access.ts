@@ -2,7 +2,7 @@ import { atLeast, canSeeTable, isFilter, recordPermission, tablePermission, view
 import { eq, sql } from "drizzle-orm";
 import { forbidden, invalid, notFound } from "../../core/errors";
 import { db } from "../../db/client";
-import { regTable } from "../../db/schema";
+import { regTable } from "../../db/schema/registry";
 import { userStorage } from "../../platform/auth/auth.context";
 import type { User } from "../../platform/auth/auth.service";
 

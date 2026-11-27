@@ -26,7 +26,7 @@ describe("the modules that can be turned off", () => {
     ok(await api.post("/api/registry/tables", { name: "People" }), 201);
     expect((await turn(false)).status).toBe(204);
     expect(ok(await api.get("/api/me")).modules).toEqual({ registry: false });
-    for (const [method, url] of [["get", "/api/registry/tables"], ["get", "/api/registry/forms"], ["get", "/api/registry/public/forms/apply"], ["get", "/api/role-sync"], ["get", "/api/registry/tables/People/records"]] as const) {
+    for (const [method, url] of [["get", "/api/registry/tables"], ["get", "/api/registry/forms"], ["get", "/api/registry/public/forms/apply"], ["get", "/api/registry-access/role-sync"], ["get", "/api/registry/tables/People/records"]] as const) {
       const reply = await api[method](url);
       expect([method, url, reply.status]).toEqual([method, url, 404]);
       expect(reply.body).toEqual({ error: "The Registry module is turned off", code: "module-off" });
@@ -77,7 +77,7 @@ describe("the modules that can be turned off", () => {
     ok(await api.post("/api/registry/tables/People/records", { fields: { Name: "Anna", Email: "anna@team.test" } }), 201);
     ok(await api.put("/api/registry/settings", { peopleTableId: people.id, emailFieldId: email.id }));
     const members = ok(await api.post("/api/registry/tables/People/views", { name: "Members", type: "grid", config: { group: true } }), 201);
-    ok(await api.put("/api/role-sync", { activeViewId: members.id, enabled: true }));
+    ok(await api.put("/api/registry-access/role-sync", { activeViewId: members.id, enabled: true }));
     const managed = async () => ((await api.get("/api/users")).body as { email: string; managed: boolean }[]).find((u) => u.email === "anna@team.test")?.managed;
     expect(await managed()).toBe(true);
     await turn(false);

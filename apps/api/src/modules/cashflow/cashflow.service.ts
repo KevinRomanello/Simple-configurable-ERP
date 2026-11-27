@@ -5,7 +5,9 @@ import { fromCents, toCents } from "../../core/money";
 import { today } from "../../core/today";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { bankSnapshot, cashEntry, teamInflow } from "../../db/schema";
+import { bankSnapshot, teamInflow } from "../../db/schema/budget";
+import { cashEntry } from "../../db/schema/treasury";
+import { inflowReceipt } from "../../db/schema/treasury-budget";
 import { canChangeInflows, canManageCash, getCurrentUser } from "../../platform/auth/auth.service";
 import { insertEntry, registerBalanceAt } from "../cash/cash.service";
 import type { ReceiveInput } from "../cash/cash.schema";
@@ -61,7 +63,8 @@ export async function loadInflows(reader: Reader, season: Season, bank: Bank): P
   const rows = await reader
     .select({ inflow: teamInflow, entry: cashEntry })
     .from(teamInflow)
-    .leftJoin(cashEntry, eq(teamInflow.cashEntryId, cashEntry.id))
+    .leftJoin(inflowReceipt, eq(inflowReceipt.inflowId, teamInflow.id))
+    .leftJoin(cashEntry, eq(inflowReceipt.entryId, cashEntry.id))
     .where(eq(teamInflow.seasonId, season.id))
     .orderBy(asc(sql`lower(${teamInflow.sourceName})`), asc(teamInflow.inflowDate));
 
@@ -81,7 +84,7 @@ export async function loadInflows(reader: Reader, season: Season, bank: Bank): P
         // once the money is in the register, the register says whether it was sponsorship
         sponsorship: entry && fromRegister ? entry.sponsorship : inflow.sponsorship,
         source: "typed",
-        cashEntryId: inflow.cashEntryId,
+        cashEntryId: entry?.id ?? null,
         receivedCents: entry ? toCents(entry.amount) : null,
         receivedOn: entry?.entryOn ?? null,
         late,
@@ -158,8 +161,8 @@ export async function listReceivable() {
   const rows = await db
     .select()
     .from(cashEntry)
-    .leftJoin(teamInflow, eq(teamInflow.cashEntryId, cashEntry.id))
-    .where(and(gt(cashEntry.amount, "0"), isNull(teamInflow.id), gte(cashEntry.entryOn, season.startsOn), lte(cashEntry.entryOn, season.endsOn)))
+    .leftJoin(inflowReceipt, eq(inflowReceipt.entryId, cashEntry.id))
+    .where(and(gt(cashEntry.amount, "0"), isNull(inflowReceipt.id), gte(cashEntry.entryOn, season.startsOn), lte(cashEntry.entryOn, season.endsOn)))
     .orderBy(desc(cashEntry.entryOn), desc(cashEntry.id))
     .limit(300);
   return rows.map(({ cash_entry: e }) => ({
@@ -180,14 +183,15 @@ export async function receiveInflow(inflowId: number, input: ReceiveInput) {
     if (!inflow) throw notFound("Inflow");
     await assertSeasonOpen(tx, inflow.seasonId);
     if (inflow.phase !== "estimate") throw invalid("Only an expected inflow can be marked as received");
-    if (inflow.cashEntryId !== null) throw conflict("This inflow is already received: mark it as not received first");
+    const [received] = await tx.select({ id: inflowReceipt.id }).from(inflowReceipt).where(eq(inflowReceipt.inflowId, inflowId));
+    if (received) throw conflict("This inflow is already received: mark it as not received first");
 
     let entryId: number;
     if ("entryId" in input) {
       const [entry] = await tx.select().from(cashEntry).where(eq(cashEntry.id, input.entryId));
       if (!entry) throw notFound("Movement");
       if (toCents(entry.amount) <= 0) throw invalid("Only money in can receive an inflow");
-      const [taken] = await tx.select({ id: teamInflow.id }).from(teamInflow).where(eq(teamInflow.cashEntryId, entry.id));
+      const [taken] = await tx.select({ id: inflowReceipt.id }).from(inflowReceipt).where(eq(inflowReceipt.entryId, entry.id));
       if (taken) throw conflict("That movement already received another inflow");
       entryId = entry.id;
     } else {
@@ -204,7 +208,7 @@ export async function receiveInflow(inflowId: number, input: ReceiveInput) {
       });
       entryId = created.id;
     }
-    await tx.update(teamInflow).set({ cashEntryId: entryId }).where(eq(teamInflow.id, inflowId));
+    await tx.insert(inflowReceipt).values({ inflowId, entryId });
   });
 }
 
@@ -215,7 +219,7 @@ export async function unreceiveInflow(inflowId: number) {
     const [inflow] = await tx.select({ seasonId: teamInflow.seasonId }).from(teamInflow).where(eq(teamInflow.id, inflowId)).for("update");
     if (!inflow) throw notFound("Inflow");
     await assertSeasonOpen(tx, inflow.seasonId);
-    await tx.update(teamInflow).set({ cashEntryId: null }).where(eq(teamInflow.id, inflowId));
+    await tx.delete(inflowReceipt).where(eq(inflowReceipt.inflowId, inflowId));
   });
 }
 
@@ -223,10 +227,11 @@ export async function deleteInflow(inflowId: number) {
   const actor = await assertCanChangeInflows();
   const treasury = await canManageCash(actor);
   await runWrite(actor, async (tx) => {
-    const [target] = await tx.select({ seasonId: teamInflow.seasonId, cashEntryId: teamInflow.cashEntryId }).from(teamInflow).where(eq(teamInflow.id, inflowId));
+    const [target] = await tx.select({ seasonId: teamInflow.seasonId }).from(teamInflow).where(eq(teamInflow.id, inflowId));
     if (target) await assertSeasonOpen(tx, target.seasonId);
+    const [received] = await tx.select({ id: inflowReceipt.id }).from(inflowReceipt).where(eq(inflowReceipt.inflowId, inflowId));
     // a received inflow is tied to the register: taking that apart is the treasury's, as marking it received was
-    if (target?.cashEntryId != null && !treasury) throw forbidden("This inflow is already received: only the treasury can delete it");
+    if (received && !treasury) throw forbidden("This inflow is already received: only the treasury can delete it");
     const deleted = await tx.delete(teamInflow).where(eq(teamInflow.id, inflowId)).returning({ id: teamInflow.id });
     if (deleted.length === 0) throw notFound("Inflow");
   });

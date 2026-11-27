@@ -27,44 +27,46 @@ docker compose exec api sh -c "cd /app/apps/api && pnpm bench"
 
 **Cosa non misura:** le scritture (salvare una riga, un pagamento), più richieste insieme, la rete e il browser (la tabella e i grafici del sito).
 
-## 3. I numeri di partenza (26 novembre 2026, prima di G1; il 26 novembre se ne sono aggiunte le pagine del nucleo)
+## 3. I numeri di riferimento (baseline rinnovata il 27 novembre 2026, nella tappa dei dati di G4: la stagione di prova ha ora 12 inflow ricevuti e 4 Voci di partenza)
+
+Prima di G1 le pagine del budget, del registro e dell'inventario erano queste stesse, dentro il rumore; la pagina Settings è più veloce (3,3 → 1,7 ms alla taglia reale) perché conta chi usa un elenco con una query per elenco; `me` e `users` hanno un'altra forma di risposta (le spunte).
 
 Millisecondi, mediana di 15 richieste, su questo computer (Docker su Mac). **I numeri si confrontano solo sullo stesso computer.**
 
 | Pagina | real: mediana | real: p95 | real: KB | stress: mediana | stress: p95 | stress: KB |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| calculation: snapshot of the season | 24.93 | 26.76 | 819 | 93.36 | 121.59 | 3492 |
-| me (every page starts here) | 0.79 | 0.93 | 0 | 0.59 | 0.7 | 0 |
-| core: seasons | 0.98 | 3.75 | 0 | 1.2 | 1.42 | 0 |
-| core: settings | 3.24 | 4.09 | 2 | 4.29 | 5.93 | 2 |
-| core: users | 0.75 | 2.15 | 0 | 0.7 | 0.78 | 0 |
-| core: history | 1.18 | 1.37 | 20 | 1.06 | 1.17 | 20 |
-| core: history of a table | 1.24 | 1.35 | 20 | 1.1 | 1.16 | 20 |
-| core: areas | 0.51 | 0.56 | 0 | 0.38 | 1.12 | 0 |
-| core: categories | 0.49 | 0.53 | 0 | 0.32 | 0.35 | 0 |
-| core: units | 0.48 | 1.38 | 0 | 0.34 | 0.52 | 0 |
-| core: places | 0.51 | 0.58 | 1 | 0.5 | 0.55 | 1 |
-| core: settings of the calculation | 0.67 | 0.81 | 0 | 0.65 | 0.71 | 0 |
-| budget: area sheet | 29.62 | 39.69 | 326 | 105.41 | 126.82 | 1670 |
-| budget: funds | 1.12 | 1.33 | 6 | 1.08 | 1.2 | 6 |
-| budget: CASH FLOW | 34.1 | 34.92 | 1 | 145.2 | 167.74 | 1 |
-| budget: gantt expected | 29.71 | 39.32 | 47 | 113.27 | 244.83 | 183 |
-| budget: gantt actual | 29.54 | 31.85 | 50 | 112.85 | 132.59 | 168 |
-| budget: TOTAL | 28.64 | 31.71 | 115 | 119.71 | 203.94 | 414 |
-| budget: funds summary | 27.89 | 41.74 | 4 | 110.17 | 156.49 | 4 |
-| budget: analysis of the funds | 33.74 | 36.14 | 30 | 142.57 | 322.89 | 30 |
-| budget: analysis of the suppliers | 37.31 | 46.05 | 68 | 148.77 | 204.39 | 69 |
-| budget: items view | 30.45 | 59.35 | 265 | 110.62 | 129.26 | 999 |
-| budget: inflows | 5.62 | 6.57 | 8 | 25.54 | 27.75 | 8 |
-| treasury: register | 7.19 | 7.95 | 351 | 36.51 | 49.86 | 1783 |
-| treasury: financial statement | 5.12 | 5.75 | 9 | 26.31 | 27.59 | 9 |
-| treasury×budget: TO PAY | 28.11 | 41.93 | 224 | 115.92 | 194.39 | 1261 |
-| treasury×budget: payments to tie | 1.09 | 1.39 | 4 | 2.79 | 2.96 | 20 |
-| treasury×budget: lines to pay | 26.41 | 27.19 | 65 | 103.75 | 125.41 | 369 |
-| inventory: items | 7.88 | 9.51 | 173 | 35.8 | 43.48 | 872 |
-| inventory×budget: PENDING | 40.54 | 53.5 | 231 | 233.89 | 259.51 | 1193 |
-| inventory: components | 14.16 | 15.45 | 4 | 262.44 | 332.29 | 21 |
-| inventory: statistics | 32.63 | 48.55 | 11 | 127.28 | 145.02 | 53 |
+| calculation: snapshot of the season | 24.63 | 25.74 | 819 | 105.18 | 116.03 | 3492 |
+| me (every page starts here) | 0.79 | 0.9 | 0 | 0.6 | 0.72 | 0 |
+| core: seasons | 0.93 | 3.63 | 0 | 1.1 | 1.2 | 0 |
+| core: settings | 1.67 | 2.33 | 2 | 2.89 | 3.16 | 2 |
+| core: users | 0.8 | 0.89 | 0 | 0.83 | 0.9 | 0 |
+| core: history | 1.19 | 1.28 | 20 | 1.11 | 2.6 | 20 |
+| core: history of a table | 1.23 | 1.32 | 20 | 1.1 | 1.28 | 20 |
+| core: areas | 0.51 | 0.56 | 0 | 0.5 | 0.56 | 0 |
+| core: categories | 0.46 | 0.55 | 0 | 0.47 | 0.54 | 0 |
+| core: units | 0.48 | 0.55 | 0 | 0.46 | 0.51 | 0 |
+| core: places | 0.49 | 0.52 | 1 | 0.5 | 0.58 | 1 |
+| core: settings of the calculation | 0.61 | 0.73 | 0 | 0.63 | 0.71 | 0 |
+| budget: area sheet | 28.62 | 41.28 | 326 | 105.67 | 118.46 | 1670 |
+| budget: funds | 1.03 | 1.27 | 6 | 1.1 | 1.35 | 6 |
+| budget: CASH FLOW | 34.56 | 38.11 | 2 | 148.86 | 177.4 | 2 |
+| budget: gantt expected | 29.35 | 37.43 | 47 | 113.7 | 144.83 | 184 |
+| budget: gantt actual | 28.93 | 35.3 | 50 | 110.05 | 128.39 | 168 |
+| budget: TOTAL | 29.14 | 31.29 | 115 | 109.13 | 128.76 | 414 |
+| budget: funds summary | 29 | 32.11 | 4 | 105.73 | 121.74 | 4 |
+| budget: analysis of the funds | 35.75 | 38.07 | 30 | 136.47 | 170 | 30 |
+| budget: analysis of the suppliers | 36.4 | 50.92 | 68 | 147.48 | 171.8 | 69 |
+| budget: items view | 29.92 | 41.26 | 265 | 110.65 | 125.22 | 999 |
+| budget: inflows | 5.78 | 6.63 | 8 | 24.95 | 26.13 | 8 |
+| treasury: register | 7.38 | 7.74 | 351 | 35.68 | 51.12 | 1783 |
+| treasury: financial statement | 5.21 | 5.86 | 9 | 26.22 | 28 | 9 |
+| treasury×budget: TO PAY | 28.88 | 37.2 | 223 | 110.89 | 138.35 | 1257 |
+| treasury×budget: payments to tie | 1.14 | 1.3 | 4 | 2.76 | 2.99 | 20 |
+| treasury×budget: lines to pay | 26.5 | 27.88 | 65 | 104.18 | 123.63 | 369 |
+| inventory: items | 7.76 | 8.86 | 173 | 34.56 | 47.85 | 872 |
+| inventory×budget: PENDING | 36.47 | 52.9 | 231 | 238.51 | 407.47 | 1193 |
+| inventory: components | 13.84 | 14.99 | 4 | 239.37 | 407.88 | 21 |
+| inventory: statistics | 32.05 | 39.85 | 11 | 127.46 | 149.99 | 53 |
 
 **Rumore:** ripetendo la corsa, la mediana cambia di circa ±5%, e fino a ±25% nelle pagine sotto i 3 ms o dove qualcos'altro gira sul computer. Un cambio sotto il 10% non vuol dire niente; il p95 è più instabile ancora.
 

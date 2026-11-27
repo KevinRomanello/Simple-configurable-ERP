@@ -1,8 +1,8 @@
 # Com'è organizzato il database
 
-Le **47 tabelle** di PostgreSQL, disegnate (34 dell'ERP e le 13 delle anagrafiche, sezione 6bis). La fonte vera è [apps/api/src/db/schema.ts](../apps/api/src/db/schema.ts) (e le migrazioni in `apps/api/drizzle/`): se cambia lo schema, questo documento va aggiornato nello stesso lavoro. Per le regole di business di ogni area si vedano i documenti indicati in ogni sezione; per l'elenco in tabella e la descrizione di ogni colonna, [architettura.md](architettura.md) (Modello dati).
+Le **47 tabelle** di PostgreSQL, disegnate (34 dell'ERP e le 13 delle anagrafiche, sezione 6bis). La fonte vera è la cartella [apps/api/src/db/schema/](../apps/api/src/db/schema) (un file per proprietario: `platform`, `budget`, `treasury`, `inventory`, `registry` e i ponti `treasury-budget` e `registry-access`) (e le migrazioni in `apps/api/drizzle/`): se cambia lo schema, questo documento va aggiornato nello stesso lavoro. Per le regole di business di ogni area si vedano i documenti indicati in ogni sezione; per l'elenco in tabella e la descrizione di ogni colonna, [architettura.md](architettura.md) (Modello dati).
 
-**Come leggere i diagrammi.** Ogni riquadro è una tabella con le colonne che contano (chiave `PK`, chiave esterna `FK`); le altre sono in `schema.ts`. Le linee sono le chiavi esterne con la loro cardinalità («zampa di gallina»):
+**Come leggere i diagrammi.** Ogni riquadro è una tabella con le colonne che contano (chiave `PK`, chiave esterna `FK`); le altre sono nei file di `db/schema/`. Le linee sono le chiavi esterne con la loro cardinalità («zampa di gallina»):
 
 | Simbolo | Significa |
 | --- | --- |
@@ -23,14 +23,14 @@ flowchart LR
   fon["<b>Fondi e CASH FLOW</b><br/>fund, fund_contract,<br/>team_inflow, bank_snapshot"]
   reg["<b>Registro di cassa</b><br/>cash_entry, cash_entry_line,<br/>cash_opening, cash_category,<br/>cash_method"]
   inv["<b>Inventario</b><br/>inventory_item, item_type,<br/>item_type_param, item_param_value,<br/>item_image, item_datasheet,<br/>item_datasheet_file,<br/>stock_movement, component_part"]
-  acc["<b>Accesso e storico</b><br/>app_user, user_area, audit_log"]
+  acc["<b>Accesso e storico</b><br/>app_user, user_area, user_flag, audit_log"]
   set["<b>Impostazioni e liste</b><br/>category, category_field,<br/>vat_rate, unit, location, setting"]
   ana["<b>Anagrafiche</b><br/>reg_table, reg_field, reg_view,<br/>reg_record, reg_link, reg_file,<br/>reg_webhook(_log), reg_comment,<br/>reg_settings, role_sync,<br/>app_secret, api_token"]
 
   fon -->|"season_id<br/>(fund, team_inflow, bank_snapshot)"| bud
   bud -->|"line_fund.fund_id<br/>chi paga una voce"| fon
   reg -->|"cash_entry_line.line_id<br/>quale uscita ha pagato quale voce"| bud
-  fon -->|"team_inflow.cash_entry_id<br/>quale entrata ha ricevuto un inflow"| reg
+  fon -->|"inflow_receipt<br/>quale entrata ha ricevuto un inflow"| reg
   inv -->|"stock_movement: project_id,<br/>budget_line_id, car_season_id<br/>inventory_item e item_type: area_id"| bud
   acc -->|"user_area.area_id"| bud
   inv -->|"item_datasheet.uploaded_by"| acc
@@ -44,7 +44,7 @@ In parole, i cinque ponti che contano:
 1. **Stagione → tutto il budget e i soldi.** `season` è la radice: progetti, fondi, inflow e BANK sono di una stagione. Il registro di cassa **non** ha stagione (è dell'anno solare) e l'inventario nemmeno.
 2. **Fondo → riga del budget** (`line_fund`): chi paga una riga in una fase.
 3. **Registro → riga del budget** (`cash_entry_line`): quale uscita ha pagato quale riga.
-4. **Registro → inflow** (`team_inflow.cash_entry_id`): quale entrata ha ricevuto un inflow atteso.
+4. **Registro → inflow** (`inflow_receipt`, tabella del ponte tesoreria×budget dal 27 novembre 2026; prima era la colonna `team_inflow.cash_entry_id`): quale entrata ha ricevuto un inflow atteso.
 5. **Inventario → budget** (`stock_movement`): un arrivo completa una riga e si attribuisce a un progetto.
 
 ## 2. Budget
@@ -167,7 +167,11 @@ erDiagram
     numeric amount
     date inflow_date
     boolean sponsorship "paga l'IVA dell'11%"
-    integer cash_entry_id FK "entrata del registro che l'ha ricevuto"
+  }
+  inflow_receipt {
+    integer id PK
+    integer inflow_id FK "unico"
+    integer entry_id FK "unico: l'entrata del registro che l'ha ricevuto"
   }
   bank_snapshot {
     integer id PK
@@ -184,12 +188,13 @@ erDiagram
   fund ||--o{ line_fund : "paga le voci"
   season ||--o{ team_inflow : "riceve"
   season ||--o| bank_snapshot : "BANK scritto a mano"
-  cash_entry |o--o| team_inflow : "cash_entry_id"
+  team_inflow ||--o| inflow_receipt : "ricevuto da"
+  cash_entry ||--o| inflow_receipt : "ha ricevuto"
 ```
 
 - **Un solo fondo del team per stagione** e **un contratto per fondo e fase**: sono vincoli del database (indice unico parziale su `kind = 'team'`, unicità di `fund_id + phase`).
 - Il fondo del team è «semplice»: niente tipo speciale, aliquota o gruppo (un controllo lo impone); l'aliquota IVA si sceglie sulla singola voce.
-- `team_inflow.cash_entry_id` è **unico**: un'entrata riceve al più un inflow. Se l'entrata si cancella, il campo torna vuoto (`ON DELETE SET NULL`) e l'inflow torna «non ricevuto».
+- `inflow_receipt` lega un inflow all'entrata del registro che l'ha ricevuto, ed è **unica da tutte e due le parti**: un'entrata riceve al più un inflow e un inflow ha al più un'entrata. Se si cancella l'entrata (o l'inflow) la riga sparisce (`ON DELETE CASCADE`) e l'inflow torna «non ricevuto». Prima del 27 novembre 2026 era la colonna `team_inflow.cash_entry_id` (migrazione `0041`).
 - `bank_snapshot` serve solo finché il BANK si scrive a mano: con un saldo iniziale nel registro il BANK viene dal registro e questa riga non conta.
 
 ## 4. Registro di cassa
@@ -238,7 +243,11 @@ erDiagram
   }
   team_inflow {
     integer id PK
-    integer cash_entry_id FK
+  }
+  inflow_receipt {
+    integer id PK
+    integer inflow_id FK
+    integer entry_id FK
   }
 
   cash_category |o--o{ cash_entry : "Voce"
@@ -391,9 +400,12 @@ erDiagram
     text email "unica senza maiuscole"
     text name
     user_role role "admin, pm (User), viewer"
-    boolean treasury "spunta del pm: i soldi del team"
-    boolean sponsors "spunta del pm: gli sponsor"
     boolean active
+  }
+  user_flag {
+    integer id PK
+    integer user_id FK
+    text flag "una spunta del pm: treasury, sponsors… (le dichiarano i moduli)"
   }
   user_area {
     integer id PK
@@ -418,7 +430,11 @@ erDiagram
     integer id PK
     text name
     integer position
-    integer default_voce_id FK "la Voce da cui parte un pagamento"
+  }
+  category_voce {
+    integer id PK
+    integer category_id FK "unico"
+    integer voce_id FK "la Voce da cui parte un pagamento per quella categoria"
   }
   category_field {
     integer id PK
@@ -451,6 +467,7 @@ erDiagram
   }
 
   app_user ||--o{ user_area : "aree del pm"
+  app_user ||--o{ user_flag : "spunte del pm"
   area ||--o{ user_area : "chi la cambia"
   category |o--o{ category_field : "campi mostrati"
   cash_category |o--o{ category : "Voce di partenza"

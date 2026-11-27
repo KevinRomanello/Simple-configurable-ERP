@@ -2,7 +2,9 @@ import { eq, inArray } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
-import { cashEntry, cashEntryLine, teamInflow } from "../../db/schema";
+import { teamInflow } from "../../db/schema/budget";
+import { cashEntry } from "../../db/schema/treasury";
+import { cashEntryLine, inflowReceipt } from "../../db/schema/treasury-budget";
 import { canManageCash } from "../../platform/auth/auth.service";
 import { deleteEntryIn } from "../cash/cash.service";
 import { assertSeasonOpen, getCurrentSeason } from "../../platform/seasons/seasons.service";
@@ -46,7 +48,12 @@ export async function listRelated(input: { inflowId?: number; cashEntryId?: numb
   const fromRegister = (await bankOf(db, season))?.source === "register";
   const closed = season.readOnly;
 
-  const rows = await db.select({ inflow: teamInflow, entry: cashEntry }).from(teamInflow).leftJoin(cashEntry, eq(teamInflow.cashEntryId, cashEntry.id)).where(eq(teamInflow.seasonId, season.id));
+  const rows = await db
+    .select({ inflow: teamInflow, entry: cashEntry })
+    .from(teamInflow)
+    .leftJoin(inflowReceipt, eq(inflowReceipt.inflowId, teamInflow.id))
+    .leftJoin(cashEntry, eq(inflowReceipt.entryId, cashEntry.id))
+    .where(eq(teamInflow.seasonId, season.id));
 
   let company: string | null;
   let pressedEntry: number | null = null;
@@ -59,13 +66,13 @@ export async function listRelated(input: { inflowId?: number; cashEntryId?: numb
     if (!entry) throw notFound("Movement");
     pressedEntry = entry.id;
     // the company is the one of the inflow that this movement received; a movement nobody received is alone
-    const receiver = rows.find((r) => r.inflow.cashEntryId === entry.id);
+    const receiver = rows.find((r) => r.entry?.id === entry.id);
     company = receiver ? same(receiver.inflow.sourceName) : null;
   }
   const siblings = company === null ? [] : rows.filter((r) => same(r.inflow.sourceName) === company);
 
   const inflowVoice = ({ inflow, entry }: (typeof rows)[number]): RelatedVoice => {
-    const received = inflow.cashEntryId !== null;
+    const received = entry !== null;
     const why = closed ? `The season ${season.name} is read-only` : received && !treasury ? "Only the treasury can delete a received inflow" : null;
     return {
       kind: "inflow", id: inflow.id, name: inflow.sourceName, amount: inflow.amount, date: inflow.inflowDate, received, receivedOn: entry?.entryOn ?? null,
@@ -76,7 +83,7 @@ export async function listRelated(input: { inflowId?: number; cashEntryId?: numb
   const actual = siblings.filter((r) => r.inflow.phase === "actual").map(inflowVoice);
 
   // the movements tied to these inflows, and the one that was pressed
-  const entryIds = [...new Set([...siblings.flatMap((r) => (r.inflow.cashEntryId === null ? [] : [r.inflow.cashEntryId])), ...(pressedEntry === null ? [] : [pressedEntry])])];
+  const entryIds = [...new Set([...siblings.flatMap((r) => (r.entry === null ? [] : [r.entry.id])), ...(pressedEntry === null ? [] : [pressedEntry])])];
   let register: RelatedVoice[] = [];
   if (treasury && entryIds.length > 0) {
     const entries = await db.select().from(cashEntry).where(inArray(cashEntry.id, entryIds));
@@ -105,12 +112,13 @@ export async function deleteInflows(input: { inflowIds: number[]; cashEntryIds: 
   await runWrite(actor, async (tx) => {
     await assertSeasonOpen(tx, season.id);
     const inflows = inflowIds.length > 0 ? await tx.select().from(teamInflow).where(inArray(teamInflow.id, inflowIds)).for("update") : [];
+    const received = new Set(inflowIds.length > 0 ? (await tx.select({ inflowId: inflowReceipt.inflowId }).from(inflowReceipt).where(inArray(inflowReceipt.inflowId, inflowIds))).map((r) => r.inflowId) : []);
     for (const id of inflowIds) {
       const found = inflows.find((i) => i.id === id);
       if (!found) throw notFound(`Inflow ${id}`);
       if (found.seasonId !== season.id) throw conflict(`"${found.sourceName}" belongs to another season`);
       // a received inflow is tied to the register: taking that apart is the treasury's, as marking it received was
-      if (found.cashEntryId !== null && !treasury) throw forbidden(`"${found.sourceName}" is already received: only the treasury can delete it`);
+      if (received.has(id) && !treasury) throw forbidden(`"${found.sourceName}" is already received: only the treasury can delete it`);
     }
     if (entryIds.length > 0) {
       if (!treasury) throw forbidden("Only the treasury can delete a movement of the register");

@@ -3,7 +3,7 @@ import { and, eq, exists, inArray, sql } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { fund, fundContract, lineFund } from "../../db/schema";
+import { fund, fundContract, lineFund } from "../../db/schema/budget";
 import { canManageFunds, getCurrentUser } from "../../platform/auth/auth.service";
 import { getFixedSponsorRates, listVatRates } from "../../platform/lookups/lookups.service";
 import { assertSeasonOpen, getCurrentSeason } from "../../platform/seasons/seasons.service";

@@ -1,11 +1,13 @@
 import { balancesAt, registerTimeline, totalOf, zeroBalances, CASH_ACCOUNTS, type Balances, type CashAccount, type Opening, type RegisterEntry, type YearBalances } from "@erp/calc";
-import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { fromCents, toCents } from "../../core/money";
 import { today } from "../../core/today";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { budgetLine, cashCategory, cashEntry, cashEntryLine, cashMethod, cashOpening, project, teamInflow } from "../../db/schema";
+import { budgetLine, project, teamInflow } from "../../db/schema/budget";
+import { cashCategory, cashEntry, cashMethod, cashOpening } from "../../db/schema/treasury";
+import { cashEntryLine, inflowReceipt } from "../../db/schema/treasury-budget";
 import { canManageCash, getCurrentUser } from "../../platform/auth/auth.service";
 import type { CreateEntryInput, UpdateEntryInput } from "./cash.schema";
 
@@ -84,7 +86,7 @@ const NO_LINKS = { inflow: null, lines: [] } as { inflow: { id: number; sourceNa
 
 async function loadLinks(reader: Reader = db) {
   const [inflows, lines] = await Promise.all([
-    reader.select({ entryId: teamInflow.cashEntryId, id: teamInflow.id, sourceName: teamInflow.sourceName }).from(teamInflow).where(isNotNull(teamInflow.cashEntryId)),
+    reader.select({ entryId: inflowReceipt.entryId, id: teamInflow.id, sourceName: teamInflow.sourceName }).from(inflowReceipt).innerJoin(teamInflow, eq(inflowReceipt.inflowId, teamInflow.id)),
     reader
       .select({ entryId: cashEntryLine.entryId, lineId: cashEntryLine.lineId, item: budgetLine.item, amount: cashEntryLine.amount })
       .from(cashEntryLine)
@@ -159,7 +161,7 @@ export async function createEntry(input: CreateEntryInput) {
 
 /** A movement that received an inflow stays money in, and one that paid budget lines stays a payment of at least that much. */
 async function assertLinksHold(tx: Tx, entryId: number, direction: "in" | "out", cents: number) {
-  const [inflow] = await tx.select({ id: teamInflow.id }).from(teamInflow).where(eq(teamInflow.cashEntryId, entryId));
+  const [inflow] = await tx.select({ id: inflowReceipt.id }).from(inflowReceipt).where(eq(inflowReceipt.entryId, entryId));
   const [linked] = await tx.select({ amount: sql<string | null>`sum(${cashEntryLine.amount})` }).from(cashEntryLine).where(eq(cashEntryLine.entryId, entryId));
   const paid = linked?.amount == null ? 0 : toCents(linked.amount);
   if (direction === "out" && inflow) throw conflict("This movement received an expected inflow: mark it as not received first");

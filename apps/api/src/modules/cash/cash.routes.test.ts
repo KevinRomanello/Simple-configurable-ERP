@@ -73,24 +73,24 @@ describe("who can use the register", () => {
     const as = api.as({ email: "box@team.test", role: "pm" });
     const me = (await as.get("/api/me")).body;
     expect((await as.get("/api/cash/register")).status).toBe(403);
-    const ticked = await api.patch(`/api/users/${me.id}`, { treasury: true });
-    expect(ticked.body).toMatchObject({ role: "pm", treasury: true });
+    const ticked = await api.patch(`/api/users/${me.id}`, { flags: ["treasury"] });
+    expect(ticked.body).toMatchObject({ role: "pm", flags: ["treasury"] });
     expect((await as.get("/api/cash/register")).status).toBe(200); // from their next request on
-    expect((await api.get("/api/users")).body.find((u: any) => u.id === me.id).treasury).toBe(true);
+    expect((await api.get("/api/users")).body.find((u: any) => u.id === me.id).flags).toEqual(["treasury"]);
 
-    expect((await api.patch(`/api/users/${me.id}`, { role: "viewer" })).body).toMatchObject({ role: "viewer", treasury: false });
+    expect((await api.patch(`/api/users/${me.id}`, { role: "viewer" })).body).toMatchObject({ role: "viewer", flags: [] });
     expect((await as.get("/api/cash/register")).status).toBe(403);
-    expect((await api.patch(`/api/users/${me.id}`, { treasury: true })).status).toBe(400); // not a project manager
-    expect((await api.patch(`/api/users/${me.id}`, { role: "pm", treasury: true })).body).toMatchObject({ role: "pm", treasury: true });
+    expect((await api.patch(`/api/users/${me.id}`, { flags: ["treasury"] })).status).toBe(400); // not a project manager
+    expect((await api.patch(`/api/users/${me.id}`, { role: "pm", flags: ["treasury"] })).body).toMatchObject({ role: "pm", flags: ["treasury"] });
 
     // the sponsors box opens CASH FROM, from the next request on, and goes with the role like the other one
     expect((await as.post("/api/funds", { name: "Gamma", vatRate: 22 })).status).toBe(403);
-    expect((await api.patch(`/api/users/${me.id}`, { sponsors: true })).body).toMatchObject({ role: "pm", treasury: true, sponsors: true });
+    expect((await api.patch(`/api/users/${me.id}`, { flags: ["treasury", "sponsors"] })).body).toMatchObject({ role: "pm", flags: ["sponsors", "treasury"] });
     expect((await as.post("/api/funds", { name: "Gamma", vatRate: 22 })).status).toBe(201);
-    expect((await api.patch(`/api/users/${me.id}`, { role: "viewer" })).body).toMatchObject({ role: "viewer", treasury: false, sponsors: false });
+    expect((await api.patch(`/api/users/${me.id}`, { role: "viewer" })).body).toMatchObject({ role: "viewer", flags: [] });
     expect((await as.post("/api/funds", { name: "Delta", vatRate: 22 })).status).toBe(403);
-    expect((await api.patch(`/api/users/${me.id}`, { sponsors: true })).status).toBe(400); // not a project manager
-    expect((await api.as(PM).patch(`/api/users/${me.id}`, { treasury: true })).status).toBe(403); // admins only
+    expect((await api.patch(`/api/users/${me.id}`, { flags: ["sponsors"] })).status).toBe(400); // not a project manager
+    expect((await api.as(PM).patch(`/api/users/${me.id}`, { flags: ["treasury"] })).status).toBe(403); // admins only
   });
 
   it("an admin keeps the money of the team without any box", async () => {

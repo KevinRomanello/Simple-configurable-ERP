@@ -1,12 +1,14 @@
-import { asc, count, eq, max, or, sql, type SQL } from "drizzle-orm";
-import type { PgTable } from "drizzle-orm/pg-core";
+import { asc, eq, max, sql } from "drizzle-orm";
+import { contracts, type Db } from "../../core/contracts";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { budgetLine, category, categoryField, fund, inventoryItem, itemType, lineFigures, location, setting, stockMovement, unit, vatRate } from "../../db/schema";
+import { categoryField, location, unit } from "../../db/schema/inventory";
+import { category, setting, vatRate } from "../../db/schema/platform";
 import { canManageInventory, getCurrentUser, requireAdmin } from "../auth/auth.service";
 import { ITEM_FIELDS, type ItemField } from "../lookups/defaults";
 import { getSettings, placeLabel } from "../lookups/lookups.service";
+import { currentActive, lookupRenamed, totalUse, usageOf, type UsageKind, type UsageRow, type UsageSubject } from "../platform.public";
 
 // The Settings page (docs/impostazioni.md). The switches of the calculation, the VAT rates and the
 // seasons are the admin's; the lists the inventory is written with (categories, units, places) are also
@@ -26,16 +28,10 @@ async function asInventoryKeeper() {
   return actor;
 }
 
-/** How many rows of `table` match `where`. */
-async function usage(executor: Pick<typeof db, "select">, table: PgTable, where: SQL | undefined): Promise<number> {
-  const [row] = await executor.select({ n: count() }).from(table).where(where);
-  return row?.n ?? 0;
-}
-
-/** Refuses to take away something that is still used, saying by what. */
-function refuseIfUsed(name: string, uses: [number, string][]) {
-  const said = uses.filter(([n]) => n > 0).map(([n, what]) => `${n} ${what}`);
-  if (said.length > 0) throw conflict(`"${name}" is used by ${said.join(" and ")}: it cannot be deleted`);
+/** Refuses to take away something that is still used, saying by what (the modules that are on say what uses it). */
+async function refuseIfUsed(executor: Db, kind: UsageKind, subject: UsageSubject, said: string) {
+  const uses: UsageRow[] = (await usageOf(executor, kind, [subject])).get(subject.key) ?? [];
+  if (uses.length > 0) throw conflict(`"${said}" is used by ${uses.map((u) => `${u.count} ${u.label}`).join(" and ")}: it cannot be deleted`);
 }
 
 const sameName = (column: typeof category.name | typeof unit.name, name: string) => sql`lower(${column}) = lower(${name})`;
@@ -54,38 +50,19 @@ export async function readSettings() {
     getSettings(),
   ]);
   const fieldsOf = (categoryId: number | null) => ITEM_FIELDS.filter((f) => fields.some((r) => r.categoryId === categoryId && r.field === f));
+  // who uses each entry: one question per list, answered by the modules that are on
+  const [categoryUse, rateUse, unitUse, placeUse] = await Promise.all([
+    usageOf(db, "category", categories.map((c) => ({ key: String(c.id), name: c.name, id: c.id }))),
+    usageOf(db, "vatRate", rates.map((r) => ({ key: String(r.id), name: r.rate }))),
+    usageOf(db, "unit", units.map((u) => ({ key: String(u.id), name: u.name }))),
+    usageOf(db, "location", locations.map((l) => ({ key: String(l.id), name: l.code }))),
+  ]);
   return {
-    categories: await Promise.all(
-      categories.map(async (c) => ({
-        id: c.id,
-        name: c.name,
-        fields: fieldsOf(c.id),
-        usedBy:
-          (await usage(db, budgetLine, eq(budgetLine.category, c.name))) +
-          (await usage(db, inventoryItem, eq(inventoryItem.category, c.name))) +
-          (await usage(db, itemType, eq(itemType.categoryId, c.id))),
-      })),
-    ),
+    categories: categories.map((c) => ({ id: c.id, name: c.name, fields: fieldsOf(c.id), usedBy: totalUse(categoryUse.get(String(c.id))) })),
     uncategorizedFields: fieldsOf(null),
-    vatRates: await Promise.all(
-      rates.map(async (r) => ({
-        id: r.id,
-        rate: Number(r.rate),
-        usedBy: (await usage(db, fund, eq(fund.vatRate, r.rate))) + (await usage(db, lineFigures, eq(lineFigures.vatRate, r.rate))),
-      })),
-    ),
-    units: await Promise.all(units.map(async (u) => ({ id: u.id, name: u.name, usedBy: await usage(db, inventoryItem, eq(inventoryItem.unit, u.name)) }))),
-    locations: await Promise.all(
-      locations.map(async (l) => ({
-        id: l.id,
-        code: l.code,
-        room: l.room,
-        shelf: l.shelf,
-        level: l.level,
-        label: placeLabel(l),
-        usedBy: await usage(db, stockMovement, or(eq(stockMovement.location, l.code), eq(stockMovement.toLocation, l.code))),
-      })),
-    ),
+    vatRates: rates.map((r) => ({ id: r.id, rate: Number(r.rate), usedBy: totalUse(rateUse.get(String(r.id))) })),
+    units: units.map((u) => ({ id: u.id, name: u.name, usedBy: totalUse(unitUse.get(String(u.id))) })),
+    locations: locations.map((l) => ({ id: l.id, code: l.code, room: l.room, shelf: l.shelf, level: l.level, label: placeLabel(l), usedBy: totalUse(placeUse.get(String(l.id))) })),
     calculation: {
       varianceThreshold: calculation.varianceThreshold,
       vatBaseWhenTotalSponsor: calculation.vatBaseWhenTotalSponsor,
@@ -126,8 +103,7 @@ export async function updateCategory(categoryId: number, input: { name?: string;
       const [twin] = await tx.select().from(category).where(sameName(category.name, input.name));
       if (twin && twin.id !== categoryId) throw conflict(`"${twin.name}" already exists`);
       await tx.update(category).set({ name: input.name }).where(eq(category.id, categoryId));
-      await tx.update(budgetLine).set({ category: input.name }).where(eq(budgetLine.category, target.name));
-      await tx.update(inventoryItem).set({ category: input.name }).where(eq(inventoryItem.category, target.name));
+      await contracts.emit(lookupRenamed, currentActive(), tx, { kind: "category", from: target.name, to: input.name });
     }
     if (input.fields !== undefined) await setFields(tx, categoryId, input.fields);
   });
@@ -138,11 +114,7 @@ export async function deleteCategory(categoryId: number) {
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(category).where(eq(category.id, categoryId));
     if (!target) throw notFound("Category");
-    refuseIfUsed(target.name, [
-      [await usage(tx, budgetLine, eq(budgetLine.category, target.name)), "budget lines"],
-      [await usage(tx, inventoryItem, eq(inventoryItem.category, target.name)), "items"],
-      [await usage(tx, itemType, eq(itemType.categoryId, categoryId)), "item types"],
-    ]);
+    await refuseIfUsed(tx, "category", { key: String(target.id), name: target.name, id: target.id }, target.name);
     await tx.delete(category).where(eq(category.id, categoryId)); // its fields go with it
   });
 }
@@ -184,10 +156,7 @@ export async function deleteVatRate(rateId: number) {
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(vatRate).where(eq(vatRate.id, rateId));
     if (!target) throw notFound("VAT rate");
-    refuseIfUsed(`${Number(target.rate)}%`, [
-      [await usage(tx, fund, eq(fund.vatRate, target.rate)), "sponsors"],
-      [await usage(tx, lineFigures, eq(lineFigures.vatRate, target.rate)), "budget lines"],
-    ]);
+    await refuseIfUsed(tx, "vatRate", { key: String(target.id), name: target.rate }, `${Number(target.rate)}%`);
     await tx.delete(vatRate).where(eq(vatRate.id, rateId));
   });
 }
@@ -213,7 +182,7 @@ export async function renameUnit(unitId: number, name: string) {
     const [twin] = await tx.select().from(unit).where(sameName(unit.name, name));
     if (twin && twin.id !== unitId) throw conflict(`"${twin.name}" is already in the list`);
     await tx.update(unit).set({ name }).where(eq(unit.id, unitId));
-    await tx.update(inventoryItem).set({ unit: name }).where(eq(inventoryItem.unit, target.name));
+    await contracts.emit(lookupRenamed, currentActive(), tx, { kind: "unit", from: target.name, to: name });
   });
 }
 
@@ -222,7 +191,7 @@ export async function deleteUnit(unitId: number) {
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(unit).where(eq(unit.id, unitId));
     if (!target) throw notFound("Unit");
-    refuseIfUsed(target.name, [[await usage(tx, inventoryItem, eq(inventoryItem.unit, target.name)), "items"]]);
+    await refuseIfUsed(tx, "unit", { key: String(target.id), name: target.name }, target.name);
     await tx.delete(unit).where(eq(unit.id, unitId));
   });
 }
@@ -289,9 +258,7 @@ export async function deleteLocation(locationId: number) {
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(location).where(eq(location.id, locationId));
     if (!target) throw notFound("Place");
-    refuseIfUsed(placeLabel(target), [
-      [await usage(tx, stockMovement, or(eq(stockMovement.location, target.code), eq(stockMovement.toLocation, target.code))), "movements of the inventory"],
-    ]);
+    await refuseIfUsed(tx, "location", { key: String(target.id), name: target.code }, placeLabel(target));
     await tx.delete(location).where(eq(location.id, locationId));
   });
 }

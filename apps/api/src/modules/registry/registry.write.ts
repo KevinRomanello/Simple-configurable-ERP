@@ -7,7 +7,7 @@ import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { conflict, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { regFile, regLink, regRecord, regTable, regWebhook, regWebhookLog } from "../../db/schema";
+import { regFile, regLink, regRecord, regTable, regWebhook, regWebhookLog } from "../../db/schema/registry";
 import type { User } from "../../platform/auth/auth.service";
 import { loadRegistry } from "./registry.data";
 

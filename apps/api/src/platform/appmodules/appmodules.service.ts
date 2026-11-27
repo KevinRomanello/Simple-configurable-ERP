@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { notFound } from "../../core/errors";
 import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
-import { appModule } from "../../db/schema";
+import { appModule } from "../../db/schema/platform";
 import { getCurrentUser, requireAdmin } from "../auth/auth.service";
 
 // The parts of the ERP an admin can turn off (Settings › App › Modules, docs/moduli.md). Off means the module's
@@ -25,7 +25,7 @@ export function listModuleDefs(): ModuleDef[] {
       key: "registry",
       label: "Registry",
       description: "The registries of the team (the people, the sponsors…), the forms that fill them in, the keys and webhooks for n8n, and the roles of the ERP taken from them.",
-      prefixes: ["/api/registry", "/api/role-sync"],
+      prefixes: ["/api/registry", "/api/registry-access"],
     },
   ];
 }

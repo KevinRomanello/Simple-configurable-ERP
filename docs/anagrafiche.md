@@ -395,7 +395,7 @@ Si manda con `Authorization: Bearer <token>`. Vale per tutta l'API dell'ERP, non
 | `POST /forms/:id/links` | un link personale per un modulo (§8.4) |
 | `GET/POST /public/forms/:slug` · `GET/POST /forms/by-slug/:slug` | il modulo da compilare e il suo invio (con il link personale: `?t=`); il primo per chiunque, il secondo per chi è entrato (§8.3) |
 | `GET /public/views/:slug` · `…/export.csv` · `…/files/:id` | una vista pubblica in sola lettura (il sito), il suo CSV se lo permette; la password nell'intestazione `X-View-Password` |
-| `GET/PUT /api/role-sync` · `POST /api/role-sync/preview` | i ruoli dell'ERP dal registro (§9) |
+| `GET/PUT /api/registry-access/role-sync` · `POST /api/registry-access/role-sync/preview` | i ruoli dell'ERP dal registro (§9) |
 | `GET/POST/PATCH/DELETE /api/tokens` · `POST /api/users` | i token (admin; `PATCH` cambia il nome); un utente aggiunto a mano, per esempio l'account di un servizio |
 
 ### 10.3 Forma dei record
@@ -547,9 +547,9 @@ Poi lo stesso comando con `--apply`.
 | Parte | File |
 | --- | --- |
 | Il motore puro | `packages/registry/src/`:<br>• `types.ts` tipi;<br>• `values.ts` valori e valori predefiniti;<br>• `formula.ts` formule, con `datetime.ts` (formati, settimane, giorni lavorativi) e `hash.ts` (MD5, SHA);<br>• `template.ts` il corpo dei webhook;<br>• `compute.ts` calcolo dei record e bozze;<br>• `filter.ts` e `where.ts` filtri;<br>• `query.ts` interrogazioni;<br>• `access.ts` permessi;<br>• `form.ts` invii dei moduli;<br>• `checks.ts` controlli sui campi;<br>• `csv.ts` |
-| Il database | `apps/api/src/db/schema.ts` (in fondo) e le migrazioni `apps/api/drizzle/0033_registry.sql`, `0034`, `0035`, `0036_registry_more.sql`, `0037_registry_map.sql` |
+| Il database | `apps/api/src/db/schema/registry.ts` e le migrazioni `apps/api/drizzle/0033_registry.sql`, `0034`, `0035`, `0036_registry_more.sql`, `0037_registry_map.sql` |
 | L'API del registro | `apps/api/src/modules/registry/`:<br>• `registry.data.ts` carica;<br>• `registry.write.ts` scrive, con i webhook e gli ascoltatori;<br>• `registry.access.ts` chi guarda;<br>• `schema.service.ts` tabelle, campi, viste, impostazioni;<br>• `webhooks.service.ts` webhook;<br>• `records.service.ts` record, file, storico, import CSV, conteggi, collegati, upsert, modifiche in blocco, copie di record;<br>• `exports.service.ts` CSV, JSON, iCalendar;<br>• `comments.service.ts` commenti;<br>• `copies.service.ts` copie di viste, campi, tabelle, e tabelle da un CSV;<br>• `forms.service.ts` moduli, link personali, viste pubbliche;<br>• `registry.public.ts` ciò che gli altri moduli possono usare;<br>• `registry.routes.ts` e `registry.schema.ts` |
-| I ruoli dell'ERP | `apps/api/src/modules/rolesync/` |
+| I ruoli dell'ERP | `apps/api/src/bridges/registry-access/` (il ponte: `rolesync.service.ts`, `rolesync.routes.ts`) |
 | I token | `apps/api/src/platform/auth/api-tokens.service.ts`; il controllo in `auth.routes.ts` (`Authorization: Bearer`) |
 | Il sito | • `apps/web/src/api/registry.ts`;<br>• `lib/registry.ts`;<br>• `components/registry/Values.tsx`;<br>• `pages/registry/` (`RegistryHome`, `TablePage`, `RecordPanel`, `ViewTools`, `ManagePanels`, `FormBuilder`, `RegistrySettings`);<br>• `pages/FormPage.tsx` (fuori dal menù, anche senza accesso) |
 | Commenti, riepiloghi, OpenAPI | `comments.service.ts`, `packages/registry/src/query.ts` (`aggregate`, `recordColor`), `openapi.service.ts` |

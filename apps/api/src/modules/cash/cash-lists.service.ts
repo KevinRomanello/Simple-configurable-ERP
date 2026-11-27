@@ -3,7 +3,9 @@ import { asc, eq, sql } from "drizzle-orm";
 import { conflict, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { cashCategory, cashEntry, cashMethod, category } from "../../db/schema";
+import { category } from "../../db/schema/platform";
+import { cashCategory, cashEntry, cashMethod } from "../../db/schema/treasury";
+import { categoryVoce } from "../../db/schema/treasury-budget";
 import { assertCanManageCash, assertListed } from "./cash.service";
 
 // The two lists of the register, kept in Settings: the Voci and the payment methods. Like the
@@ -109,15 +111,21 @@ export async function orderCashMethods(ids: number[]) {
 /** Every category of the budget with the Voce a payment for one of its lines starts from (TO PAY), or null. */
 export async function listCategoryDefaults() {
   await assertCanManageCash();
-  const rows = await db.select().from(category).orderBy(asc(category.position), asc(category.id));
-  return rows.map((c) => ({ categoryId: c.id, name: c.name, voceId: c.defaultVoceId }));
+  const rows = await db
+    .select({ id: category.id, name: category.name, voceId: categoryVoce.voceId })
+    .from(category)
+    .leftJoin(categoryVoce, eq(categoryVoce.categoryId, category.id))
+    .orderBy(asc(category.position), asc(category.id));
+  return rows.map((c) => ({ categoryId: c.id, name: c.name, voceId: c.voceId }));
 }
 
 export async function setCategoryDefault(categoryId: number, voceId: number | null) {
   const actor = await assertCanManageCash();
   await runWrite(actor, async (tx) => {
     await assertListed(tx, voceId, null);
-    const changed = await tx.update(category).set({ defaultVoceId: voceId }).where(eq(category.id, categoryId)).returning({ id: category.id });
-    if (changed.length === 0) throw notFound("Category");
+    const [found] = await tx.select({ id: category.id }).from(category).where(eq(category.id, categoryId));
+    if (!found) throw notFound("Category");
+    if (voceId === null) await tx.delete(categoryVoce).where(eq(categoryVoce.categoryId, categoryId));
+    else await tx.insert(categoryVoce).values({ categoryId, voceId }).onConflictDoUpdate({ target: categoryVoce.categoryId, set: { voceId } });
   });
 }

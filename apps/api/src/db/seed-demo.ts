@@ -3,9 +3,9 @@ import { and, asc, eq, inArray, like, max, sql } from "drizzle-orm";
 import { fromScaled } from "../core/money";
 import { placeholderPng, type Shape } from "./demo-image";
 import { ownerDb, ownerPool } from "./owner";
-import {
-  area, category, componentPart, inventoryItem, itemDatasheet, itemDatasheetFile, itemImage, itemParamValue, itemType, itemTypeParam, project, stockMovement,
-} from "./schema";
+import { project } from "./schema/budget";
+import { componentPart, inventoryItem, itemDatasheet, itemDatasheetFile, itemImage, itemParamValue, itemType, itemTypeParam, stockMovement } from "./schema/inventory";
+import { area, category } from "./schema/platform";
 
 // Made-up inventory, only to have something to look at and try. Nothing here is real: names,
 // prices and places are invented. Every item has a code starting with DEMO-, which is how

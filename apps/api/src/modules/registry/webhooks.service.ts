@@ -4,7 +4,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import type { z } from "zod";
 import { conflict, invalid, notFound } from "../../core/errors";
 import { db } from "../../db/client";
-import { regWebhook, regWebhookLog } from "../../db/schema";
+import { regWebhook, regWebhookLog } from "../../db/schema/registry";
 import { fieldOf, filterFrom } from "./registry.access";
 import type { webhookInput } from "./registry.schema";
 import { deliver, registryWrite, signature, type WebhookOptions } from "./registry.write";

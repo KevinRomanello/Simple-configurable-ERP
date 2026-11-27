@@ -5,7 +5,10 @@ import { fromCents, toCents } from "../../core/money";
 import { today } from "../../core/today";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { budgetLine, cashCategory, cashEntry, cashEntryLine, category, project } from "../../db/schema";
+import { budgetLine, project } from "../../db/schema/budget";
+import { category } from "../../db/schema/platform";
+import { cashCategory, cashEntry } from "../../db/schema/treasury";
+import { cashEntryLine, categoryVoce } from "../../db/schema/treasury-budget";
 import { loadSnapshot } from "../../snapshot";
 import { allSeasons, assertSeasonOpen, getCurrentSeason, getSeasonById } from "../../platform/seasons/seasons.service";
 import type { PayInput } from "./cash.schema";
@@ -126,7 +129,7 @@ export async function setEntryLines(entryId: number, lines: { lineId: number; am
 export async function listToPay(everySeason: boolean) {
   await assertCanManageCash();
   const seasons = everySeason ? await allSeasons() : [await getCurrentSeason()];
-  const voceOf = new Map((await db.select({ name: category.name, voceId: category.defaultVoceId }).from(category)).map((c) => [c.name.toLowerCase(), c.voceId]));
+  const voceOf = new Map((await db.select({ name: category.name, voceId: categoryVoce.voceId }).from(category).leftJoin(categoryVoce, eq(categoryVoce.categoryId, category.id))).map((c) => [c.name.toLowerCase(), c.voceId]));
   const rows = [];
   for (const season of seasons) {
     for (const row of toPayLines(await linesOf(season), today())) {

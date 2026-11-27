@@ -3,7 +3,7 @@ import { userStorage } from "../platform/auth/auth.context";
 import { importFromNocodb } from "../modules/registry/nocodb";
 import { loadUser } from "../platform/users/users.service";
 import { db, pool } from "./client";
-import { appUser } from "./schema";
+import { appUser } from "./schema/platform";
 
 // Brings bases of NocoDB into the registry (docs/anagrafiche.md, §13bis). NocoDB is only read. Without --apply it
 // only says what it would do. The token of NocoDB is read from NOCODB_TOKEN, so it is not left in the history of

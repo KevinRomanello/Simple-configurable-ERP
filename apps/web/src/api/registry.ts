@@ -276,7 +276,7 @@ export const registry = {
   submit: (slug: string, signedIn: boolean, body: { answers: Record<string, unknown>; files?: Record<string, { name: string; mime: string; data: string }[]>; recordId?: number; token?: string }) =>
     http.post<{ ok: true; message: string; redirectUrl: string | null }>(`${formBase(signedIn)}/${encodeURIComponent(slug)}`, body),
 
-  roleSync: () => http.get<RoleSync>("/role-sync"),
-  setRoleSync: (body: Partial<RoleSync>) => http.put<RoleSync & { applied: number; warnings: string[] }>("/role-sync", body),
-  previewRoleSync: (body: Partial<RoleSync>) => http.post<{ changes: RoleChange[]; warnings: string[] }>("/role-sync/preview", body),
+  roleSync: () => http.get<RoleSync>("/registry-access/role-sync"),
+  setRoleSync: (body: Partial<RoleSync>) => http.put<RoleSync & { applied: number; warnings: string[] }>("/registry-access/role-sync", body),
+  previewRoleSync: (body: Partial<RoleSync>) => http.post<{ changes: RoleChange[]; warnings: string[] }>("/registry-access/role-sync/preview", body),
 };

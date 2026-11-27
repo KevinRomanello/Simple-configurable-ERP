@@ -264,15 +264,21 @@ export interface SignInOptions {
   domain: string | null;
 }
 
+/** A box of a person that a module offers (Treasury, Sponsors), and the roles that may have it. */
+export interface UserFlag {
+  key: string;
+  label: string;
+  explanation: string;
+  roles: Role[];
+}
+
 export interface UserRow {
   id: number;
   email: string;
   name: string;
   role: Role;
-  /** A project manager who also keeps the money of the team. */
-  treasury: boolean;
-  /** A project manager who also keeps the sponsors. */
-  sponsors: boolean;
+  /** The boxes ticked for the person (the modules say which there are: `UserFlag`). */
+  flags: string[];
   active: boolean;
   /** Role, areas, boxes and "active" come from the registry (docs/anagrafiche.md, §9): read-only here. */
   managed: boolean;

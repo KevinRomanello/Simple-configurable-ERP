@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { addContract, createUser, resetData, sponsorId, testApp } from "../../../test/helpers";
 import { db } from "../../db/client";
-import { appUser, auditLog, supplier } from "../../db/schema";
+import { supplier } from "../../db/schema/budget";
+import { appUser, auditLog } from "../../db/schema/platform";
 
 const api = testApp();
 afterAll(() => api.close());
@@ -118,6 +119,20 @@ describe("reading the history", () => {
     expect((await api.as({ email: "pm@team.test", role: "pm" }).get("/api/audit")).status).toBe(200);
     expect((await api.as({ email: "viewer@team.test", role: "viewer" }).get("/api/audit")).status).toBe(403);
     expect((await api.anonymous().get("/api/audit")).status).toBe(401);
+  });
+
+  it("names the rows of each owner's tables the way the owner says: the register, the inventory, the places and the core", async () => {
+    await api.post("/api/cash/entries", { on: "2026-12-06", description: "Bank fee", account: "bank", direction: "out", amount: "3" });
+    await api.post("/api/inventory/receive", { newItem: { name: "Washer" }, quantity: "10", receivedOn: "2026-10-01", location: "s1-r1", unitNet: "1", vatRate: 22 });
+    await api.post("/api/settings/locations", { room: "Lab", shelf: "A", levels: ["2"] });
+    const labels = async (table: string) => (await history(`?table=${table}`)).entries.map((e) => e.label as string);
+    expect(await labels("cash_entry")).toEqual(["Bank fee"]);
+    expect(await labels("inventory_item")).toEqual(["Washer"]);
+    expect((await labels("stock_movement"))[0]).toMatch(/^receipt of item \d+$/);
+    expect(await labels("location")).toEqual(["Lab / A / 2"]);
+    // and the core names its own
+    await api.post("/api/settings/vat-rates", { rate: 7 });
+    expect(await labels("vat_rate")).toEqual(["7%"]);
   });
 
   it("starts with the most recent change", async () => {

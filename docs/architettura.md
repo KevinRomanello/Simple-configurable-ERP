@@ -35,12 +35,12 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   │   ├── test/             # database di test ricreato a ogni esecuzione
 │   │   └── src/
 │   │       ├── main.ts           # avvio Fastify, registra i moduli
-│   │       ├── db/               # schema.ts, client.ts (utente dell'API), owner.ts (proprietario), migrate.ts, roles.ts + app-role.ts, seed-base.ts, seed.ts
+│   │       ├── db/               # schema/ (le tabelle: un file per proprietario) e schema.ts (le riunisce per il client), client.ts (utente dell'API), owner.ts (proprietario), migrate.ts, roles.ts + app-role.ts, seed-base.ts, seed.ts
 │   │       ├── core/             # tx.ts (runWrite), errors.ts, money.ts (numeric ↔ centesimi), auth-config.ts, security.ts (intestazioni, limite di richieste),
-│   │       │                     #   contracts.ts (eventi, domande, porte e dichiarazioni fra i proprietari del server: moduli-architettura.md, §5)
+│   │       │                     #   contracts.ts (eventi, domande, porte e dichiarazioni fra i proprietari del server: moduli-architettura.md, §5), usage.ts (conta chi usa un elenco, in una query)
 │   │       ├── snapshot.ts       # loadSnapshot(): dal DB al formato di calc
 │   │       ├── architecture.map.ts   # chi possiede ogni cartella e ogni tabella, e le eccezioni di oggi (le prove di architettura lo leggono)
-│   │       ├── platform/         # il nucleo, sempre acceso (moduli-architettura.md, §4.1)
+│   │       ├── platform/         # il nucleo, sempre acceso (moduli-architettura.md, §4.1); platform.public.ts è ciò che i moduli ne usano: le domande («chi usa questo?»), gli eventi (categoria rinominata, stagione nuova) e i nomi dello storico
 │   │       │   ├── auth/         # login Google, JWT, controllo delle richieste, ruoli e permessi
 │   │       │   ├── users/        # utenti, ruoli, aree dei pm
 │   │       │   ├── areas/        # l'elenco delle aree (GET /api/areas)
@@ -50,7 +50,9 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   │       │   ├── seasons/      # stagioni e macchine; la stagione scelta nel menù (header X-Season)
 │   │       │   ├── appmodules/   # gli interruttori dei moduli (moduli.md)
 │   │       │   └── health/
-│   │       └── modules/
+│   │       ├── bridges/
+│   │       │   └── registry-access/  # il ponte: i ruoli dell'ERP calcolati dalle anagrafiche (anagrafiche.md, §9); risponde sotto /api/registry-access
+│   │       └── modules/          # ognuno ha un <nome>.contract.ts (budget, inventory, cash): ciò che risponde al nucleo e ascolta da lui
 │   │           ├── budget/       # progetti, righe e il foglio di un'area
 │   │           ├── funds/        # fondi e contratti
 │   │           ├── suppliers/
@@ -58,7 +60,6 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   │           ├── cashflow/     # ingressi del team e BANK (il BANK viene dal registro, se può)
 │   │           ├── cash/         # il registro di cassa del fondo del team, le sue liste e l'import dell'Excel
 │   │           ├── registry/     # le anagrafiche: tabelle, campi, viste, record, file, moduli, webhook (anagrafiche.md)
-│   │           ├── rolesync/     # i ruoli dell'ERP calcolati dalle anagrafiche (anagrafiche.md, §9)
 │   │           └── views/        # una funzione per vista (Gantt, Total, analisi…)
 │   └── web/src/
 │       ├── theme/            # tokens.css (token Figma), base.css (tipografia), components.css, grid.ts
@@ -138,7 +139,7 @@ Soldi in `numeric` nel database e in interi nel codice: importi in centesimi, qu
 | `line_fund`     | id, figures_id, position, fund_id                                                                                                    | I fondi che pagano una riga in una fase, in ordine (da 1 a 4). Vedi [sponsor-e-fondi.md](sponsor-e-fondi.md)                |
 | `fund`          | id, season_id, name, kind (`team`/`external`), type (`fund`/`gift`/`gift_vat`), vat_rate, group_name | "Team's fund" è un fondo `team`, seed, non eliminabile, senza parametri da sponsor. Uno sponsor è un fondo `external` con le sue regole (aliquota, gruppo, cosa dà, dove vanno i soldi, se copre l'IVA). Una sola casella `pays_vat` (Q5 chiusa) |
 | `fund_contract` | id, fund_id, phase, amount, inflow_date                                                                                               | I soldi di uno sponsor: **una riga per sponsor e fase** (unica). `inflow_date` può mancare                              |
-| `team_inflow`   | id, season_id, phase, source_name, amount, inflow_date, sponsorship, cash_entry_id | Le tabelle CASH FLOW. `sponsorship` (di base vera): solo gli inflow di sponsorizzazione pagano l'11% di IVA. `cash_entry_id` (unico): l'entrata del registro che ha ricevuto un inflow atteso |
+| `team_inflow`   | id, season_id, phase, source_name, amount, inflow_date, sponsorship | Le tabelle CASH FLOW. `sponsorship` (di base vera): solo gli inflow di sponsorizzazione pagano l'11% di IVA. `cash_entry_id` (unico): l'entrata del registro che ha ricevuto un inflow atteso |
 | `bank_snapshot` | id, season_id (unico), amount, as_of_date                                                                                             | Il BANK, valido per le due fasi                                                                                            |
 | `cash_entry`    | id, entry_on, description, category_id, method_id, account (`cash`/`bank`/`paypal`), amount (con segno), invoice_checked, sponsorship | Il registro di cassa del fondo del team: un movimento su un conto. I progressivi non si salvano |
 | `cash_entry_line` | id, entry_id, line_id, amount (sopra zero; unico per coppia) | Quanto un'uscita del registro ha pagato di una riga del budget (la quota del fondo del team, ACTUAL) |
@@ -242,7 +243,7 @@ Prefisso `/api`. Tutto richiede un utente che ha fatto il login, tranne `/health
 | `GET /views/items?categories=&priority=&sort=`                                                      | `getItemsView`                                                                                     | CATEGORY ANALYSES                                                    |
 | `GET /views/vat-report?area=`                                                                       | `getVatReport`                                                                                     |                                                                      |
 | `/registry/*` | `modules/registry` | le anagrafiche: tabelle, campi, viste, record, collegamenti, file, storico, CSV, webhook, moduli e viste pubbliche (`/registry/public/*`, aperti anche senza accesso). Elenco completo in [anagrafiche.md](anagrafiche.md), §10 |
-| `GET/PUT /role-sync`, `POST /role-sync/preview` | `modules/rolesync` | i ruoli dell'ERP dalle anagrafiche (admin) |
+| `GET/PUT /registry-access/role-sync`, `POST /registry-access/role-sync/preview` | `bridges/registry-access` | i ruoli dell'ERP dalle anagrafiche (admin) |
 | `GET/POST/DELETE /tokens`, `POST /users` | `api-tokens.service`, `createUser` | le chiavi dei servizi (`Authorization: Bearer`) e gli account aggiunti a mano (admin) |
 
 Gli stessi endpoint `/views/*` sono la fonte per le analisi esterne (script Python con `requests` + pandas): una sola logica, nessuna copia in SQL.
@@ -281,7 +282,7 @@ Prerequisiti sul computer: Node 24 o più recente, Docker, pnpm. Se `pnpm` non c
 | Voglio…                                        | Si fa così                                                                                                                                                                   |
 | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | trasformare un hardcode in funzionalità        | trova la riga in [hardcoded-registry.md](hardcoded-registry.md); cambia il corpo della funzione; aggiungi tabella, migrazione e route di scrittura; togli la riga dal registro |
-| aggiungere un campo a una riga                  | `schema.ts` → migrazione → Zod nel modulo → tipo in `calc` → colonna nella griglia                                                                                    |
+| aggiungere un campo a una riga                  | `db/schema/budget.ts` → migrazione → Zod nel modulo → tipo in `calc` → colonna nella griglia                                                                                    |
 | aggiungere un'analisi                           | funzione pura in `calc` + `GET /views/<nome>` in `views` (+ pagina, se serve)                                                                                           |
 | un permesso nuovo o un ruolo                    | `canWrite()` e le funzioni vicine in `platform/auth/auth.service.ts`; i test in `roles.test.ts`                                                                          |
 | tracciare una tabella nello storico             | una migrazione con `create trigger … execute function audit_row()` (vedi `0002_audit_triggers.sql`)                                                                      |

@@ -10,11 +10,12 @@ export interface User {
   role: Role;
   /** The areas a `pm` may change. Ignored for the other roles. */
   areaIds: number[];
-  /** A `pm` who also keeps the money of the team. */
-  treasury: boolean;
-  /** A `pm` who also keeps the sponsors: their funds and contracts. */
-  sponsors: boolean;
+  /** The boxes ticked for the person (`treasury`: keeps the money of the team; `sponsors`: keeps the funds). The modules say which boxes there are. */
+  flags: string[];
 }
+
+/** Whether the box `key` is ticked for `user`. */
+export const hasFlag = (user: User, key: string) => user.flags.includes(key);
 
 /** Who is making the request (GET /api/me). Answers 401 when nobody is signed in. */
 export async function getCurrentUser(): Promise<User> {
@@ -59,7 +60,7 @@ export async function canViewHistory(user: User): Promise<boolean> {
 
 /** The funds of the sponsors and their contracts (CASH FROM): the admins, and the project managers with the sponsors box. */
 export async function canManageFunds(user: User): Promise<boolean> {
-  return user.role === "admin" || (user.role === "pm" && user.sponsors);
+  return user.role === "admin" || (user.role === "pm" && hasFlag(user, "sponsors"));
 }
 
 /**
@@ -68,7 +69,7 @@ export async function canManageFunds(user: User): Promise<boolean> {
  * are not part of it.
  */
 export async function canManageCash(user: User): Promise<boolean> {
-  return user.role === "admin" || (user.role === "pm" && user.treasury);
+  return user.role === "admin" || (user.role === "pm" && hasFlag(user, "treasury"));
 }
 
 /**
@@ -76,7 +77,7 @@ export async function canManageCash(user: User): Promise<boolean> {
  * Marking an inflow as received (it is tied to the register) and the BANK stay with the treasury (`canManageCash`).
  */
 export async function canChangeInflows(user: User): Promise<boolean> {
-  return user.role === "admin" || (user.role === "pm" && (user.treasury || user.sponsors));
+  return user.role === "admin" || (user.role === "pm" && (hasFlag(user, "treasury") || hasFlag(user, "sponsors")));
 }
 
 export function requireAdmin(user: User): void {
@@ -86,9 +87,9 @@ export function requireAdmin(user: User): void {
 /** What the interface needs to know to show or hide commands (the server enforces them anyway). */
 export function permissionsOf(user: User) {
   return {
-    canEditShared: user.role === "admin" || (user.role === "pm" && user.sponsors),
-    canManageCash: user.role === "admin" || (user.role === "pm" && user.treasury),
-    canChangeInflows: user.role === "admin" || (user.role === "pm" && (user.treasury || user.sponsors)),
+    canEditShared: user.role === "admin" || (user.role === "pm" && hasFlag(user, "sponsors")),
+    canManageCash: user.role === "admin" || (user.role === "pm" && hasFlag(user, "treasury")),
+    canChangeInflows: user.role === "admin" || (user.role === "pm" && (hasFlag(user, "treasury") || hasFlag(user, "sponsors"))),
     canManageSuppliers: runsProjects(user),
     canManageInventory: runsProjects(user),
     canViewHistory: runsProjects(user),

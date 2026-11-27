@@ -22,6 +22,8 @@ export function UsersPage() {
   const allowed = me.permissions.canManageUsers;
   const users = useQuery({ queryKey: ["users"], queryFn: api.users, enabled: allowed });
   const areas = useQuery({ queryKey: ["areas"], queryFn: api.areas });
+  // the boxes the modules that are on offer: the page does not know which they are
+  const boxes = useQuery({ queryKey: ["flags"], queryFn: api.flags, enabled: allowed });
 
   if (!allowed) return <Message>{me.readOnly ? "Editing is turned off on phones: use a computer to manage users." : "Only an admin can manage users."}</Message>;
 
@@ -50,7 +52,7 @@ export function UsersPage() {
     },
     {
       key: "areas",
-      header: "AREAS, TREASURY AND SPONSORS (USER)",
+      header: "AREAS AND BOXES (USER)",
       cell: (u) =>
         u.role === "pm" ? (
           <div className="area-boxes">
@@ -60,14 +62,18 @@ export function UsersPage() {
                 {area.name}
               </label>
             ))}
-            <label className="checkbox" title="The register of the team's money, and the BANK and the inflows of CASH FLOW">
-              <input type="checkbox" checked={u.treasury} disabled={u.managed} aria-label={`${u.name} keeps the team's money (treasury)`} onChange={(e) => change(u, { treasury: e.target.checked })} />
-              <strong>Treasury</strong>
-            </label>
-            <label className="checkbox" title="The funds of the sponsors and their contracts (CASH FROM)">
-              <input type="checkbox" checked={u.sponsors} disabled={u.managed} aria-label={`${u.name} keeps the sponsors`} onChange={(e) => change(u, { sponsors: e.target.checked })} />
-              <strong>Sponsors</strong>
-            </label>
+            {boxes.data?.filter((box) => box.roles.includes(u.role)).map((box) => (
+              <label key={box.key} className="checkbox" title={box.explanation}>
+                <input
+                  type="checkbox"
+                  checked={u.flags.includes(box.key)}
+                  disabled={u.managed}
+                  aria-label={`${u.name}: ${box.label}`}
+                  onChange={(e) => change(u, { flags: e.target.checked ? [...u.flags, box.key] : u.flags.filter((key) => key !== box.key) })}
+                />
+                <strong>{box.label}</strong>
+              </label>
+            ))}
           </div>
         ) : (
           <span className="muted">—</span>

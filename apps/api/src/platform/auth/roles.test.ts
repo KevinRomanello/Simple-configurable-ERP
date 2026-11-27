@@ -138,3 +138,22 @@ describe("admin", () => {
     expect((await api.get("/api/audit")).status).toBe(200);
   });
 });
+
+describe("what the interface is told a person may do (GET /api/me)", () => {
+  // The rules of the permissions, written out once: a person, their boxes, and what they may do. The boxes only count for a project manager.
+  const NONE = { canEditShared: false, canManageCash: false, canChangeInflows: false, canManageSuppliers: false, canManageInventory: false, canViewHistory: false, canManageUsers: false, canManageSettings: false };
+  const RUNS = { canManageSuppliers: true, canManageInventory: true, canViewHistory: true };
+  const cases: [string, Person, object][] = [
+    ["an admin", { email: "a@team.test", role: "admin" }, { canEditShared: true, canManageCash: true, canChangeInflows: true, ...RUNS, canManageUsers: true, canManageSettings: true }],
+    ["a project manager", { email: "p@team.test", role: "pm" }, { ...NONE, ...RUNS }],
+    ["a project manager with the treasury box", { email: "pt@team.test", role: "pm", treasury: true }, { ...NONE, ...RUNS, canManageCash: true, canChangeInflows: true }],
+    ["a project manager with the sponsors box", { email: "ps@team.test", role: "pm", sponsors: true }, { ...NONE, ...RUNS, canEditShared: true, canChangeInflows: true }],
+    ["a project manager with both boxes", { email: "pb@team.test", role: "pm", treasury: true, sponsors: true }, { ...NONE, ...RUNS, canEditShared: true, canManageCash: true, canChangeInflows: true }],
+    ["a viewer", { email: "v@team.test", role: "viewer" }, NONE],
+    ["a viewer who still has the boxes (they count for nothing)", { email: "vb@team.test", role: "viewer", treasury: true, sponsors: true }, NONE],
+  ];
+
+  it.each(cases)("%s", async (_name, person, expected) => {
+    expect((await api.as(person).get("/api/me")).body.permissions).toEqual(expected);
+  });
+});

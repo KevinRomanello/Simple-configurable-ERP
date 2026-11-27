@@ -146,11 +146,11 @@ docker compose exec web pnpm --filter @erp/web test
 docker compose exec api pnpm --filter @erp/import-xlsx test
 ```
 
-Risultati attesi: 279 (motore), 67 (motore delle anagrafiche, `packages/registry`), 584 (API, più 3 saltati: il benchmark, che gira solo con `pnpm bench`, [prestazioni.md](prestazioni.md)), 271 (sito, più 1 che si salta senza il foglio vero del registro di cassa in `fonti/`), 3 (importer; 4 se `fonti/` è nel contenitore: il test del rendiconto contro il foglio vero). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
+Risultati attesi: 279 (motore), 67 (motore delle anagrafiche, `packages/registry`), 595 (API, più 3 saltati: il benchmark, che gira solo con `pnpm bench`, [prestazioni.md](prestazioni.md)), 271 (sito, più 1 che si salta senza il foglio vero del registro di cassa in `fonti/`), 3 (importer; 4 se `fonti/` è nel contenitore: il test del rendiconto contro il foglio vero). I test dell'API usano un database a parte, `erp_test`, ricreato a ogni esecuzione: i tuoi dati di sviluppo non si toccano. Se hai pnpm sul computer (parte 5), `pnpm test` li lancia tutti insieme.
 
 Dentro `psql` (il terminale del database) servono pochi comandi: `\dt` elenca le tabelle, `select * from fund;` mostra i fondi, `\q` esce.
 
-**Cambiare la struttura del database.** Modifichi `apps/api/src/db/schema.ts`, poi generi il file SQL della modifica e lo applichi:
+**Cambiare la struttura del database.** Modifichi il file dello schema del proprietario della tabella (`apps/api/src/db/schema/budget.ts`, `platform.ts`, `inventory.ts`…: [moduli-architettura.md](moduli-architettura.md), §6), poi generi il file SQL della modifica e lo applichi:
 
 ```bash
 docker compose exec api pnpm db:generate

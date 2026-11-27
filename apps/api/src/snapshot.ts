@@ -2,9 +2,9 @@ import { addDays, type Figures, type Phase, type Snapshot } from "@erp/calc";
 import { and, asc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { toCents, toScaled } from "./core/money";
 import { db } from "./db/client";
-import {
-  area, budgetLine, fund, fundContract, lineFigures, lineFund, project, stockMovement, supplier,
-} from "./db/schema";
+import { budgetLine, fund, fundContract, lineFigures, lineFund, project, supplier } from "./db/schema/budget";
+import { stockMovement } from "./db/schema/inventory";
+import { area } from "./db/schema/platform";
 import { loadPayments } from "./modules/cash/cash.service";
 import { loadOutsideBudget } from "./modules/cash/outside-budget.service";
 import { loadLookups } from "./platform/lookups/lookups.service";

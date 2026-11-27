@@ -2,7 +2,8 @@ import { outsideBudget, sectionsOfVoci, type AreaInput, type OutsideBudget, type
 import { and, asc, eq, gte, lte, notExists, sql } from "drizzle-orm";
 import { toCents } from "../../core/money";
 import type { Tx } from "../../core/tx";
-import { cashCategory, cashEntry, cashEntryLine, teamInflow } from "../../db/schema";
+import { cashCategory, cashEntry } from "../../db/schema/treasury";
+import { cashEntryLine, inflowReceipt } from "../../db/schema/treasury-budget";
 import { getDerivedAreaCategory, getStatementLayout } from "../../platform/lookups/lookups.service";
 
 // What the team spends and receives outside the budget, read from the register: the movements the derived area is made of
@@ -27,7 +28,7 @@ async function outsideEntries(reader: Reader, season: { startsOn: string; endsOn
         lte(cashEntry.entryOn, season.endsOn),
         eq(cashEntry.sponsorship, false),
         notExists(reader.select({ one: sql`1` }).from(cashEntryLine).where(eq(cashEntryLine.entryId, cashEntry.id))),
-        notExists(reader.select({ one: sql`1` }).from(teamInflow).where(eq(teamInflow.cashEntryId, cashEntry.id))),
+        notExists(reader.select({ one: sql`1` }).from(inflowReceipt).where(eq(inflowReceipt.entryId, cashEntry.id))),
       ),
     )
     .orderBy(asc(cashEntry.entryOn), asc(cashEntry.id));

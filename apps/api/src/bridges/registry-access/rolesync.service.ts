@@ -2,11 +2,12 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { invalid } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { appUser, area, roleSync, userArea } from "../../db/schema";
+import { appUser, area, userArea, userFlag } from "../../db/schema/platform";
+import { roleSync } from "../../db/schema/registry-access";
 import { getCurrentUser, requireAdmin, type Role } from "../../platform/auth/auth.service";
-import { groupsOfRegistry, onRegistryChange, onRegistryUse, peopleInViews } from "../registry/registry.public";
+import { groupsOfRegistry, onRegistryChange, onRegistryUse, peopleInViews } from "../../modules/registry/registry.public";
 import { isModuleOn } from "../../platform/appmodules/appmodules.service";
-import { setManagedCheck } from "../../platform/users/users.service";
+import { setManagedCheck, setUserFlag } from "../../platform/users/users.service";
 
 // The roles of the ERP taken from the registry (docs/anagrafiche.md, §9): who may enter, who is admin, who is a
 // User ("pm") and of which areas, who has the Treasury and the Sponsors boxes, each from a group (a view of the
@@ -88,6 +89,7 @@ async function plan(tx: Tx, config: RoleSyncConfig): Promise<{ changes: RoleChan
   }
   const users = await tx.select().from(appUser);
   const links = await tx.select().from(userArea);
+  const boxes = await tx.select().from(userFlag);
   const byEmail = new Map(users.map((u) => [u.email.toLowerCase(), u]));
   const warnings: string[] = [];
   const changes: RoleChange[] = [];
@@ -116,7 +118,7 @@ async function plan(tx: Tx, config: RoleSyncConfig): Promise<{ changes: RoleChan
       if (active) changes.push({ email: person.email, name: person.name, create: true, changes: Object.fromEntries(Object.entries(want).map(([k, v]) => [k, { from: null, to: v }])) });
       continue;
     }
-    const now = { name: user.name, role: user.role, active: user.active, treasury: user.treasury, sponsors: user.sponsors, areaIds: links.filter((l) => l.userId === user.id).map((l) => l.areaId).sort((a, b) => a - b) };
+    const now = { name: user.name, role: user.role, active: user.active, treasury: boxes.some((b) => b.userId === user.id && b.flag === "treasury"), sponsors: boxes.some((b) => b.userId === user.id && b.flag === "sponsors"), areaIds: links.filter((l) => l.userId === user.id).map((l) => l.areaId).sort((a, b) => a - b) };
     const diff: RoleChange["changes"] = {};
     for (const key of Object.keys(want) as (keyof typeof want)[]) {
       if (JSON.stringify(want[key]) !== JSON.stringify(now[key])) diff[key] = { from: now[key], to: want[key] };
@@ -157,18 +159,20 @@ async function apply(tx: Tx, config: RoleSyncConfig) {
     if (c.create) {
       const [row] = await tx
         .insert(appUser)
-        .values({ email: c.email, name: value("name", c.name), role: value("role", "viewer" as Role), active: value("active", true), treasury: value("treasury", false), sponsors: value("sponsors", false) })
+        .values({ email: c.email, name: value("name", c.name), role: value("role", "viewer" as Role), active: value("active", true) })
         .onConflictDoNothing()
         .returning({ id: appUser.id });
       if (!row) continue;
       userId = row.id;
+      for (const flag of ["treasury", "sponsors"]) if (value(flag, false)) await setUserFlag(tx, userId, flag, true);
     } else {
       const [row] = await tx.select({ id: appUser.id }).from(appUser).where(sql`lower(${appUser.email}) = ${c.email}`);
       if (!row) continue;
       userId = row.id;
       const set: Partial<typeof appUser.$inferInsert> = {};
-      for (const key of ["name", "role", "active", "treasury", "sponsors"] as const) if (c.changes[key]) (set as Record<string, unknown>)[key] = c.changes[key].to;
+      for (const key of ["name", "role", "active"] as const) if (c.changes[key]) (set as Record<string, unknown>)[key] = c.changes[key].to;
       if (Object.keys(set).length > 0) await tx.update(appUser).set(set).where(eq(appUser.id, userId));
+      for (const flag of ["treasury", "sponsors"]) if (c.changes[flag]) await setUserFlag(tx, userId, flag, c.changes[flag].to === true);
     }
     if (c.changes.areaIds) {
       const want = c.changes.areaIds.to as number[];

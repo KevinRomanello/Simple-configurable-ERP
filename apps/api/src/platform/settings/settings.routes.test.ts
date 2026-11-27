@@ -101,6 +101,15 @@ describe("categories", () => {
     expect((await api.del("/api/settings/categories/9999")).status).toBe(404);
   });
 
+  it("is used also by the types of items, which are the inventory's: the answer comes from there", async () => {
+    const software = await categoryId("Software");
+    expect((await api.post("/api/inventory/types", { name: "Firmware", categoryId: software })).status).toBe(201);
+    expect(((await settings()).categories as { id: number; usedBy: number }[]).find((c) => c.id === software)!.usedBy).toBe(1);
+    const refused = await api.del(`/api/settings/categories/${software}`);
+    expect(refused.status).toBe(409);
+    expect(refused.body.error).toMatch(/1 item types/);
+  });
+
   it("keeps the order it is given, which TOTAL and the Gantt follow", async () => {
     const ids = (await settings()).categories.map((c: { id: number }) => c.id);
     expect((await api.put("/api/settings/categories/order", { ids: [...ids].reverse() })).status).toBe(204);
@@ -207,6 +216,15 @@ describe("places", () => {
     const item = (await api.get(`/api/inventory/items/${received.body.itemId ?? received.body.item?.id}`)).body;
     expect(item.stock[0]).toMatchObject({ location: "lab--a--2", label: "Lab / A / 2", spot: "red box" });
     expect((await api.del(`/api/settings/locations/${made.body.id}`)).status).toBe(409);
+  });
+
+  it("a place that things were only moved to is used too", async () => {
+    const bolt = (await api.post("/api/inventory/receive", { newItem: { name: "Bolt" }, quantity: "5", receivedOn: "2026-10-01", location: "s1-r1", unitNet: "1", vatRate: 22 })).body;
+    const moved = await api.post("/api/inventory/movements", { itemId: bolt.itemId ?? bolt.item?.id, kind: "transfer", quantity: "2", occurredOn: "2026-10-02", location: "s1-r1", spot: "", toLocation: "s2-r1", toSpot: "" });
+    expect(moved.status).toBe(201);
+    const destination = ((await settings()).locations as { id: number; code: string; usedBy: number }[]).find((p) => p.code === "s2-r1")!;
+    expect(destination.usedBy).toBe(1);
+    expect((await api.del(`/api/settings/locations/${destination.id}`)).status).toBe(409);
   });
 
   it("a place with movements cannot be deleted; the order is kept", async () => {

@@ -106,7 +106,7 @@ Google accetta come URI di reindirizzamento solo indirizzi HTTPS con un nome di 
 
 ## 6. Ruoli
 
-Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modificare (`user_area`: utente, area).
+Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modificare (`user_area`: utente, area) e può avere delle **spunte** (`user_flag`: utente, spunta). **Le spunte le dichiarano i moduli** (dal 26 novembre 2026, [moduli-architettura.md](moduli-architettura.md), §8.5): oggi **Treasury** la dichiara il registro di cassa (`cash.contract.ts`) e **Sponsors** il budget (`budget.contract.ts`); ognuna dice per quali ruoli vale (oggi solo `pm`). La pagina Users mostra le spunte che i moduli dichiarano (`GET /api/flags`), `PATCH /api/users/:id` accetta `flags`, **l'elenco intero** che si vuole (una spunta che nessuno dichiara è un errore 400, e così una spunta per un ruolo che non può averla), e chi cambia ruolo perde le spunte che il nuovo ruolo non può avere. Le regole dei permessi (`canManageCash`, `canManageFunds`, `canChangeInflows`) stanno ancora in `auth.service.ts` e leggono `user.flags`: passeranno ai moduli quando questi si spostano (G4 e G6).
 
 | Azione | `admin` | `pm` («User») | `pm` con **Treasury** | `pm` con **Sponsors** | `viewer` |
 | --- | --- | --- | --- | --- | --- |
@@ -124,7 +124,7 @@ Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modific
 | Impostazioni (pagina Settings, [impostazioni.md](impostazioni.md)) | sì, tutta | categorie, unità, posti e Item types (non il calcolo, le aliquote IVA e le stagioni) | come il pm, più le liste del registro | come il pm | no |
 | Storico delle modifiche | sì | **sì** (tutto) | **sì** | **sì** | no |
 
-`canWrite(utente, area)` (in `auth.service.ts`): `admin` → sì; `pm` → sì solo se l'area è tra le sue; `viewer` → no. Gli sponsor e i loro contratti (CASH FROM) usano `canManageFunds`: `admin`, e il `pm` con la spunta `sponsors` (`app_user.sponsors`; su un altro ruolo non conta). I soldi del team (registro, inflow, BANK) usano `canManageCash`: `admin`, e il `pm` con la spunta `treasury` (`app_user.treasury`; su un altro ruolo non conta). I fornitori usano `canManageSuppliers` (chiunque non sia `viewer`) e lo storico `canViewHistory` (idem); la pagina Settings `canManageSettings` (solo `admin`).
+`canWrite(utente, area)` (in `auth.service.ts`): `admin` → sì; `pm` → sì solo se l'area è tra le sue; `viewer` → no. Gli sponsor e i loro contratti (CASH FROM) usano `canManageFunds`: `admin`, e il `pm` con la spunta `sponsors` (una riga di `user_flag`; su un altro ruolo non conta). I soldi del team (registro, inflow, BANK) usano `canManageCash`: `admin`, e il `pm` con la spunta `treasury` (una riga di `user_flag`; su un altro ruolo non conta). I fornitori usano `canManageSuppliers` (chiunque non sia `viewer`) e lo storico `canViewHistory` (idem); la pagina Settings `canManageSettings` (solo `admin`).
 
 In una stagione **in sola lettura** nessuno, admin compreso, cambia il budget (voci, progetti, fondi, contratti, ingressi, BANK): il server risponde `409` e il sito nasconde i comandi. L'admin la riapre da Settings ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)).
 
@@ -132,7 +132,7 @@ Un `pm` senza aree assegnate non modifica nessuna area, ma può gestire i fornit
 
 ## 7. Utenti
 
-- Tabella `app_user`: email (unica, senza distinzione di maiuscole), nome, ruolo, attivo, data di creazione. **Non c'è "ultimo accesso"**: ogni scrittura è nello storico, e un campo che cambia a ogni login lo riempirebbe di rumore.
+- Tabella `app_user`: email (unica, senza distinzione di maiuscole), nome, ruolo, attivo, data di creazione. Le spunte sono righe di `user_flag` (utente, spunta; unica per coppia; con lo storico), dalla migrazione `0040`: prima erano due colonne di `app_user`, copiate e tolte dalla migrazione. **Non c'è "ultimo accesso"**: ogni scrittura è nello storico, e un campo che cambia a ogni login lo riempirebbe di rumore.
 - **Primo accesso = `viewer`**, creato in automatico. Un'email in `ADMIN_EMAILS` nasce `admin` (e se esiste già con un altro ruolo viene promossa al login).
 - Chi lascia il team si **disattiva** (non si cancella), per non rompere lo storico.
 - Pagina **Users** (solo admin): ruolo, aree (visibili per i `pm`) e casella "Active", con salvataggio immediato.

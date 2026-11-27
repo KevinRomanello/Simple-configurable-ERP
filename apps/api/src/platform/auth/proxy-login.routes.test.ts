@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createUser, resetData, testApp } from "../../../test/helpers";
 import { loadAuthConfig } from "../../core/auth-config";
 import { db } from "../../db/client";
-import { appUser } from "../../db/schema";
+import { appUser } from "../../db/schema/platform";
 import { SESSION_COOKIE } from "./auth.routes";
 import { signSessionToken } from "./tokens";
 

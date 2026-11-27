@@ -5,7 +5,7 @@ import { cookieFor, createUser, resetData, testApp, testConfig } from "../../../
 import { loadAuthConfig } from "../../core/auth-config";
 import { AppError, forbidden } from "../../core/errors";
 import { db } from "../../db/client";
-import { appUser } from "../../db/schema";
+import { appUser } from "../../db/schema/platform";
 import type { GoogleClient, GoogleIdentity } from "./google";
 import { signLoginState, signSessionToken } from "./tokens";
 

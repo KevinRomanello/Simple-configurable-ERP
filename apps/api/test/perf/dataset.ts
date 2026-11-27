@@ -1,9 +1,10 @@
 import { and, eq, sql } from "drizzle-orm";
 import { ownerDb } from "../../src/db/owner";
-import {
-  area, auditLog, budgetLine, cashCategory, cashEntry, cashEntryLine, cashMethod, cashOpening, componentPart, fund, fundContract, inventoryItem, lineFigures, lineFund,
-  location, project, season, stockMovement, supplier, teamInflow,
-} from "../../src/db/schema";
+import { budgetLine, fund, fundContract, lineFigures, lineFund, project, supplier, teamInflow } from "../../src/db/schema/budget";
+import { componentPart, inventoryItem, location, stockMovement } from "../../src/db/schema/inventory";
+import { area, auditLog, category, season } from "../../src/db/schema/platform";
+import { cashCategory, cashEntry, cashMethod, cashOpening } from "../../src/db/schema/treasury";
+import { cashEntryLine, categoryVoce, inflowReceipt } from "../../src/db/schema/treasury-budget";
 
 // A made-up season of a size to measure, the same every time (a fixed seed), so that two runs of the benchmark read the same data and the
 // answers of the API can be compared with the ones of an earlier run. Nothing here is real: names and money are invented.
@@ -98,7 +99,7 @@ export async function buildSeason(size: Size) {
     for (const part of chunks(payers, 3000)) await tx.insert(lineFund).values(part);
 
     // the money that comes in: some expected, some actual, in the cash flow
-    await tx.insert(teamInflow).values(Array.from({ length: 60 }, (_, i) => ({ seasonId: current!.id, phase: i % 3 === 0 ? ("actual" as const) : ("estimate" as const), sourceName: `Company ${i + 1}`, amount: money(between(500, 15_000) * 100), inflowDate: seasonDay(between(0, 330)), sponsorship: i % 4 !== 0 })));
+    const inflows = await tx.insert(teamInflow).values(Array.from({ length: 60 }, (_, i) => ({ seasonId: current!.id, phase: i % 3 === 0 ? ("actual" as const) : ("estimate" as const), sourceName: `Company ${i + 1}`, amount: money(between(500, 15_000) * 100), inflowDate: seasonDay(between(0, 330)), sponsorship: i % 4 !== 0 }))).returning();
 
     // the register: a balance to start from (so the BANK is the register's) and the movements, some of them paying lines
     await tx.insert(cashOpening).values((["cash", "bank", "paypal"] as const).map((account) => ({ year: 2026, account, amount: money(between(1000, 9000) * 100) })));
@@ -112,6 +113,11 @@ export async function buildSeason(size: Size) {
     }
     const payments = entries.filter((e) => Number(e.amount) < 0 && rand() < 0.4).map((e, i) => ({ entryId: e.id, lineId: lines[(i * 7) % lines.length]!.id, amount: money(Math.min(Math.abs(Number(e.amount)) * 100, between(200, 20_000))) }));
     for (const part of chunks(payments, 3000)) await tx.insert(cashEntryLine).values(part).onConflictDoNothing();
+    // some of the expected inflows have arrived (the movement that received each), and a few categories say which Voce a payment starts from
+    const arrived = entries.filter((e) => Number(e.amount) > 0).slice(0, 12);
+    await tx.insert(inflowReceipt).values(inflows.filter((i) => i.phase === "estimate").slice(0, arrived.length).map((i, k) => ({ inflowId: i.id, entryId: arrived[k]!.id })));
+    const budgetCategories = await tx.select().from(category);
+    await tx.insert(categoryVoce).values(budgetCategories.slice(0, 4).map((c, k) => ({ categoryId: c.id, voceId: categories[k % categories.length]!.id })));
 
     // the inventory: items, what arrived (some of it for lines of the budget) and what was used
     const items: (typeof inventoryItem.$inferSelect)[] = [];

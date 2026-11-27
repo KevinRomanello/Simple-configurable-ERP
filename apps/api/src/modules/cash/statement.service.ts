@@ -1,7 +1,7 @@
 import { financialStatement, type StatementEntry } from "@erp/calc";
 import { today } from "../../core/today";
 import { db } from "../../db/client";
-import { cashCategory } from "../../db/schema";
+import { cashCategory } from "../../db/schema/treasury";
 import { getStatementLayout } from "../../platform/lookups/lookups.service";
 import { assertCanManageCash, loadRegister } from "./cash.service";
 

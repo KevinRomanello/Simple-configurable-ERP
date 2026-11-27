@@ -1,3 +1,4 @@
+import type { db } from "../db/client";
 import type { Tx } from "./tx";
 
 // How the owners of the server (the core, the modules, the bridges) talk without knowing each other (docs/moduli-architettura.md, §5):
@@ -11,6 +12,9 @@ import type { Tx } from "./tx";
 // Everything is registered at the start, with the name of who registers; whoever asks passes `active`, who is on for this request, and the
 // ones that are off are skipped. So an owner never has to know that another can be turned off. It is all plain functions in one process:
 // a call costs a map lookup and a loop, not a request.
+
+/** What a listener or an answer reads and writes with: the transaction of the request that sent the event, or the pool when it is only a read. */
+export type Db = typeof db | Tx;
 
 /** Who answers for the request being served: the modules that are on, and the bridges whose modules are all on. */
 export interface Active {
@@ -71,7 +75,7 @@ interface Entry<V> {
   value: V;
 }
 
-type Listener = (tx: Tx, payload: never) => unknown;
+type Listener = (tx: Db, payload: never) => unknown;
 
 /** One place that keeps who listens and who answers. The server has one (`contracts`); a test makes its own. */
 export function createContracts() {
@@ -85,32 +89,32 @@ export function createContracts() {
 
   return {
     /** `owner` listens to an event. */
-    on<P>(event: EventDef<P>, owner: string, listener: (tx: Tx, payload: P) => void | Promise<void>) {
+    on<P>(event: EventDef<P>, owner: string, listener: (tx: Db, payload: P) => void | Promise<void>) {
       add(listeners, event.name, { owner, value: listener as Listener });
     },
     /** Tells the listeners, one after the other and in the same transaction; an error of one stops the rest and goes back to who sent it. */
-    async emit<P>(event: EventDef<P>, active: Active, tx: Tx, payload: P): Promise<void> {
+    async emit<P>(event: EventDef<P>, active: Active, tx: Db, payload: P): Promise<void> {
       for (const l of listeners.get(event.name) ?? []) if (reaches(event.reach, active, l.owner)) await l.value(tx, payload as never);
     },
 
     /** `owner` answers a question with its part. */
-    answer<In, Out>(question: QuestionDef<In, Out>, owner: string, answer: (tx: Tx, input: In) => Out | Promise<Out>) {
+    answer<In, Out>(question: QuestionDef<In, Out>, owner: string, answer: (tx: Db, input: In) => Out | Promise<Out>) {
       add(answerers, question.name, { owner, value: answer as Listener });
     },
     /** What every owner that answers says, in the order they registered. */
-    async collect<In, Out>(question: QuestionDef<In, Out>, active: Active, tx: Tx, input: In): Promise<Out[]> {
+    async collect<In, Out>(question: QuestionDef<In, Out>, active: Active, tx: Db, input: In): Promise<Out[]> {
       const out: Out[] = [];
       for (const a of answerers.get(question.name) ?? []) if (reaches(question.reach, active, a.owner)) out.push((await a.value(tx, input as never)) as Out);
       return out;
     },
 
     /** `owner` (a bridge) fills a port. A port has one answer: filling it twice is a mistake of the code. */
-    fill<In, Out>(port: PortDef<In, Out>, owner: string, answer: (tx: Tx, input: In) => Out | Promise<Out>) {
+    fill<In, Out>(port: PortDef<In, Out>, owner: string, answer: (tx: Db, input: In) => Out | Promise<Out>) {
       if (ports.has(port.name)) throw new Error(`The port ${port.name} is already filled by ${ports.get(port.name)!.owner}`);
       ports.set(port.name, { owner, value: answer as Listener });
     },
     /** What the port answers, or its plain answer when nobody fills it or the one who does is off. */
-    async ask<In, Out>(port: PortDef<In, Out>, active: Active, tx: Tx, input: In): Promise<Out> {
+    async ask<In, Out>(port: PortDef<In, Out>, active: Active, tx: Db, input: In): Promise<Out> {
       const filled = ports.get(port.name);
       if (filled && active.has(filled.owner)) return (await filled.value(tx, input as never)) as Out;
       return port.fallback(input);

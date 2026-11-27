@@ -4,7 +4,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { notFound } from "../../core/errors";
 import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
-import { apiToken, appUser } from "../../db/schema";
+import { apiToken, appUser } from "../../db/schema/platform";
 import { loadUser } from "../users/users.service";
 import { getCurrentUser, requireAdmin, type User } from "./auth.service";
 

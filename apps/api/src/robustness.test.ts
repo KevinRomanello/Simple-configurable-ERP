@@ -3,7 +3,8 @@ import { and, eq, sql } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { addContract, createUser, resetData, sponsorId, testApp } from "../test/helpers";
 import { db } from "./db/client";
-import { appUser, fundContract } from "./db/schema";
+import { fundContract } from "./db/schema/budget";
+import { appUser } from "./db/schema/platform";
 
 // Input that is too big, too strange or too simultaneous must be answered with a clear 400 / 409
 // (or work), never with a 500 and never with a wrong result.

@@ -1,7 +1,7 @@
 import { PRICE_BASES, PRICE_METHODS } from "@erp/calc";
 import { z } from "zod";
 import { decimal, id, isoDate, LIMITS, longText, lookupCode, optionalText, shortText } from "../../core/validation";
-import { PARAM_KINDS } from "../../db/schema";
+import { PARAM_KINDS } from "../../db/schema/inventory";
 
 // Input shapes of the inventory endpoints. Quantities are decimals with up to three decimals,
 // prices with up to four; the services turn them into thousandths and ten-thousandths.

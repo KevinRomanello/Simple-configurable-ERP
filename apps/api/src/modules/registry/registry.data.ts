@@ -2,7 +2,8 @@ import type { AccessRule, Field, FieldOptions, FieldType, FileMeta, Link, Record
 import { eq, inArray } from "drizzle-orm";
 import { today } from "../../core/today";
 import { db } from "../../db/client";
-import { appUser, regField, regFile, regLink, regRecord, regSettings, regTable, regView } from "../../db/schema";
+import { appUser } from "../../db/schema/platform";
+import { regField, regFile, regLink, regRecord, regSettings, regTable, regView } from "../../db/schema/registry";
 
 // From the database to the snapshot of the engine: the whole description of the registry (tables, fields,
 // views: small), and the records of the tables a request needs, with every table they link to.

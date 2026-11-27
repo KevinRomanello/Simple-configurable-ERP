@@ -203,7 +203,7 @@ Cosa la riconciliazione **non** copre: i dati reali sono semplici (IVA quasi sem
 | cambiare la risposta a Q1 (IVA con sponsor totale) o Q2 (confronto con BANK) | la pagina **Settings** (tabella `setting`); nel codice `getSettings()` |
 | il modo di arrotondare (Q7) | `roundDiv` in `packages/calc/src/money.ts` |
 | un colore, un font, una spaziatura | `apps/web/src/theme/tokens.css` (e Figma) |
-| una **colonna nuova** su una voce | `schema.ts` → `pnpm db:generate` → `db:migrate` → Zod in `budget.schema.ts` → `saveFigures`/`updateLine` in `budget.service.ts` → tipo `Figures` in `calc/snapshot.ts` e `loadSnapshot` in `snapshot.ts` → colonna in `areaColumns.tsx` |
+| una **colonna nuova** su una voce | il file dello schema del proprietario (`db/schema/budget.ts`…) → `pnpm db:generate` → `db:migrate` → Zod in `budget.schema.ts` → `saveFigures`/`updateLine` in `budget.service.ts` → tipo `Figures` in `calc/snapshot.ts` e `loadSnapshot` in `snapshot.ts` → colonna in `areaColumns.tsx` |
 | una **vista/analisi nuova** | funzione in `packages/calc/src/` con il suo test → `views.service.ts` + rotta in `views.routes.ts` → funzione in `api/client.ts` → pagina in `apps/web/src/pages/`, rotta in `App.tsx`, voce di menu in `Shell.tsx` |
 | un **endpoint nuovo** | `x.service.ts` + `x.routes.ts`, registrato in `app.ts`, funzione in `api/client.ts` |
 | i permessi dei ruoli | `canWrite()` e le funzioni vicine in `platform/auth/auth.service.ts` (+ il test `roles.test.ts`) |

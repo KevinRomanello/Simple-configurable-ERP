@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { toScaled } from "../../core/money";
 import type { Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { componentPart, inventoryItem, stockMovement } from "../../db/schema";
+import { componentPart, inventoryItem, stockMovement } from "../../db/schema/inventory";
 
 type Reader = Pick<typeof db, "select">;
 

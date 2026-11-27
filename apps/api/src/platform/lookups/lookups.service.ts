@@ -1,7 +1,8 @@
 import { PRIORITIES, type BankCompareMode, type FundType, type Lookups, type Priority, type Quarter, type Settings, type StatementSpec, type VatRules } from "@erp/calc";
 import { asc } from "drizzle-orm";
 import { db } from "../../db/client";
-import { category, categoryField, location, setting, unit, vatRate } from "../../db/schema";
+import { categoryField, location, unit } from "../../db/schema/inventory";
+import { category, setting, vatRate } from "../../db/schema/platform";
 import { getCurrentSeason } from "../seasons/seasons.service";
 import { ITEM_FIELDS, LOOKUP_DEFAULTS, type ItemField } from "./defaults";
 
