@@ -27,7 +27,7 @@ docker compose exec api sh -c "cd /app/apps/api && pnpm bench"
 
 **Cosa non misura:** le scritture (salvare una riga, un pagamento), più richieste insieme, la rete e il browser (la tabella e i grafici del sito).
 
-## 3. I numeri di riferimento (baseline di fine G5, 27 novembre 2026; in G6 rinnovata solo la riga `core: settings`, la cui risposta è cambiata apposta)
+## 3. I numeri di riferimento (baseline di fine G5, 27 novembre 2026; rinnovate solo le righe la cui risposta è cambiata apposta: `core: settings` in G6, `me` in G8)
 
 Rispetto alla baseline di fine G4: **tutte le risposte identiche** tranne `core: settings`, che dalla tappa 2 di G5 non ha più unità, posti e campi (stanno nella pagina nuova `inventory: lists of Settings`); le pagine dentro il ±10% (la corsa salvata: lo snapshot +1% e -1%, PENDING -4% e +1%, l'elenco degli articoli +4% e +4%). Le pagine `core: units` e `core: places` si chiamano ora `inventory: units` e `inventory: places` (sono dell'inventario, a `/api/inventory/units` e `/locations`), e PENDING si misura a `/api/inventory-budget/pending`. Prima di G1 le pagine del budget, del registro e dell'inventario erano queste stesse, dentro il rumore.
 
@@ -91,6 +91,8 @@ Millisecondi, mediana di 15 richieste, su questo computer (Docker su Mac). **I n
 - **G5, tappa 3 (il ponte inventario×budget):** tutte le risposte identiche (tranne `core: settings`, cambiata apposta nella tappa 2), tempi dentro il rumore in tre corse. Lo snapshot chiede ARRIVED a una porta: il ponte legge i suoi legami e chiede all'inventario quantità e date dei movimenti (una lista di id come un solo parametro), e lo snapshot resta com'era (-5…+1%). L'elenco degli articoli alla taglia reale +10…+12%, cioè 0,8–0,9 ms: le due letture dei legami dei movimenti, sotto la soglia di 1 ms.
 
 - **G6 (il budget in un modulo):** tutte le risposte identiche alla baseline di fine G5, tranne `core: settings`, che dalla tappa 1 non ha più gli interruttori del calcolo (ora `/api/budget/lookups/settings`): solo quella riga della baseline è rinnovata. Una baseline intera nuova **non** è stata salvata: in quattro tentativi il computer era occupato (la misura dei contratti a 109–163 ns contro 101, pagine di tutti i moduli oltre il +10% insieme, anche lo snapshot misurato da solo, che G6 non tocca); un confronto con il computer meno carico dà le pagine del budget fra -3% e +12%. Si rinnova a computer libero, prima della prossima tappa che ne ha bisogno.
+
+- **G8, tappa 1 (gli interruttori):** il cancello legge gli interruttori **una volta a ogni richiesta**, tutte, non solo quelle di un modulo (serve a `currentActive()` anche nel nucleo: `/api/settings` chiede ai moduli accesi chi usa una categoria). Costa una query piccola, circa 0,05–0,2 ms: si vede in percentuale sugli indirizzi da meno di 1 ms (fino a +40% su `inventory: places` allo stress, da 0,5 a 0,7 ms) e sparisce nelle pagine del budget e dei ponti (fra −9% e +3%). Nessuna pagina oltre la regola del §5 (+10% e +1 ms insieme). Tutte le risposte identiche tranne `me`, che dice anche i ponti e i quattro moduli: rinnovata solo quella riga della baseline. Misura dei contratti a 112–122 ns (computer un po' occupato).
 
 ## 5. La regola per i passi della fase G
 

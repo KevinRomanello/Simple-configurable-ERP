@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { contracts } from "../../core/contracts";
 import { countRows, rowsOf } from "../../core/usage";
 import { inventoryItem, itemType } from "../../db/schema/inventory";
-import { auditLabels, auditText, categoryCreated, lookupRenamed, permissionRules, usedBy } from "../../platform/platform.public";
+import { auditLabels, auditText, categoryCreated, lookupRenamed, moduleInfo, permissionRules, usedBy } from "../../platform/platform.public";
 import { startCategoryFields } from "./lists.service";
 
 // What the inventory answers to the core and hears from it (docs/moduli-architettura.md, §5): who uses a category, a renamed or a new
@@ -43,4 +43,12 @@ contracts.declare(auditLabels, "inventory", {
   location: (row) => ["site", "room", "shelf", "level"].map((key) => auditText(row, key)).filter((part) => part !== "").join(" / "),
   component_part: (row) => `part ${String(row.part_id ?? "")} of item ${String(row.component_id ?? "")}`,
   item_param_value: (row) => `parameter ${String(row.param_id ?? "")} of item ${String(row.item_id ?? "")}`,
+});
+
+// how the inventory presents itself: its switch in Settings › App › Modules and its addresses, /api/inventory/…
+contracts.declare(moduleInfo, "inventory", {
+  key: "inventory",
+  order: 30,
+  label: "Inventory",
+  description: "The items on the shelves and where they are, their movements, the components with their bills of materials, and the statistics.",
 });

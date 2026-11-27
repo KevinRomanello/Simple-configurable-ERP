@@ -1,59 +1,74 @@
 import { eq } from "drizzle-orm";
+import { activeOwners, ALL_ACTIVE, contracts, type Active } from "../../core/contracts";
 import { notFound } from "../../core/errors";
 import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
 import { appModule } from "../../db/schema/platform";
 import { getCurrentUser, requireAdmin } from "../auth/auth.service";
+import { bridgeInfo, currentActive, moduleInfo, type BridgeInfo, type ModuleInfo } from "../platform.public";
 
-// The parts of the ERP an admin can turn off (Settings › App › Modules, docs/moduli.md). Off means the module's
-// addresses answer «not found», the site does not show it (menu, pages, settings), and what it keeps stays where it is
-// until it is turned on again. The modules do not know they can be turned off: this one only knows their addresses.
+// The parts of the ERP an admin can turn off (Settings › App › Modules, docs/moduli.md and docs/moduli-architettura.md, §8). Off means the
+// addresses of the module and of the bridges that need it answer «not found», the site does not show them (menu, pages, settings), the core
+// stops asking them, and what they keep stays where it is until the module is turned on again. Each module and bridge presents itself in its
+// contract (`moduleInfo`, `bridgeInfo`): this file knows no module.
 
-export interface ModuleDef {
-  key: string;
-  label: string;
-  description: string;
-  /** The API addresses of the module (the addresses of the people and of the services, `/ext/…`, reach the API at these too). */
-  prefixes: string[];
+/** The modules that can be turned off, in the order of the menu: each one is declared in its contract. */
+export function listModuleDefs(): ModuleInfo[] {
+  return contracts.declared(moduleInfo, ALL_ACTIVE).sort((a, b) => a.order - b.order);
 }
 
-/** The modules that can be turned off. A new one is a new entry here and the matching group of the menu in the site. */
-export function listModuleDefs(): ModuleDef[] {
-  // HARDCODED: the modules of the ERP, read from the code that registers their routes (GET /api/modules)
-  return [
-    {
-      key: "registry",
-      label: "Registry",
-      description: "The registries of the team (the people, the sponsors…), the forms that fill them in, the keys and webhooks for n8n, and the roles of the ERP taken from them.",
-      prefixes: ["/api/registry", "/api/registry-access"],
-    },
-  ];
-}
+/** The bridges: each one is on while the modules it joins are. */
+export const listBridges = (): BridgeInfo[] => contracts.declared(bridgeInfo, ALL_ACTIVE);
 
-/** Which modules are on, by key: one that was never turned off is on. */
+/** Which modules are on, by key: one that was never turned off is on. One small read of the switches. */
 export async function moduleStates(reader: Pick<typeof db, "select"> = db): Promise<Record<string, boolean>> {
   const off = new Set((await reader.select({ key: appModule.key }).from(appModule).where(eq(appModule.enabled, false))).map((r) => r.key));
   return Object.fromEntries(listModuleDefs().map((m) => [m.key, !off.has(m.key)]));
 }
 
-export async function isModuleOn(key: string): Promise<boolean> {
-  return (await moduleStates())[key] !== false;
+/** Who is on with these switches: the modules that are on, and the bridges whose modules are all on. */
+export function activeOf(states: Record<string, boolean>): Active {
+  const off = Object.keys(states).filter((key) => !states[key]);
+  return activeOwners(off, Object.fromEntries(listBridges().map((b) => [b.key, b.needs])));
 }
 
-/** The module an API address belongs to, if it belongs to one. */
-export function moduleOfUrl(url: string): ModuleDef | undefined {
-  const path = url.split("?")[0]!;
-  return listModuleDefs().find((m) => m.prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`)));
+/** The module or the bridge an API address belongs to (`/api/<key>/…`), if it belongs to one. */
+export function partOfUrl(url: string): { key: string; needs: string[] } | undefined {
+  const key = /^\/api\/([\w-]+)/.exec(url.split("?")[0]!)?.[1];
+  if (key === undefined) return undefined;
+  const found = listModuleDefs().find((m) => m.key === key) ?? listBridges().find((b) => b.key === key);
+  return found && { key, needs: "needs" in found ? found.needs : [key] };
 }
 
-/** What the Settings page shows: every module with its state (admins). */
+/** The label of the first module this part needs that is off: what the answer «not found» names. */
+export function offModuleOf(part: { needs: string[] }, active: Active): string | undefined {
+  const key = part.needs.find((k) => !active.has(k));
+  return key === undefined ? undefined : listModuleDefs().find((m) => m.key === key)?.label;
+}
+
+/** What GET /api/me says of the switches, from who is on for this request: every module and every bridge, on or off. */
+export function switchesNow(): { modules: Record<string, boolean>; bridges: Record<string, boolean> } {
+  const active = currentActive();
+  return {
+    modules: Object.fromEntries(listModuleDefs().map((m) => [m.key, active.has(m.key)])),
+    bridges: Object.fromEntries(listBridges().map((b) => [b.key, active.has(b.key)])),
+  };
+}
+
+/** What the Settings page shows: every module with its state, and what goes off with it (admins). */
 export async function readModules() {
   requireAdmin(await getCurrentUser());
   const states = await moduleStates();
-  return listModuleDefs().map(({ key, label, description }) => ({ key, label, description, enabled: states[key] !== false }));
+  return listModuleDefs().map(({ key, label, description }) => ({
+    key,
+    label,
+    description,
+    enabled: states[key] !== false,
+    alsoOff: listBridges().filter((b) => b.needs.includes(key)).map((b) => b.hides),
+  }));
 }
 
-/** Turns a module on or off (admins); the change goes into the History. */
+/** Turns a module on or off (admins); the change goes into the History. A bridge has no switch: it follows its modules. */
 export async function setModule(key: string, enabled: boolean) {
   const actor = await getCurrentUser();
   requireAdmin(actor);

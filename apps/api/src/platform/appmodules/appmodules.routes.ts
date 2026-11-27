@@ -1,16 +1,23 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { AppError } from "../../core/errors";
-import { isModuleOn, moduleOfUrl, readModules, setModule } from "./appmodules.service";
+import { activeStorage } from "./appmodules.context";
+import { activeOf, moduleStates, offModuleOf, partOfUrl, readModules, setModule } from "./appmodules.service";
 
 /**
- * Plugged in before the routes of the modules (app.ts): an address of a module that is turned off answers 404, as if the
- * module were not there. The people who are signed in find out which modules are on in GET /api/me.
+ * Plugged in before the routes (app.ts). It reads the switches once and keeps who is on for the whole request (`currentActive()`): an
+ * address of a module that is turned off, or of a bridge with one of its modules off, answers 404, as if it were not there
+ * (docs/moduli-architettura.md, §8). The people who are signed in find out what is on in GET /api/me.
  */
 export function addModuleGate(app: FastifyInstance) {
-  app.addHook("onRequest", async (request) => {
-    const module = moduleOfUrl(request.url);
-    if (module && !(await isModuleOn(module.key))) throw new AppError(404, `The ${module.label} module is turned off`, "module-off");
+  app.addHook("onRequest", (request, _reply, done) => {
+    moduleStates().then((states) => {
+      const active = activeOf(states);
+      const part = partOfUrl(request.url);
+      const off = part && offModuleOf(part, active);
+      if (off) done(new AppError(404, `The ${off} module is turned off`, "module-off"));
+      else activeStorage.run(active, done);
+    }, done);
   });
 }
 

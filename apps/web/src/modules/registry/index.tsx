@@ -1,6 +1,7 @@
 import { faAddressBook, faPenToSquare, faTableList } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQuery } from "@tanstack/react-query";
+import { Navigate } from "react-router";
 import { MenuLink, type Manifest } from "../../platform/manifest";
 import type { Me } from "../../platform/types";
 import { registry } from "./api";
@@ -52,4 +53,5 @@ export const registryManifest: Manifest = {
   menu: [{ group: "registry", order: 10, element: <RegistryLinks /> }],
   // the people of the registry, the roles of the ERP taken from it and the keys of the services: admins
   settings: [{ key: "registry", label: "Registry", order: 40, allowed: (me) => me.permissions.canManageSettings, Content: RegistrySettings }],
+  home: () => <Navigate to="/registry" replace />,
 };

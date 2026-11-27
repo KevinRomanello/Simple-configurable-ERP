@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MANIFESTS } from "./manifests";
+import { homeOf } from "./platform/home";
 import { byOrder, manifestOn } from "./platform/manifest";
 import { settingsSections } from "./platform/settingsSections";
 import type { Me, Permissions } from "./platform/types";
@@ -70,5 +71,28 @@ describe("the menu and the pages, from the manifests", () => {
     expect(keysOn({ treasury: false })).toEqual(["platform", "budget", "inventory", "registry", "inventory-budget"]);
     expect(keysOn({ budget: false })).toEqual(["platform", "treasury", "inventory", "registry"]);
     expect(keysOn({ budget: false, treasury: false, inventory: false, registry: false })).toEqual(["platform"]);
+  });
+});
+
+describe("the first page of the site, from the manifests", () => {
+  /** Where the first page leads: the budget's is a component that reads the areas (`FirstArea`), the others an address. */
+  const homeFor = (me: Me) => {
+    const page = homeOf(on(me), me) as { type: { name?: string }; props: { to?: string } };
+    return page.props.to ?? page.type.name;
+  };
+
+  it("is the first area of the budget while the budget is on", () => {
+    expect(homeFor(person("viewer", {}))).toBe("FirstArea");
+  });
+
+  it("is the first page of the next module that is on, in the order budget, inventory, treasury, registry", () => {
+    expect(homeFor(person("admin", ALL, { budget: false }))).toBe("/inventory");
+    expect(homeFor(person("admin", ALL, { budget: false, inventory: false }))).toBe("/register");
+    expect(homeFor(person("admin", ALL, { budget: false, inventory: false, treasury: false }))).toBe("/registry");
+  });
+
+  it("skips the register for who cannot see it, and is Settings with every module off", () => {
+    expect(homeFor(person("viewer", {}, { budget: false, inventory: false }))).toBe("/registry");
+    expect(homeFor(person("admin", ALL, { budget: false, inventory: false, treasury: false, registry: false }))).toBe("/settings");
   });
 });

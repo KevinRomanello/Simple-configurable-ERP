@@ -8,11 +8,11 @@
       "hash": "7382449ba4"
     },
     "me (every page starts here)": {
-      "medianMs": 0.83,
-      "p95Ms": 1.03,
-      "minMs": 0.61,
-      "bytes": 338,
-      "hash": "fa426c75fe"
+      "medianMs": 0.76,
+      "p95Ms": 0.99,
+      "minMs": 0.65,
+      "bytes": 467,
+      "hash": "558f911d6a"
     },
     "core: seasons": {
       "medianMs": 0.86,
@@ -241,11 +241,11 @@
       "hash": "8167da825c"
     },
     "me (every page starts here)": {
-      "medianMs": 0.63,
-      "p95Ms": 0.66,
-      "minMs": 0.58,
-      "bytes": 338,
-      "hash": "fa426c75fe"
+      "medianMs": 0.59,
+      "p95Ms": 0.74,
+      "minMs": 0.51,
+      "bytes": 467,
+      "hash": "558f911d6a"
     },
     "core: seasons": {
       "medianMs": 1.08,

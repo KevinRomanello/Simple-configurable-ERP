@@ -76,6 +76,7 @@ function ModulesPanel() {
         <div key={m.key} className="stack tight">
           <strong>{m.label}</strong>
           <p className="muted">{m.description}</p>
+          {m.alsoOff.length > 0 && <p className="muted">Turning it off also hides {m.alsoOff.join("; ")}.</p>}
           <Chips label={`${m.label} module`} options={[{ value: "on", label: "On" }, { value: "off", label: "Off" }]} value={m.enabled ? "on" : "off"} onChange={(value) => void turn(m.key, value === "on")} />
         </div>
       ))}

@@ -11,6 +11,8 @@ import "./modules/budget/budget.contract";
 import "./modules/inventory/inventory.contract";
 import "./bridges/treasury-budget/treasury-budget.contract";
 import "./bridges/inventory-budget/inventory-budget.contract";
+import "./modules/registry/registry.contract";
+import "./bridges/registry-access/registry-access.contract";
 import { addModuleGate, appModulesRoutes } from "./platform/appmodules/appmodules.routes";
 import { addAuthHook, authRoutes } from "./platform/auth/auth.routes";
 import { createGoogleClient, type GoogleClient } from "./platform/auth/google";

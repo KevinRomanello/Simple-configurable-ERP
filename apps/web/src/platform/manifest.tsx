@@ -63,6 +63,8 @@ export interface Manifest {
   settings?: SettingsSection[];
   /** What it puts in the slots of the pages of others (docs/moduli-architettura.md, §7.4): a bridge fills those of its two modules. */
   fills?: Fill[];
+  /** Its first page, when the site starts from it (`homeOf`): nothing when this person cannot see any of its pages. */
+  home?: (me: Me) => ReactNode;
 }
 
 /** Whether a manifest is on for this site: all the modules it needs are on. */

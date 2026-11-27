@@ -14,18 +14,26 @@ const ok = <T = any>(reply: { status: number; body: any }, status = 200): T => {
 };
 const turn = (enabled: boolean) => api.patch("/api/modules/registry", { enabled });
 const pm = { email: "pm@team.test", role: "pm" as const };
+const ALL_ON = { budget: true, treasury: true, inventory: true, registry: true };
+const BRIDGES_ON = { "treasury-budget": true, "inventory-budget": true, "registry-access": true };
 const viewer = { email: "viewer@team.test", role: "viewer" as const };
 
 describe("the modules that can be turned off", () => {
-  it("are all on to start with, and everybody who is signed in knows it", async () => {
-    expect(ok(await api.get("/api/me")).modules).toEqual({ registry: true });
-    expect(ok(await api.get("/api/modules"))).toEqual([expect.objectContaining({ key: "registry", label: "Registry", enabled: true })]);
+  it("are all on to start with, and everybody who is signed in knows it, the bridges too", async () => {
+    const me = ok(await api.get("/api/me"));
+    expect(me.modules).toEqual(ALL_ON);
+    expect(me.bridges).toEqual(BRIDGES_ON);
+    // the four modules in the order of the menu, each with what goes off with it (the bridges that need it)
+    const modules = ok<{ key: string; enabled: boolean; alsoOff: string[] }[]>(await api.get("/api/modules"));
+    expect(modules.map((m) => [m.key, m.enabled, m.alsoOff.length])).toEqual([["budget", true, 2], ["treasury", true, 1], ["inventory", true, 1], ["registry", true, 1]]);
+    expect(modules[0]!.alsoOff[0]).toMatch(/^TO PAY/);
   });
 
   it("answer not found while they are off, on every address of the module, public ones and the services' too", async () => {
     ok(await api.post("/api/registry/tables", { name: "People" }), 201);
     expect((await turn(false)).status).toBe(204);
-    expect(ok(await api.get("/api/me")).modules).toEqual({ registry: false });
+    expect(ok(await api.get("/api/me")).modules).toEqual({ ...ALL_ON, registry: false });
+    expect(ok(await api.get("/api/me")).bridges).toEqual({ ...BRIDGES_ON, "registry-access": false });
     for (const [method, url] of [["get", "/api/registry/tables"], ["get", "/api/registry/forms"], ["get", "/api/registry/public/forms/apply"], ["get", "/api/registry-access/role-sync"], ["get", "/api/registry/tables/People/records"]] as const) {
       const reply = await api[method](url);
       expect([method, url, reply.status]).toEqual([method, url, 404]);
@@ -42,7 +50,7 @@ describe("the modules that can be turned off", () => {
     await turn(false);
     expect((await api.get(`/api/registry/tables/${table.id}`)).status).toBe(404);
     expect((await turn(true)).status).toBe(204);
-    expect(ok(await api.get("/api/me")).modules).toEqual({ registry: true });
+    expect(ok(await api.get("/api/me")).modules).toEqual(ALL_ON);
     expect(ok(await api.get("/api/registry/tables/People/records")).records).toHaveLength(1);
   });
 
@@ -51,13 +59,14 @@ describe("the modules that can be turned off", () => {
       const as = api.as(person);
       expect((await as.patch("/api/modules/registry", { enabled: false })).status).toBe(403);
       expect((await as.get("/api/modules")).status).toBe(403);
-      expect((await as.get("/api/me")).body.modules).toEqual({ registry: true }); // but they know what is on
+      expect((await as.get("/api/me")).body.modules).toEqual(ALL_ON); // but they know what is on
     }
-    expect(ok(await api.get("/api/modules"))[0].enabled).toBe(true);
+    expect(ok<{ enabled: boolean }[]>(await api.get("/api/modules")).every((m) => m.enabled)).toBe(true);
   });
 
-  it("refuse a module that does not exist and a switch that is not on or off", async () => {
+  it("refuse a module that does not exist, a bridge (it follows its modules) and a switch that is not on or off", async () => {
     expect((await api.patch("/api/modules/payroll", { enabled: false })).status).toBe(404);
+    expect((await api.patch("/api/modules/treasury-budget", { enabled: false })).status).toBe(404);
     expect((await api.patch("/api/modules/registry", { enabled: "no" })).status).toBe(400);
     expect((await api.patch("/api/modules/registry", {})).status).toBe(400);
   });

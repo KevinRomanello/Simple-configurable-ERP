@@ -5,6 +5,7 @@ import { NoticeProvider } from "./core/Notice";
 import { MANIFESTS } from "./manifests";
 import { AuthGate, forgetUser, useMe } from "./platform/auth";
 import { manifestOn, ManifestsProvider } from "./platform/manifest";
+import { HomePage } from "./platform/home";
 import { Shell } from "./platform/Shell";
 
 const queryClient = new QueryClient({
@@ -41,7 +42,7 @@ function SignedIn() {
   return (
     <Routes>
       <Route element={<Shell />}>
-        <Route index element={<Navigate to="/budget/mt-dmt" replace />} />
+        <Route index element={<HomePage />} />
         {MANIFESTS.flatMap((manifest) =>
           (manifest.routes ?? []).map((route) => (
             <Route key={route.path} path={route.path} element={manifestOn(manifest, me) ? route.element : <Navigate to="/" replace />} />

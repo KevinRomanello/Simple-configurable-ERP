@@ -39,9 +39,9 @@ describe("the boundaries of the modules", () => {
     expect(offending(others, (target) => target.includes("registry") || target === "@erp/registry")).toEqual([]);
   });
 
-  it("only app.ts, the sign-in (who knows what is on) and the bridge to the registry use the switch of the modules", () => {
+  it("only app.ts, the sign-in (who knows what is on) and currentActive() of the core use the switches of the modules: everybody else asks currentActive()", () => {
     const others = sources("apps/api/src").filter((f) => !f.file.includes("/platform/appmodules/") && !f.file.endsWith("src/app.ts"));
-    const allowed = ["apps/api/src/platform/auth/auth.routes.ts", "apps/api/src/bridges/registry-access/rolesync.service.ts"];
+    const allowed = ["apps/api/src/platform/auth/auth.routes.ts", "apps/api/src/platform/platform.public.ts"];
     expect(offending(others, (target, file) => target.includes("appmodules") && !allowed.includes(file))).toEqual([]);
   });
 });
@@ -160,7 +160,7 @@ const PUBLIC_NAMES: Record<string, string[]> = {
     "CreateEntryInput", "DayRange", "EntryFact", "EntryLink", "OutsideFact", "assertCanManageCash", "assertListed", "deleteEntryIn", "entriesByIds", "entryChanging", "entryLinks", "getStatementLayout", "insertEntry", "lastPaymentMethodId", "moneyInBetween", "outsideBetween", "paymentsBetween", "registerBalanceAt", "sponsorshipMoneyBetween",
   ],
   "platform/platform.public": [
-    "AuditRow", "PermissionRule", "UsageKind", "UsageRow", "UsageSubject", "UserFlag", "auditLabels", "auditText", "can", "categoryCreated", "currentActive", "declaredFlags", "lookupRenamed", "permissionRules", "seasonCreated", "totalUse", "usageOf", "usedBy", "userFlags",
+    "AuditRow", "BridgeInfo", "ModuleInfo", "PermissionRule", "UsageKind", "UsageRow", "UsageSubject", "UserFlag", "auditLabels", "auditText", "bridgeInfo", "can", "categoryCreated", "currentActive", "declaredFlags", "lookupRenamed", "moduleInfo", "permissionRules", "seasonCreated", "totalUse", "usageOf", "usedBy", "userFlags",
   ],
   "modules/registry/registry.public": ["PersonInRegistry", "RegistryListener", "RegistryUseCheck", "groupsOfRegistry", "onRegistryChange", "onRegistryUse", "peopleInViews"],
 };

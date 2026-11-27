@@ -1,4 +1,5 @@
 import { faBookOpen, faFileInvoiceDollar } from "@fortawesome/free-solid-svg-icons";
+import { Navigate } from "react-router";
 import { MenuLink, type Manifest } from "../../platform/manifest";
 import { CashListsPanel } from "./CashListsPanel";
 import { CashRegisterPage } from "./CashRegisterPage";
@@ -20,4 +21,6 @@ export const treasuryManifest: Manifest = {
   settings: [
     { key: "register", label: "Register", order: 30, allowed: (me) => me.permissions.canManageSettings || me.permissions.canManageCash, Content: CashListsPanel },
   ],
+  // the register is the treasury's and the admins': for the others the site starts somewhere else
+  home: (me) => (me.permissions.canManageCash ? <Navigate to="/register" replace /> : null),
 };

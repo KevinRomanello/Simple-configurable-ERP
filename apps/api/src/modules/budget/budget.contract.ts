@@ -2,7 +2,7 @@ import { count, eq, inArray } from "drizzle-orm";
 import { contracts, type Db } from "../../core/contracts";
 import { countRows, rowsOf } from "../../core/usage";
 import { budgetLine, fund, lineFigures, project } from "../../db/schema/budget";
-import { auditLabels, auditText, lookupRenamed, permissionRules, seasonCreated, usedBy, userFlags } from "../../platform/platform.public";
+import { auditLabels, auditText, lookupRenamed, moduleInfo, permissionRules, seasonCreated, usedBy, userFlags } from "../../platform/platform.public";
 
 // What the budget answers to the core and hears from it (docs/moduli-architettura.md, §5): who uses a category or a rate, a renamed
 // category, a new season, the Sponsors box and who may change the budget's shared data, and the names the History gives its rows. It is
@@ -71,7 +71,7 @@ contracts.declare(userFlags, "budget", {
   roles: ["pm"],
 });
 
-// who may change the budget's shared data (the core's `can` asks; with the budget off nobody can, because there is no budget)
+// who may change the budget's shared data (the core's `can` asks)
 const sponsorsKeeper = (user: { role: string; flags: string[] }) => user.role === "admin" || (user.role === "pm" && user.flags.includes("sponsors"));
 
 contracts.declare(permissionRules, "budget", {
@@ -90,4 +90,12 @@ contracts.declare(permissionRules, "budget", {
   key: "canManageSuppliers",
   // the list of suppliers (BOUGHT FROM) is shared by every area: the people who run the projects keep it up to date
   rule: (user) => user.role === "admin" || user.role === "pm",
+});
+
+// how the budget presents itself: its switch in Settings › App › Modules and its addresses, /api/budget/…
+contracts.declare(moduleInfo, "budget", {
+  key: "budget",
+  order: 10,
+  label: "Budget",
+  description: "The budget of the season: the lines of every area, the sponsors and their funds (CASH FROM), the suppliers, CASH FLOW, the Gantt, TOTAL and the analyses.",
 });

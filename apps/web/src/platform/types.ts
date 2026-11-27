@@ -50,8 +50,10 @@ export interface Me {
   permissions: Permissions;
   /** The switch of the admins: whether the site can be changed from a phone. */
   editOnPhone: boolean;
-  /** Which parts of the ERP are on (Settings › App › Modules): a module that is off is not shown anywhere. */
+  /** Which modules are on (Settings › App › Modules): a module that is off is not shown anywhere. */
   modules: Record<string, boolean>;
+  /** Which bridges are on: a bridge is on while all the modules it joins are (docs/moduli-architettura.md, §8). */
+  bridges: Record<string, boolean>;
   /** Set by the interface, not the server: this screen shows the site read-only (`lockEditing`). */
   readOnly?: boolean;
 }
@@ -72,6 +74,8 @@ export interface AppModule {
   label: string;
   description: string;
   enabled: boolean;
+  /** What goes off with it: the bridges that need it, as each says what it shows («TO PAY, …»). */
+  alsoOff: string[];
 }
 /** GET /api/auth/config: which ways of signing in this server offers. */
 export interface SignInOptions {

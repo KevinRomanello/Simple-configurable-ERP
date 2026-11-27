@@ -1,6 +1,6 @@
 import { totalOf } from "@erp/calc";
 import { contracts } from "../../core/contracts";
-import { auditLabels, auditText, permissionRules } from "../../platform/platform.public";
+import { auditLabels, auditText, bridgeInfo, permissionRules } from "../../platform/platform.public";
 import { inflowDeleting, inflowReceipts, linePayments, outsideBudgetOf, registerBank, registerSponsorship } from "../../modules/budget/budget.public";
 import { entryChanging, entryLinks, registerBalanceAt, sponsorshipMoneyBetween } from "../../modules/treasury/treasury.public";
 import { assertCanDeleteInflow, assertLinksHold, linksOfEntries, paymentsOfLines, receiptsOf } from "./links.service";
@@ -43,4 +43,11 @@ contracts.declare(permissionRules, OWNER, {
 contracts.declare(auditLabels, OWNER, {
   inflow_receipt: (row) => `inflow ${String(row.inflow_id ?? "")} received by movement ${String(row.entry_id ?? "")}`,
   category_voce: (row) => `Voce ${String(row.voce_id ?? "")} for category ${String(row.category_id ?? "")}`,
+});
+
+// what joins it to its modules and goes off with either of them (Settings › App › Modules says it under each)
+contracts.declare(bridgeInfo, OWNER, {
+  key: OWNER,
+  needs: ["treasury", "budget"],
+  hides: "TO PAY, the inflows received in the register, the payments tied to budget lines and ADMINISTRATION",
 });

@@ -29,6 +29,14 @@ function AreaLinks() {
   );
 }
 
+/** The first page of the budget: its first area, as the menu lists them. */
+function FirstArea() {
+  const areas = useQuery({ queryKey: ["areas"], queryFn: platformApi.areas });
+  if (!areas.data) return null;
+  const first = areas.data.find((area) => !area.derived);
+  return <Navigate to={first ? `/budget/${first.code}` : "/settings"} replace />;
+}
+
 /** The budget (docs/moduli-architettura.md, §7.2): the pages of the areas, the money, the views, TOTAL, and its section of Settings. */
 export const budgetManifest: Manifest = {
   key: "budget",
@@ -69,4 +77,5 @@ export const budgetManifest: Manifest = {
     { group: "total", order: 30, element: <MenuLink to="/total/car" icon={faCarSide}>CAR TOTAL</MenuLink> },
   ],
   settings: [{ key: "budget", label: "Budget", order: 10, allowed: (me) => me.permissions.canManageSettings, Content: BudgetSettings }],
+  home: () => <FirstArea />,
 };

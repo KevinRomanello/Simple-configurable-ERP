@@ -1,5 +1,5 @@
 import { contracts } from "../../core/contracts";
-import { auditLabels } from "../../platform/platform.public";
+import { auditLabels, bridgeInfo } from "../../platform/platform.public";
 import { computedSeason, lineReceipts, projectsByIds } from "../../modules/budget/budget.public";
 import { keepMakeProject, keepMovementProject, knownProjects, lineCarsOfReceipts, makeProjects, movementTies, statsBudget } from "../../modules/inventory/inventory.public";
 import { carsOfReceipts, keepMovementProjectIn, lineReceiptsOf, makeProjectsOf, setMakeProject, tiesOf } from "./ties.service";
@@ -31,4 +31,11 @@ contracts.declare(auditLabels, OWNER, {
   receipt_line: (row) => `movement ${String(row.movement_id ?? "")} received for line ${String(row.line_id ?? "")}`,
   movement_project: (row) => `movement ${String(row.movement_id ?? "")} for project ${String(row.project_id ?? "")}`,
   item_make_project: (row) => `item ${String(row.item_id ?? "")} made for project ${String(row.project_id ?? "")}`,
+});
+
+// what joins it to its modules and goes off with either of them (Settings › App › Modules says it under each)
+contracts.declare(bridgeInfo, OWNER, {
+  key: OWNER,
+  needs: ["inventory", "budget"],
+  hides: "PENDING, the arrivals of the budget's purchases and the projects in the inventory",
 });

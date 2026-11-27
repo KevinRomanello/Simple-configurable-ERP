@@ -1,17 +1,41 @@
 import { ALL_ACTIVE, contracts, defineDeclaration, defineEvent, defineQuestion, type Active, type Db } from "../core/contracts";
+import { activeStorage } from "./appmodules/appmodules.context";
 import type { Role } from "./auth/auth.service";
 
 // What the core asks the modules and tells them (docs/moduli-architettura.md, §5): the modules answer and listen from their own
 // `*.contract.ts`, and the core never reads their tables. This is the only file of `platform/` the modules import for it.
 
 /**
- * Who is on for the request being served. The modules and the bridges that are turned off do not answer a question that is a feature and
- * do not hear an event that is one (the ones that keep the data in order reach everybody).
+ * Who is on for the request being served, as the switches of the modules said when it came in (Settings › App › Modules). The modules and
+ * the bridges that are turned off do not answer a question that is a feature and do not hear an event that is one (the ones that keep the
+ * data in order reach everybody). Outside a request (a script, a test of a service) everybody is on.
  */
 export function currentActive(): Active {
-  // HARDCODED: who is on, read from the switches of the modules (the last step of the plan of docs/moduli-architettura.md, §8)
-  return ALL_ACTIVE;
+  return activeStorage.getStore() ?? ALL_ACTIVE;
 }
+
+// --- the parts of the ERP ------------------------------------------------------------------------
+
+/** A module, as it presents itself: it answers under `/api/<key>/…`, and an admin can turn it off (Settings › App › Modules). */
+export interface ModuleInfo {
+  key: string;
+  label: string;
+  description: string;
+  /** Its place in Settings › App › Modules: the order of the menu. */
+  order: number;
+}
+
+/** A bridge: it answers under `/api/<key>/…` and is on only while all the modules it joins (`needs`) are on; it has no switch of its own. */
+export interface BridgeInfo {
+  key: string;
+  needs: string[];
+  /** What goes off with it, as Settings says under each of its modules («TO PAY, the inflows received…»). */
+  hides: string;
+}
+
+/** Each module and bridge presents itself in its contract; the switches, the gate of the addresses and GET /api/me read it. */
+export const moduleInfo = defineDeclaration<ModuleInfo>("moduleInfo");
+export const bridgeInfo = defineDeclaration<BridgeInfo>("bridgeInfo");
 
 // --- who uses a thing of a common list ------------------------------------------------------------
 
@@ -103,7 +127,11 @@ export interface PermissionRule {
 /** Each module (or bridge) declares the rules of the permissions it knows: the treasury says who keeps the money, the bridge who may change the inflows. */
 export const permissionRules = defineDeclaration<PermissionRule>("permissionRules");
 
-/** Whether any rule declared for `key` by the modules that are on says yes: a bridge can widen what a module allows. */
+/**
+ * Whether any rule declared for `key` says yes: a bridge can widen what a module allows. The rules of every owner count, on or off: turning
+ * a module off hides it, it does not change what a person may do (with the treasury off, the BANK of CASH FLOW is still written by hand by
+ * who kept the money; docs/moduli-architettura.md, G8).
+ */
 export function can(user: { role: Role; flags: string[] }, key: string): boolean {
-  return contracts.declared(permissionRules, currentActive()).some((p) => p.key === key && p.rule(user));
+  return contracts.declared(permissionRules, ALL_ACTIVE).some((p) => p.key === key && p.rule(user));
 }

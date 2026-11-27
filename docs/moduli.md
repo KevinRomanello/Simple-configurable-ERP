@@ -1,8 +1,6 @@
 # Moduli: accendere e spegnere parti dell'ERP
 
-**Stato: fatto (23 novembre 2026).** Per ora c'è un modulo che si può spegnere, **Registry** (le anagrafiche); l'elenco si allunga con una riga (sotto, «Come si aggiunge un modulo»).
-
-**In progetto (26 novembre 2026)**: spegnere anche budget, tesoreria e inventario. Non basta aggiungere righe a questo elenco, perché oggi quei moduli leggono le tabelle gli uni degli altri. Il design è in [moduli-architettura.md](moduli-architettura.md) (ADR-2): nucleo, moduli, ponti e «API come funzioni». Quando sarà fatto, questo documento va riscritto.
+**Stato: si spengono tutti e quattro (27 novembre 2026, fase G, passo G8, tappa 1).** Budget, tesoreria, inventario e anagrafiche (Registry); con uno di loro si spengono i ponti che ne hanno bisogno. Il design è in [moduli-architettura.md](moduli-architettura.md) (ADR-2): nucleo, moduli, ponti e «API come funzioni». Questo documento descrive ancora soprattutto il Registry, il primo modulo spegnibile: si riscrive alla fine del passo G8 (tappa 3).
 
 ## 1. Cosa fa
 
@@ -22,14 +20,14 @@ Lo spegnimento va nello storico come ogni altra modifica (tabella `app_module`, 
 
 | Pezzo | Dove | Cosa fa |
 | --- | --- | --- |
-| elenco dei moduli | `listModuleDefs` in `apps/api/src/platform/appmodules/appmodules.service.ts` | per ogni modulo: chiave, nome, descrizione, **indirizzi API** (`/api/registry`, `/api/registry-access`). Valore fisso nel corpo della funzione, con `// HARDCODED:` ([hardcoded-registry.md](hardcoded-registry.md)) |
+| elenco dei moduli | `listModuleDefs` e `listBridges` in `apps/api/src/platform/appmodules/appmodules.service.ts` | leggono ciò che ogni modulo dichiara nel suo contratto (`moduleInfo`: chiave, nome, descrizione, posto nel pannello) e ogni ponte nel suo (`bridgeInfo`: chiave, moduli di cui ha bisogno, cosa si spegne con lui). Un modulo e un ponte rispondono sotto `/api/<chiave>/…` |
 | stato | tabella `app_module` (chiave, acceso), migrazione `0039_app_module.sql` | **una riga solo per chi è stato spento o riacceso**: un modulo senza riga è acceso. Nello storico |
-| il controllo | `addModuleGate` (`appmodules.routes.ts`), una riga in `app.ts` | prima delle rotte: un indirizzo di un modulo spento risponde 404. Solo se l'indirizzo è di un modulo legge lo stato (una lettura di una riga) |
+| il controllo | `addModuleGate` (`appmodules.routes.ts`), una riga in `app.ts` | prima delle rotte legge gli interruttori una volta (una lettura piccola) e tiene **chi è acceso** per tutta la richiesta (`currentActive()`, `appmodules.context.ts`). Un indirizzo di un modulo spento, o di un ponte con uno dei suoi moduli spento, risponde 404 («The Budget module is turned off», codice `module-off`) |
 | leggere e cambiare | `GET /api/modules` e `PATCH /api/modules/:key` `{ enabled }` | solo admin (403 agli altri; 404 a un modulo che non c'è) |
-| chi lo sa | `GET /api/me` → `modules: { registry: true }` | lo leggono menù, pagine e impostazioni (`moduleOn` in `platform/modules.ts`; dal passo G7 il sito usa solo i manifesti dei moduli accesi, `useManifests` in `platform/manifest.tsx`: menù, pagine e schede di Settings vengono da lì) |
-| il ponte dei ruoli | `rolesync.service.ts` | con il Registry spento non dichiara gestito nessun account |
+| chi lo sa | `GET /api/me` → `modules: { budget: true, … }` e `bridges: { "treasury-budget": true, … }` | lo leggono menù, pagine e impostazioni (`moduleOn` in `platform/modules.ts`; dal passo G7 il sito usa solo i manifesti dei moduli accesi, `useManifests` in `platform/manifest.tsx`: menù, pagine e schede di Settings vengono da lì) |
+| il ponte dei ruoli | `rolesync.service.ts` | con il Registry spento (`currentActive()`) non dichiara gestito nessun account |
 
-**I moduli non sanno di poter essere spenti.** `appmodules` conosce solo gli **indirizzi** (testi), non importa nessun modulo; i moduli non importano `appmodules`. Chi lo usa: `app.ts` (il controllo), il sign-in (`/api/me`) e il ponte `rolesync` (una sola domanda: il Registry è acceso?). Lo controlla `apps/api/src/architecture.test.ts`.
+**I moduli non sanno di poter essere spenti.** `appmodules` legge solo le dichiarazioni, non importa nessun modulo; i moduli non importano `appmodules`, chiedono `currentActive()` al nucleo. Chi usa gli interruttori: `app.ts` (il controllo), il sign-in (`/api/me`) e `currentActive()` di `platform.public.ts`. Lo controlla `apps/api/src/architecture.test.ts`. **I permessi non cambiano con gli interruttori:** un modulo spento non si vede, ma chi poteva fare una cosa la può ancora fare (con la tesoreria spenta il BANK di CASH FLOW si scrive a mano, da chi teneva i soldi).
 
 ## 3. Come si aggiunge un modulo
 
