@@ -343,6 +343,8 @@ Richiesta della squadra: una famiglia come «IC» contiene cose molto diverse (a
 
 ## 21. Make new: quanti ne posso fare (16 novembre 2026)
 
+**Con il budget spento** (fase G, passo G8, tappa 2; [moduli-architettura.md](moduli-architettura.md), «G8»): non ci sono progetti, quindi i moduli non chiedono il progetto («For project» sparisce da «Use, move, count…», dagli arrivi fuori budget, da «When the team makes it» e dal filtro di COMPONENTS), e **«Make new» produce senza progetto**: il server chiede al ponte se una produzione deve avere un progetto (la porta `buildNeedsProject`; con il budget acceso sì, come prima, senza no). Le statistiche perdono i tagli «By project» e «By area», che passano dai progetti del budget.
+
 Richiesta della squadra: dalla lista dei componenti si vedevano solo quanti **ce ne sono**, non quanti se ne **possono fare** con i pezzi sullo scaffale, né cosa resterebbe dopo averne fatti *n*, né cosa manca. Una prima versione leggeva lo scaffale di **un luogo solo** e non andava: le parti stanno in stanze diverse e AVAILABLE (tutti i luoghi) e il piano (un luogo) dicevano numeri diversi. Dal 16 novembre le parti si prendono **da tutti i luoghi**.
 
 **1. Da dove si prendono le parti.**

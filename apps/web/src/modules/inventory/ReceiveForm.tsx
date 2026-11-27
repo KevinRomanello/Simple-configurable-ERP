@@ -167,14 +167,16 @@ export function ReceiveForm({
                 {lookups.vatRates.map((r) => <option key={r} value={r}>{r}%</option>)}
               </select>
             </Field>
-            <Field label="For project (optional)" htmlFor="receive-project">
-              <SearchSelect
-                id="receive-project"
-                value={projectId}
-                onChange={setProjectId}
-                choices={[{ value: "", label: "(none)" }, ...(projects.data ?? []).map((p) => ({ value: String(p.id), label: `${p.areaName}: ${p.name}` }))]}
-              />
-            </Field>
+            {projects.available && (
+              <Field label="For project (optional)" htmlFor="receive-project">
+                <SearchSelect
+                  id="receive-project"
+                  value={projectId}
+                  onChange={setProjectId}
+                  choices={[{ value: "", label: "(none)" }, ...(projects.data ?? []).map((p) => ({ value: String(p.id), label: `${p.areaName}: ${p.name}` }))]}
+                />
+              </Field>
+            )}
             <Field label="Car" htmlFor="receive-car">
               <select id="receive-car" className="input small" value={car} onChange={(e) => setCar(e.target.value)}>
                 <option value="">{dateSeason ? `${dateSeason.car} (from the date)` : "From the date"}</option>

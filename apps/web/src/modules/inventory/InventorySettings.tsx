@@ -5,6 +5,7 @@ import { FIELD_LABELS } from "./inventory";
 import { ItemTypesPanel } from "./ItemTypesPanel";
 import { platformApi } from "../../platform/api";
 import type { SettingsView } from "../../platform/types";
+import { CategoriesPanel, type CategoryRow } from "../../platform/CategoriesPanel";
 import { CommitInput } from "../../core/CommitInput";
 import { DraftNote } from "../../core/DraftNote";
 import { DeleteButton } from "../../core/ListButtons";
@@ -26,7 +27,7 @@ export function InventorySettings() {
   if (!view.data || !lists.data) return <Loading />;
   return (
     <>
-      <CategoriesPanel categories={view.data.categories} lists={lists.data} />
+      <CategoriesWithFields categories={view.data.categories} lists={lists.data} />
       <ItemTypesPanel categories={view.data.categories} />
       <UnitsPanel units={lists.data.units} />
       <LocationsPanel locations={lists.data.locations} />
@@ -34,67 +35,44 @@ export function InventorySettings() {
   );
 }
 
-type CategoryRow = SettingsView["categories"][number];
-
-function CategoriesPanel({ categories, lists }: { categories: SettingsView["categories"]; lists: InventoryLists }) {
+/** The categories (a list of the core, `CategoriesPanel`) with what the inventory adds: which optional fields an item of each category shows. */
+function CategoriesWithFields({ categories, lists }: { categories: SettingsView["categories"]; lists: InventoryLists }) {
   const act = useAction();
   const toggle = (fields: ItemField[], field: ItemField, on: boolean) => (on ? [...fields, field] : fields.filter((f) => f !== field));
   const fieldsOf = (categoryId: number) => lists.categoryFields[categoryId] ?? [];
 
-  const columns: Column<CategoryRow>[] = [
-    { key: "name", header: "CATEGORY", cell: (c) => <CommitInput value={c.name} label={`Name of ${c.name}`} onCommit={(name) => name !== "" && act(() => platformApi.updateCategory(c.id, { name }))} /> },
-    ...FIELDS.map(
-      (field): Column<CategoryRow> => ({
-        key: field,
-        header: FIELD_LABELS[field].toUpperCase(),
-        cell: (c) => (
+  const columns = FIELDS.map(
+    (field): Column<CategoryRow> => ({
+      key: field,
+      header: FIELD_LABELS[field].toUpperCase(),
+      cell: (c) => (
+        <input
+          type="checkbox"
+          aria-label={`${c.name}: ${FIELD_LABELS[field]}`}
+          checked={fieldsOf(c.id).includes(field)}
+          onChange={(e) => act(() => inventoryApi.setCategoryFields(c.id, toggle(fieldsOf(c.id), field, e.target.checked)))}
+        />
+      ),
+    }),
+  );
+  const footer = (
+    <tr className="footer-row">
+      <td />
+      <td>Items without a category</td>
+      {FIELDS.map((field) => (
+        <td key={field}>
           <input
             type="checkbox"
-            aria-label={`${c.name}: ${FIELD_LABELS[field]}`}
-            checked={fieldsOf(c.id).includes(field)}
-            onChange={(e) => act(() => inventoryApi.setCategoryFields(c.id, toggle(fieldsOf(c.id), field, e.target.checked)))}
+            aria-label={`Items without a category: ${FIELD_LABELS[field]}`}
+            checked={lists.uncategorizedFields.includes(field)}
+            onChange={(e) => act(() => inventoryApi.setUncategorizedFields(toggle(lists.uncategorizedFields, field, e.target.checked)))}
           />
-        ),
-      }),
-    ),
-    usedBy<CategoryRow>(),
-    { key: "delete", header: "", num: true, cell: (c) => <DeleteButton label={c.name} usedBy={c.usedBy} onDelete={() => act(() => platformApi.deleteCategory(c.id))} /> },
-  ];
-
-  return (
-    <Panel title="Categories">
-      <p className="muted">
-        The categories of the budget and of the inventory, in their order (the blocks of TOTAL and of the Gantt follow it), and which optional
-        fields an item of each category shows. Renaming a category renames it on every line and item.
-      </p>
-      <DataTable
-        title="Categories"
-        columns={columns}
-        rows={categories}
-        rowKey={(c) => c.id}
-        empty="No categories"
-        reorder={{ label: (c) => c.name, onOrder: (order) => act(() => platformApi.orderCategories(order)) }}
-        footer={
-          <tr className="footer-row">
-            <td />
-            <td>Items without a category</td>
-            {FIELDS.map((field) => (
-              <td key={field}>
-                <input
-                  type="checkbox"
-                  aria-label={`Items without a category: ${FIELD_LABELS[field]}`}
-                  checked={lists.uncategorizedFields.includes(field)}
-                  onChange={(e) => act(() => inventoryApi.setUncategorizedFields(toggle(lists.uncategorizedFields, field, e.target.checked)))}
-                />
-              </td>
-            ))}
-            <td colSpan={2} />
-          </tr>
-        }
-      />
-      <QuickAdd id="new-category" noun="category" label="Name" onAdd={(name) => act(() => platformApi.createCategory(name))} />
-    </Panel>
+        </td>
+      ))}
+      <td colSpan={2} />
+    </tr>
   );
+  return <CategoriesPanel categories={categories} itemFields={{ columns, footer }} />;
 }
 
 function UnitsPanel({ units }: { units: InventoryLists["units"] }) {

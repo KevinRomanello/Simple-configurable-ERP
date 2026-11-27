@@ -82,14 +82,16 @@ export function ComponentsPage() {
             <Field label="Search" htmlFor="components-search" className="grow">
               <input id="components-search" className="input small" placeholder="Name, code, what it is for…" value={search} onChange={(e) => setSearch(e.target.value)} />
             </Field>
-            <Field label="Project" htmlFor="components-project">
-              <SearchSelect
-                id="components-project"
-                value={projectId}
-                onChange={setProjectId}
-                choices={[{ value: "", label: "All projects" }, ...(projects.data ?? []).map((p) => ({ value: String(p.id), label: `${p.areaName}: ${p.name}` }))]}
-              />
-            </Field>
+            {projects.available && (
+              <Field label="Project" htmlFor="components-project">
+                <SearchSelect
+                  id="components-project"
+                  value={projectId}
+                  onChange={setProjectId}
+                  choices={[{ value: "", label: "All projects" }, ...(projects.data ?? []).map((p) => ({ value: String(p.id), label: `${p.areaName}: ${p.name}` }))]}
+                />
+              </Field>
+            )}
           </div>
           <div className="inline-form">
             <AreaTypeFields filter={areaType} idPrefix="components" />

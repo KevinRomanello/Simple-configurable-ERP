@@ -254,8 +254,8 @@ export const movementInput = z
  */
 export const buildInput = z.object({
   componentId: id,
-  /** The project the pieces are made for: the parts taken from the shelf are used for it. */
-  projectId: id,
+  /** The project the pieces are made for: the parts taken from the shelf are used for it. None while the budget is off (there are no projects). */
+  projectId: id.optional(),
   quantity,
   builtOn: isoDate,
   /** The parts that are taken from one place only: part id -> code of the place. The others come from wherever they are. */

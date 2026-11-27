@@ -37,6 +37,8 @@ export interface GridLookups {
   /** Every season with its car, and the season of the page: its car is the one of a line where none is chosen. */
   cars: Season[];
   seasonId: number;
+  /** Whether the inventory says where the goods are (the slot `arrivals`): without it, no ARRIVED, no arrival date of ACTUAL, no state of arrival. */
+  arrivals: boolean;
 }
 
 /** The season whose car a line is for: the one chosen on it, or the season of the page. */
@@ -66,14 +68,14 @@ const shortPhases = (line: CalcLine) => (["estimate", "actual"] as const).filter
 const SHORT_HINT = "Add another fund of the same group in ALSO FROM.";
 
 /** What the icons of the status column mean: shown at once when the pointer is over the cell. */
-function statusTip(row: Row | undefined): string | undefined {
+function statusTip(row: Row | undefined, arrivals: boolean): string | undefined {
   if (!isLine(row)) return undefined;
   const tips: string[] = [];
   if (isIncomplete(row)) tips.push(INCOMPLETE_TIP);
   for (const phase of shortPhases(row)) {
     tips.push(`${PHASE_LABEL[phase]}: the funds are ${money(row[phase].shortCents)} short. ${SHORT_HINT}`);
   }
-  if (row.arrival.status !== "planned") tips.push(arrivalTitle[row.arrival.status]);
+  if (arrivals && row.arrival.status !== "planned") tips.push(arrivalTitle[row.arrival.status]);
   if (missingMake(row).length > 0) tips.push(missingMakeText(missingMake(row)));
   return tips.length > 0 ? tips.join("\n") : undefined;
 }
@@ -85,8 +87,8 @@ interface StatusIcon {
 }
 
 /** The icons of the status column of a line, in order: what is wrong with it first, then where its goods are, then the make and model. */
-function statusIcons(line: CalcLine): StatusIcon[] {
-  const { status } = line.arrival;
+function statusIcons(line: CalcLine, arrivals: boolean): StatusIcon[] {
+  const status = arrivals ? line.arrival.status : "planned";
   const icons: (StatusIcon | false)[] = [
     isIncomplete(line) && { key: "incomplete", icon: faTriangleExclamation, tone: "warning" },
     shortPhases(line).length > 0 && { key: "short", icon: faCoins, tone: "error" },
@@ -102,7 +104,7 @@ function statusIcons(line: CalcLine): StatusIcon[] {
 const statusWidth = (icons: number) => 84 + Math.max(0, icons - 3) * 24;
 
 /** The most icons any of these lines shows at once: it sets the width of their status column. */
-export const mostStatusIcons = (lines: CalcLine[]) => Math.max(0, ...lines.map((l) => statusIcons(l).length));
+export const mostStatusIcons = (lines: CalcLine[], arrivals: boolean) => Math.max(0, ...lines.map((l) => statusIcons(l, arrivals).length));
 
 /** The funds that can pay the rest of a line after its first fund: only others of the same group (never the team's own money). */
 function companionNames(lookups: GridLookups, phase: Phase, line: CalcLine): string[] {
@@ -339,19 +341,23 @@ function phaseColumns(phase: Phase, lookups: GridLookups, commit: Commit, moreFu
       cellEditor: "agDateStringCellEditor",
       ...editableCell(commit, (v) => patchFigures({ purchaseDate: blank(v) ? null : String(v) })),
     },
-    {
-      colId: `${phase}.arrivalDate`,
-      headerName: "ARRIVAL DATE",
-      width: 125,
-      valueGetter: (p) => p.data?.[phase].arrivalDate ?? null,
-      valueFormatter: (p) => date(p.value),
-      // EXPECTED is typed; ACTUAL is the day of the last arrival, filled in when all of it has arrived
-      ...(phase === "estimate"
-        ? { cellEditor: "agDateStringCellEditor", ...editableCell(commit, (v) => patchFigures({ arrivalDate: blank(v) ? null : String(v) })) }
-        : { cellClass: "calc" }),
-    },
+    // EXPECTED is typed; ACTUAL is the day of the last arrival, filled in when all of it has arrived: only the inventory knows it
+    ...(phase === "estimate" || lookups.arrivals
+      ? [
+          {
+            colId: `${phase}.arrivalDate`,
+            headerName: "ARRIVAL DATE",
+            width: 125,
+            valueGetter: (p) => p.data?.[phase].arrivalDate ?? null,
+            valueFormatter: (p) => date(p.value),
+            ...(phase === "estimate"
+              ? { cellEditor: "agDateStringCellEditor", ...editableCell(commit, (v) => patchFigures({ arrivalDate: blank(v) ? null : String(v) })) }
+              : { cellClass: "calc" }),
+          } satisfies ColDef<Row>,
+        ]
+      : []),
     // Only what was bought can arrive: the inventory (PENDING) tells how much of it has.
-    ...(phase === "actual" ? [arrivalColumn] : []),
+    ...(phase === "actual" && lookups.arrivals ? [arrivalColumn] : []),
   ];
 }
 
@@ -440,13 +446,13 @@ function editableColumns(lookups: GridLookups, commit: Commit, remove: (line: Ca
       suppressAutoSize: true,
       pinned: "left",
       sortable: false,
-      tooltipValueGetter: (p) => statusTip(p.data),
+      tooltipValueGetter: (p) => statusTip(p.data, lookups.arrivals),
       cellRenderer: (p: ICellRendererParams<Row>) => {
         const row = p.data;
         if (!isLine(row)) return null;
         return (
-          <span className="icon-row" aria-label={statusTip(row)}>
-            {statusIcons(row).map(({ key, icon, tone }) => (
+          <span className="icon-row" aria-label={statusTip(row, lookups.arrivals)}>
+            {statusIcons(row, lookups.arrivals).map(({ key, icon, tone }) => (
               <span key={key} className={`tone-${tone}`}>
                 <FontAwesomeIcon icon={icon} />
               </span>

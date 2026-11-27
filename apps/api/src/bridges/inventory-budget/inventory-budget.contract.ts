@@ -1,7 +1,7 @@
 import { contracts } from "../../core/contracts";
 import { auditLabels, bridgeInfo } from "../../platform/platform.public";
 import { computedSeason, lineReceipts, projectsByIds } from "../../modules/budget/budget.public";
-import { keepMakeProject, keepMovementProject, knownProjects, lineCarsOfReceipts, makeProjects, movementTies, statsBudget } from "../../modules/inventory/inventory.public";
+import { buildNeedsProject, keepMakeProject, keepMovementProject, knownProjects, lineCarsOfReceipts, makeProjects, movementTies, statsBudget } from "../../modules/inventory/inventory.public";
 import { carsOfReceipts, keepMovementProjectIn, lineReceiptsOf, makeProjectsOf, setMakeProject, tiesOf } from "./ties.service";
 
 // What the bridge between the inventory and the budget does for both (docs/moduli-architettura.md, §5 and §8): it answers what the inventory asks
@@ -15,6 +15,8 @@ const OWNER = "inventory-budget";
 
 contracts.fill(movementTies, OWNER, (reader, { movementIds }) => tiesOf(reader, movementIds));
 contracts.fill(knownProjects, OWNER, (reader, { ids }) => projectsByIds(reader, ids));
+// with the budget there are projects, and a build is always for one of them
+contracts.fill(buildNeedsProject, OWNER, () => true);
 contracts.fill(keepMovementProject, OWNER, (tx, input) => keepMovementProjectIn(tx, input));
 contracts.fill(makeProjects, OWNER, (reader, { itemIds }) => makeProjectsOf(reader, itemIds));
 contracts.fill(keepMakeProject, OWNER, (tx, input) => setMakeProject(tx, input));

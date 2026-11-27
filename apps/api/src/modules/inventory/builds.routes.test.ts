@@ -229,7 +229,18 @@ describe("making a made item", () => {
     expect((await api.as(viewer).post("/api/inventory/builds", { componentId: pedal.id, projectId, quantity: "1", builtOn: "2026-10-10", toLocation: "s1-r1" })).status).toBe(403);
   });
 
-  it("is made for a project, always: the parts are used for it and the build is linked to them", async () => {
+  it("is made for no project while the budget is off: there are none, and the parts are used for nothing in particular", async () => {
+    const { plate, pedal } = await workshop();
+    expect((await api.patch("/api/modules/budget", { enabled: false })).status).toBe(204);
+    const made = await api.post("/api/inventory/builds", { componentId: pedal.id, quantity: "1", builtOn: "2026-10-10", toLocation: "s2-r1" });
+    expect(made.status).toBe(201);
+    expect(made.body.movement.projectId).toBeNull();
+    expect(await stockOf(plate.id)).toEqual([["s1-r1", "", 18]]);
+    // a project given anyway is not known: there is no budget to keep it
+    expect((await api.post("/api/inventory/builds", { componentId: pedal.id, quantity: "1", projectId: 1, builtOn: "2026-10-10", toLocation: "s2-r1" })).status).toBe(404);
+  });
+
+  it("is made for a project, always, while the budget is on: the parts are used for it and the build is linked to them", async () => {
     const { plate, pedal } = await workshop();
     const projectId = await projectOf();
     const without = await api.post("/api/inventory/builds", { componentId: pedal.id, quantity: "1", builtOn: "2026-10-10", toLocation: "s1-r1" });

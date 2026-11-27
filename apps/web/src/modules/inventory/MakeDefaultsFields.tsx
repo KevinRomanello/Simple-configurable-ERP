@@ -23,14 +23,17 @@ export function MakeDefaultsFields({ value, onChange, lookups, idPrefix = "make"
   return (
     <div className="form-grid">
       {!required && <div className="wide filter-title">When the team makes it</div>}
-      <Field label="For project" htmlFor={`${idPrefix}-project`}>
-        <SearchSelect
-          id={`${idPrefix}-project`}
-          value={value.projectId}
-          onChange={(projectId) => onChange({ projectId })}
-          choices={[{ value: "", label: none }, ...(projects.data ?? []).map((p) => ({ value: String(p.id), label: `${p.areaName}: ${p.name}` }))]}
-        />
-      </Field>
+      {/* without the budget there are no projects: the pieces are made for none */}
+      {projects.available && (
+        <Field label="For project" htmlFor={`${idPrefix}-project`}>
+          <SearchSelect
+            id={`${idPrefix}-project`}
+            value={value.projectId}
+            onChange={(projectId) => onChange({ projectId })}
+            choices={[{ value: "", label: none }, ...(projects.data ?? []).map((p) => ({ value: String(p.id), label: `${p.areaName}: ${p.name}` }))]}
+          />
+        </Field>
+      )}
       <Field label="Put the pieces in" htmlFor={`${idPrefix}-to`}>
         <select id={`${idPrefix}-to`} className="input small" value={value.to} onChange={(e) => onChange({ to: e.target.value })}>
           {!required && <option value="">{none}</option>}

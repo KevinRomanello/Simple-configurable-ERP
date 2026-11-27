@@ -10,7 +10,7 @@ import { listVatRates } from "../../platform/lookups/lookups.service";
 import { currentActive } from "../../platform/platform.public";
 import { assertCarExists } from "../../platform/seasons/seasons.service";
 import { loadInventory, movementsOf } from "./inventory.data";
-import { keepMovementProject, knownProjects } from "./inventory.ports";
+import { buildNeedsProject, keepMovementProject, knownProjects } from "./inventory.ports";
 import type { buildInput, movementInput, ReceiptOfPurchaseInput, receiveInput } from "./inventory.schema";
 import { assertCanManageInventory, findDuplicate, insertItem } from "./items.service";
 import { listLocations } from "./lists.service";
@@ -193,7 +193,9 @@ export async function build(input: z.infer<typeof buildInput>) {
   if (quantityMilli <= 0) throw invalid("The quantity must be above zero");
 
   return runWrite(actor, async (tx) => {
-    await assertProject(tx, input.projectId);
+    const projectId = input.projectId ?? null;
+    if (projectId !== null) await assertProject(tx, projectId);
+    else if (await contracts.ask(buildNeedsProject, currentActive(), tx, {})) throw invalid("Choose the project the pieces are made for");
     // The piece and its parts take turns with every other change of their stock (in the same order
     // for everybody, so that two builds cannot wait for each other).
     const links = await tx.select().from(componentPart).where(eq(componentPart.componentId, input.componentId));
@@ -258,8 +260,8 @@ export async function build(input: z.infer<typeof buildInput>) {
         })),
       )
       .returning({ id: stockMovement.id });
-    await tieToProject(tx, [movement!.id, ...parts.map((p) => p.id)], input.projectId);
-    return { movement: answered(movement!, { projectId: input.projectId }), used: takes.length };
+    await tieToProject(tx, [movement!.id, ...parts.map((p) => p.id)], projectId);
+    return { movement: answered(movement!, { projectId }), used: takes.length };
   });
 }
 

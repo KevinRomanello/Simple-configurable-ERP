@@ -122,7 +122,7 @@ export function MovementForm({
             </Field>
           </>
         )}
-        {kind === "use" && (
+        {kind === "use" && projects.available && (
           <Field label="For project (optional)" htmlFor="move-project">
             <SearchSelect
               id="move-project"

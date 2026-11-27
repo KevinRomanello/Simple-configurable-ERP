@@ -41,6 +41,9 @@ export interface MenuEntry {
   element: ReactNode;
 }
 
+/** The lists of the core that a section of a module shows (the seasons and the VAT rates in Budget, the categories in Inventory). */
+export type CoreList = "seasons" | "vatRates" | "categories";
+
 /** A section of Settings: its tab and its address (`/settings/<key>`), who may use it, and what it shows. */
 export interface SettingsSection {
   key: string;
@@ -49,11 +52,13 @@ export interface SettingsSection {
   order: number;
   allowed: (me: Me) => boolean;
   Content: ComponentType;
+  /** The lists of the core it shows: while no section that is on shows one, it is in Settings › App (docs/impostazioni.md). */
+  shows?: CoreList[];
 }
 
 export interface Manifest {
   key: string;
-  /** The modules it needs: a bridge is on only while both of its modules are. Without it, the module itself; the platform needs none. */
+  /** For a bridge, the modules it joins: it is on only while all of them are (the server says so in GET /api/me). The platform needs none. */
   needs?: string[];
   routes?: PageRoute[];
   /** Pages outside the sign-in (the public forms of the registry). */
@@ -67,8 +72,11 @@ export interface Manifest {
   home?: (me: Me) => ReactNode;
 }
 
-/** Whether a manifest is on for this site: all the modules it needs are on. */
-export const manifestOn = (manifest: Manifest, me: Pick<Me, "modules">): boolean => (manifest.needs ?? [manifest.key]).every((key) => moduleOn(me, key));
+/** Whether a manifest is on for this site, as the server says (GET /api/me): a module that is not off, a bridge that is on, the platform always. */
+export function manifestOn(manifest: Manifest, me: Pick<Me, "modules" | "bridges">): boolean {
+  if (manifest.needs === undefined) return moduleOn(me, manifest.key);
+  return manifest.needs.length === 0 || me.bridges[manifest.key] === true;
+}
 
 export const byOrder = (a: { order: number }, b: { order: number }) => a.order - b.order;
 

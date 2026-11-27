@@ -83,7 +83,7 @@ const SITE_EXCEPTIONS: string[] = [];
 
 /** What each module lends to the others: the names its public.ts exports (G7, tappa 4). */
 const SITE_PUBLIC: Record<string, string[]> = {
-  "modules/budget/public": ["ArrivalPill", "Inflow", "inflowActions"],
+  "modules/budget/public": ["ArrivalPill", "Inflow", "arrivals", "inflowActions"],
   "modules/inventory/public": ["ProjectRef", "PurchaseToReceive", "ReceiveForm", "inventoryItems", "purposeProjects", "useInventoryLookups", "usePrice"],
   "modules/treasury/public": ["CashAccount", "CashEntryRow", "registerLists", "registerRowActions", "registerSettings"],
 };

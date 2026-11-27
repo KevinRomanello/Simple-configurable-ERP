@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MANIFESTS } from "./manifests";
 import { homeOf } from "./platform/home";
 import { byOrder, manifestOn } from "./platform/manifest";
-import { settingsSections } from "./platform/settingsSections";
+import { coreListsKeptInApp, settingsSections } from "./platform/settingsSections";
 import type { Me, Permissions } from "./platform/types";
 
 // The manifests of the site as they are (docs/moduli-architettura.md, §7.2): what each person sees in Settings, the groups of the
@@ -13,7 +13,11 @@ const NONE: Permissions = {
   canManageInventory: false, canViewHistory: false, canManageUsers: false, canManageSettings: false,
 };
 const ALL: Permissions = Object.fromEntries(Object.keys(NONE).map((key) => [key, true])) as unknown as Permissions;
-const person = (role: Me["role"], permissions: Partial<Permissions>, modules: Record<string, boolean> = {}) => ({ role, permissions: { ...NONE, ...permissions }, modules }) as Me;
+/** A person on a site with these modules off; the bridges are on as the server says: while all their modules are. */
+function person(role: Me["role"], permissions: Partial<Permissions>, modules: Record<string, boolean> = {}): Me {
+  const bridges = Object.fromEntries(MANIFESTS.filter((m) => m.needs && m.needs.length > 0).map((m) => [m.key, m.needs!.every((key) => modules[key] !== false)]));
+  return { role, permissions: { ...NONE, ...permissions }, modules, bridges } as Me;
+}
 const on = (me: Me) => MANIFESTS.filter((manifest) => manifestOn(manifest, me));
 const sectionsOf = (me: Me) => settingsSections(on(me), me).map((s) => s.key);
 
@@ -94,5 +98,38 @@ describe("the first page of the site, from the manifests", () => {
   it("skips the register for who cannot see it, and is Settings with every module off", () => {
     expect(homeFor(person("viewer", {}, { budget: false, inventory: false }))).toBe("/registry");
     expect(homeFor(person("admin", ALL, { budget: false, inventory: false, treasury: false, registry: false }))).toBe("/settings");
+  });
+});
+
+describe("every combination of the four modules (docs/moduli-architettura.md, §12)", () => {
+  const MODULES = ["budget", "treasury", "inventory", "registry"];
+  const combinations = Array.from({ length: 2 ** MODULES.length }, (_, mask) => Object.fromEntries(MODULES.map((key, i) => [key, (mask & (1 << i)) === 0])));
+
+  it("are 16, and in each the site shows only what is on: groups with entries, entries in groups that are there, a first page", () => {
+    expect(combinations).toHaveLength(16);
+    for (const modules of combinations) {
+      const me = person("admin", ALL, modules);
+      const shown = on(me);
+      const keys = shown.map((m) => m.key);
+      // a module that is off is not there, nor a bridge with one of its modules off
+      for (const m of MANIFESTS) expect([m.key, keys.includes(m.key)]).toEqual([m.key, m.needs === undefined ? modules[m.key] : m.needs.every((k) => modules[k])]);
+      const groups = shown.flatMap((m) => m.menuGroups ?? []).map((g) => g.id);
+      const entries = shown.flatMap((m) => m.menu ?? []);
+      expect(entries.filter((e) => !groups.includes(e.group))).toEqual([]);
+      for (const group of groups) expect([group, entries.some((e) => e.group === group)]).toEqual([group, true]);
+      expect(settingsSections(shown, me).map((s) => s.key)).toContain("app");
+      expect(homeOf(shown, me)).toBeTruthy();
+    }
+  });
+
+  it("keeps the lists of the core in Settings › App while the module that shows them is off, for who kept them there", () => {
+    const keptFor = (me: Me) => coreListsKeptInApp(on(me), me);
+    expect(keptFor(person("admin", ALL))).toEqual([]);
+    expect(keptFor(person("admin", ALL, { budget: false }))).toEqual(["seasons", "vatRates"]);
+    expect(keptFor(person("admin", ALL, { inventory: false }))).toEqual(["categories"]);
+    expect(keptFor(person("admin", ALL, { budget: false, inventory: false }))).toEqual(["seasons", "vatRates", "categories"]);
+    // a user who keeps the inventory keeps the categories, not the seasons or the VAT rates
+    expect(keptFor(person("pm", { canManageInventory: true }, { budget: false, inventory: false }))).toEqual(["categories"]);
+    expect(keptFor(person("viewer", {}, { budget: false, inventory: false }))).toEqual([]);
   });
 });

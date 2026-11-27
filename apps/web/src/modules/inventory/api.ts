@@ -59,7 +59,8 @@ export type ParamPatch = Partial<Omit<ParamBody, "choices">> & { choices?: { was
 /** What the form of a build sends: the parts come from the shelf (a part only from the place chosen for it), the pieces go to a place. */
 export interface BuildBody {
   componentId: number;
-  projectId: number;
+  /** None while the budget is off: there are no projects. */
+  projectId?: number;
   quantity: string;
   builtOn: string;
   /** Part id -> place, for the parts that are taken from one place only. */

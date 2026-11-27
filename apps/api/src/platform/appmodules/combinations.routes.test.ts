@@ -107,4 +107,13 @@ describe("the numbers with a module off", () => {
     expect(await outflows()).toBe(0);
     expect((await bank())?.source).toBe("register");
   });
+
+  it("has no ADMINISTRATION while the treasury is off: what is outside the budget comes from the register", async () => {
+    const hasAdministration = async () => JSON.stringify(ok(await api.get("/api/budget/views/totals"))).includes('"administration"');
+    expect(await hasAdministration()).toBe(true);
+    await turn("treasury", false);
+    expect(await hasAdministration()).toBe(false);
+    await turn("treasury", true);
+    expect(await hasAdministration()).toBe(true);
+  });
 });

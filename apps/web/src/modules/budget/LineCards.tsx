@@ -57,7 +57,7 @@ export function LineCards({ project, phase, lookups, canEdit, onRemove, closed }
               {(line.brand || line.model) && <span className="muted">{[line.brand, line.model].filter(Boolean).join(" ")}</span>}
               <span className="muted">{summary(line, phase)}</span>
               {otherCar && <span className="pill car">for {otherCar.car}</span>}
-              {line.arrival.status !== "planned" && <ArrivalPill status={line.arrival.status} />}
+              {lookups.arrivals && line.arrival.status !== "planned" && <ArrivalPill status={line.arrival.status} />}
               {calc.shortCents > 0 && <span className="hint error">The funds miss {money(calc.shortCents)}</span>}
               {missingMake(line).length > 0 && <span className="hint warning">{missingMakeText(missingMake(line))}</span>}
               {calc.paidCents > 0 && <span className="hint">{calc.paidCents >= calc.teamFundCents + calc.teamVatCents ? "Paid" : `Paid ${money(calc.paidCents)} of ${money(calc.teamFundCents + calc.teamVatCents)}`}</span>}

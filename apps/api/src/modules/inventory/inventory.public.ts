@@ -2,7 +2,7 @@
 // inventory can change inside without touching them. It grows with what the bridge to the budget needs.
 
 /** What the inventory asks of the others (defined in `inventory.ports.ts`, which the inventory's own services use too). */
-export { keepMakeProject, keepMovementProject, knownProjects, lineCarsOfReceipts, makeProjects, movementTies, statsBudget } from "./inventory.ports";
+export { buildNeedsProject, keepMakeProject, keepMovementProject, knownProjects, lineCarsOfReceipts, makeProjects, movementTies, statsBudget } from "./inventory.ports";
 export type { MovementTie, StatsBudget } from "./inventory.ports";
 
 /** Refuses the person who does not keep the inventory: the bridge's pages and writes are the inventory's too. */

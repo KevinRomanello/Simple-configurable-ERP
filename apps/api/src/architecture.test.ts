@@ -154,7 +154,7 @@ const PUBLIC_NAMES: Record<string, string[]> = {
     "InflowFact", "InflowReceipt", "RegisterIncome", "assertCanChangeInflows", "bankOf", "computedLines", "computedSeason", "deleteInflowsIn", "getDerivedAreaCategory", "inflowDeleting", "inflowReceipts", "inflowsByIds", "inflowsOfSeason", "lineCars", "lineLabels", "linePayments", "lineReceipts", "lockLine", "outsideBudgetOf", "projectsByIds", "projectsOfSeason", "registerBank", "registerSponsorship", "seasonsOfLines",
   ],
   "modules/inventory/inventory.public": [
-    "MovementFact", "MovementTie", "ReceiptOfPurchaseInput", "StatsBudget", "assertCanManageInventory", "checkReceipt", "itemIdentities", "keepMakeProject", "keepMovementProject", "knownProjects", "lineCarsOfReceipts", "makeProjects", "movementTies", "movementsByIds", "receiptOfPurchaseInput", "receiveIn", "statsBudget",
+    "MovementFact", "MovementTie", "ReceiptOfPurchaseInput", "StatsBudget", "assertCanManageInventory", "buildNeedsProject", "checkReceipt", "itemIdentities", "keepMakeProject", "keepMovementProject", "knownProjects", "lineCarsOfReceipts", "makeProjects", "movementTies", "movementsByIds", "receiptOfPurchaseInput", "receiveIn", "statsBudget",
   ],
   "modules/treasury/treasury.public": [
     "CreateEntryInput", "DayRange", "EntryFact", "EntryLink", "OutsideFact", "assertCanManageCash", "assertListed", "deleteEntryIn", "entriesByIds", "entryChanging", "entryLinks", "getStatementLayout", "insertEntry", "lastPaymentMethodId", "moneyInBetween", "outsideBetween", "paymentsBetween", "registerBalanceAt", "sponsorshipMoneyBetween",

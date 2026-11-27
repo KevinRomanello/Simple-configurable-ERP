@@ -1,10 +1,10 @@
 # ADR-2: l'ERP a moduli (budget, tesoreria, inventario, anagrafiche)
 
-**Stato:** proposto (26 novembre 2026); **le cinque decisioni aperte sono state prese lo stesso giorno** (§14). È solo design: **nessun codice** è stato scritto.
+**Stato:** **fatto** (26–27 novembre 2026, passi G0–G8, §11). Le cinque decisioni aperte sono state prese il 26 novembre (§14). Come si usa oggi e come si aggiunge un modulo: [moduli.md](moduli.md).
 **Chi decide:** l'utente.
 **Collegati:**
 - [anagrafiche-architettura.md](anagrafiche-architettura.md) (ADR-1): le anagrafiche sono già fatte così, e sono il modello;
-- [moduli.md](moduli.md): l'interruttore di oggi, solo per le anagrafiche;
+- [moduli.md](moduli.md): come si accendono e spengono i moduli, e come se ne aggiunge uno;
 - [design-prossimi-lavori.md](design-prossimi-lavori.md): le fasi A–F. Questa è la **fase G**, da fare dopo A, B, C, E e prima di D e F.
 
 ---
@@ -481,7 +481,7 @@ Ogni passo lascia l'app funzionante, con tutte le prove verdi e i documenti aggi
 | **G5 — fatto (27 novembre 2026)** | **Inventario** in `modules/inventory` con `inventory.public.ts`. PENDING, ricevere da una riga, arrivi, progetti e statistiche per progetto vanno in `bridges/inventory-budget`. Migrazione di `receipt_line`, `movement_project`, `item_make_project`. | idem |
 | **G6 — fatto (27 novembre 2026)** | **Budget** in `modules/budget` con `budget.public.ts`: budget, fondi, fornitori, CASH FLOW a mano, viste, e lo **snapshot con le porte**. | idem; i numeri di prova del calcolo identici (stessi test, stesso foglio di riconciliazione) |
 | **G7 — fatto (27 novembre 2026)** | **Il sito**: cartelle (§7.1), manifesti, punti di aggancio, client e tipi divisi, menù, indirizzi e Settings dai manifesti, prove del sito. | nessuna pagina importa un altro modulo se non dal suo `public.ts` |
-| **G8** | **Gli interruttori** per budget, tesoreria e inventario in Settings › App › Modules; `/me.bridges`; la prova di tutte le combinazioni (§12); la lista delle eccezioni vuota. | le 16 combinazioni passano |
+| **G8 — fatto (27 novembre 2026)** | **Gli interruttori** per budget, tesoreria e inventario in Settings › App › Modules; `/me.bridges`; la prova di tutte le combinazioni (§12); la lista delle eccezioni vuota. | le 16 combinazioni passano |
 
 ### G0: cosa c'è (26 novembre 2026)
 
@@ -668,7 +668,24 @@ Tre tappe: gli interruttori nel server (1), il sito che si spegne a pezzi (2), l
   - **Anticipato dalla tappa 2, nel sito:** la **pagina iniziale automatica** (`homeOf` in `platform/home.tsx`, riga 16 del registro degli hardcode): la prima pagina del primo modulo acceso nell'ordine budget → inventario → tesoreria → anagrafiche; per il budget la prima area del menù, il registro solo per chi lo vede, con tutto spento Settings. Ogni manifesto dice la sua prima pagina (`home`). Senza, spento il budget, `/` portava a `/budget/mt-dmt`, che rimandava a `/`. Il pannello Modules dice sotto ogni modulo «Turning it off also hides …».
   - **Prove nuove:** `combinations.routes.test.ts` passa tutte le **16 combinazioni** dei quattro interruttori: gli indirizzi di moduli e ponti spenti danno 404, almeno una lettura di ognuno acceso dà 200 (le viste del budget calcolano lo snapshot con o senza registro e inventario), il nucleo risponde sempre, le spunte sono quelle dei moduli accesi. La prova vuole le letture di ogni modulo e ponte che il server dichiara: uno nuovo non entra senza. Un'altra prova guarda i numeri: una riga pagata dal registro; spenta la tesoreria CASH FLOW la conta da pagare (1.220 €) e il BANK si scrive a mano; riaccesa, tutto torna. Nel sito, `manifests.test.ts` prova la pagina iniziale in ogni caso.
 
-**I documenti da aggiornare alla fine**:
+- **Tappa 2, il sito che si spegne a pezzi:**
+  - **I ponti accesi li dice il server** (`/api/me`, `bridges`): `manifestOn` non li calcola più dai moduli.
+  - **Il pannello Modules** dopo un interruttore rilegge prima `/api/me`, poi tutto il resto: le pagine di un modulo appena spento non chiedono più i suoi dati (i due 404 di G7 spariscono).
+  - **Il budget senza l'inventario** non mostra ARRIVED, la data d'arrivo ACTUAL, le icone e i suggerimenti dello stato d'arrivo, né la pillola sulle schede del telefono: lo dice il punto di aggancio `budget.arrivals`, che riempie il ponte inventario×budget (`lookups.arrivals` della griglia). La data d'arrivo EXPECTED, scritta a mano, resta.
+  - **L'inventario senza il budget** non chiede il progetto (`useProjects().available`): spariscono «For project» dai moduli e il filtro di COMPONENTS, e le statistiche perdono i tagli per progetto e per area, che passano dai progetti. **«Make new» produce senza progetto**: nel server il progetto di una produzione è facoltativo, e lo chiede una porta nuova, `buildNeedsProject`, che il ponte riempie con «sì» (con il budget acceso la regola di prima resta: senza progetto, 400). Il design (§4.4) diceva che resta il taglio «per area»: passa però dall'area del progetto di un movimento, e senza budget direbbe solo «no project».
+  - **CASH FLOW senza la tesoreria:** nessun ponte presta la cancellazione che elenca anche il registro, e il budget mostra la sua: il cestino con una conferma, che chiama `DELETE /api/budget/inflows/:id`.
+  - **Le liste del nucleo** (scelta A): ogni sezione di Settings dice quali liste del nucleo mostra (`shows`); quelle che nessuna sezione accesa mostra passano in Settings › App, per chi le teneva (`coreListsKeptInApp`). Il riquadro delle categorie è ora della piattaforma (`platform/CategoriesPanel.tsx`) e l'inventario ci aggiunge le colonne dei campi dei pezzi.
+  - **Prove:** sito 288 (285; nuove: le 16 combinazioni dei manifesti — ciò che è spento non c'è, ogni gruppo del menù ha le sue voci, ogni voce un gruppo, c'è sempre Settings › App e una prima pagina —, le liste tenute in App, la griglia senza arrivi); API (la produzione senza progetto con il budget spento; quella senza progetto con il budget acceso resta 400).
+
+- **Tappa 3, la chiusura:**
+  - **Nel browser, ogni modulo spento** (sul database di sviluppo, ognuno riacceso subito; ora tutto acceso): spento il budget, l'inventario, il registro, il rendiconto, le anagrafiche, Users e History si aprono; le pagine del budget, TO PAY e PENDING portano alla prima pagina (INVENTORY) e `/settings/budget` alla prima sezione. Spenta la tesoreria, le pagine del budget, PENDING e le statistiche si aprono; CASH REGISTER, TO PAY e il rendiconto portano alla prima pagina. Spento l'inventario, il budget, CASH FLOW, TOTAL, le analisi, il registro e TO PAY si aprono; le pagine dell'inventario e PENDING portano alla prima pagina. Spente le anagrafiche, come in G7. In nessun giro una richiesta ha risposto con un errore (le richieste del sito sono state intercettate).
+  - **Visto provando:** con la tesoreria spenta TOTAL, il Gantt e le analisi mostravano ancora l'area ADMINISTRATION, a zero: lo snapshot metteva l'area derivata fra le aree anche senza nessuno che ne desse le righe. Ora c'è solo quando il ponte tesoreria×budget risponde (`snapshot.ts`), come dice il §4.4; con tutto acceso non cambia niente, e una prova lo controlla (`combinations.routes.test.ts`).
+  - **Riconciliazione** con il foglio vero, con tutto acceso: «All checks match».
+  - **I documenti** della lista qui sotto: [moduli.md](moduli.md) riscritto (le parti, cosa succede spegnendo, come se ne aggiunge uno), [CLAUDE.md](../CLAUDE.md) («Stato» e dove va il codice nuovo), [accesso-e-storico.md](accesso-e-storico.md) (i permessi non cambiano con gli interruttori), [README.md](README.md), [design-prossimi-lavori.md](design-prossimi-lavori.md) (fase G fatta), [collaudo.md](collaudo.md).
+
+  **La fase G è finita.** Restano le fasi D (ordini) ed F (Ctrl+Z) di [design-prossimi-lavori.md](design-prossimi-lavori.md), che nascono già al loro posto (gli ordini nel ponte tesoreria×budget, Ctrl+Z nel nucleo).
+
+**I documenti da aggiornare alla fine** (fatto nella tappa 3 di G8):
 - [architettura.md](architettura.md) (struttura del repository e livelli);
 - [moduli.md](moduli.md) (riscritto: tutti i moduli, come se ne aggiunge uno);
 - [schema-database.md](schema-database.md) (proprietari delle tabelle, tabelle dei ponti);

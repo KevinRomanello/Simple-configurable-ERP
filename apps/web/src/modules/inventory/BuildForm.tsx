@@ -75,8 +75,10 @@ export function BuildForm({ item, lookups, onDone }: { item: InventoryItem; look
   const [setWhere, setWantsChange, setAmount, setBuiltOn, setTakeFrom, setMethod, setNote] = [set("where"), set("wantsChange"), set("amount"), set("builtOn"), set("takeFrom"), set("method"), set("note")];
   // projects are of a season: the one saved with the item counts only if it is among those of the season on the screen
   const known = projects.data ? projects.data.some((p) => String(p.id) === where.projectId) : where.projectId !== "";
-  const projectId = known ? where.projectId : "";
-  const changing = wantsChange || projectId === "" || item.makeTo === null;
+  const projectId = known && projects.available ? where.projectId : "";
+  // without the budget there are no projects: the pieces are made for none
+  const lacksProject = projects.available && projectId === "";
+  const changing = wantsChange || lacksProject || item.makeTo === null;
 
   const asked = Number(amount) > 0 ? amount : null;
   const plan = useQuery({
@@ -87,7 +89,7 @@ export function BuildForm({ item, lookups, onDone }: { item: InventoryItem; look
   });
   // the plan on the screen is the one of what is typed now, and nothing has to be made first (that is a build of its own)
   const current = plan.data && !plan.isPlaceholderData ? plan.data : null;
-  const ready = current !== null && current.enough && current.lines.every((l) => l.makeFirstMilli === 0) && projectId !== "" && where.to !== "";
+  const ready = current !== null && current.enough && current.lines.every((l) => l.makeFirstMilli === 0) && !lacksProject && where.to !== "";
 
   const placeName = (code: string) => lookups.locations.find((l) => l.code === code)?.label ?? code;
   const choose = (partId: number, place: string) => {
@@ -95,7 +97,7 @@ export function BuildForm({ item, lookups, onDone }: { item: InventoryItem; look
     setTakeFrom(place === "" ? rest : { ...rest, [partId]: place });
   };
   const submit = async () => {
-    const body = { componentId: item.id, projectId: Number(projectId), quantity: amount, builtOn: builtOn || todayIso(), takeFrom, toLocation: where.to, toSpot: where.spot.trim(), method };
+    const body = { componentId: item.id, ...(projectId ? { projectId: Number(projectId) } : {}), quantity: amount, builtOn: builtOn || todayIso(), takeFrom, toLocation: where.to, toSpot: where.spot.trim(), method };
     if (await act(() => inventoryApi.build({ ...body, ...(note.trim() ? { note: note.trim() } : {}) }))) {
       saved.discard();
       onDone();
@@ -136,7 +138,7 @@ export function BuildForm({ item, lookups, onDone }: { item: InventoryItem; look
   return (
     <FormPanel
       title="Make new"
-      description="Type how many. The parts are taken off the shelf, from every place where they are, and used for the project; the pieces made are put on the shelf. Their cost is fixed now: pieces made earlier keep theirs."
+      description={`Type how many. The parts are taken off the shelf, from every place where they are, and used${projects.available ? " for the project" : ""}; the pieces made are put on the shelf. Their cost is fixed now: pieces made earlier keep theirs.`}
       submitLabel="Make them"
       canSubmit={ready}
       onSubmit={submit}
@@ -177,7 +179,8 @@ export function BuildForm({ item, lookups, onDone }: { item: InventoryItem; look
         </>
       ) : (
         <p className="muted">
-          For {projectName ? `${projectName.areaName}: ${projectName.name}` : "the project"} · pieces to {placeName(where.to)}
+          {projects.available && `For ${projectName ? `${projectName.areaName}: ${projectName.name}` : "the project"} · `}
+          {projects.available ? "pieces" : "Pieces"} to {placeName(where.to)}
           {where.spot.trim() ? ` (${where.spot.trim()})` : ""}{" "}
           <Button small variant="ghost" onClick={() => setWantsChange(true)}>Change</Button>
         </p>

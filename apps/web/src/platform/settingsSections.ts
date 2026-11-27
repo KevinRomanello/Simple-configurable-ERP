@@ -1,4 +1,4 @@
-import { byOrder, type Manifest, type SettingsSection } from "./manifest";
+import { byOrder, type CoreList, type Manifest, type SettingsSection } from "./manifest";
 import type { Me } from "./types";
 
 /**
@@ -16,4 +16,16 @@ export function settingsSections(manifests: Manifest[], me: Me): SettingsSection
 export function currentSection(allowed: string[], asked: string | undefined): string {
   const wanted = asked === "appearance" ? "app" : asked;
   return allowed.find((section) => section === wanted) ?? allowed[0]!;
+}
+
+/**
+ * The lists of the core that no section of a module that is on shows (choice A of G8, docs/impostazioni.md): they are kept in Settings › App,
+ * by who could keep them in their section (the categories: admins and users; the seasons and the VAT rates: admins).
+ */
+export function coreListsKeptInApp(manifests: Manifest[], me: Me): CoreList[] {
+  const shown = new Set(manifests.flatMap((m) => m.settings ?? []).flatMap((s) => s.shows ?? []));
+  const { canManageSettings, canManageInventory } = me.permissions;
+  return (["seasons", "vatRates", "categories"] as const).filter(
+    (list) => !shown.has(list) && (list === "categories" ? canManageSettings || canManageInventory : canManageSettings),
+  );
 }

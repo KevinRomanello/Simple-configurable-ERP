@@ -30,6 +30,8 @@ import { AddSection, DataTable, Field, FormPanel, Loading, Message, PageHeader, 
 import { LineCards } from "./LineCards";
 import { NewLine } from "./NewLine";
 import { gridCompare } from "../../core/sort";
+import { useSlot } from "../../core/slots";
+import { arrivals } from "./slots";
 
 type SheetProject = AreaSheet["projects"][number];
 
@@ -52,6 +54,8 @@ export function AreaPage() {
   const seasons = useSeasons();
   const season = useSeason();
   const seasonOpen = useSeasonOpen();
+  // where the goods are is known only while the inventory is on (its bridge fills the slot)
+  const knowsArrivals = useSlot(arrivals).length > 0;
   // on a phone the grid does not fit: each project is a list of cards, of one phase at a time
   const phone = useMaxWidth(SCREEN.phone);
   const [phase, setPhase] = useState<Phase>("estimate");
@@ -76,8 +80,9 @@ export function AreaPage() {
       supplierIdByName: new Map(suppliers.data.map((s) => [s.name.toLowerCase(), s.id])),
       cars: seasons.data,
       seasonId: season.id,
+      arrivals: knowsArrivals,
     };
-  }, [categories.data, priorities.data, vatRates.data, fundsEstimate.data, fundsActual.data, allFunds.data, suppliers.data, seasons.data, season]);
+  }, [categories.data, priorities.data, vatRates.data, fundsEstimate.data, fundsActual.data, allFunds.data, suppliers.data, seasons.data, season, knowsArrivals]);
 
   const commit: Commit = (line, patch) => {
     void act(() => budgetApi.updateLine(line.id, { version: line.version, ...patch }));
@@ -194,7 +199,7 @@ function ProjectPanel({ project, buildColumns, canEdit, lookups, cards, closed, 
   });
   const subtotal = useMemo(() => [subtotalRow(project)], [project]);
   const more = needsMoreFunds(project.lines);
-  const iconsInStatus = mostStatusIcons(project.lines);
+  const iconsInStatus = mostStatusIcons(project.lines, lookups.arrivals);
   const columns = useMemo(() => buildColumns(more, iconsInStatus), [buildColumns, more.estimate, more.actual, iconsInStatus]); // eslint-disable-line react-hooks/exhaustive-deps
   // a column that appears (or goes away) changes what the others can share: fit them again
   useEffect(() => gridRef.current?.api?.autoSizeAllColumns(true), [columns]);

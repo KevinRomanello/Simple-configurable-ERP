@@ -18,6 +18,9 @@ export const movementTies = definePort<{ movementIds?: number[] }, MovementTie[]
 /** The projects with these ids, with their names: a project the inventory is given must be one of them. None when there is no budget. */
 export const knownProjects = definePort<{ ids: number[] }, { id: number; name: string }[]>("knownProjects", "inventory", () => []);
 
+/** Whether a build must be for a project: yes while there are projects to choose (the bridge to the budget says so); without the budget, no. */
+export const buildNeedsProject = definePort<Record<string, never>, boolean>("buildNeedsProject", "inventory", () => false);
+
 /** Keeps the project these movements were for (one already checked with `knownProjects`); nobody keeps it when there is no budget. */
 export const keepMovementProject = definePort<{ movementIds: number[]; projectId: number }, void>("keepMovementProject", "inventory", () => undefined);
 

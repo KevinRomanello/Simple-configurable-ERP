@@ -7,19 +7,41 @@ import { ROW_ACTION_MODES, useRowActionMode } from "../core/rowAction";
 import { useTheme, type ThemeChoice } from "../core/theme";
 import { useAction } from "../core/useAction";
 import { TokensPanel } from "./TokensPanel";
+import { CategoriesPanel } from "./CategoriesPanel";
+import { useManifests, type CoreList } from "./manifest";
+import { coreListsKeptInApp } from "./settingsSections";
+import { SeasonsPanel } from "./SeasonsPanel";
+import { VatRatesPanel } from "./VatRatesPanel";
 
 /**
  * The App section of Settings (docs/impostazioni.md): how the site looks, for everyone; the switches of the site, the modules and the
  * keys of the services, for admins.
  */
 export function AppSettings() {
-  const { canManageSettings } = useMe().permissions;
+  const me = useMe();
+  const { canManageSettings } = me.permissions;
+  // the lists of the core whose module is off: no section shows them, so they are kept here, by who kept them there
+  const keptHere = coreListsKeptInApp(useManifests(), me);
   return (
     <>
       <AppearancePanel />
+      {keptHere.length > 0 && <CoreLists lists={keptHere} />}
       {canManageSettings && <PhonePanel />}
       {canManageSettings && <ModulesPanel />}
       {canManageSettings && <TokensPanel />}
+    </>
+  );
+}
+
+/** The lists of the core that no module that is on shows in its section (docs/impostazioni.md: choice A of G8). */
+function CoreLists({ lists }: { lists: CoreList[] }) {
+  const view = useQuery({ queryKey: ["settings"], queryFn: platformApi.settings });
+  if (!view.data) return <Loading />;
+  return (
+    <>
+      {lists.includes("seasons") && <SeasonsPanel />}
+      {lists.includes("vatRates") && <VatRatesPanel rates={view.data.vatRates} />}
+      {lists.includes("categories") && <CategoriesPanel categories={view.data.categories} />}
     </>
   );
 }
@@ -62,10 +84,14 @@ function ModulesPanel() {
   const queryClient = useQueryClient();
   const modules = useQuery({ queryKey: ["modules"], queryFn: platformApi.modules });
   if (!modules.data) return <Loading />;
-  // the menu and the pages read what is on from «me»: it is read again when a switch is turned
-  const turn = async (key: string, enabled: boolean) => {
-    if (await act(() => platformApi.setModule(key, enabled))) await Promise.all([queryClient.invalidateQueries({ queryKey: ["modules"] }), queryClient.invalidateQueries({ queryKey: ["me"] })]);
-  };
+  // the menu and the pages read what is on from «me»: it is read again first, and the site redrawn without what was turned off, so that the
+  // reload of every page that follows (useAction) does not ask a module that is off for its data
+  const turn = (key: string, enabled: boolean) =>
+    act(async () => {
+      await platformApi.setModule(key, enabled);
+      await queryClient.refetchQueries({ queryKey: ["me"] });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
   return (
     <Panel title="Modules">
       <p className="muted">

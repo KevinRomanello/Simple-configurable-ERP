@@ -97,7 +97,8 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
         // a BANK that comes from the register is exact to the day, so everything is compared with it by day
         // (the two settings of the old sheet are for a BANK written by hand)
         lookups: bank?.source === "register" ? { ...lookups, settings: { ...lookups.settings, bankCompare: { summary: "day", timeline: "day" } } } : lookups,
-        areas: areaInputs,
+        // the derived area is there only while the register says what is in it: with the treasury off there is no ADMINISTRATION
+        areas: outside ? areaInputs : areaInputs.filter((a) => !a.derived),
         projects: [
           ...projects.map((p) => ({ id: p.id, areaId: p.areaId, name: p.name, ownerName: p.ownerName, position: p.position })),
           ...(outside?.projects ?? []),

@@ -76,6 +76,6 @@ export const budgetManifest: Manifest = {
     { group: "total", order: 20, element: <MenuLink to="/total/year" icon={faCalendarDays}>YEAR TOTAL</MenuLink> },
     { group: "total", order: 30, element: <MenuLink to="/total/car" icon={faCarSide}>CAR TOTAL</MenuLink> },
   ],
-  settings: [{ key: "budget", label: "Budget", order: 10, allowed: (me) => me.permissions.canManageSettings, Content: BudgetSettings }],
+  settings: [{ key: "budget", label: "Budget", order: 10, allowed: (me) => me.permissions.canManageSettings, Content: BudgetSettings, shows: ["seasons", "vatRates"] }],
   home: () => <FirstArea />,
 };

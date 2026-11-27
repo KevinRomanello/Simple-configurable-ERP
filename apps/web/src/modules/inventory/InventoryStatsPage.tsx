@@ -9,6 +9,7 @@ import { PriceSelector } from "./PriceSelector";
 import { DataTable, PageHeader, Panel, type Column } from "../../core/ui";
 import { date, money } from "../../core/format";
 import { usePrice } from "./price";
+import { useProjects } from "./projects";
 
 const BY: { value: StatsResult["by"]; label: string }[] = [
   { value: "project", label: "By project" },
@@ -42,12 +43,14 @@ const SHOWN: Record<StatsResult["by"], Amount[]> = {
 export function InventoryStatsPage() {
   const [price, setPrice] = usePrice();
   const [params, setParams] = useSearchParams();
-  const by = (BY.find((b) => b.value === params.get("by"))?.value ?? "project") as StatsResult["by"];
+  // the cuts by project and by area go through the projects of the budget: without it there are none
+  const cuts = useProjects(false).available ? BY : BY.filter((b) => b.value !== "project" && b.value !== "area");
+  const by = (cuts.find((b) => b.value === params.get("by"))?.value ?? cuts[0]!.value) as StatsResult["by"];
   const stats = useQuery({ queryKey: ["inventory-stats", by, price.basis], queryFn: () => inventoryApi.inventoryStats(by, price.basis) });
   const rows = stats.data?.rows ?? [];
   const amounts = AMOUNTS.filter((a) => SHOWN[by].includes(a.key));
   const total = (key: Amount) => rows.reduce((sum, r) => sum + r[key], 0);
-  const label = BY.find((b) => b.value === by)!.label;
+  const label = cuts.find((b) => b.value === by)!.label;
 
   const columns: Column<StatsRow>[] = [
     { key: "label", header: by.toUpperCase(), sort: (r) => r.label, cell: (r) => r.label },
@@ -66,7 +69,7 @@ export function InventoryStatsPage() {
       />
 
       <Panel>
-        <Chips label="How to cut it" options={BY} value={by} onChange={(value) => setParams({ by: value, basis: price.basis }, { replace: true })} />
+        <Chips label="How to cut it" options={cuts} value={by} onChange={(value) => setParams({ by: value, basis: price.basis }, { replace: true })} />
         <PriceSelector value={price} onChange={(change) => setPrice(change)} method={false} />
 
         <DataTable

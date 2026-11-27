@@ -1,10 +1,10 @@
-import { faPen } from "@fortawesome/free-solid-svg-icons";
+import { faPen, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { budgetApi } from "./api";
 import type { Bank, Inflow } from "./types";
 import type { Phase } from "../../core/calcTypes";
-import { Button } from "../../core/Button";
+import { Button, IconButton } from "../../core/Button";
 import { DraftNote } from "../../core/DraftNote";
 import { MonthlyInflows } from "./MonthlyInflows";
 import { Cards, DataTable, Field, FormPanel, MoneyCard, PageHeader, Panel, RowAction, type Column } from "../../core/ui";
@@ -168,6 +168,10 @@ function NewInflow({ fromRegister, onDone }: { fromRegister: boolean; onDone: ()
 
 function PhaseCashFlow({ phase }: { phase: Phase }) {
   const actions = useSlot(inflowActions);
+  const act = useAction();
+  const canChange = useCanChangeInflows();
+  // without the register (the treasury off) nobody lends the delete that lists the company's movements too: the budget deletes the inflow alone
+  const ownDelete = !actions.some((a) => a.key === "delete");
   const inflows = useQuery({ queryKey: ["inflows", phase], queryFn: () => budgetApi.inflows(phase) });
   const view = useQuery({ queryKey: ["cashflow"], queryFn: budgetApi.cashFlow });
   const summary = view.data?.[phase].summary;
@@ -195,7 +199,21 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
         }]
       : []),
     // the actions the others add to an inflow: receiving it into the register, deleting it with the register's (the bridge to the treasury)
-    { key: "actions", header: "", num: true, cell: (i) => actions.map((a) => <a.Buttons key={a.key} row={i} open={() => setOpen({ key: a.key, id: i.id })} />) },
+    {
+      key: "actions",
+      header: "",
+      num: true,
+      cell: (i) => (
+        <>
+          {actions.map((a) => (
+            <a.Buttons key={a.key} row={i} open={() => setOpen({ key: a.key, id: i.id })} />
+          ))}
+          {ownDelete && canChange && i.source === "typed" && (
+            <IconButton icon={faTrash} label="Delete inflow" danger onClick={() => window.confirm(`Delete the inflow of ${i.sourceName}?`) && void act(() => budgetApi.deleteInflow(i.id))} />
+          )}
+        </>
+      ),
+    },
   ];
 
   return (

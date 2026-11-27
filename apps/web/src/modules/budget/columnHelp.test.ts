@@ -14,6 +14,7 @@ const lookups: GridLookups = {
   supplierIdByName: new Map(),
   cars: [],
   seasonId: 1,
+  arrivals: true,
 };
 
 type Column = ColDef<Row> | ColGroupDef<Row>;
@@ -32,6 +33,14 @@ describe("the explanation of the columns of the budget", () => {
 
   it("the grid still has the columns that were explained", () => {
     expect(all.map(label)).toEqual(expect.arrayContaining(["status", "item", "estimate.outflow", "actual.arrival", "note"]));
+  });
+
+  it("leaves out ARRIVED and the arrival date of ACTUAL while the inventory is off, and keeps the typed arrival date of EXPECTED", () => {
+    const without = headings(areaColumns({ ...lookups, arrivals: false }, () => undefined, () => undefined, true, { estimate: true, actual: true }, 0)).map(label);
+    expect(without).not.toContain("actual.arrival");
+    expect(without).not.toContain("actual.arrivalDate");
+    expect(without).toContain("estimate.arrivalDate");
+    expect(all.map(label)).toContain("actual.arrivalDate");
   });
 
   it("GRAND TOTAL is not a column of the budget any more", () => {

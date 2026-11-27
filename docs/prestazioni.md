@@ -94,6 +94,8 @@ Millisecondi, mediana di 15 richieste, su questo computer (Docker su Mac). **I n
 
 - **G8, tappa 1 (gli interruttori):** il cancello legge gli interruttori **una volta a ogni richiesta**, tutte, non solo quelle di un modulo (serve a `currentActive()` anche nel nucleo: `/api/settings` chiede ai moduli accesi chi usa una categoria). Costa una query piccola, circa 0,05–0,2 ms: si vede in percentuale sugli indirizzi da meno di 1 ms (fino a +40% su `inventory: places` allo stress, da 0,5 a 0,7 ms) e sparisce nelle pagine del budget e dei ponti (fra −9% e +3%). Nessuna pagina oltre la regola del §5 (+10% e +1 ms insieme). Tutte le risposte identiche tranne `me`, che dice anche i ponti e i quattro moduli: rinnovata solo quella riga della baseline. Misura dei contratti a 112–122 ns (computer un po' occupato).
 
+- **G8, tappe 2 e 3 (il sito che si spegne a pezzi, l'area ADMINISTRATION solo con il registro):** le 66 risposte identiche alla baseline, le pagine pesanti fra −12% e +3%; sugli indirizzi più piccoli resta il costo della lettura degli interruttori (sotto 1 ms). Misura dei contratti a 113 ns: computer non libero, baseline non rinnovata (si rinnova a computer libero, quando la misura torna a 101–105 ns).
+
 ## 5. La regola per i passi della fase G
 
 Alla fine di **ogni passo** (G1–G8) si rilancia il benchmark e si confronta con la baseline:

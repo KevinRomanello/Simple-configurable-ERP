@@ -25,7 +25,7 @@ export const inventoryManifest: Manifest = {
     { group: "inventory", order: 40, element: <MenuLink to="/inventory/stats" icon={faChartPie}>INVENTORY STATS</MenuLink> },
   ],
   settings: [
-    { key: "inventory", label: "Inventory", order: 20, allowed: (me) => me.permissions.canManageSettings || me.permissions.canManageInventory, Content: InventorySettings },
+    { key: "inventory", label: "Inventory", order: 20, allowed: (me) => me.permissions.canManageSettings || me.permissions.canManageInventory, Content: InventorySettings, shows: ["categories"] },
   ],
   home: () => <Navigate to="/inventory" replace />,
 };
