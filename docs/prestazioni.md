@@ -27,46 +27,47 @@ docker compose exec api sh -c "cd /app/apps/api && pnpm bench"
 
 **Cosa non misura:** le scritture (salvare una riga, un pagamento), più richieste insieme, la rete e il browser (la tabella e i grafici del sito).
 
-## 3. I numeri di riferimento (baseline rinnovata il 27 novembre 2026, alla chiusura di G4: la tesoreria in `modules/treasury` e il ponte `bridges/treasury-budget` ai loro indirizzi)
+## 3. I numeri di riferimento (baseline rinnovata il 27 novembre 2026, alla chiusura di G5: l'inventario in `modules/inventory` e il ponte `bridges/inventory-budget` ai loro indirizzi)
 
-Rispetto alla baseline di prima di G4 (stessa stagione di prova, con 12 inflow ricevuti e 4 Voci di partenza): **tutte le 64 risposte identiche**, e le pagine dentro il ±12% (il registro +1% alla taglia reale e -2% allo stress; il foglio di un'area 0% e +12%, ma quella baseline era fortunata: vedi §4). Prima di G1 le pagine del budget, del registro e dell'inventario erano queste stesse, dentro il rumore; la pagina Settings è più veloce (3,3 → 1,7 ms alla taglia reale) perché conta chi usa un elenco con una query per elenco; `me` e `users` hanno un'altra forma di risposta (le spunte).
+Rispetto alla baseline di fine G4: **tutte le risposte identiche** tranne `core: settings`, che dalla tappa 2 di G5 non ha più unità, posti e campi (stanno nella pagina nuova `inventory: lists of Settings`); le pagine dentro il ±10% (la corsa salvata: lo snapshot +1% e -1%, PENDING -4% e +1%, l'elenco degli articoli +4% e +4%). Le pagine `core: units` e `core: places` si chiamano ora `inventory: units` e `inventory: places` (sono dell'inventario, a `/api/inventory/units` e `/locations`), e PENDING si misura a `/api/inventory-budget/pending`. Prima di G1 le pagine del budget, del registro e dell'inventario erano queste stesse, dentro il rumore.
 
 Millisecondi, mediana di 15 richieste, su questo computer (Docker su Mac). **I numeri si confrontano solo sullo stesso computer.**
 
 | Pagina | real: mediana | real: p95 | real: KB | stress: mediana | stress: p95 | stress: KB |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| calculation: snapshot of the season | 25.3 | 28.58 | 819 | 97.02 | 112.16 | 3492 |
-| me (every page starts here) | 0.81 | 0.99 | 0 | 0.62 | 0.73 | 0 |
-| core: seasons | 0.94 | 1.21 | 0 | 1.1 | 1.17 | 0 |
-| core: settings | 1.78 | 5.04 | 2 | 2.89 | 12.4 | 2 |
-| core: users | 0.87 | 0.98 | 0 | 0.83 | 0.92 | 0 |
-| core: history | 1.16 | 1.44 | 20 | 1.18 | 1.56 | 20 |
-| core: history of a table | 1.27 | 3.2 | 20 | 1.15 | 1.32 | 20 |
-| core: areas | 0.53 | 0.61 | 0 | 0.52 | 0.59 | 0 |
-| core: categories | 0.52 | 0.55 | 0 | 0.5 | 0.54 | 0 |
-| core: units | 0.5 | 0.56 | 0 | 0.48 | 0.5 | 0 |
-| core: places | 0.55 | 0.61 | 1 | 0.54 | 1.56 | 1 |
-| core: settings of the calculation | 0.67 | 0.72 | 0 | 0.67 | 0.74 | 0 |
-| budget: area sheet | 28.64 | 39.71 | 326 | 118.12 | 141.77 | 1670 |
-| budget: funds | 1.11 | 1.3 | 6 | 1.09 | 1.27 | 6 |
-| budget: CASH FLOW | 35 | 39.58 | 2 | 150.43 | 185.66 | 2 |
-| budget: gantt expected | 30.85 | 42.93 | 47 | 121.71 | 150.46 | 184 |
-| budget: gantt actual | 28.33 | 30.83 | 50 | 115.15 | 138.52 | 168 |
-| budget: TOTAL | 30.3 | 37.46 | 115 | 114.82 | 136.39 | 414 |
-| budget: funds summary | 28.67 | 34.67 | 4 | 111.9 | 125.49 | 4 |
-| budget: analysis of the funds | 34.34 | 55.64 | 30 | 141.29 | 167.36 | 30 |
-| budget: analysis of the suppliers | 37.3 | 53.7 | 68 | 153.61 | 175.43 | 69 |
-| budget: items view | 29.46 | 32.69 | 265 | 114.61 | 130.9 | 999 |
-| budget: inflows | 6.22 | 6.63 | 8 | 25.7 | 32.68 | 8 |
-| treasury: register | 7.47 | 8.16 | 351 | 35.13 | 45.63 | 1783 |
-| treasury: financial statement | 5.32 | 5.85 | 9 | 25.86 | 28.04 | 9 |
-| treasury×budget: TO PAY | 28.7 | 38.13 | 223 | 115.38 | 156.36 | 1257 |
-| treasury×budget: payments to tie | 1.28 | 1.62 | 4 | 2.5 | 2.67 | 20 |
-| treasury×budget: lines to pay | 26.59 | 30.84 | 65 | 109.95 | 123.31 | 369 |
-| inventory: items | 7.62 | 8.79 | 173 | 33.49 | 34.8 | 872 |
-| inventory×budget: PENDING | 34.73 | 41.92 | 231 | 237.27 | 262.76 | 1193 |
-| inventory: components | 13.4 | 15.36 | 4 | 239.37 | 342.53 | 21 |
-| inventory: statistics | 31.16 | 32.5 | 11 | 132.86 | 155.65 | 53 |
+| calculation: snapshot of the season | 25.67 | 40.28 | 819 | 96.08 | 107.1 | 3492 |
+| me (every page starts here) | 0.83 | 1.03 | 0 | 0.63 | 0.66 | 0 |
+| core: seasons | 0.86 | 0.93 | 0 | 1.08 | 1.11 | 0 |
+| core: settings | 1.4 | 1.75 | 1 | 2.2 | 2.25 | 1 |
+| core: users | 0.79 | 0.98 | 0 | 0.81 | 0.9 | 0 |
+| core: history | 1.17 | 3.77 | 20 | 1.33 | 5.84 | 20 |
+| core: history of a table | 1.28 | 1.37 | 20 | 1.27 | 1.49 | 20 |
+| core: areas | 0.54 | 0.57 | 0 | 0.49 | 0.53 | 0 |
+| core: categories | 0.45 | 0.57 | 0 | 0.48 | 2.14 | 0 |
+| inventory: units | 0.45 | 0.57 | 0 | 0.5 | 0.57 | 0 |
+| inventory: places | 0.5 | 0.66 | 1 | 0.5 | 0.52 | 1 |
+| core: settings of the calculation | 0.64 | 0.74 | 0 | 0.63 | 0.74 | 0 |
+| budget: area sheet | 29.4 | 41.86 | 326 | 113.26 | 127.54 | 1670 |
+| budget: funds | 1.14 | 1.25 | 6 | 1.12 | 1.3 | 6 |
+| budget: CASH FLOW | 33.89 | 36.14 | 2 | 154.38 | 188.76 | 2 |
+| budget: gantt expected | 30.05 | 38.54 | 47 | 119.82 | 137.78 | 184 |
+| budget: gantt actual | 28.23 | 31.57 | 50 | 115.77 | 133.78 | 168 |
+| budget: TOTAL | 27.73 | 28.74 | 115 | 116.33 | 134.74 | 414 |
+| budget: funds summary | 26.68 | 30.03 | 4 | 112.06 | 133.04 | 4 |
+| budget: analysis of the funds | 32.85 | 34.26 | 30 | 141.76 | 171.08 | 30 |
+| budget: analysis of the suppliers | 35.42 | 48.63 | 68 | 152.91 | 183.65 | 69 |
+| budget: items view | 28.29 | 29.5 | 265 | 119.15 | 140.88 | 999 |
+| budget: inflows | 6.07 | 6.69 | 8 | 25.38 | 26.11 | 8 |
+| treasury: register | 7.5 | 8.13 | 351 | 34.36 | 48.75 | 1783 |
+| treasury: financial statement | 5.07 | 5.53 | 9 | 26.25 | 28.11 | 9 |
+| treasury×budget: TO PAY | 27.97 | 39.59 | 223 | 118.69 | 141.69 | 1257 |
+| treasury×budget: payments to tie | 1.21 | 1.33 | 4 | 2.37 | 2.6 | 20 |
+| treasury×budget: lines to pay | 25.64 | 26.66 | 65 | 113.41 | 152.18 | 369 |
+| inventory: items | 7.9 | 9.16 | 173 | 34.69 | 41.42 | 872 |
+| inventory×budget: PENDING | 33.38 | 47.38 | 231 | 240.12 | 258.3 | 1193 |
+| inventory: components | 14.08 | 14.98 | 4 | 237.09 | 256.72 | 21 |
+| inventory: statistics | 31.46 | 34.26 | 11 | 138.6 | 158.1 | 53 |
+| inventory: lists of Settings | 1.19 | 1.26 | 2 | 2.47 | 2.58 | 2 |
 
 **Come si rinnova:** con `BENCH_SAVE=1`, solo quando il computer è libero (niente browser o build che girano: alla chiusura di G4 una corsa salvata con il pannello del browser aperto aveva pagine al +10–15%, ed è stata rifatta), poi una seconda corsa di conferma senza salvare.
 
@@ -97,7 +98,7 @@ Alla fine di **ogni passo** (G1–G8) si rilancia il benchmark e si confronta co
 2. **nessuna pagina più lenta del 10% e di 1 ms** sulla mediana, a entrambe le taglie (le pagine del nucleo stanno sotto i 5 ms: lì un +10% è rumore; si ripete la corsa se il dubbio resta);
 3. se una delle due non vale, **ci si ferma** e lo si dice all'utente prima di andare avanti.
 
-Dopo G4–G6 si aggiornano gli indirizzi nell'elenco delle pagine di `perf.test.ts` (fatto per G4); nuove pagine pesanti (gli ordini della fase D) si aggiungono all'elenco e alla baseline nello stesso lavoro.
+Dopo G4–G6 si aggiornano gli indirizzi nell'elenco delle pagine di `perf.test.ts` (fatto per G4 e G5); nuove pagine pesanti (gli ordini della fase D) si aggiungono all'elenco e alla baseline nello stesso lavoro.
 
 ## 6. Dove sta
 

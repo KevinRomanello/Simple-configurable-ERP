@@ -67,12 +67,12 @@ describe("undoing a movement", () => {
     });
     expect(await arrival()).toMatchObject({ receivedMilli: 10_000, status: "received" });
     expect(await arrivalDate()).toBe("2026-10-03");
-    expect((await api.get("/api/inventory/pending")).body).toEqual([]);
+    expect((await api.get("/api/inventory-budget/pending")).body).toEqual([]);
 
     expect((await undo(received.body.movement.id)).status).toBe(204);
     expect(await arrival()).toEqual({ boughtMilli: 10_000, receivedMilli: 0, status: "ordered" });
     expect(await arrivalDate()).toBeNull(); // not arrived any more: no date
-    expect((await api.get("/api/inventory/pending")).body).toHaveLength(1);
+    expect((await api.get("/api/inventory-budget/pending")).body).toHaveLength(1);
   });
 
   it("takes back a move, a count and a disposal", async () => {

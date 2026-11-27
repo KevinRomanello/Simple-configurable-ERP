@@ -1,454 +1,468 @@
 {
   "real": {
     "calculation: snapshot of the season": {
-      "medianMs": 25.3,
-      "p95Ms": 28.58,
-      "minMs": 22.71,
+      "medianMs": 25.67,
+      "p95Ms": 40.28,
+      "minMs": 23.34,
       "bytes": 839038,
       "hash": "7382449ba4"
     },
     "me (every page starts here)": {
-      "medianMs": 0.81,
-      "p95Ms": 0.99,
-      "minMs": 0.68,
+      "medianMs": 0.83,
+      "p95Ms": 1.03,
+      "minMs": 0.61,
       "bytes": 338,
       "hash": "fa426c75fe"
     },
     "core: seasons": {
-      "medianMs": 0.94,
-      "p95Ms": 1.21,
-      "minMs": 0.87,
+      "medianMs": 0.86,
+      "p95Ms": 0.93,
+      "minMs": 0.74,
       "bytes": 142,
       "hash": "26a66b99bb"
     },
     "core: settings": {
-      "medianMs": 1.78,
-      "p95Ms": 5.04,
-      "minMs": 1.57,
-      "bytes": 2260,
-      "hash": "a470facd2c"
+      "medianMs": 1.4,
+      "p95Ms": 1.75,
+      "minMs": 1.33,
+      "bytes": 547,
+      "hash": "145020cfd5"
     },
     "core: users": {
-      "medianMs": 0.87,
+      "medianMs": 0.79,
       "p95Ms": 0.98,
-      "minMs": 0.83,
+      "minMs": 0.74,
       "bytes": 120,
       "hash": "67090b7678"
     },
     "core: history": {
-      "medianMs": 1.16,
-      "p95Ms": 1.44,
-      "minMs": 1.04,
+      "medianMs": 1.17,
+      "p95Ms": 3.77,
+      "minMs": 1.07,
       "bytes": 20430,
       "hash": "41242c88cd"
     },
     "core: history of a table": {
-      "medianMs": 1.27,
-      "p95Ms": 3.2,
+      "medianMs": 1.28,
+      "p95Ms": 1.37,
       "minMs": 1.22,
       "bytes": 20205,
       "hash": "780d341c82"
     },
     "core: areas": {
-      "medianMs": 0.53,
-      "p95Ms": 0.61,
+      "medianMs": 0.54,
+      "p95Ms": 0.57,
       "minMs": 0.5,
       "bytes": 470,
       "hash": "bbe58acda6"
     },
     "core: categories": {
-      "medianMs": 0.52,
-      "p95Ms": 0.55,
-      "minMs": 0.5,
+      "medianMs": 0.45,
+      "p95Ms": 0.57,
+      "minMs": 0.43,
       "bytes": 90,
       "hash": "0497fea3f4"
     },
-    "core: units": {
-      "medianMs": 0.5,
-      "p95Ms": 0.56,
-      "minMs": 0.49,
+    "inventory: units": {
+      "medianMs": 0.45,
+      "p95Ms": 0.57,
+      "minMs": 0.43,
       "bytes": 41,
       "hash": "dc9b426c33"
     },
-    "core: places": {
-      "medianMs": 0.55,
-      "p95Ms": 0.61,
-      "minMs": 0.52,
+    "inventory: places": {
+      "medianMs": 0.5,
+      "p95Ms": 0.66,
+      "minMs": 0.46,
       "bytes": 901,
       "hash": "68a03ac9c8"
     },
     "core: settings of the calculation": {
-      "medianMs": 0.67,
-      "p95Ms": 0.72,
-      "minMs": 0.64,
+      "medianMs": 0.64,
+      "p95Ms": 0.74,
+      "minMs": 0.57,
       "bytes": 213,
       "hash": "d0efff217d"
     },
     "budget: area sheet": {
-      "medianMs": 28.64,
-      "p95Ms": 39.71,
-      "minMs": 27.08,
+      "medianMs": 29.4,
+      "p95Ms": 41.86,
+      "minMs": 27.13,
       "bytes": 333961,
       "hash": "cf68e7d8b9"
     },
     "budget: funds": {
-      "medianMs": 1.11,
-      "p95Ms": 1.3,
-      "minMs": 1.07,
+      "medianMs": 1.14,
+      "p95Ms": 1.25,
+      "minMs": 1.08,
       "bytes": 6023,
       "hash": "5a7ec8ff10"
     },
     "budget: CASH FLOW": {
-      "medianMs": 35,
-      "p95Ms": 39.58,
-      "minMs": 33.44,
+      "medianMs": 33.89,
+      "p95Ms": 36.14,
+      "minMs": 33.16,
       "bytes": 1730,
       "hash": "9e8ed3fb5c"
     },
     "budget: gantt expected": {
-      "medianMs": 30.85,
-      "p95Ms": 42.93,
-      "minMs": 27.22,
+      "medianMs": 30.05,
+      "p95Ms": 38.54,
+      "minMs": 27.31,
       "bytes": 48469,
       "hash": "ddba429a22"
     },
     "budget: gantt actual": {
-      "medianMs": 28.33,
-      "p95Ms": 30.83,
-      "minMs": 26.74,
+      "medianMs": 28.23,
+      "p95Ms": 31.57,
+      "minMs": 26.42,
       "bytes": 51435,
       "hash": "423f95cf7e"
     },
     "budget: TOTAL": {
-      "medianMs": 30.3,
-      "p95Ms": 37.46,
-      "minMs": 27.49,
+      "medianMs": 27.73,
+      "p95Ms": 28.74,
+      "minMs": 26.05,
       "bytes": 117654,
       "hash": "ea83a56b32"
     },
     "budget: funds summary": {
-      "medianMs": 28.67,
-      "p95Ms": 34.67,
-      "minMs": 27.19,
+      "medianMs": 26.68,
+      "p95Ms": 30.03,
+      "minMs": 25.09,
       "bytes": 3682,
       "hash": "2f7f77b9b2"
     },
     "budget: analysis of the funds": {
-      "medianMs": 34.34,
-      "p95Ms": 55.64,
-      "minMs": 33.07,
+      "medianMs": 32.85,
+      "p95Ms": 34.26,
+      "minMs": 31.71,
       "bytes": 30807,
       "hash": "8efb08dc67"
     },
     "budget: analysis of the suppliers": {
-      "medianMs": 37.3,
-      "p95Ms": 53.7,
-      "minMs": 35.23,
+      "medianMs": 35.42,
+      "p95Ms": 48.63,
+      "minMs": 34.18,
       "bytes": 69515,
       "hash": "33144daf6c"
     },
     "budget: items view": {
-      "medianMs": 29.46,
-      "p95Ms": 32.69,
-      "minMs": 27.89,
+      "medianMs": 28.29,
+      "p95Ms": 29.5,
+      "minMs": 27.24,
       "bytes": 271290,
       "hash": "7c5c4e86cd"
     },
     "budget: inflows": {
-      "medianMs": 6.22,
-      "p95Ms": 6.63,
-      "minMs": 5.95,
+      "medianMs": 6.07,
+      "p95Ms": 6.69,
+      "minMs": 5.84,
       "bytes": 8451,
       "hash": "2f437f9a8a"
     },
     "treasury: register": {
-      "medianMs": 7.47,
-      "p95Ms": 8.16,
-      "minMs": 7.28,
+      "medianMs": 7.5,
+      "p95Ms": 8.13,
+      "minMs": 7.09,
       "bytes": 359901,
       "hash": "8b6fb7ecde"
     },
     "treasury: financial statement": {
-      "medianMs": 5.32,
-      "p95Ms": 5.85,
-      "minMs": 4.94,
+      "medianMs": 5.07,
+      "p95Ms": 5.53,
+      "minMs": 4.84,
       "bytes": 8820,
       "hash": "e39afcb986"
     },
     "treasury×budget: TO PAY": {
-      "medianMs": 28.7,
-      "p95Ms": 38.13,
-      "minMs": 27.14,
+      "medianMs": 27.97,
+      "p95Ms": 39.59,
+      "minMs": 25.49,
       "bytes": 228826,
       "hash": "d861f35a13"
     },
     "treasury×budget: payments to tie": {
-      "medianMs": 1.28,
-      "p95Ms": 1.62,
-      "minMs": 1.23,
+      "medianMs": 1.21,
+      "p95Ms": 1.33,
+      "minMs": 1.17,
       "bytes": 4504,
       "hash": "5e53327273"
     },
     "treasury×budget: lines to pay": {
-      "medianMs": 26.59,
-      "p95Ms": 30.84,
-      "minMs": 25.23,
+      "medianMs": 25.64,
+      "p95Ms": 26.66,
+      "minMs": 24.19,
       "bytes": 66461,
       "hash": "989be9edac"
     },
     "inventory: items": {
-      "medianMs": 7.62,
-      "p95Ms": 8.79,
-      "minMs": 7.37,
+      "medianMs": 7.9,
+      "p95Ms": 9.16,
+      "minMs": 7.46,
       "bytes": 177488,
       "hash": "f8dd10ed28"
     },
     "inventory×budget: PENDING": {
-      "medianMs": 34.73,
-      "p95Ms": 41.92,
-      "minMs": 33.36,
+      "medianMs": 33.38,
+      "p95Ms": 47.38,
+      "minMs": 30.64,
       "bytes": 236561,
       "hash": "3d6f73f100"
     },
     "inventory: components": {
-      "medianMs": 13.4,
-      "p95Ms": 15.36,
-      "minMs": 12.61,
+      "medianMs": 14.08,
+      "p95Ms": 14.98,
+      "minMs": 13.52,
       "bytes": 4210,
       "hash": "aaeb228597"
     },
     "inventory: statistics": {
-      "medianMs": 31.16,
-      "p95Ms": 32.5,
-      "minMs": 29.97,
+      "medianMs": 31.46,
+      "p95Ms": 34.26,
+      "minMs": 30.23,
       "bytes": 10848,
       "hash": "2cb4763f5a"
+    },
+    "inventory: lists of Settings": {
+      "medianMs": 1.19,
+      "p95Ms": 1.26,
+      "minMs": 1.11,
+      "bytes": 1698,
+      "hash": "07dc9d4ae5"
     }
   },
   "stress": {
     "calculation: snapshot of the season": {
-      "medianMs": 97.02,
-      "p95Ms": 112.16,
-      "minMs": 92.69,
+      "medianMs": 96.08,
+      "p95Ms": 107.1,
+      "minMs": 93.07,
       "bytes": 3575932,
       "hash": "8167da825c"
     },
     "me (every page starts here)": {
-      "medianMs": 0.62,
-      "p95Ms": 0.73,
+      "medianMs": 0.63,
+      "p95Ms": 0.66,
       "minMs": 0.58,
       "bytes": 338,
       "hash": "fa426c75fe"
     },
     "core: seasons": {
-      "medianMs": 1.1,
-      "p95Ms": 1.17,
-      "minMs": 1.06,
+      "medianMs": 1.08,
+      "p95Ms": 1.11,
+      "minMs": 1.04,
       "bytes": 142,
       "hash": "77f1a52cd1"
     },
     "core: settings": {
-      "medianMs": 2.89,
-      "p95Ms": 12.4,
-      "minMs": 2.78,
-      "bytes": 2275,
-      "hash": "e0e173e921"
+      "medianMs": 2.2,
+      "p95Ms": 2.25,
+      "minMs": 2.16,
+      "bytes": 551,
+      "hash": "92e4fdcb5b"
     },
     "core: users": {
-      "medianMs": 0.83,
-      "p95Ms": 0.92,
-      "minMs": 0.81,
+      "medianMs": 0.81,
+      "p95Ms": 0.9,
+      "minMs": 0.78,
       "bytes": 120,
       "hash": "67090b7678"
     },
     "core: history": {
-      "medianMs": 1.18,
-      "p95Ms": 1.56,
-      "minMs": 1.12,
+      "medianMs": 1.33,
+      "p95Ms": 5.84,
+      "minMs": 1.13,
       "bytes": 20740,
       "hash": "dde31e9fa7"
     },
     "core: history of a table": {
-      "medianMs": 1.15,
-      "p95Ms": 1.32,
-      "minMs": 1.08,
+      "medianMs": 1.27,
+      "p95Ms": 1.49,
+      "minMs": 1.11,
       "bytes": 20526,
       "hash": "5ec119a21a"
     },
     "core: areas": {
-      "medianMs": 0.52,
-      "p95Ms": 0.59,
+      "medianMs": 0.49,
+      "p95Ms": 0.53,
       "minMs": 0.48,
       "bytes": 470,
       "hash": "bbe58acda6"
     },
     "core: categories": {
-      "medianMs": 0.5,
-      "p95Ms": 0.54,
-      "minMs": 0.48,
+      "medianMs": 0.48,
+      "p95Ms": 2.14,
+      "minMs": 0.46,
       "bytes": 90,
       "hash": "0497fea3f4"
     },
-    "core: units": {
-      "medianMs": 0.48,
-      "p95Ms": 0.5,
-      "minMs": 0.47,
+    "inventory: units": {
+      "medianMs": 0.5,
+      "p95Ms": 0.57,
+      "minMs": 0.46,
       "bytes": 41,
       "hash": "dc9b426c33"
     },
-    "core: places": {
-      "medianMs": 0.54,
-      "p95Ms": 1.56,
-      "minMs": 0.5,
+    "inventory: places": {
+      "medianMs": 0.5,
+      "p95Ms": 0.52,
+      "minMs": 0.48,
       "bytes": 901,
       "hash": "68a03ac9c8"
     },
     "core: settings of the calculation": {
-      "medianMs": 0.67,
+      "medianMs": 0.63,
       "p95Ms": 0.74,
-      "minMs": 0.52,
+      "minMs": 0.62,
       "bytes": 213,
       "hash": "d0efff217d"
     },
     "budget: area sheet": {
-      "medianMs": 118.12,
-      "p95Ms": 141.77,
-      "minMs": 108.13,
+      "medianMs": 113.26,
+      "p95Ms": 127.54,
+      "minMs": 107.18,
       "bytes": 1710020,
       "hash": "ce2e629c9e"
     },
     "budget: funds": {
-      "medianMs": 1.09,
-      "p95Ms": 1.27,
-      "minMs": 1.07,
+      "medianMs": 1.12,
+      "p95Ms": 1.3,
+      "minMs": 1.04,
       "bytes": 6031,
       "hash": "3ea12ad3fb"
     },
     "budget: CASH FLOW": {
-      "medianMs": 150.43,
-      "p95Ms": 185.66,
-      "minMs": 146.74,
+      "medianMs": 154.38,
+      "p95Ms": 188.76,
+      "minMs": 150.3,
       "bytes": 1735,
       "hash": "7c9e9219ed"
     },
     "budget: gantt expected": {
-      "medianMs": 121.71,
-      "p95Ms": 150.46,
-      "minMs": 113.09,
+      "medianMs": 119.82,
+      "p95Ms": 137.78,
+      "minMs": 112.82,
       "bytes": 188383,
       "hash": "2f4bdeb3b9"
     },
     "budget: gantt actual": {
-      "medianMs": 115.15,
-      "p95Ms": 138.52,
-      "minMs": 109.98,
+      "medianMs": 115.77,
+      "p95Ms": 133.78,
+      "minMs": 110.94,
       "bytes": 172359,
       "hash": "53c61ef3b4"
     },
     "budget: TOTAL": {
-      "medianMs": 114.82,
-      "p95Ms": 136.39,
-      "minMs": 108.73,
+      "medianMs": 116.33,
+      "p95Ms": 134.74,
+      "minMs": 112.15,
       "bytes": 423869,
       "hash": "4ac6ab34a2"
     },
     "budget: funds summary": {
-      "medianMs": 111.9,
-      "p95Ms": 125.49,
-      "minMs": 109.47,
+      "medianMs": 112.06,
+      "p95Ms": 133.04,
+      "minMs": 110.32,
       "bytes": 3710,
       "hash": "d000207d28"
     },
     "budget: analysis of the funds": {
-      "medianMs": 141.29,
-      "p95Ms": 167.36,
-      "minMs": 139.86,
+      "medianMs": 141.76,
+      "p95Ms": 171.08,
+      "minMs": 139.82,
       "bytes": 31170,
       "hash": "52346e19ec"
     },
     "budget: analysis of the suppliers": {
-      "medianMs": 153.61,
-      "p95Ms": 175.43,
-      "minMs": 146.57,
+      "medianMs": 152.91,
+      "p95Ms": 183.65,
+      "minMs": 148.08,
       "bytes": 70801,
       "hash": "c419fa6cc8"
     },
     "budget: items view": {
-      "medianMs": 114.61,
-      "p95Ms": 130.9,
-      "minMs": 112.14,
+      "medianMs": 119.15,
+      "p95Ms": 140.88,
+      "minMs": 113.48,
       "bytes": 1023316,
       "hash": "de4f7b7761"
     },
     "budget: inflows": {
-      "medianMs": 25.7,
-      "p95Ms": 32.68,
-      "minMs": 24.72,
+      "medianMs": 25.38,
+      "p95Ms": 26.11,
+      "minMs": 24.83,
       "bytes": 8456,
       "hash": "d78c18eaa2"
     },
     "treasury: register": {
-      "medianMs": 35.13,
-      "p95Ms": 45.63,
-      "minMs": 33.19,
+      "medianMs": 34.36,
+      "p95Ms": 48.75,
+      "minMs": 32.53,
       "bytes": 1826148,
       "hash": "84bef0e3d5"
     },
     "treasury: financial statement": {
-      "medianMs": 25.86,
-      "p95Ms": 28.04,
-      "minMs": 25.08,
+      "medianMs": 26.25,
+      "p95Ms": 28.11,
+      "minMs": 25.19,
       "bytes": 8895,
       "hash": "c9a9ca1e6a"
     },
     "treasury×budget: TO PAY": {
-      "medianMs": 115.38,
-      "p95Ms": 156.36,
-      "minMs": 111.52,
+      "medianMs": 118.69,
+      "p95Ms": 141.69,
+      "minMs": 115.92,
       "bytes": 1286769,
       "hash": "345b156c6c"
     },
     "treasury×budget: payments to tie": {
-      "medianMs": 2.5,
-      "p95Ms": 2.67,
-      "minMs": 2.44,
+      "medianMs": 2.37,
+      "p95Ms": 2.6,
+      "minMs": 2.31,
       "bytes": 20293,
       "hash": "3d6a07e225"
     },
     "treasury×budget: lines to pay": {
-      "medianMs": 109.95,
-      "p95Ms": 123.31,
-      "minMs": 102.15,
+      "medianMs": 113.41,
+      "p95Ms": 152.18,
+      "minMs": 109.6,
       "bytes": 377961,
       "hash": "6541fca455"
     },
     "inventory: items": {
-      "medianMs": 33.49,
-      "p95Ms": 34.8,
-      "minMs": 32.09,
+      "medianMs": 34.69,
+      "p95Ms": 41.42,
+      "minMs": 33.32,
       "bytes": 893421,
       "hash": "9aed3b9f97"
     },
     "inventory×budget: PENDING": {
-      "medianMs": 237.27,
-      "p95Ms": 262.76,
-      "minMs": 217.76,
+      "medianMs": 240.12,
+      "p95Ms": 258.3,
+      "minMs": 217.33,
       "bytes": 1221865,
       "hash": "0942c45049"
     },
     "inventory: components": {
-      "medianMs": 239.37,
-      "p95Ms": 342.53,
-      "minMs": 229.27,
+      "medianMs": 237.09,
+      "p95Ms": 256.72,
+      "minMs": 234.47,
       "bytes": 21386,
       "hash": "8010d4b8cc"
     },
     "inventory: statistics": {
-      "medianMs": 132.86,
-      "p95Ms": 155.65,
-      "minMs": 130.28,
+      "medianMs": 138.6,
+      "p95Ms": 158.1,
+      "minMs": 133.98,
       "bytes": 54663,
       "hash": "3f0cf5b61a"
+    },
+    "inventory: lists of Settings": {
+      "medianMs": 2.47,
+      "p95Ms": 2.58,
+      "minMs": 2.39,
+      "bytes": 1709,
+      "hash": "2d8ee5bc6f"
     }
   }
 }

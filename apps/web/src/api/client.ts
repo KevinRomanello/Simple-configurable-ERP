@@ -264,7 +264,7 @@ export const api = {
   updateLocation: (id: number, body: { room?: string; shelf?: string; level?: string }) => patch<void>(`/inventory/locations/${id}`, body),
   deleteLocation: (id: number) => del(`/inventory/locations/${id}`),
   orderLocations: (ids: number[]) => put<void>("/inventory/locations/order", { ids }),
-  inventoryProjects: () => get<ProjectRef[]>("/inventory/projects"),
+  inventoryProjects: () => get<ProjectRef[]>("/inventory-budget/projects"),
   inventoryItems: (price: PriceChoice, filters: Record<string, string | undefined> = {}) =>
     get<ItemRow[]>(`/inventory/items?${priceQuery(price, filters)}`),
   inventoryItem: (id: number, price: PriceChoice) => get<ItemDetail>(`/inventory/items/${id}?${priceQuery(price)}`),
@@ -273,7 +273,7 @@ export const api = {
   deleteItem: (id: number) => del(`/inventory/items/${id}`),
   setImage: (id: number, body: { mime: string; full: string; thumb: string }) => put<void>(`/inventory/items/${id}/image`, body),
   removeImage: (id: number) => del(`/inventory/items/${id}/image`),
-  pending: () => get<PendingRow[]>("/inventory/pending"),
+  pending: () => get<PendingRow[]>("/inventory-budget/pending"),
   /** Goods that arrive: for a purchase of the budget through the bridge to the budget (its line prices them), else priced by hand. */
   receive: ({ lineId, ...body }: ReceiveBody) =>
     post<{ item: InventoryItem }>(lineId === undefined ? "/inventory/receive" : `/inventory-budget/pending/${lineId}/receive`, body),

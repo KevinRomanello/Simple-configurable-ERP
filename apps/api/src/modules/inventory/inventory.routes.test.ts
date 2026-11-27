@@ -307,7 +307,7 @@ describe("who may do what", () => {
   it("lets everybody look and only admins and project managers change", async () => {
     const item = await itemWithStock();
     const as = api.as(viewer);
-    for (const url of ["/api/inventory/items", `/api/inventory/items/${item.id}`, "/api/inventory/pending", "/api/inventory/components", "/api/inventory/stats", "/api/inventory/locations"]) {
+    for (const url of ["/api/inventory/items", `/api/inventory/items/${item.id}`, "/api/inventory-budget/pending", "/api/inventory/components", "/api/inventory/stats", "/api/inventory/locations"]) {
       expect([url, (await as.get(url)).status]).toEqual([url, 200]);
     }
     const attempts = [
@@ -436,18 +436,18 @@ describe("what makes an item the item it is: its name, brand and model together"
 
     it("tells the brand and the model of the line in the list of what has not arrived", async () => {
       await boughtMake("Bearing", "SKF", "6204");
-      expect((await api.get("/api/inventory/pending")).body[0]).toMatchObject({ item: "Bearing", brand: "SKF", model: "6204" });
+      expect((await api.get("/api/inventory-budget/pending")).body[0]).toMatchObject({ item: "Bearing", brand: "SKF", model: "6204" });
     });
 
     it("suggests the item with the same name, brand and model, or else the only one with the same name", async () => {
       const nsk = (await make({ name: "Bearing", brand: "NSK", model: "6204" })).body;
       await boughtMake("Bearing", "SKF", "6204");
-      expect((await api.get("/api/inventory/pending")).body[0].suggestedItemId).toBe(nsk.id); // the only Bearing there is
+      expect((await api.get("/api/inventory-budget/pending")).body[0].suggestedItemId).toBe(nsk.id); // the only Bearing there is
       const skf = (await make({ name: "Bearing", brand: "SKF", model: "6204" })).body;
-      expect((await api.get("/api/inventory/pending")).body[0].suggestedItemId).toBe(skf.id); // the exact one
+      expect((await api.get("/api/inventory-budget/pending")).body[0].suggestedItemId).toBe(skf.id); // the exact one
       await api.del(`/api/inventory/items/${skf.id}`);
       await make({ name: "Bearing", brand: "FAG", model: "6204" });
-      expect((await api.get("/api/inventory/pending")).body[0].suggestedItemId).toBeNull(); // two Bearings, neither is this one
+      expect((await api.get("/api/inventory-budget/pending")).body[0].suggestedItemId).toBeNull(); // two Bearings, neither is this one
     });
 
     it("gives a new item what the form was started with: the name, brand and model of the line", async () => {

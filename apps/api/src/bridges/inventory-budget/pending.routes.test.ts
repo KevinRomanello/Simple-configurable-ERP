@@ -40,7 +40,7 @@ const arrivalOf = async (areaCode: string) => (await api.get(`/api/areas/${areaC
 describe("goods that arrive from a purchase of the budget", () => {
   it("shows what was bought and has not arrived, oldest first, with how long it has waited", async () => {
     const { line } = await boughtLine({ quantity: 10, unit: "5" });
-    const [pending] = (await api.get("/api/inventory/pending")).body;
+    const [pending] = (await api.get("/api/inventory-budget/pending")).body;
     expect(pending).toMatchObject({
       lineId: line.id, item: "Pressure sensor", status: "ordered", boughtMilli: 10_000, receivedMilli: 0, remainingMilli: 10_000,
       purchaseDate: "2026-10-01", projectName: "Brakes", areaCode: "sw", receivedItemId: null, suggestedItemId: null,
@@ -54,7 +54,7 @@ describe("goods that arrive from a purchase of the budget", () => {
     const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
     const line = (await api.post(`/api/projects/${project.id}/lines`, { item: "Planned" })).body;
     await api.patch(`/api/lines/${line.id}`, { version: 1, figures: { estimate: { quantity: 3, unitNetCost: "9", sponsorType: "none", vatRate: 22 } } });
-    expect((await api.get("/api/inventory/pending")).body).toEqual([]);
+    expect((await api.get("/api/inventory-budget/pending")).body).toEqual([]);
     expect(await arrivalOf("sw")).toMatchObject({ status: "planned" });
     const refused = await api.post(`/api/inventory-budget/pending/${line.id}/receive`, { newItem: newItem("Planned"), quantity: "1", receivedOn: "2026-10-05", location: "s1-r1" });
     expect(refused.status).toBe(400);
@@ -71,13 +71,13 @@ describe("goods that arrive from a purchase of the budget", () => {
     expect(first.body.movement).toMatchObject({ budgetLineId: line.id, projectId: project.id, unitNet: "5.0000", unitGross: "6.1000", unitTeam: "6.1000", spot: "Drawer 3" });
     expect(await arrivalOf("sw")).toEqual({ boughtMilli: 10_000, receivedMilli: 4_000, status: "partial" });
 
-    const [pending] = (await api.get("/api/inventory/pending")).body;
+    const [pending] = (await api.get("/api/inventory-budget/pending")).body;
     expect(pending).toMatchObject({ status: "partial", remainingMilli: 6_000, receivedItemId: first.body.item.id });
 
     expect((await receiveLine({ quantity: "7", itemId: first.body.item.id })).status).toBe(409); // only 6 left
     expect((await receiveLine({ quantity: "6", itemId: first.body.item.id })).status).toBe(201);
     expect(await arrivalOf("sw")).toEqual({ boughtMilli: 10_000, receivedMilli: 10_000, status: "received" });
-    expect((await api.get("/api/inventory/pending")).body).toEqual([]);
+    expect((await api.get("/api/inventory-budget/pending")).body).toEqual([]);
 
     const again = await receiveLine({ quantity: "1", itemId: first.body.item.id });
     expect(again.status).toBe(409);
@@ -102,7 +102,7 @@ describe("goods that arrive from a purchase of the budget", () => {
   it("suggests the item that has the same name as the line", async () => {
     const item = await itemWithStock("Pressure Sensor", "1");
     await boughtLine({ item: "pressure sensor" });
-    expect((await api.get("/api/inventory/pending")).body[0].suggestedItemId).toBe(item.id);
+    expect((await api.get("/api/inventory-budget/pending")).body[0].suggestedItemId).toBe(item.id);
   });
 
   it("two arrivals of the same purchase at once cannot both take the last pieces", async () => {
@@ -128,5 +128,21 @@ describe("goods that arrive from a purchase of the budget", () => {
     const { line } = await boughtLine({ quantity: 10, unit: "5", sponsorType: "total" });
     const { body } = await api.post(`/api/inventory-budget/pending/${line.id}/receive`, { newItem: newItem("Gift"), quantity: "10", receivedOn: "2026-10-05", location: "s1-r1" });
     expect(body.movement).toMatchObject({ unitNet: "5.0000", unitGross: "6.1000", unitTeam: "1.1000" });
+  });
+});
+
+describe("the addresses", () => {
+  it("are the bridge's (/api/inventory-budget) and the inventory's (/api/inventory): the old ones are gone, with no redirect", async () => {
+    for (const old of ["/api/inventory/pending", "/api/inventory/projects", "/api/lookups/units", "/api/lookups/locations", "/api/lookups/category-fields"]) {
+      expect((await api.get(old)).status, old).toBe(404);
+    }
+    for (const now of ["/api/inventory-budget/pending", "/api/inventory-budget/projects", "/api/inventory/units", "/api/inventory/locations", "/api/inventory/category-fields", "/api/inventory/lists"]) {
+      expect((await api.get(now)).status, now).toBe(200);
+    }
+    // a purchase of the budget does not arrive through the inventory's own address any more
+    const { line } = await boughtLine({ quantity: 2 });
+    const refused = await api.post("/api/inventory/receive", { lineId: line.id, newItem: newItem("Sensor"), quantity: "1", receivedOn: "2026-10-05", location: "s1-r1" });
+    expect(refused.status).toBe(400);
+    expect(refused.body.issues[0].message).toMatch(/PENDING/);
   });
 });

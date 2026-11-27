@@ -393,8 +393,8 @@ Ogni punto di aggancio ha un tipo (le proprietà che riceve) e una prova che lo 
    | `/api/cash/entries/:id/lines` | `/api/treasury-budget/entries/:id/lines` |
    | `/api/cash/category-defaults` | `/api/treasury-budget/category-voci` |
    | `/api/inflows/receivable`, `/api/inflows/:id/receive` | `/api/treasury-budget/inflows/receivable`, `/api/treasury-budget/inflows/:id/receive` |
-   | `/api/inventory/pending`, `/api/inventory/projects` | `/api/inventory-budget/pending`, `/api/inventory-budget/projects` |
-   | `/api/inventory/receive` con una riga del budget | `/api/inventory-budget/pending/:lineId/receive`. `/api/inventory/receive` resta per gli arrivi fuori budget |
+   | `/api/inventory/pending`, `/api/inventory/projects` | `/api/inventory-budget/pending`, `/api/inventory-budget/projects` (fatto in G5) |
+   | `/api/inventory/receive` con una riga del budget | `/api/inventory-budget/pending/:lineId/receive`. `/api/inventory/receive` resta per gli arrivi fuori budget (fatto in G5) |
    | `/api/role-sync` | `/api/registry-access/role-sync` |
    | `/api/areas` (oggi nelle rotte del budget) | resta `/api/areas`, ma del nucleo |
 
@@ -474,7 +474,7 @@ Ogni passo lascia l'app funzionante, con tutte le prove verdi e i documenti aggi
 | **G2 — fatto (27 novembre 2026)** | **Lo schema si divide** per proprietario. Nessuna migrazione. | `drizzle-kit generate` non vede differenze (fatto: «No schema changes») |
 | **G3 — fatto (27 novembre 2026)** | **Anagrafiche** in `modules/registry`, e `rolesync` diventa `bridges/registry-access`. Sono già in regola: si spostano e si adattano le prove. | prove di oggi verdi con i percorsi nuovi |
 | **G4 — fatto (27 novembre 2026)** | **Tesoreria** in `modules/treasury` con `treasury.public.ts`. Le parti miste (`cash-links`, `outside-budget`, `loadPayments`, inflow ricevuti, BANK dal registro, Voce di partenza) vanno in `bridges/treasury-budget`. Migrazione di `inflow_receipt` e `category_voce`. | tesoreria e ponte senza eccezioni |
-| **G5** (in corso: fatte le tappe 1, 2 e 3, 27 novembre 2026) | **Inventario** in `modules/inventory` con `inventory.public.ts`. PENDING, ricevere da una riga, arrivi, progetti e statistiche per progetto vanno in `bridges/inventory-budget`. Migrazione di `receipt_line`, `movement_project`, `item_make_project`. | idem |
+| **G5 — fatto (27 novembre 2026)** | **Inventario** in `modules/inventory` con `inventory.public.ts`. PENDING, ricevere da una riga, arrivi, progetti e statistiche per progetto vanno in `bridges/inventory-budget`. Migrazione di `receipt_line`, `movement_project`, `item_make_project`. | idem |
 | **G6** | **Budget** in `modules/budget` con `budget.public.ts`: budget, fondi, fornitori, CASH FLOW a mano, viste, e lo **snapshot con le porte**. | idem; i numeri di prova del calcolo identici (stessi test, stesso foglio di riconciliazione) |
 | **G7** | **Il sito**: cartelle (§7.1), manifesti, punti di aggancio, client e tipi divisi, menù, indirizzi e Settings dai manifesti, prove del sito. | nessuna pagina importa un altro modulo se non dal suo `public.ts` |
 | **G8** | **Gli interruttori** per budget, tesoreria e inventario in Settings › App › Modules; `/me.bridges`; la prova di tutte le combinazioni (§12); la lista delle eccezioni vuota. | le 16 combinazioni passano |
@@ -546,7 +546,7 @@ Cinque tappe, tutte fatte.
 - **Tappa 5, la chiusura:** prova nel browser di CASH REGISTER (i movimenti e i legami, il pannello «Link to budget lines»), TO PAY (l'elenco, il modulo Pay aperto e chiuso, i pagamenti da legare), CASH FLOW (il BANK e l'ACTUAL dal registro, un inflow in ritardo, «Mark as received» e il pannello di cancellazione aperti e chiusi) e Settings › Register (le Voci per categoria): tutte le chiamate ai nuovi indirizzi rispondono 200, niente salvato. Baseline del benchmark rinnovata ([prestazioni.md](prestazioni.md), §3): rispetto a prima di G4 le 64 risposte sono identiche e i tempi dentro il ±12%.
 - **Cosa resta per G8:** con la tesoreria spenta nessuno dichiara `canManageCash`, quindi nemmeno un admin potrà scrivere il BANK a mano; e `/me` dovrà dire quali ponti sono accesi.
 
-### G5: l'inventario e il suo ponte (27 novembre 2026, in corso)
+### G5: l'inventario e il suo ponte (27 novembre 2026)
 
 Cinque tappe, come G4: i dati (1), le liste dell'inventario che escono dal nucleo (2), il ponte `bridges/inventory-budget/` (3), gli indirizzi (4), la chiusura (5). **Deciso con l'utente (A):** il progetto di un movimento, di una produzione e di un articolo resta nei moduli e negli indirizzi dell'inventario come «a cosa serve» (`projectId`, `makeProjectId`); l'inventario lo passa, nella stessa transazione, a una porta che il ponte riempie (controlla che il progetto esista e scrive il legame). Senza il ponte nessuno lo tiene, e un progetto mandato è un errore 400. Una richiesta sola, e gli indirizzi di movimenti, produzioni e articoli non cambiano.
 
@@ -560,6 +560,11 @@ Cinque tappe, come G4: i dati (1), le liste dell'inventario che escono dal nucle
   - **L'inventario mostra** `assertCanManageInventory`, `receiveIn` e `checkReceipt` (l'arrivo a prezzi dati, dentro una transazione aperta: gli arrivi fuori budget dell'inventario e quelli per una riga del ponte finiscono lì), `receiptOfPurchaseInput`, `movementsByIds`, `itemIdentities`. **Il budget mostra** in più `computedSeason`, `projectsByIds`, `projectsOfSeason`, `lineCars`, `lockLine`.
   - **Nel ponte:** PENDING, l'arrivo per una riga (blocca la riga, prende prezzi, progetto e marca/modello dalla riga, scrive l'arrivo con l'inventario e i legami nelle sue tabelle), l'elenco dei progetti, e le risposte alle porte (`ties.service.ts`, `pending.service.ts`, il contratto, le rotte). Le sue prove sono in `bridges/inventory-budget/pending.routes.test.ts`.
   - **Un indirizzo cambia già qui:** l'arrivo per una riga è `POST /api/inventory-budget/pending/:lineId/receive` (il design lo voleva «nuovo, staccato»), perché l'inventario non può chiamare il ponte; `POST /api/inventory/receive` è solo per gli arrivi fuori budget e rifiuta `lineId`. PENDING e i progetti restano a `/api/inventory/…` fino alla tappa 4.
+
+- **Tappa 4, gli indirizzi:** il ponte risponde sotto **`/api/inventory-budget/…`**: `GET /pending`, `GET /projects` e `POST /pending/:lineId/receive`, registrati da `app.ts` con il prefisso del ponte. Nessun redirect: `/api/inventory/pending`, `/api/inventory/projects` e le liste vecchie (`/api/lookups/units`…) danno 404, e una prova lo controlla. Il sito chiama i nuovi indirizzi (`api/client.ts`; l'indirizzo della pagina PENDING nel sito, `/inventory/pending`, non cambia).
+
+- **Tappa 5, la chiusura:** prova nel browser sul database di sviluppo (solo letture): PENDING da `/api/inventory-budget/pending` e il modulo dell'arrivo per una riga (prezzi dalla riga), la pagina di un articolo con l'arrivo «from the budget» e un altro con il suo progetto, COMPONENTS con la scelta dei progetti da `/api/inventory-budget/projects`, le statistiche per progetto (con «on its way» dal budget) e per macchina, ARRIVED nel budget, Settings › Inventory. Baseline del benchmark rinnovata ([prestazioni.md](prestazioni.md), §3): rispetto alla fine di G4 le risposte sono identiche (tranne `GET /api/settings`, cambiato apposta) e i tempi dentro il ±10%.
+- **Cosa resta per G6–G8:** il budget non ha ancora una cartella sola (`budget`, `funds`, `suppliers`, `views`, `cashflow` e lo snapshot, G6) né i suoi indirizzi sotto `/api/budget/`; il sito non è ancora diviso per modulo (G7); gli interruttori di budget, tesoreria e inventario (G8). La lista delle eccezioni è già vuota.
 
 **I documenti da aggiornare alla fine**:
 - [architettura.md](architettura.md) (struttura del repository e livelli);

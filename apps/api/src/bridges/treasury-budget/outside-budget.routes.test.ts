@@ -200,7 +200,7 @@ describe("in the views", () => {
 
   it("is not pending in the inventory and not to pay", async () => {
     await move("8.2 Imposta di bollo", -1_600);
-    expect((await api.get("/api/inventory/pending")).body).toEqual([]);
+    expect((await api.get("/api/inventory-budget/pending")).body).toEqual([]);
     expect((await api.get("/api/treasury-budget/to-pay")).body.rows).toEqual([]);
   });
 });
@@ -221,7 +221,7 @@ describe("the projects stock can be used for", () => {
     await move("8.2 Imposta di bollo", -1_600);
     expect((await sheet()).projects.length).toBeGreaterThan(0); // the area has its project
     const id = (await api.post("/api/projects", { areaCode: "sw", name: "Brakes" })).body.id as number;
-    const offered = (await api.get("/api/inventory/projects")).body as { id: number; areaCode: string }[];
+    const offered = (await api.get("/api/inventory-budget/projects")).body as { id: number; areaCode: string }[];
     expect(offered.map((p) => p.id)).toEqual([id]);
   });
 });

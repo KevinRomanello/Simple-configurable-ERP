@@ -98,11 +98,10 @@ export function buildApp(options: AppOptions = {}) {
       await api.register(suppliersRoutes);
       await api.register(inventoryRoutes);
       await api.register(cashflowRoutes);
-      // a module and a bridge answer under their own name: /api/treasury/…, /api/treasury-budget/… (docs/moduli-architettura.md, §8)
+      // a module and a bridge answer under their own name: /api/treasury/…, /api/treasury-budget/…, /api/inventory-budget/… (docs/moduli-architettura.md, §8)
       await api.register(cashRoutes, { prefix: "/treasury" });
       await api.register(treasuryBudgetRoutes, { prefix: "/treasury-budget" });
-      // PENDING and the projects still at /inventory/… until the next step moves them under /inventory-budget
-      await api.register(inventoryBudgetRoutes);
+      await api.register(inventoryBudgetRoutes, { prefix: "/inventory-budget" });
       await api.register(viewsRoutes);
       await api.register(settingsRoutes);
       await api.register(registryRoutes);
