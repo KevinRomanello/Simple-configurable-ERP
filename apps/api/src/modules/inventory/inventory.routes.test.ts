@@ -164,99 +164,6 @@ describe("goods that arrive from outside the budget", () => {
   });
 });
 
-describe("goods that arrive from a purchase of the budget", () => {
-  it("shows what was bought and has not arrived, oldest first, with how long it has waited", async () => {
-    const { line } = await boughtLine({ quantity: 10, unit: "5" });
-    const [pending] = (await api.get("/api/inventory/pending")).body;
-    expect(pending).toMatchObject({
-      lineId: line.id, item: "Pressure sensor", status: "ordered", boughtMilli: 10_000, receivedMilli: 0, remainingMilli: 10_000,
-      purchaseDate: "2026-10-01", projectName: "Brakes", areaCode: "sw", receivedItemId: null, suggestedItemId: null,
-      prices: { net: 50_000, gross: 61_000, team: 61_000 },
-    });
-    expect(pending.daysWaiting).toBeGreaterThan(0);
-    expect(await arrivalOf("sw")).toEqual({ boughtMilli: 10_000, receivedMilli: 0, status: "ordered" });
-  });
-
-  it("does not list lines that were only planned", async () => {
-    const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
-    const line = (await api.post(`/api/projects/${project.id}/lines`, { item: "Planned" })).body;
-    await api.patch(`/api/lines/${line.id}`, { version: 1, figures: { estimate: { quantity: 3, unitNetCost: "9", sponsorType: "none", vatRate: 22 } } });
-    expect((await api.get("/api/inventory/pending")).body).toEqual([]);
-    expect(await arrivalOf("sw")).toMatchObject({ status: "planned" });
-    const refused = await api.post("/api/inventory/receive", { lineId: line.id, newItem: newItem("Planned"), quantity: "1", receivedOn: "2026-10-05", location: "s1-r1" });
-    expect(refused.status).toBe(400);
-    expect(refused.body.error).toMatch(/not been bought/);
-  });
-
-  it("takes the prices and the project from the budget, and lets the purchase arrive in parts", async () => {
-    const { line, project } = await boughtLine({ quantity: 10, unit: "5" });
-    const receiveLine = (body: object) =>
-      api.post("/api/inventory/receive", { lineId: line.id, receivedOn: "2026-10-05", location: "s1-r2", spot: "Drawer 3", ...body });
-
-    const first = await receiveLine({ quantity: "4", newItem: newItem("Pressure sensor") });
-    expect(first.status).toBe(201);
-    expect(first.body.movement).toMatchObject({ budgetLineId: line.id, projectId: project.id, unitNet: "5.0000", unitGross: "6.1000", unitTeam: "6.1000", spot: "Drawer 3" });
-    expect(await arrivalOf("sw")).toEqual({ boughtMilli: 10_000, receivedMilli: 4_000, status: "partial" });
-
-    const [pending] = (await api.get("/api/inventory/pending")).body;
-    expect(pending).toMatchObject({ status: "partial", remainingMilli: 6_000, receivedItemId: first.body.item.id });
-
-    expect((await receiveLine({ quantity: "7", itemId: first.body.item.id })).status).toBe(409); // only 6 left
-    expect((await receiveLine({ quantity: "6", itemId: first.body.item.id })).status).toBe(201);
-    expect(await arrivalOf("sw")).toEqual({ boughtMilli: 10_000, receivedMilli: 10_000, status: "received" });
-    expect((await api.get("/api/inventory/pending")).body).toEqual([]);
-
-    const again = await receiveLine({ quantity: "1", itemId: first.body.item.id });
-    expect(again.status).toBe(409);
-    expect(again.body.error).toMatch(/already arrived/);
-    const detail = (await api.get(`/api/inventory/items/${first.body.item.id}`)).body;
-    expect(detail.onHandMilli).toBe(10_000);
-    expect(detail.movements).toHaveLength(2);
-  });
-
-  it("puts the day of the last arrival in ARRIVAL DATE of ACTUAL, only once all of it has arrived", async () => {
-    const { line } = await boughtLine({ quantity: 10, unit: "5" });
-    const arrivalDate = async () => (await api.get("/api/areas/sw/sheet")).body.projects[0].lines[0].actual.arrivalDate;
-    const receiveLine = (body: object) => api.post("/api/inventory/receive", { lineId: line.id, location: "s1-r1", ...body });
-    expect(await arrivalDate()).toBeNull();
-
-    const first = await receiveLine({ quantity: "4", receivedOn: "2026-10-05", newItem: newItem("Pressure sensor") });
-    expect(await arrivalDate()).toBeNull(); // only a part
-    await receiveLine({ quantity: "6", receivedOn: "2026-10-09", itemId: first.body.item.id });
-    expect(await arrivalDate()).toBe("2026-10-09"); // the day written in the form of the last one
-  });
-
-  it("suggests the item that has the same name as the line", async () => {
-    const item = await itemWithStock("Pressure Sensor", "1");
-    await boughtLine({ item: "pressure sensor" });
-    expect((await api.get("/api/inventory/pending")).body[0].suggestedItemId).toBe(item.id);
-  });
-
-  it("two arrivals of the same purchase at once cannot both take the last pieces", async () => {
-    const { line } = await boughtLine({ quantity: 6 });
-    const item = await itemWithStock("Sensor", "1");
-    const body = { lineId: line.id, itemId: item.id, quantity: "6", receivedOn: "2026-10-05", location: "s1-r1" };
-    const answers = await Promise.all([api.post("/api/inventory/receive", body), api.post("/api/inventory/receive", body)]);
-    expect(answers.map((a) => a.status).sort()).toEqual([201, 409]);
-    expect(await arrivalOf("sw")).toMatchObject({ receivedMilli: 6_000, status: "received" });
-  });
-
-  it("keeps the receipt when the budget line is deleted later", async () => {
-    const { line } = await boughtLine({ quantity: 2 });
-    const { body } = await api.post("/api/inventory/receive", { lineId: line.id, newItem: newItem("Sensor"), quantity: "2", receivedOn: "2026-10-05", location: "s1-r1" });
-    expect((await api.del(`/api/lines/${line.id}`)).status).toBe(204);
-    const detail = (await api.get(`/api/inventory/items/${body.item.id}`)).body;
-    expect(detail.onHandMilli).toBe(2_000);
-    expect(detail.movements[0].budgetLineId).toBeNull();
-  });
-
-  it("values a sponsored purchase at what the team pays: the VAT stays with the team", async () => {
-    const { line } = await boughtLine({ quantity: 10, unit: "5", sponsorType: "total" });
-    const { body } = await api.post("/api/inventory/receive", { lineId: line.id, newItem: newItem("Gift"), quantity: "10", receivedOn: "2026-10-05", location: "s1-r1" });
-    expect(body.movement).toMatchObject({ unitNet: "5.0000", unitGross: "6.1000", unitTeam: "1.1000" });
-  });
-});
-
 describe("what happens on the shelf", () => {
   const move = (body: object) =>
     api.post("/api/inventory/movements", { occurredOn: "2026-10-10", location: "s1-r1", ...body });
@@ -525,7 +432,7 @@ describe("what makes an item the item it is: its name, brand and model together"
       await api.patch(`/api/lines/${line.id}`, { version: 1, figures: { actual: { quantity: 10, unitNetCost: "5", sponsorType: "none", vatRate: 22, purchaseDate: "2026-10-01" } } });
       return line as { id: number };
     };
-    const receive = (lineId: number, itemId: number) => api.post("/api/inventory/receive", { lineId, itemId, quantity: "3", receivedOn: "2026-10-05", location: "s1-r1" });
+    const receive = (lineId: number, itemId: number) => api.post(`/api/inventory-budget/pending/${lineId}/receive`, { itemId, quantity: "3", receivedOn: "2026-10-05", location: "s1-r1" });
 
     it("tells the brand and the model of the line in the list of what has not arrived", async () => {
       await boughtMake("Bearing", "SKF", "6204");
@@ -545,7 +452,7 @@ describe("what makes an item the item it is: its name, brand and model together"
 
     it("gives a new item what the form was started with: the name, brand and model of the line", async () => {
       const line = await boughtMake("Bearing", "SKF", "6204");
-      const arrived = await api.post("/api/inventory/receive", { lineId: line.id, newItem: { name: "Bearing", brand: "SKF", model: "6204", category: "Components" }, quantity: "4", receivedOn: "2026-10-05", location: "s1-r1" });
+      const arrived = await api.post(`/api/inventory-budget/pending/${line.id}/receive`, { newItem: { name: "Bearing", brand: "SKF", model: "6204", category: "Components" }, quantity: "4", receivedOn: "2026-10-05", location: "s1-r1" });
       expect(arrived.body.item).toMatchObject({ name: "Bearing", brand: "SKF", model: "6204" });
     });
 

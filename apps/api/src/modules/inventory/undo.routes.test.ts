@@ -62,8 +62,8 @@ describe("undoing a movement", () => {
     });
     const arrival = async () => (await api.get("/api/areas/sw/sheet")).body.projects[0].lines[0].arrival;
     const arrivalDate = async () => (await api.get("/api/areas/sw/sheet")).body.projects[0].lines[0].actual.arrivalDate;
-    const received = await api.post("/api/inventory/receive", {
-      lineId: line.id, newItem: { name: "Pressure sensor" }, quantity: "10", receivedOn: "2026-10-03", location: "s1-r1", spot: "",
+    const received = await api.post(`/api/inventory-budget/pending/${line.id}/receive`, {
+      newItem: { name: "Pressure sensor" }, quantity: "10", receivedOn: "2026-10-03", location: "s1-r1", spot: "",
     });
     expect(await arrival()).toMatchObject({ receivedMilli: 10_000, status: "received" });
     expect(await arrivalDate()).toBe("2026-10-03");

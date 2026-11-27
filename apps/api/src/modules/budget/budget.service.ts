@@ -28,6 +28,49 @@ export async function computedLines(season: { id: number; startsOn: string; ends
   return computeLines(await loadSnapshot(season));
 }
 
+/** A season as the calculation sees it: its lines, its projects and the areas (the statistics of the inventory and its choice of projects). */
+export async function computedSeason(season: { id: number; startsOn: string; endsOn: string }) {
+  const snapshot = await loadSnapshot(season);
+  return {
+    lines: computeLines(snapshot),
+    /** The projects of the derived area (ADMINISTRATION) are here too, with negative ids: they are not rows of the database. */
+    projects: snapshot.projects.map((p) => ({ id: p.id, name: p.name, areaId: p.areaId })),
+    areas: snapshot.areas.map((a) => ({ id: a.id, code: a.code, name: a.name })),
+  };
+}
+
+/** The projects with these ids, with their names (the ones that exist). */
+export async function projectsByIds(reader: Db, ids: number[]): Promise<{ id: number; name: string }[]> {
+  if (ids.length === 0) return [];
+  return reader.select({ id: project.id, name: project.name }).from(project).where(anyOf(project.id, ids));
+}
+
+/** The car each of these lines is for: the one chosen on the line, or the season of its project. */
+export async function lineCars(reader: Db, lineIds: number[]): Promise<Map<number, number>> {
+  if (lineIds.length === 0) return new Map();
+  const rows = await reader
+    .select({ id: budgetLine.id, car: sql<number>`coalesce(${budgetLine.carSeasonId}, ${project.seasonId})` })
+    .from(budgetLine)
+    .innerJoin(project, eq(budgetLine.projectId, project.id))
+    .where(anyOf(budgetLine.id, lineIds));
+  return new Map(rows.map((r) => [r.id, r.car]));
+}
+
+/** The projects of a season with their area: the choice of a project in the forms of the inventory. */
+export async function projectsOfSeason(reader: Db, seasonId: number): Promise<{ id: number; name: string; areaCode: string; areaName: string }[]> {
+  return reader
+    .select({ id: project.id, name: project.name, areaCode: area.code, areaName: area.name })
+    .from(project)
+    .innerJoin(area, eq(project.areaId, area.id))
+    .where(eq(project.seasonId, seasonId));
+}
+
+/** Keeps a line from changing until the transaction ends: two arrivals of the same purchase take turns. False if there is no such line. */
+export async function lockLine(tx: Tx, lineId: number): Promise<boolean> {
+  const [locked] = await tx.select({ id: budgetLine.id }).from(budgetLine).where(eq(budgetLine.id, lineId)).for("update");
+  return locked !== undefined;
+}
+
 /** The season each of these lines is in, by line (a line that does not exist is not there). */
 export async function seasonsOfLines(reader: Db, lineIds: number[]): Promise<Map<number, number>> {
   if (lineIds.length === 0) return new Map();

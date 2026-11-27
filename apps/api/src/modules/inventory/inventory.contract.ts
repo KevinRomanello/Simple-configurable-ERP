@@ -43,8 +43,4 @@ contracts.declare(auditLabels, "inventory", {
   location: (row) => ["site", "room", "shelf", "level"].map((key) => auditText(row, key)).filter((part) => part !== "").join(" / "),
   component_part: (row) => `part ${String(row.part_id ?? "")} of item ${String(row.component_id ?? "")}`,
   item_param_value: (row) => `parameter ${String(row.param_id ?? "")} of item ${String(row.item_id ?? "")}`,
-  // the tables of the bridge to the budget (they move to the bridge with its code, in G5)
-  receipt_line: (row) => `movement ${String(row.movement_id ?? "")} received for line ${String(row.line_id ?? "")}`,
-  movement_project: (row) => `movement ${String(row.movement_id ?? "")} for project ${String(row.project_id ?? "")}`,
-  item_make_project: (row) => `item ${String(row.item_id ?? "")} made for project ${String(row.project_id ?? "")}`,
 });

@@ -1,35 +1,33 @@
-import { buildNeeds, builtPricesE4, computeLines, costContext, linePricesE4, pendingLines, roundDiv, stockRows, takeFromShelf, type Take, type UnitPricesE4 } from "@erp/calc";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { buildNeeds, builtPricesE4, costContext, roundDiv, stockRows, takeFromShelf, type Take, type UnitPricesE4 } from "@erp/calc";
+import { asc, eq, inArray } from "drizzle-orm";
 import type { z } from "zod";
+import { contracts } from "../../core/contracts";
 import { conflict, invalid, notFound } from "../../core/errors";
 import { fromScaled, toScaled } from "../../core/money";
-import { today } from "../../core/today";
 import { runWrite, type Tx } from "../../core/tx";
-import { db } from "../../db/client";
-import { budgetLine, project } from "../../db/schema/budget";
 import { componentPart, inventoryItem, stockMovement } from "../../db/schema/inventory";
-import { movementProject, receiptLine } from "../../db/schema/inventory-budget";
-import { loadSnapshot } from "../../snapshot";
 import { listVatRates } from "../../platform/lookups/lookups.service";
-import { listLocations } from "./lists.service";
+import { currentActive } from "../../platform/platform.public";
 import { assertCarExists } from "../../platform/seasons/seasons.service";
 import { loadInventory, movementsOf } from "./inventory.data";
-import type { buildInput, movementInput, receiveInput } from "./inventory.schema";
+import { keepMovementProject, knownProjects } from "./inventory.ports";
+import type { buildInput, movementInput, ReceiptOfPurchaseInput, receiveInput } from "./inventory.schema";
 import { assertCanManageInventory, findDuplicate, insertItem } from "./items.service";
+import { listLocations } from "./lists.service";
 
 async function assertLocation(code: string) {
   if (!(await listLocations()).some((l) => l.code === code)) throw invalid(`Unknown location "${code}"`);
 }
 
-async function assertProject(tx: Pick<Tx, "select">, projectId: number) {
-  const [found] = await tx.select({ id: project.id }).from(project).where(eq(project.id, projectId));
-  if (!found) throw notFound("Project");
+/** The project a movement is for must be one the budget has (there is none to choose when the budget is off). */
+async function assertProject(tx: Tx, projectId: number) {
+  const found = await contracts.ask(knownProjects, currentActive(), tx, { ids: [projectId] });
+  if (found.length === 0) throw notFound("Project");
 }
 
-/** What a movement is tied to on the budget's side: the project it was for and the purchase of the budget it completes. */
-async function tieMovements(tx: Tx, movementIds: number[], ties: { projectId: number | null; lineId?: number | null }) {
-  if (ties.projectId !== null && movementIds.length > 0) await tx.insert(movementProject).values(movementIds.map((movementId) => ({ movementId, projectId: ties.projectId! })));
-  if (ties.lineId != null) await tx.insert(receiptLine).values(movementIds.map((movementId) => ({ movementId, lineId: ties.lineId! })));
+/** Hands the project these movements were for to whoever keeps it (the bridge to the budget), in the same transaction. */
+async function tieToProject(tx: Tx, movementIds: number[], projectId: number | null) {
+  if (projectId !== null && movementIds.length > 0) await contracts.ask(keepMovementProject, currentActive(), tx, { movementIds, projectId });
 }
 
 /** A movement as the writes answer it: its row, with the project and the purchase it is tied to. */
@@ -42,44 +40,12 @@ const answered = (movement: typeof stockMovement.$inferSelect, ties: { projectId
 // --- goods that arrive ----------------------------------------------------------------------------
 
 /**
- * What the budget has bought and has not fully received, the oldest purchase first. For each one,
- * the item earlier arrivals went to, and the item it probably is (the one with the same name, brand and model, or else
- * the only one with the same name): the form starts from them.
- */
-export async function listPending() {
-  const lines = computeLines(await loadSnapshot());
-  const pending = pendingLines(lines, today());
-  if (pending.length === 0) return [];
-
-  const earlier = await db
-    .select({ lineId: receiptLine.lineId, itemId: stockMovement.itemId })
-    .from(receiptLine)
-    .innerJoin(stockMovement, eq(stockMovement.id, receiptLine.movementId))
-    .where(and(eq(stockMovement.kind, "receipt"), inArray(receiptLine.lineId, pending.map((p) => p.lineId))))
-    .orderBy(desc(stockMovement.id));
-  const lastItemOfLine = new Map<number, number>();
-  for (const e of earlier) if (e.lineId !== null && !lastItemOfLine.has(e.lineId)) lastItemOfLine.set(e.lineId, e.itemId);
-  const items = await db.select({ id: inventoryItem.id, name: inventoryItem.name, brand: inventoryItem.brand, model: inventoryItem.model }).from(inventoryItem);
-  const same = (a: string | null, b: string | null) => (a ?? "").toLowerCase() === (b ?? "").toLowerCase();
-  const suggested = (p: { item: string; brand: string | null; model: string | null }) => {
-    const named = items.filter((i) => same(i.name, p.item));
-    return (named.find((i) => same(i.brand, p.brand) && same(i.model, p.model)) ?? (named.length === 1 ? named[0] : undefined))?.id ?? null;
-  };
-
-  return pending.map((p) => ({
-    ...p,
-    receivedItemId: lastItemOfLine.get(p.lineId) ?? null,
-    suggestedItemId: suggested(p),
-  }));
-}
-
-/**
- * An item that has no brand or model takes those of the line it arrives for (what is already written is never replaced),
+ * An item that has no brand or model takes those of the purchase it arrives for (what is already written is never replaced),
  * unless another item is already exactly that: then it is left as it is.
  */
-async function takeMakeFromLine(tx: Tx, item: typeof inventoryItem.$inferSelect, line: { brand: string | null; model: string | null }) {
-  const brand = item.brand ?? line.brand;
-  const model = item.model ?? line.model;
+async function takeMakeFromPurchase(tx: Tx, item: typeof inventoryItem.$inferSelect, make: { brand: string | null; model: string | null }) {
+  const brand = item.brand ?? make.brand;
+  const model = item.model ?? make.model;
   if (brand === item.brand && model === item.model) return item;
   if (await findDuplicate(tx, { name: item.name, brand, model, code: null }, item.id)) return item;
   const [updated] = await tx.update(inventoryItem).set({ brand, model }).where(eq(inventoryItem.id, item.id)).returning();
@@ -95,70 +61,67 @@ async function typedPrices(input: { unitNet?: string; vatRate?: number; free: bo
   return { net, gross, team: input.free ? 0 : gross };
 }
 
-/**
- * Puts goods on the shelf. A purchase of the budget gets its prices from the budget and can
- * arrive in parts, never more than what was bought; goods from outside the budget are priced by
- * hand. The item is an existing one or is created here.
- */
-export async function receive(input: z.infer<typeof receiveInput>) {
-  const actor = await assertCanManageInventory();
+/** The place and the quantity of an arrival, checked before anything is written: the quantity in thousandths. */
+export async function checkReceipt(input: { location: string; quantity: string }): Promise<number> {
   await assertLocation(input.location);
   const quantityMilli = toScaled(input.quantity, 3);
   if (quantityMilli <= 0) throw invalid("The quantity must be above zero");
+  return quantityMilli;
+}
 
+/**
+ * Puts goods on the shelf inside a transaction that is already open, at the prices given: the inventory's own arrivals (priced by hand)
+ * and the purchases of the budget (priced by the budget, through the bridge) both end here. The item is an existing one or is created here;
+ * an existing one takes the brand and the model of the purchase it is missing.
+ */
+export async function receiveIn(
+  tx: Tx,
+  input: ReceiptOfPurchaseInput & { carSeasonId?: number },
+  quantityMilli: number,
+  priced: { prices: UnitPricesE4; make: { brand: string | null; model: string | null } | null },
+) {
+  await assertCarExists(tx, input.carSeasonId);
+  let item;
+  if (input.newItem) {
+    item = await insertItem(tx, input.newItem);
+  } else {
+    [item] = await tx.select().from(inventoryItem).where(eq(inventoryItem.id, input.itemId!));
+    if (!item) throw notFound("Item");
+    if (priced.make) item = await takeMakeFromPurchase(tx, item, priced.make);
+  }
+  const [movement] = await tx
+    .insert(stockMovement)
+    .values({
+      itemId: item.id,
+      kind: "receipt",
+      occurredOn: input.receivedOn,
+      quantity: fromScaled(quantityMilli, 3),
+      location: input.location,
+      spot: input.spot,
+      unitNet: fromScaled(priced.prices.net, 4),
+      unitGross: fromScaled(priced.prices.gross, 4),
+      unitTeam: fromScaled(priced.prices.team, 4),
+      carSeasonId: input.carSeasonId ?? null,
+      note: input.note ?? null,
+    })
+    .returning();
+  return { movement: movement!, item };
+}
+
+/**
+ * Puts goods from outside the budget on the shelf, priced by hand (a purchase of the budget arrives through the bridge to the budget,
+ * which prices it). The project it is for, if any, is kept by the bridge.
+ */
+export async function receive(input: z.infer<typeof receiveInput>) {
+  const actor = await assertCanManageInventory();
+  const quantityMilli = await checkReceipt(input);
   return runWrite(actor, async (tx) => {
-    let prices: UnitPricesE4;
-    let projectId = input.projectId ?? null;
-    let lineMake: { brand: string | null; model: string | null } | null = null;
-
-    if (input.lineId !== undefined) {
-      // Two arrivals of the same purchase at the same moment take turns: the second one then sees the first.
-      const [locked] = await tx.select({ id: budgetLine.id }).from(budgetLine).where(eq(budgetLine.id, input.lineId)).for("update");
-      if (!locked) throw notFound("Budget line");
-      const line = computeLines(await loadSnapshot()).find((l) => l.id === input.lineId);
-      const linePrices = line && linePricesE4(line);
-      if (!line || !linePrices) throw invalid("This line has not been bought yet: there is nothing to receive");
-      const remaining = line.arrival.boughtMilli - line.arrival.receivedMilli;
-      if (quantityMilli > remaining) {
-        throw conflict(remaining > 0 ? `Only ${fromScaled(remaining, 3)} are still to arrive for this line` : "Everything bought on this line has already arrived");
-      }
-      prices = linePrices;
-      projectId = line.projectId;
-      lineMake = { brand: line.brand, model: line.model };
-    } else {
-      prices = await typedPrices(input);
-    }
-    if (input.lineId === undefined && projectId !== null) await assertProject(tx, projectId);
-    await assertCarExists(tx, input.carSeasonId);
-
-    let item;
-    if (input.newItem) {
-      item = await insertItem(tx, input.newItem);
-    } else {
-      [item] = await tx.select().from(inventoryItem).where(eq(inventoryItem.id, input.itemId!));
-      if (!item) throw notFound("Item");
-      if (lineMake) item = await takeMakeFromLine(tx, item, lineMake);
-    }
-
-    const [movement] = await tx
-      .insert(stockMovement)
-      .values({
-        itemId: item.id,
-        kind: "receipt",
-        occurredOn: input.receivedOn,
-        quantity: fromScaled(quantityMilli, 3),
-        location: input.location,
-        spot: input.spot,
-        unitNet: fromScaled(prices.net, 4),
-        unitGross: fromScaled(prices.gross, 4),
-        unitTeam: fromScaled(prices.team, 4),
-        carSeasonId: input.carSeasonId ?? null,
-        note: input.note ?? null,
-      })
-      .returning();
-    const ties = { projectId, lineId: input.lineId ?? null };
-    await tieMovements(tx, [movement!.id], ties);
-    return { movement: answered(movement!, ties), item };
+    const prices = await typedPrices(input);
+    const projectId = input.projectId ?? null;
+    if (projectId !== null) await assertProject(tx, projectId);
+    const { movement, item } = await receiveIn(tx, input, quantityMilli, { prices, make: null });
+    await tieToProject(tx, [movement.id], projectId);
+    return { movement: answered(movement, { projectId }), item };
   });
 }
 
@@ -207,9 +170,9 @@ export async function addMovement(input: z.infer<typeof movementInput>) {
         note: input.note ?? null,
       })
       .returning();
-    const ties = { projectId: input.projectId ?? null };
-    await tieMovements(tx, [movement!.id], ties);
-    return answered(movement!, ties);
+    const projectId = input.projectId ?? null;
+    await tieToProject(tx, [movement!.id], projectId);
+    return answered(movement!, { projectId });
   });
 }
 
@@ -295,9 +258,8 @@ export async function build(input: z.infer<typeof buildInput>) {
         })),
       )
       .returning({ id: stockMovement.id });
-    const ties = { projectId: input.projectId };
-    await tieMovements(tx, [movement!.id, ...parts.map((p) => p.id)], ties);
-    return { movement: answered(movement!, ties), used: takes.length };
+    await tieToProject(tx, [movement!.id, ...parts.map((p) => p.id)], input.projectId);
+    return { movement: answered(movement!, { projectId: input.projectId }), used: takes.length };
   });
 }
 

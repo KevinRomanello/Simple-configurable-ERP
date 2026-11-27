@@ -10,6 +10,7 @@ import "./modules/treasury/treasury.contract";
 import "./modules/budget/budget.contract";
 import "./modules/inventory/inventory.contract";
 import "./bridges/treasury-budget/treasury-budget.contract";
+import "./bridges/inventory-budget/inventory-budget.contract";
 import { addModuleGate, appModulesRoutes } from "./platform/appmodules/appmodules.routes";
 import { addAuthHook, authRoutes } from "./platform/auth/auth.routes";
 import { createGoogleClient, type GoogleClient } from "./platform/auth/google";
@@ -30,6 +31,7 @@ import { settingsRoutes } from "./platform/settings/settings.routes";
 import { registryRoutes } from "./modules/registry/registry.routes";
 import { rolesyncRoutes } from "./bridges/registry-access/rolesync.routes";
 import { treasuryBudgetRoutes } from "./bridges/treasury-budget/treasury-budget.routes";
+import { inventoryBudgetRoutes } from "./bridges/inventory-budget/inventory-budget.routes";
 
 export interface AppOptions {
   /** Defaults to the values of the environment. */
@@ -99,6 +101,8 @@ export function buildApp(options: AppOptions = {}) {
       // a module and a bridge answer under their own name: /api/treasury/…, /api/treasury-budget/… (docs/moduli-architettura.md, §8)
       await api.register(cashRoutes, { prefix: "/treasury" });
       await api.register(treasuryBudgetRoutes, { prefix: "/treasury-budget" });
+      // PENDING and the projects still at /inventory/… until the next step moves them under /inventory-budget
+      await api.register(inventoryBudgetRoutes);
       await api.register(viewsRoutes);
       await api.register(settingsRoutes);
       await api.register(registryRoutes);

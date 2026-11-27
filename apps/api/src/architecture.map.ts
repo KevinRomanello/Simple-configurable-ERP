@@ -50,19 +50,5 @@ export const SCHEMA_FILES: Owner[] = ["platform", "budget", "treasury", "invento
  * step of the plan (G1–G6) has to untie; when it does, the line goes.
  */
 export const IMPORT_EXCEPTIONS: string[] = [
-  // the links between the inventory and the budget are tables of their bridge now (`receipt_line`, `movement_project`, `item_make_project`,
-  // G5 tappa 1): the inventory and the calculation still read and write them, until the bridge's code holds them (G5 tappa 3)
-  "modules/inventory/inventory.data → db/schema/inventory-budget",
-  "modules/inventory/items.service → db/schema/inventory-budget",
-  "modules/inventory/movements.service → db/schema/inventory-budget",
-  "modules/inventory/stats.service → db/schema/inventory-budget",
-  "snapshot → db/schema/inventory-budget",
-  // the inventory reads the projects and the lines of the budget (PENDING, the project of a movement, the statistics): bridge, G5
-  "modules/inventory/items.service → db/schema/budget",
-  "modules/inventory/movements.service → db/schema/budget",
-  "modules/inventory/movements.service → snapshot",
-  "modules/inventory/stats.service → db/schema/budget",
-  "modules/inventory/stats.service → snapshot",
-  // the calculation reads what arrived in the inventory: a port, G6
-  "snapshot → db/schema/inventory",
+  // empty since G5 tappa 3 (27 November 2026): every owner reaches the others only through their public files and the contracts of the core
 ];

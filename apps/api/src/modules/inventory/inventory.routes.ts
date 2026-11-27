@@ -13,8 +13,8 @@ import {
   createLocation, createUnit, deleteLocation, deleteUnit, getCategoryFields, listLocations, listUnits, orderLocations, readLists, renameUnit,
   setCategoryFields, setUncategorizedFields, updateLocation,
 } from "./lists.service";
-import { addMovement, build, listPending, receive, undoMovement } from "./movements.service";
-import { getStats, listProjects } from "./stats.service";
+import { addMovement, build, receive, undoMovement } from "./movements.service";
+import { getStats } from "./stats.service";
 import { addParam, createType, deleteParam, deleteType, listTypes, orderParams, updateParam, updateType } from "./types.service";
 
 const itemParam = z.object({ id });
@@ -85,7 +85,6 @@ export async function inventoryRoutes(app: FastifyInstance) {
   });
 
   // goods arriving and moving
-  app.get("/inventory/pending", () => listPending());
   app.post("/inventory/receive", async (request, reply) => reply.code(201).send(await receive(receiveInput.parse(request.body))));
   app.post("/inventory/movements", async (request, reply) => reply.code(201).send(await addMovement(movementInput.parse(request.body))));
 
@@ -170,8 +169,6 @@ export async function inventoryRoutes(app: FastifyInstance) {
     await orderLocations(orderInput.parse(request.body).ids);
     return reply.code(204).send();
   });
-
-  app.get("/inventory/projects", () => listProjects());
 
   app.get("/inventory/stats", (request) => {
     const query = statsQuery.parse(request.query);

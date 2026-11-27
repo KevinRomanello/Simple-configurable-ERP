@@ -2,13 +2,17 @@
 // can change inside without touching them. It grows with the steps of the plan (the rest of the budget in G6).
 
 /** What the budget asks of the others, and tells them (defined in `budget.ports.ts`, which the budget's own services use too). */
-export { inflowDeleting, inflowReceipts, linePayments, outsideBudgetOf, registerBank, registerSponsorship } from "./budget.ports";
+export { inflowDeleting, inflowReceipts, linePayments, lineReceipts, outsideBudgetOf, registerBank, registerSponsorship } from "./budget.ports";
 export type { InflowReceipt, RegisterIncome } from "./budget.ports";
 
 // --- what the budget gives --------------------------------------------------------------------------
 
 /** The lines of a season as the calculation sees them, with what each costs the team and how much is paid (TO PAY and the payments of the register). */
 export { computedLines } from "./budget.service";
+/** A season as the calculation sees it: its lines, its projects and the areas. */
+export { computedSeason } from "./budget.service";
+/** The projects with these ids, with their names; the car of each line; and the lock two arrivals of one purchase take turns on. */
+export { lineCars, lockLine, projectsByIds, projectsOfSeason } from "./budget.service";
 /** The season each of these lines is in, by line. */
 export { seasonsOfLines } from "./budget.service";
 /** The name (the item) of each of these lines, by line. */

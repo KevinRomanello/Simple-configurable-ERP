@@ -439,8 +439,8 @@ describe("statistics", () => {
       version: 1,
       figures: { actual: { quantity: 10, unitNetCost: "5", sponsorType: "none", vatRate: 22, purchaseDate: "2026-10-01" } },
     });
-    const received = await api.post("/api/inventory/receive", {
-      lineId: line.id, newItem: { name: "Sensor", category: "Components" }, quantity: "4", receivedOn: "2026-10-05", location: "s1-r2",
+    const received = await api.post(`/api/inventory-budget/pending/${line.id}/receive`, {
+      newItem: { name: "Sensor", category: "Components" }, quantity: "4", receivedOn: "2026-10-05", location: "s1-r2",
     });
     await api.post("/api/inventory/receive", {
       newItem: { name: "Glue", category: "Consumable" }, quantity: "2", unitNet: "10", vatRate: 22, receivedOn: "2026-10-06", location: "s1-r1",

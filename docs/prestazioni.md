@@ -87,6 +87,8 @@ Millisecondi, mediana di 15 richieste, su questo computer (Docker su Mac). **I n
 
 - **G5, tappe 1 e 2 (i legami con il budget in tabelle del ponte; le liste dell'inventario nel suo modulo):** con il computer libero (la misura dei contratti di nuovo a 107–123 ns), tutte le risposte identiche alla baseline di fine G4 tranne una voluta: `core: settings` (`GET /api/settings`) non ha più unità, posti e campi, che stanno nella pagina nuova `inventory: lists of Settings` (`GET /api/inventory/lists`, 1,2 ms alla taglia reale). `core: units` e `core: places` si misurano ai nuovi indirizzi (`/api/inventory/units`, `/locations`) con lo stesso nome, e rispondono uguali. Tempi dentro il ±10% in tre corse; l'elenco degli articoli alla taglia reale +7…+12% (+0,5–1 ms: le due letture dei legami dei movimenti), sotto 1 ms. Prima, con il computer occupato, tutte le pagine erano al +30…+60% e la misura dei contratti a 145–195 ns: quelle corse non valgono.
 
+- **G5, tappa 3 (il ponte inventario×budget):** tutte le risposte identiche (tranne `core: settings`, cambiata apposta nella tappa 2), tempi dentro il rumore in tre corse. Lo snapshot chiede ARRIVED a una porta: il ponte legge i suoi legami e chiede all'inventario quantità e date dei movimenti (una lista di id come un solo parametro), e lo snapshot resta com'era (-5…+1%). L'elenco degli articoli alla taglia reale +10…+12%, cioè 0,8–0,9 ms: le due letture dei legami dei movimenti, sotto la soglia di 1 ms.
+
 ## 5. La regola per i passi della fase G
 
 Alla fine di **ogni passo** (G1–G8) si rilancia il benchmark e si confronta con la baseline:

@@ -52,12 +52,13 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   │       │   └── health/
 │   │       ├── bridges/
 │   │       │   ├── registry-access/  # il ponte: i ruoli dell'ERP calcolati dalle anagrafiche (anagrafiche.md, §9); risponde sotto /api/registry-access
-│   │       │   └── treasury-budget/  # il ponte: ciò che ha bisogno del registro e del budget insieme (TO PAY, righe pagate, inflow ricevuti, area ADMINISTRATION, Voci di partenza, cancellazione scelta); risponde sotto /api/treasury-budget
+│   │       │   ├── treasury-budget/  # il ponte: ciò che ha bisogno del registro e del budget insieme (TO PAY, righe pagate, inflow ricevuti, area ADMINISTRATION, Voci di partenza, cancellazione scelta); risponde sotto /api/treasury-budget
+│   │       │   └── inventory-budget/ # il ponte: ciò che ha bisogno dell'inventario e del budget insieme (PENDING, l'arrivo per una riga, ARRIVED, il progetto di un movimento e di «Make new», le statistiche per progetto e area)
 │   │       └── modules/          # ognuno ha un <nome>.contract.ts (budget, inventory, cash): ciò che risponde al nucleo e ascolta da lui
 │   │           ├── budget/       # progetti, righe e il foglio di un'area
 │   │           ├── funds/        # fondi e contratti
 │   │           ├── suppliers/
-│   │           ├── inventory/    # articoli, arrivi, movimenti, componenti (distinte), statistiche, immagini
+│   │           ├── inventory/    # articoli, arrivi fuori budget, movimenti, componenti (distinte), statistiche, immagini, unità, posti e campi per categoria; inventory.public.ts è ciò che il ponte ne usa
 │   │           ├── cashflow/     # ingressi del team e BANK (il BANK lo chiede al registro con una porta, `budget.ports.ts`: senza registro è quello scritto a mano); budget.public.ts è ciò che il ponte ne usa
 │   │           ├── treasury/     # il registro di cassa del fondo del team, le sue liste e l'import dell'Excel (era `cash`), sotto /api/treasury; treasury.public.ts è ciò che gli altri ne usano
 │   │           ├── registry/     # le anagrafiche: tabelle, campi, viste, record, file, moduli, webhook (anagrafiche.md)
@@ -223,7 +224,8 @@ Prefisso `/api`. Tutto richiede un utente che ha fatto il login, tranne `/health
 | `GET /auth/config`, `/auth/login`, `/auth/callback`, `/auth/dev-login`, `POST /auth/logout` | `authRoutes` (auth)                                                                                | pubblici; dev-login esiste solo con `DEV_LOGIN_EMAIL`              |
 | `GET /me`                                                                                           | `getCurrentUser`, `permissionsOf` (auth)                                                         | chi sei, ruolo, aree, cosa puoi fare                                 |
 | `GET /users`, `PATCH /users/:id`                                                                  | `listUsers`, `updateUser` (users)                                                                | solo admin: ruolo, attivo, aree                                      |
-| `GET/POST/PATCH/DELETE /inventory/items…`, `/inventory/pending`, `/inventory/receive`, `/inventory/movements`, `/inventory/components…`, `/inventory/stats`, `/inventory/types…`, `/inventory/params/:id` | `modules/inventory` | tutto l'inventario: [inventario.md](inventario.md#11-permessi-api-schermate) |
+| `GET/POST/PATCH/DELETE /inventory/items…`, `/inventory/receive` (fuori budget), `/inventory/movements`, `/inventory/components…`, `/inventory/stats`, `/inventory/types…`, `/inventory/params/:id` | `modules/inventory` | tutto l'inventario: [inventario.md](inventario.md#11-permessi-api-schermate) |
+| `GET /inventory/pending`, `POST /inventory-budget/pending/:lineId/receive`, `GET /inventory/projects` | `bridges/inventory-budget` | PENDING, l'arrivo per una riga del budget (prezzi, progetto e macchina della riga), i progetti per i moduli dell'inventario; PENDING e i progetti passano sotto `/api/inventory-budget/` nella tappa 4 di G5 ([inventario.md](inventario.md)) |
 | `GET /audit?table=&rowId=&actorId=&before=&limit=`                                                  | `listHistory` (audit)                                                                              | admin e pm: storico, più recente prima, paginato                    |
 | `GET /lookups/categories`, `/priorities`, `/vat-rates`, `/vat-rules`, `/settings`           | `listCategories`, `listPriorities`, `listVatRates`, `getVatRules`, `getSettings` (lookups) | HARDCODED (le priorità sono fisse)                                  |
 | `GET /seasons`, `GET /seasons/current`, `POST /seasons`, `PATCH /seasons/:id`                       | `listSeasons`, `getCurrentSeason`, `createSeason`, `updateSeason` (seasons)                        | le stagioni con la loro macchina; scritture solo admin ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)) |

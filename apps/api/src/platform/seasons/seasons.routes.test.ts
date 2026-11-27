@@ -248,8 +248,8 @@ describe("the inventory of a season", () => {
     const { id } = await projectIn({});
     const line = (await api.post(`/api/projects/${id}/lines`, { item: "S", figures: { actual: bought("2026-10-01") } })).body;
     const old = await newSeason(2025, "EG-25");
-    const refused = await api.post("/api/inventory/receive", {
-      lineId: line.id, newItem: { name: "S", category: "Components", unit: "pcs" }, quantity: "1", receivedOn: "2026-10-05", location: "s1-r1", carSeasonId: old.id,
+    const refused = await api.post(`/api/inventory-budget/pending/${line.id}/receive`, {
+      newItem: { name: "S", category: "Components", unit: "pcs" }, quantity: "1", receivedOn: "2026-10-05", location: "s1-r1", carSeasonId: old.id,
     });
     expect(refused.status).toBe(400);
   });

@@ -1,11 +1,11 @@
-import type { AreaInput, OutsideBudget } from "@erp/calc";
+import type { AreaInput, OutsideBudget, ReceiptInput } from "@erp/calc";
 import { defineEvent, definePort } from "../../core/contracts";
 import type { User } from "../../platform/auth/auth.service";
 
 // What the budget asks of the others (docs/moduli-architettura.md, §5), defined here and not in `budget.public.ts` so that the budget's own services can use
 // them without a cycle. The budget works alone:
 // every port has a plain answer for when nobody fills it (no register: the BANK is written by hand, nothing is paid, nothing is outside
-// the budget). The bridge to the treasury fills them when both are on.
+// the budget, nothing has arrived). The bridges to the treasury and to the inventory fill them when both modules are on.
 
 // --- what the budget asks (the answers come from the bridge to the treasury) ----------------------
 
@@ -42,3 +42,8 @@ export const outsideBudgetOf = definePort<{ season: { startsOn: string; endsOn: 
 
 /** An inflow is about to be deleted from CASH FLOW: whoever tied it to something may refuse, by throwing (the treasury keeps the received ones). */
 export const inflowDeleting = defineEvent<{ inflowId: number; actor: User }>("inflowDeleting", "feature");
+
+// --- what the budget asks the inventory (the answer comes from the bridge to the inventory) --------------
+
+/** How much of each line has arrived on the shelf, and the day of the last receipt: nothing has arrived when there is no inventory. */
+export const lineReceipts = definePort<Record<string, never>, ReceiptInput[]>("lineReceipts", "budget", () => []);

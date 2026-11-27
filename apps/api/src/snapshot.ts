@@ -1,13 +1,11 @@
 import { addDays, type Figures, type Phase, type Snapshot } from "@erp/calc";
-import { asc, eq, max, sql } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { contracts } from "./core/contracts";
 import { toCents, toScaled } from "./core/money";
 import { db } from "./db/client";
 import { budgetLine, fund, fundContract, lineFigures, lineFund, project, supplier } from "./db/schema/budget";
-import { stockMovement } from "./db/schema/inventory";
-import { receiptLine } from "./db/schema/inventory-budget";
 import { area } from "./db/schema/platform";
-import { linePayments, outsideBudgetOf } from "./modules/budget/budget.ports";
+import { linePayments, lineReceipts, outsideBudgetOf } from "./modules/budget/budget.ports";
 import { bankOf, loadInflows } from "./modules/cashflow/cashflow.service";
 import { loadLookups } from "./platform/lookups/lookups.service";
 import { currentActive } from "./platform/platform.public";
@@ -75,12 +73,8 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
       // what the register paid of the lines (nothing, without the bridge to the treasury): always read (the budget and TO PAY say it); it
       // changes the forecast only when the BANK is the register's (the payments are in it), which `lateFrom` below says
       const payments = await contracts.ask(linePayments, currentActive(), tx, { lineIds: lines.map(({ line }) => line.id) });
-      const arrived = await tx
-        .select({ lineId: receiptLine.lineId, quantity: sql<string>`sum(${stockMovement.quantity})`, lastOn: max(stockMovement.occurredOn) })
-        .from(receiptLine)
-        .innerJoin(stockMovement, eq(stockMovement.id, receiptLine.movementId))
-        .where(eq(stockMovement.kind, "receipt"))
-        .groupBy(receiptLine.lineId);
+      // what arrived of each line, from the inventory (nothing, without the bridge to the inventory)
+      const arrived = await contracts.ask(lineReceipts, currentActive(), tx, {});
 
       // what the register says is outside the budget, as the lines of the derived area (none when the area is not there)
       const areaInputs = areas.map((a) => ({ id: a.id, code: a.code, name: a.name, position: a.position, derived: a.derived }));
@@ -139,7 +133,7 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
           sponsorship: i.sponsorship,
         })),
         suppliers: suppliers.map((s) => ({ id: s.id, name: s.name })),
-        receipts: [...arrived.map((r) => ({ lineId: r.lineId, quantityMilli: toScaled(r.quantity, 3), lastOn: r.lastOn })), ...(outside?.receipts ?? [])],
+        receipts: [...arrived, ...(outside?.receipts ?? [])],
         registerIncome: outside?.income ?? [],
         bank: bank ? { amountCents: bank.amountCents, asOfDate: bank.asOfDate } : null,
         payments,

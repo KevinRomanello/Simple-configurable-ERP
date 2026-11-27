@@ -152,7 +152,10 @@ describe("who owns what, and who may use it", () => {
 /** What each public file shows to the others. A name added or taken away fails the test above, so that it is a choice. */
 const PUBLIC_NAMES: Record<string, string[]> = {
   "modules/budget/budget.public": [
-    "InflowFact", "InflowReceipt", "RegisterIncome", "assertCanChangeInflows", "bankOf", "computedLines", "deleteInflowsIn", "inflowDeleting", "inflowReceipts", "inflowsByIds", "inflowsOfSeason", "lineLabels", "linePayments", "outsideBudgetOf", "registerBank", "registerSponsorship", "seasonsOfLines",
+    "InflowFact", "InflowReceipt", "RegisterIncome", "assertCanChangeInflows", "bankOf", "computedLines", "computedSeason", "deleteInflowsIn", "inflowDeleting", "inflowReceipts", "inflowsByIds", "inflowsOfSeason", "lineCars", "lineLabels", "linePayments", "lineReceipts", "lockLine", "outsideBudgetOf", "projectsByIds", "projectsOfSeason", "registerBank", "registerSponsorship", "seasonsOfLines",
+  ],
+  "modules/inventory/inventory.public": [
+    "MovementFact", "MovementTie", "ReceiptOfPurchaseInput", "StatsBudget", "assertCanManageInventory", "checkReceipt", "itemIdentities", "keepMakeProject", "keepMovementProject", "knownProjects", "lineCarsOfReceipts", "makeProjects", "movementTies", "movementsByIds", "receiptOfPurchaseInput", "receiveIn", "statsBudget",
   ],
   "modules/treasury/treasury.public": [
     "CreateEntryInput", "DayRange", "EntryFact", "EntryLink", "OutsideFact", "assertCanManageCash", "assertListed", "deleteEntryIn", "entriesByIds", "entryChanging", "entryLinks", "insertEntry", "lastPaymentMethodId", "moneyInBetween", "outsideBetween", "paymentsBetween", "registerBalanceAt", "sponsorshipMoneyBetween",

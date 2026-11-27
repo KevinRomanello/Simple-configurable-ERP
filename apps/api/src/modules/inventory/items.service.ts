@@ -2,16 +2,17 @@ import {
   bom, byItem, costContext, onHandMilli, priceHistory, receivedMilli, shelfPrice, stockRows,
   type Bom, type PricePoint, type StockRow,
 } from "@erp/calc";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { contracts, type Db } from "../../core/contracts";
 import { conflict, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { today } from "../../core/today";
 import { db } from "../../db/client";
-import { project } from "../../db/schema/budget";
 import { componentPart, inventoryItem, itemDatasheet, itemImage, stockMovement } from "../../db/schema/inventory";
-import { itemMakeProject, movementProject, receiptLine } from "../../db/schema/inventory-budget";
 import { appUser, area } from "../../db/schema/platform";
 import { listCategories } from "../../platform/lookups/lookups.service";
+import { currentActive } from "../../platform/platform.public";
+import { keepMakeProject, knownProjects, makeProjects, movementTies } from "./inventory.ports";
 import { assertCanManageInventory } from "./access";
 import { listLocations, listUnits } from "./lists.service";
 import { IMAGE_LIMITS, type CreateItemInput, type ParamFilter, type PriceQuery, type UpdateItemInput } from "./inventory.schema";
@@ -26,7 +27,7 @@ type MakeDefaults = { makeProjectId?: number | null; makeTo?: string | null; mak
 async function checkMakeDefaults(origin: "bought" | "made", input: MakeDefaults) {
   const set = input.makeProjectId != null || input.makeTo != null || (input.makeToSpot ?? "") !== "";
   if (set && origin !== "made") throw invalid("Only an item made by the team has what it takes to make some");
-  if (input.makeProjectId != null && (await db.select({ id: project.id }).from(project).where(eq(project.id, input.makeProjectId))).length === 0) {
+  if (input.makeProjectId != null && (await contracts.ask(knownProjects, currentActive(), db, { ids: [input.makeProjectId] })).length === 0) {
     throw invalid(`Unknown project ${input.makeProjectId}`);
   }
   const places = (await listLocations()).map((l) => l.code);
@@ -65,21 +66,20 @@ async function assertNotTaken(tx: Pick<Tx, "select">, item: Identity, exceptId?:
   if (found) throw conflict(`There is already an item "${itemLabel(found)}" with this name, brand and model or this code`);
 }
 
-/** The project «Make new» starts from, for these items (or every item): only the made items that have one are there. */
-export async function makeProjectsOf(reader: Pick<Tx, "select">, itemIds?: number[]): Promise<Map<number, number>> {
-  const rows = itemIds === undefined ? await reader.select().from(itemMakeProject) : itemIds.length === 0 ? [] : await reader.select().from(itemMakeProject).where(inArray(itemMakeProject.itemId, itemIds));
+/** The project «Make new» starts from, for these items (or every item), from whoever keeps it (the bridge to the budget; none without it). */
+export async function makeProjectsOf(reader: Db, itemIds?: number[]): Promise<Map<number, number>> {
+  const rows = itemIds !== undefined && itemIds.length === 0 ? [] : await contracts.ask(makeProjects, currentActive(), reader, itemIds === undefined ? {} : { itemIds });
   return new Map(rows.map((r) => [r.itemId, r.projectId]));
 }
 
 /** An item as its pages and its writes answer it: its row and the project «Make new» starts from. */
-export async function withMakeProject<T extends { id: number }>(reader: Pick<Tx, "select">, item: T): Promise<T & { makeProjectId: number | null }> {
+export async function withMakeProject<T extends { id: number }>(reader: Db, item: T): Promise<T & { makeProjectId: number | null }> {
   return { ...item, makeProjectId: (await makeProjectsOf(reader, [item.id])).get(item.id) ?? null };
 }
 
-/** Sets (or, with null, takes away) the project «Make new» starts from. */
+/** Sets (or, with null, takes away) the project «Make new» starts from: whoever keeps it does (the bridge to the budget). */
 async function setMakeProject(tx: Tx, itemId: number, projectId: number | null) {
-  await tx.delete(itemMakeProject).where(eq(itemMakeProject.itemId, itemId));
-  if (projectId !== null) await tx.insert(itemMakeProject).values({ itemId, projectId });
+  await contracts.ask(keepMakeProject, currentActive(), tx, { itemId, projectId });
 }
 
 /** Creates an item (used by the receiving flow too, inside its own transaction). */
@@ -300,15 +300,15 @@ export async function getItem(itemId: number, query: PriceQuery): Promise<ItemDe
     .where(eq(itemDatasheet.itemId, itemId))
     .orderBy(itemDatasheet.id);
   const [image] = await db.select({ id: itemImage.itemId }).from(itemImage).where(eq(itemImage.itemId, itemId));
-  const rows = await db
-    .select({ movement: stockMovement, projectName: project.name, budgetLineId: receiptLine.lineId })
-    .from(stockMovement)
-    .leftJoin(movementProject, eq(movementProject.movementId, stockMovement.id))
-    .leftJoin(project, eq(movementProject.projectId, project.id))
-    .leftJoin(receiptLine, eq(receiptLine.movementId, stockMovement.id))
-    .where(eq(stockMovement.itemId, itemId))
-    .orderBy(desc(stockMovement.occurredOn), desc(stockMovement.id))
-    .limit(200);
+  const moves = await db.select().from(stockMovement).where(eq(stockMovement.itemId, itemId)).orderBy(desc(stockMovement.occurredOn), desc(stockMovement.id)).limit(200);
+  // the project and the purchase of each movement, from whoever ties them (the bridge to the budget)
+  const ties = new Map((await contracts.ask(movementTies, currentActive(), db, { movementIds: moves.map((m) => m.id) })).map((t) => [t.movementId, t]));
+  const projectIds = [...new Set([...ties.values()].flatMap((t) => (t.projectId === null ? [] : [t.projectId])))];
+  const projectNames = new Map(projectIds.length === 0 ? [] : (await contracts.ask(knownProjects, currentActive(), db, { ids: projectIds })).map((p) => [p.id, p.name]));
+  const rows = moves.map((movement) => {
+    const tie = ties.get(movement.id);
+    return { movement, projectName: tie?.projectId == null ? null : (projectNames.get(tie.projectId) ?? null), budgetLineId: tie?.lineId ?? null };
+  });
   const made = data.parts.some((p) => p.componentId === itemId);
   const itemsById = new Map(data.items.map((i) => [i.id, i]));
 

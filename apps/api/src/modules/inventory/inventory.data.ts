@@ -1,12 +1,15 @@
 import type { InventoryData, ItemInput, MovementInput, PartInput } from "@erp/calc";
 import { eq } from "drizzle-orm";
+import { contracts, type Db } from "../../core/contracts";
 import { toScaled } from "../../core/money";
+import { anyOf } from "../../core/sql";
 import type { Tx } from "../../core/tx";
 import { db } from "../../db/client";
+import { currentActive } from "../../platform/platform.public";
+import { movementTies, type MovementTie } from "./inventory.ports";
 import { componentPart, inventoryItem, stockMovement } from "../../db/schema/inventory";
-import { movementProject, receiptLine } from "../../db/schema/inventory-budget";
 
-type Reader = Pick<typeof db, "select">;
+type Reader = Db;
 
 /** The name, brand and model written the way a person reads them: «Bearing · SKF · 6204». */
 export const itemLabel = (item: { name: string; brand: string | null; model: string | null }) => [item.name, item.brand, item.model].filter(Boolean).join(" · ");
@@ -20,23 +23,16 @@ export function itemInput(row: typeof inventoryItem.$inferSelect): ItemInput {
 }
 
 /** What a movement is tied to on the budget's side: the project it was for and the purchase it completes. */
-export type MovementTies = { projectId: number | null; lineId: number | null };
-const NO_TIES: MovementTies = { projectId: null, lineId: null };
+type Ties = Pick<MovementTie, "projectId" | "lineId">;
+const NO_TIES: Ties = { projectId: null, lineId: null };
 
-/** The ties of every movement that has one, by movement (two small tables, read whole). */
-export async function movementTies(reader: Reader): Promise<Map<number, MovementTies>> {
-  const [projects, lines] = await Promise.all([
-    reader.select({ movementId: movementProject.movementId, projectId: movementProject.projectId }).from(movementProject),
-    reader.select({ movementId: receiptLine.movementId, lineId: receiptLine.lineId }).from(receiptLine),
-  ]);
-  const ties = new Map<number, MovementTies>();
-  for (const p of projects) ties.set(p.movementId, { ...(ties.get(p.movementId) ?? NO_TIES), projectId: p.projectId });
-  for (const l of lines) ties.set(l.movementId, { ...(ties.get(l.movementId) ?? NO_TIES), lineId: l.lineId });
-  return ties;
+/** The ties of every movement that has one, by movement, from whoever keeps them (the bridge to the budget; none without it). */
+async function tiesByMovement(reader: Db): Promise<Map<number, Ties>> {
+  return new Map((await contracts.ask(movementTies, currentActive(), reader, {})).map((t) => [t.movementId, t]));
 }
 
 /** The database row of a movement as the calculation engine reads it (thousandths, ten-thousandths), with what it is tied to. */
-export function movementInput(row: typeof stockMovement.$inferSelect, ties: MovementTies = NO_TIES): MovementInput {
+export function movementInput(row: typeof stockMovement.$inferSelect, ties: Ties = NO_TIES): MovementInput {
   const price = (value: string | null) => (value === null ? null : toScaled(value, 4));
   return {
     id: row.id,
@@ -66,7 +62,7 @@ export async function loadInventory(reader: Reader = db): Promise<InventoryData>
     reader.select().from(inventoryItem),
     reader.select().from(stockMovement),
     reader.select().from(componentPart),
-    movementTies(reader),
+    tiesByMovement(reader),
   ]);
   return { items: items.map(itemInput), movements: movements.map((m) => movementInput(m, ties.get(m.id))), parts: parts.map(partInput) };
 }
@@ -75,4 +71,30 @@ export async function loadInventory(reader: Reader = db): Promise<InventoryData>
 export async function movementsOf(tx: Tx, itemId: number): Promise<MovementInput[]> {
   // what the stock of a place is does not depend on the project or the purchase: they are left out
   return (await tx.select().from(stockMovement).where(eq(stockMovement.itemId, itemId))).map((m) => movementInput(m));
+}
+
+// --- what the bridge to the budget reads of the inventory (inventory.public.ts) ------------------------
+
+/** A movement of the shelf as a plain fact. */
+export interface MovementFact {
+  id: number;
+  itemId: number;
+  kind: string;
+  on: string;
+  quantityMilli: number;
+}
+
+/** The movements with these ids (the ones that exist). */
+export async function movementsByIds(reader: Db, ids: number[]): Promise<MovementFact[]> {
+  if (ids.length === 0) return [];
+  const rows = await reader
+    .select({ id: stockMovement.id, itemId: stockMovement.itemId, kind: stockMovement.kind, on: stockMovement.occurredOn, quantity: stockMovement.quantity })
+    .from(stockMovement)
+    .where(anyOf(stockMovement.id, ids));
+  return rows.map((r) => ({ id: r.id, itemId: r.itemId, kind: r.kind, on: r.on, quantityMilli: toScaled(r.quantity, 3) }));
+}
+
+/** Every item's name, brand and model: what an arrival of a purchase is matched to. */
+export async function itemIdentities(reader: Db): Promise<{ id: number; name: string; brand: string | null; model: string | null }[]> {
+  return reader.select({ id: inventoryItem.id, name: inventoryItem.name, brand: inventoryItem.brand, model: inventoryItem.model }).from(inventoryItem);
 }
