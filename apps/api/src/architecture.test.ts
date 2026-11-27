@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -164,3 +164,48 @@ const PUBLIC_NAMES: Record<string, string[]> = {
   ],
   "modules/registry/registry.public": ["PersonInRegistry", "RegistryListener", "RegistryUseCheck", "groupsOfRegistry", "onRegistryChange", "onRegistryUse", "peopleInViews"],
 };
+
+// --- the wiring of the contracts and the one map of the bridges ------------------------------------------------------------------
+
+/** The relative imports of a file, as paths from `apps/api/src`. */
+const importsOf = (f: (typeof withOwner)[number]) =>
+  f.imports.filter((spec) => spec.startsWith(".")).map((spec) => slash(relative(srcRoot, resolve(dirname(join(root, f.file)), spec))));
+
+/** The bridges of the site, one folder each (apps/web/src/bridges/<key>/index.tsx, its manifest). */
+const siteBridges = join(root, "apps/web/src/bridges");
+
+/** A map of the bridges with the modules of each in order, to compare two of them. */
+const mapOf = (bridges: Partial<Record<string, string[]>>) => Object.fromEntries(Object.entries(bridges).map(([key, needs]) => [key, [...needs!].sort()]));
+
+/** The bridges as the server declares them in their contracts (read through wiring.ts, as the server reads them). */
+async function declaredBridges() {
+  await import("./wiring");
+  const { listBridges } = await import("./platform/appmodules/appmodules.service");
+  return mapOf(Object.fromEntries(listBridges().map((b) => [b.key, b.needs])));
+}
+
+describe("the wiring of the contracts and the map of the bridges", () => {
+  it("reads every contract in wiring.ts, and nowhere else: a contract that nobody reads does nothing, silently", () => {
+    const contracts = withOwner.filter((f) => f.rel.endsWith(".contract")).map((f) => f.rel).sort();
+    expect(importsOf(withOwner.find((f) => f.rel === "wiring")!).sort()).toEqual(contracts);
+    const elsewhere = withOwner.filter((f) => f.rel !== "wiring").flatMap((f) => importsOf(f).filter((t) => t.endsWith(".contract")).map((t) => `${f.rel} → ${t}`));
+    expect(elsewhere).toEqual([]);
+  });
+
+  it("has one map of the bridges: the one of these rules is the one the server declares", async () => {
+    expect(mapOf(BRIDGES)).toEqual(await declaredBridges());
+    const { listModuleDefs } = await import("./platform/appmodules/appmodules.service");
+    expect(listModuleDefs().map((m) => m.key).sort()).toEqual(Object.keys(FOLDER_OWNERS).sort());
+  });
+
+  // the site is not in the API's container (docker-compose mounts only the server): this part runs where the whole repository is, as in CI
+  it.skipIf(!existsSync(siteBridges))("and the bridges of the site join the same modules as the server's of the same name", async () => {
+    const declared = await declaredBridges();
+    for (const folder of readdirSync(siteBridges).filter((n) => statSync(join(siteBridges, n)).isDirectory())) {
+      const manifest = readFileSync(join(siteBridges, folder, "index.tsx"), "utf8");
+      const key = /\bkey:\s*"([\w-]+)"/.exec(manifest)?.[1];
+      const needs = [.../needs:\s*\[([^\]]*)\]/.exec(manifest)?.[1]?.matchAll(/"([\w-]+)"/g) ?? []].map((m) => m[1]!);
+      expect({ folder, key, needs: [...needs].sort() }).toEqual({ folder, key: folder, needs: declared[folder] });
+    }
+  });
+});

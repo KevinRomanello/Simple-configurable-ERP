@@ -45,10 +45,10 @@ Lo spegnimento va nello storico come ogni altra modifica (tabella `app_module`).
 
 ## 4. Come si aggiunge un modulo
 
-1. **Nel server:** la cartella `apps/api/src/modules/<chiave>/` con i suoi servizi e le sue rotte, registrate in `app.ts` sotto `/api/<chiave>`; il suo `<chiave>.contract.ts` con `moduleInfo` (e le sue spunte, i suoi permessi, i nomi per lo storico), importato in `app.ts`; il suo `<chiave>.public.ts` con ciò che gli altri possono usare; le sue tabelle in `db/schema/<chiave>.ts`. Una riga in `architecture.map.ts` (chi possiede la cartella e lo schema).
+1. **Nel server:** la cartella `apps/api/src/modules/<chiave>/` con i suoi servizi e le sue rotte, scritte **senza** il prefisso e registrate in `app.ts` nell'elenco `owned` sotto la sua chiave (`/api/<chiave>`); il suo `<chiave>.contract.ts` con `moduleInfo` (e le sue spunte, i suoi permessi, i nomi per lo storico), letto in `wiring.ts` (l'unico posto: lo controlla la prova di architettura); il suo `<chiave>.public.ts` con ciò che gli altri possono usare; le sue tabelle in `db/schema/<chiave>.ts`. Una riga in `architecture.map.ts` (chi possiede la cartella e lo schema).
 2. **Nel sito:** la cartella `apps/web/src/modules/<chiave>/` con `index.tsx` (il manifesto: pagine, gruppi e voci del menù, sezioni di Settings, prima pagina), `api.ts`, `types.ts`, e se serve `slots.ts` e `public.ts`; una riga in `MANIFESTS` (`manifests.ts`) e, se ha una prima pagina, nell'ordine di `homeOf` (`platform/home.tsx`).
 3. **Se ha bisogno di un altro modulo,** quel che serve a tutti e due va in un **ponte**: nel server `apps/api/src/bridges/<a>-<b>/` con il suo contratto (`bridgeInfo` con `needs`, e le porte che riempie); nel sito `apps/web/src/bridges/<a>-<b>/index.tsx` con `needs` e i `fills` dei punti di aggancio dei due moduli.
-4. **Prove:** le sue letture nella prova delle combinazioni (`combinations.routes.test.ts`: senza, la prova non passa) e le sue voci nei manifesti (`manifests.test.ts` prova da sé tutte le combinazioni).
+4. **Prove:** le sue letture nella prova delle combinazioni (`combinations.routes.test.ts`: senza, la prova non passa) e le sue voci nei manifesti (`manifests.test.ts` prova da sé tutte le combinazioni). Un ponte nuovo va anche in `BRIDGES` di `architecture.map.ts`, che deve dire gli stessi moduli del suo `bridgeInfo` e del suo manifesto nel sito (la prova di architettura li confronta); `routes.test.ts` controlla che il modulo o il ponte risponda solo sotto il suo nome.
 
 Non serve nessuna migrazione per gli interruttori.
 

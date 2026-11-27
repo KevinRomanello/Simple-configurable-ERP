@@ -45,10 +45,10 @@ describe.skipIf(!existsSync(REAL))("the financial statement against the real she
     const entries = entriesOf(book.getWorksheet("movimenti cassa e banca")!);
     expect(entries.length).toBeGreaterThan(500);
 
-    // the layout is a function of the API, and the module that has it reads the database settings when it is loaded: this
+    // the layout is a function of the API (the treasury's, since the modules of G), and the module that has it reads the database settings when it is loaded: this
     // test never asks the database for anything, so a made-up address is enough (the CI has none, and no sheet to read)
     process.env.DATABASE_URL ??= "postgres://unused@localhost:5432/unused";
-    const { getStatementLayout } = await import("@erp/api/lookups");
+    const { getStatementLayout } = await import("@erp/api/statement");
     const rows = financialStatement(entries, await getStatementLayout());
     const compared: number[] = [];
     for (const row of rows) {

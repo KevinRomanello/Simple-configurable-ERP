@@ -2,7 +2,7 @@ import { contracts } from "../../core/contracts";
 import { moduleInfo } from "../../platform/platform.public";
 
 // How the registry presents itself to the core (docs/moduli-architettura.md, §8): its switch in Settings › App › Modules and its addresses,
-// /api/registry/… (the public forms and the services' too). It is read when the server starts (app.ts).
+// /api/registry/… (the public forms and the services' too). It is read when the server starts (wiring.ts).
 
 contracts.declare(moduleInfo, "registry", {
   key: "registry",

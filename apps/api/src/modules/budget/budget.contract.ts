@@ -6,7 +6,7 @@ import { auditLabels, auditText, lookupRenamed, moduleInfo, permissionRules, sea
 
 // What the budget answers to the core and hears from it (docs/moduli-architettura.md, §5): who uses a category or a rate, a renamed
 // category, a new season, the Sponsors box and who may change the budget's shared data, and the names the History gives its rows. It is
-// read when the server starts (app.ts).
+// read when the server starts (wiring.ts).
 
 contracts.answer(usedBy, "budget", async (db, { kind, subjects }) => {
   const names = subjects.map((s) => s.name);

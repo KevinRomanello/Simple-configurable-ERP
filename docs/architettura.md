@@ -35,6 +35,9 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   │   ├── test/             # database di test ricreato a ogni esecuzione
 │   │   └── src/
 │   │       ├── main.ts           # avvio Fastify, registra i moduli
+│   │       ├── app.ts            # il cablaggio: il nucleo senza prefisso, ogni modulo e ponte sotto la sua chiave (/api/<chiave>, elenco `owned`)
+│   │       ├── wiring.ts         # legge ogni <nome>.contract.ts, una volta e nell'ordine giusto: l'unico posto (la prova di architettura lo controlla)
+│   │       ├── snapshot.ts       # per gli strumenti fuori dal server (@erp/api/snapshot): lo snapshot con tutti i contratti letti
 │   │       ├── db/               # schema/ (le tabelle: un file per proprietario) e schema.ts (le riunisce per il client), client.ts (utente dell'API), owner.ts (proprietario), migrate.ts, roles.ts + app-role.ts, seed-base.ts, seed.ts
 │   │       ├── core/             # tx.ts (runWrite), errors.ts, money.ts (numeric ↔ centesimi), auth-config.ts, security.ts (intestazioni, limite di richieste),
 │   │       │                     #   contracts.ts (eventi, domande, porte e dichiarazioni fra i proprietari del server: moduli-architettura.md, §5), usage.ts (conta chi usa un elenco, in una query)
@@ -53,7 +56,7 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   │       │   ├── registry-access/  # il ponte: i ruoli dell'ERP calcolati dalle anagrafiche (anagrafiche.md, §9); risponde sotto /api/registry-access
 │   │       │   ├── treasury-budget/  # il ponte: ciò che ha bisogno del registro e del budget insieme (TO PAY, righe pagate, inflow ricevuti, area ADMINISTRATION, Voci di partenza, cancellazione scelta); risponde sotto /api/treasury-budget
 │   │       │   └── inventory-budget/ # il ponte: ciò che ha bisogno dell'inventario e del budget insieme (PENDING, l'arrivo per una riga, ARRIVED, il progetto di un movimento e di «Make new», le statistiche per progetto e area)
-│   │       └── modules/          # ognuno ha un <nome>.contract.ts (budget, inventory, cash): ciò che risponde al nucleo e ascolta da lui
+│   │       └── modules/          # ognuno ha un <nome>.contract.ts (budget, inventory, treasury, registry): ciò che risponde al nucleo e ascolta da lui, letto in wiring.ts
 │   │           ├── budget/       # il budget, in una cartella sola dal passo G6: progetti, righe e il foglio di un'area (budget.*), fondi e contratti (funds.*),
 │   │           │                 #   fornitori (suppliers.*), una funzione per vista (views.*: Gantt, Total, analisi…), ingressi del team e BANK (cashflow.*:
 │   │           │                 #   il BANK lo chiede al registro con una porta, `budget.ports.ts`), snapshot.ts (loadSnapshot(): dal DB al formato di calc),

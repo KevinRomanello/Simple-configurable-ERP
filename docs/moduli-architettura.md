@@ -221,7 +221,9 @@ Un ponte **è acceso solo se lo sono tutti e due i suoi moduli**. Non ha un inte
 ### 5.3 Le regole di un contratto
 
 1. **Dati semplici**: oggetti con numeri, testi e booleani, che si possono scrivere in JSON. Soldi in centesimi interi o decimali in testo, date ISO (`YYYY-MM-DD`), id numerici, come in [CLAUDE.md](../CLAUDE.md). **Mai** tabelle Drizzle, righe del database o query.
-2. **Un'azione controlla come la sua rotta**: la rotta HTTP e la funzione pubblica chiamano lo stesso servizio. Una regola vale allo stesso modo per il sito, per n8n e per un altro modulo.
+2. **Un'azione controlla come la sua rotta**: la rotta HTTP e la funzione pubblica chiamano lo stesso servizio. Una regola vale allo stesso modo per il sito, per n8n e per un altro modulo. Le funzioni che lavorano in una transazione già aperta (i nomi che finiscono in `In`: `deleteInflowsIn`, `deleteEntryIn`) dividono il lavoro così (27 novembre 2026, revisione dell'architettura):
+   - **chi può** lo controlla chi chiama, come farebbe una rotta (`assertCanChangeInflows`, `assertCanManageCash`);
+   - **le regole del modulo** le fa sempre la funzione, mandando i suoi eventi. Per esempio `deleteInflowsIn` manda `inflowDeleting` per ogni inflow, quindi la cancellazione del budget e quella scelta del ponte passano dalla stessa regola («un inflow ricevuto lo cancella solo la tesoreria»), scritta una volta sola (`assertCanDeleteInflow`, nel ponte). Prima il ponte la riscriveva a mano.
 3. **Nomi stabili e spiegati**: ogni funzione ha il suo commento. Una prova elenca i nomi esportati da ogni contratto (un'istantanea), così un cambio è sempre voluto.
 4. **Porte con risposta di partenza**: un modulo funziona anche se nessuno risponde. È ciò che rende possibile spegnere.
 5. **Il nucleo salta chi è spento**: eventi, porte e domande d'uso sono registrati all'avvio da tutti, con il nome del modulo o del ponte. Chi li chiama passa dal nucleo, che salta quelli dei moduli spenti. I moduli non devono sapere di poter essere spenti, come oggi le anagrafiche.
@@ -375,7 +377,7 @@ Ogni punto di aggancio ha un tipo (le proprietà che riceve) e una prova che lo 
 
 1. **L'elenco dei moduli viene dai contratti.** `appmodules` legge le dichiarazioni (chiave, nome, descrizione, indirizzi) di budget, tesoreria, inventario e anagrafiche, invece della lista scritta a mano. La riga di [hardcoded-registry.md](hardcoded-registry.md) sui moduli si toglie.
 2. **Ogni modulo e ogni ponte passa sotto il suo nome** (deciso, domanda 4): `/api/budget/…`, `/api/treasury/…`, `/api/inventory/…`, `/api/registry/…`, `/api/treasury-budget/…`, `/api/inventory-budget/…`, `/api/registry-access/…`. Il nucleo resta senza prefisso (`/api/me`, `/api/users`…): non si spegne mai.
-   - **In `app.ts`** ogni modulo e ponte si registra con il suo prefisso, preso dal manifesto (in Fastify, `register(rotte, { prefix })`).
+   - **In `app.ts`** ogni modulo e ponte si registra con il suo prefisso, che è la sua chiave, in un solo ciclo (`owned`: in Fastify, `register(rotte, { prefix })`). **Un file di rotte non scrive mai il suo prefisso** (dal 27 novembre 2026 nemmeno inventario e anagrafiche, che prima lo scrivevano a mano): così il cancello spegne davvero tutto ciò che è del modulo. Lo controlla `routes.test.ts` (§12, regola 7).
    - **Il cancello** (`addModuleGate`) guarda solo il primo pezzo dell'indirizzo. Gli elenchi di indirizzi non servono più. Risponde 404 per un modulo spento e per un ponte con uno dei due moduli spento.
    - **Non cambiano**, perché sono già al loro posto o sono pubblici: `/api/registry/…`, `/api/registry/public/…`, `/ext/…`, `/forms/…`. Sono quelli che usa n8n.
    - **Ogni passo (G3–G6) cambia insieme** gli indirizzi del server, le chiamate del sito, le prove e i documenti che li citano. Così l'app funziona dopo ogni passo.
@@ -702,6 +704,38 @@ Tre tappe: gli interruttori nel server (1), il sito che si spegne a pezzi (2), l
 
 ---
 
+### G9: il confine con il nucleo e la velocità (piano, 27 novembre 2026; da fare)
+
+La revisione dell'architettura del 27 novembre ha trovato **sette punti**: quattro sono stati corretti subito (sotto, «Fatto»), tre restano per questo passo. In più, su richiesta dell'utente, **la velocità deve restare molto alta**: il passo ha una parte sulle prestazioni, misurata con il benchmark (`pnpm bench`, [prestazioni.md](prestazioni.md)) prima e dopo ogni tappa.
+
+**Fatto il 27 novembre 2026** (collaudo nella stessa data):
+- `wiring.ts`: ogni contratto letto in un posto solo, anche dagli strumenti (prima `@erp/api/snapshot` dava al riconciliatore un budget senza pagamenti, arrivi, ADMINISTRATION né BANK del registro);
+- `deleteInflowsIn` manda `inflowDeleting`: la regola degli inflow ricevuti in un posto solo (§5.3, regola 2);
+- i prefissi dati da `app.ts` a tutti e la prova delle rotte (§8.2, §12 regola 7);
+- una sola mappa dei ponti, provata (§12 regola 10);
+- trovato provando: lo strumento d'import importava `getStatementLayout` da `@erp/api/lookups`, che dalla fase G è del budget e non l'ha più (il controllo dei tipi della CI falliva sul ramo). Ora c'è l'esportazione `@erp/api/statement`, della tesoreria.
+
+**Tappa 1, una porta sola per il nucleo.**
+- **Oggi**: i moduli importano sette file interni di `platform/` (`auth.service` 19 volte, `seasons.service` 12, `lookups.service` 5, `lookups/defaults` 4, `users.service` 3, `auth.context` 2) e leggono sue tabelle (`app_user`, `area`, `category`, `audit_log`, `season`, `setting`, `user_area`, `user_flag`). La prova lo permette (`to === "platform"` in `mayImport`).
+- **Dopo**: `platform.public.ts` mostra anche le funzioni del nucleo che servono ai moduli: chi firma, `canWrite` e gli altri permessi, la stagione scelta e `assertSeasonOpen`, le aree, le categorie, gli utenti per nome. La regola diventa quella dei moduli: si passa solo da lì, e le tabelle del nucleo si leggono con funzioni. Con una lista di eccezioni che può solo accorciarsi, come in G0.
+- **Velocità**: nessuna query in più. Le letture del nucleo diventano funzioni che fanno la stessa query.
+
+**Tappa 2, niente dei moduli dentro il nucleo.**
+- La tabella `setting` ha i cinque interruttori del calcolo del budget (`variance_threshold`, `vat_base_when_total_sponsor`, `inflow_vat_rate`, `bank_compare_summary`, `bank_compare_timeline`), e il budget li scrive direttamente. Vanno in una tabella del budget, `budget_setting` (una riga, con lo storico), con una migrazione che copia i valori. Nel nucleo resta `edit_on_phone`.
+- `platform/lookups/defaults.ts` ha i campi di un pezzo dell'inventario (`ITEM_FIELDS`) e i valori di partenza del budget: vanno nei loro moduli.
+- `permissionsOf` (`auth.service.ts`) elenca a mano i permessi dei moduli (`canManageCash`, `canManageInventory`…), e così il tipo `Me` del sito: `/me.permissions` si costruisce dalle regole che i moduli dichiarano (`permissionRules`). Un permesso nuovo di un modulo non tocca più il nucleo.
+- **Velocità**: lo snapshot legge oggi una riga di `setting`; dopo ne legge una di `budget_setting`. Stesso costo.
+
+**Tappa 3, i due meccanismi vecchi.**
+- `setManagedCheck` (una variabile globale di `users.service`, impostata da rolesync) diventa una porta del nucleo, che il ponte `registry-access` riempie.
+- Rolesync scrive `app_user` e `user_area` direttamente: passa dalle funzioni pubbliche degli utenti, con le stesse regole di Users (per esempio «resta almeno un admin attivo»).
+
+**Tappa 4, la velocità** (misure del benchmark del 27 novembre 2026: le risposte sono identiche a prima, ma le pagine pesanti restano fra 110 e 235 ms):
+- **Un solo snapshot per richiesta.** CASH FLOW, Gantt, TOTAL, TO PAY e PENDING calcolano lo snapshot e le righe anche più volte nella stessa richiesta (già P9 in [controllo-bug-e-prestazioni.md](controllo-bug-e-prestazioni.md)): tenerlo per la richiesta, come `currentActive()`.
+- **Le porte che leggono tabelle intere.** `entryLinks` legge tutti i legami del registro a ogni apertura del registro; `lineReceipts` tutti gli arrivi di tutte le stagioni a ogni snapshot; `linePayments` tutti i pagamenti. Vanno limitati alla stagione o agli id chiesti, con gli indici che ci sono già.
+- **Gli interruttori.** Si leggono dal database a ogni richiesta (0,05–0,2 ms, G8). Si possono tenere in memoria e rileggere solo quando un admin li cambia; un solo server, quindi nessun problema di copie diverse.
+- **La regola**: nessuna tappa si chiude se il benchmark peggiora oltre la soglia di [prestazioni.md](prestazioni.md); la tappa 4 deve migliorare le pagine pesanti, misurato.
+
 ## 12. Le prove
 
 ### Prove di architettura (server)
@@ -713,7 +747,9 @@ Estendono `apps/api/src/architecture.test.ts`.
 4. Il nucleo non importa nessun modulo né ponte.
 5. Un servizio importa solo il suo file di schema.
 6. **Ogni tabella ha un solo proprietario.** Quelle con lo storico hanno anche la regola di Ctrl+Z (fase F).
-7. Ogni modulo e ponte registra le sue rotte solo sotto il suo prefisso, e il nucleo solo fuori dai prefissi dei moduli.
+7. Ogni modulo e ponte registra le sue rotte solo sotto il suo prefisso, e il nucleo solo fuori dai prefissi dei moduli. **Fatta il 27 novembre 2026** (`apps/api/src/routes.test.ts`): legge le rotte che il server ha davvero (`onRoute`); i primi pezzi che non sono di un modulo o di un ponte devono essere esattamente quelli del nucleo, scritti nella prova, e ogni modulo e ponte deve avere almeno una rotta sotto il suo nome.
+9. **Ogni contratto si legge in `wiring.ts`, e solo lì** (27 novembre 2026). Un contratto che nessuno legge non fa niente, in silenzio: le sue porte danno le risposte di partenza. `wiring.ts` lo leggono il server e le sue prove (da `app.ts`) e gli strumenti fuori dal server (da `snapshot.ts`, l'esportazione `@erp/api/snapshot`).
+10. **Una sola mappa dei ponti** (27 novembre 2026): `BRIDGES` di `architecture.map.ts` (le regole degli import) è uguale a ciò che i ponti dichiarano (`bridgeInfo`, che decide cosa si spegne), e il manifesto di ogni ponte del sito dice gli stessi moduli. Quest'ultima parte gira dove c'è tutto il repository (CI e computer); nel container dell'API, che monta solo il server, si salta.
 8. I contratti non esportano tabelle o tipi di Drizzle. L'istantanea dei nomi esportati segnala ogni cambio.
 
 ### Prove di architettura (sito)

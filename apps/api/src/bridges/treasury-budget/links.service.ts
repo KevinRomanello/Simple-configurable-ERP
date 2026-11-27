@@ -61,7 +61,9 @@ export async function assertLinksHold(tx: Db, change: { entryId: number; directi
 /** A received inflow is tied to the register: taking that apart is the treasury's, as marking it received was. */
 export async function assertCanDeleteInflow(tx: Db, inflowId: number, actor: User) {
   const [received] = await tx.select({ id: inflowReceipt.id }).from(inflowReceipt).where(eq(inflowReceipt.inflowId, inflowId));
-  if (received && !(await canManageCash(actor))) throw forbidden("This inflow is already received: only the treasury can delete it");
+  if (!received || (await canManageCash(actor))) return;
+  const [inflow] = await inflowsByIds(tx, [inflowId]);
+  throw forbidden(`"${inflow?.sourceName ?? "This inflow"}" is already received: only the treasury can delete it`);
 }
 
 /** The movements (of these) that already pay lines of the budget: the ones a payment cannot be tied to twice, and cannot be deleted from here. */

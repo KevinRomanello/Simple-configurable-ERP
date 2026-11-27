@@ -1,4 +1,3 @@
-import { inArray } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
@@ -110,14 +109,12 @@ export async function deleteInflows(input: { inflowIds: number[]; cashEntryIds: 
   await runWrite(actor, async (tx) => {
     await assertSeasonOpen(tx, season.id);
     const inflows = await inflowsByIds(tx, inflowIds, true);
-    const received = new Set(inflowIds.length > 0 ? (await tx.select({ inflowId: inflowReceipt.inflowId }).from(inflowReceipt).where(inArray(inflowReceipt.inflowId, inflowIds))).map((r) => r.inflowId) : []);
     for (const id of inflowIds) {
       const found = inflows.find((i) => i.id === id);
       if (!found) throw notFound(`Inflow ${id}`);
       if (found.seasonId !== season.id) throw conflict(`"${found.sourceName}" belongs to another season`);
-      // a received inflow is tied to the register: taking that apart is the treasury's, as marking it received was
-      if (received.has(id) && !treasury) throw forbidden(`"${found.sourceName}" is already received: only the treasury can delete it`);
     }
+    // a received inflow is the treasury's to delete: the budget asks this bridge itself when the inflows go (deleteInflowsIn, below)
     if (entryIds.length > 0) {
       if (!treasury) throw forbidden("Only the treasury can delete a movement of the register");
       const entries = await entriesByIds(tx, entryIds, true);
@@ -130,7 +127,7 @@ export async function deleteInflows(input: { inflowIds: number[]; cashEntryIds: 
         if (paying.has(id)) throw conflict(`"${found.description}" pays budget lines: remove them in the register first`);
       }
     }
-    await deleteInflowsIn(tx, inflowIds);
+    await deleteInflowsIn(tx, inflowIds, actor);
     for (const id of entryIds) await deleteEntryIn(tx, id);
   });
 }

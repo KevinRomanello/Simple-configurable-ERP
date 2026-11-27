@@ -41,6 +41,7 @@
     "./db": "./src/db/client.ts",
     "./schema": "./src/db/schema.ts",
     "./money": "./src/core/money.ts",
-    "./snapshot": "./src/modules/budget/snapshot.ts"
+    "./snapshot": "./src/snapshot.ts",
+    "./statement": "./src/modules/treasury/statement.service.ts"
   }
 }

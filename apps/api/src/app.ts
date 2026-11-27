@@ -1,18 +1,12 @@
 import cookie from "@fastify/cookie";
-import Fastify from "fastify";
+import Fastify, { type FastifyPluginAsync } from "fastify";
 import { ZodError } from "zod";
 import { loadAuthConfig, type AuthConfig } from "./core/auth-config";
 import { env } from "./core/env";
 import { AppError, badValueMessage, postgresCode, retryMessage } from "./core/errors";
 import { addSecurity, DEFAULT_RATE_LIMITS, type RateLimits } from "./core/security";
-// what the modules answer to the core and hear from it: read once, at the start, in this order (the Treasury box comes before the Sponsors one, and the budget is named first in a message)
-import "./modules/treasury/treasury.contract";
-import "./modules/budget/budget.contract";
-import "./modules/inventory/inventory.contract";
-import "./bridges/treasury-budget/treasury-budget.contract";
-import "./bridges/inventory-budget/inventory-budget.contract";
-import "./modules/registry/registry.contract";
-import "./bridges/registry-access/registry-access.contract";
+// what the modules and the bridges answer to the core and to each other: every contract, read once (wiring.ts)
+import "./wiring";
 import { addModuleGate, appModulesRoutes } from "./platform/appmodules/appmodules.routes";
 import { addAuthHook, authRoutes } from "./platform/auth/auth.routes";
 import { createGoogleClient, type GoogleClient } from "./platform/auth/google";
@@ -96,19 +90,19 @@ export function buildApp(options: AppOptions = {}) {
       await api.register(lookupsRoutes);
       await api.register(seasonsRoutes);
       await api.register(areasRoutes);
-      // a module and a bridge answer under their own name: /api/budget/…, /api/treasury/…, /api/treasury-budget/…, /api/inventory-budget/…
-      // (docs/moduli-architettura.md, §8; the inventory's routes are written with /inventory in their file)
-      for (const budgetPart of [budgetRoutes, budgetLookupsRoutes, fundsRoutes, suppliersRoutes, cashflowRoutes, viewsRoutes]) {
-        await api.register(budgetPart, { prefix: "/budget" });
-      }
-      await api.register(inventoryRoutes);
-      await api.register(cashRoutes, { prefix: "/treasury" });
-      await api.register(treasuryBudgetRoutes, { prefix: "/treasury-budget" });
-      await api.register(inventoryBudgetRoutes, { prefix: "/inventory-budget" });
       await api.register(settingsRoutes);
-      await api.register(registryRoutes);
-      // a bridge answers under its own name: /api/registry-access/… (docs/moduli-architettura.md, §8)
-      await api.register(rolesyncRoutes, { adminEmails: config.adminEmails, prefix: "/registry-access" });
+      // a module and a bridge answer under their own name and nowhere else (/api/budget/…, /api/treasury-budget/…): the prefix is its key,
+      // given here, so a route file never writes it and the gate of the switches turns off all of it (docs/moduli-architettura.md, §8.2)
+      const owned: [key: string, routes: FastifyPluginAsync[]][] = [
+        ["budget", [budgetRoutes, budgetLookupsRoutes, fundsRoutes, suppliersRoutes, cashflowRoutes, viewsRoutes]],
+        ["treasury", [cashRoutes]],
+        ["inventory", [inventoryRoutes]],
+        ["registry", [registryRoutes]],
+        ["treasury-budget", [treasuryBudgetRoutes]],
+        ["inventory-budget", [inventoryBudgetRoutes]],
+        ["registry-access", [(registryAccess) => rolesyncRoutes(registryAccess, { adminEmails: config.adminEmails })]],
+      ];
+      for (const [key, routes] of owned) for (const part of routes) await api.register(part, { prefix: `/${key}` });
       await api.register(appModulesRoutes);
     },
     { prefix: "/api" },

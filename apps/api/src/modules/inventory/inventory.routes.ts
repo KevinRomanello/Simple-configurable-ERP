@@ -26,29 +26,30 @@ const fields = z.array(z.enum(ITEM_FIELDS)).max(ITEM_FIELDS.length);
 const placeName = shortText(60);
 const placePart = z.union([z.literal(""), placeName]);
 
+/** The inventory over HTTP, under /api/inventory: app.ts gives the prefix, so the paths here start after it. */
 export async function inventoryRoutes(app: FastifyInstance) {
   // items
-  app.get("/inventory/items", (request) =>
+  app.get("/items", (request) =>
     listItems({ ...itemsQuery.parse(request.query), params: paramFilters(request.query as Record<string, unknown>) }),
   );
-  app.get("/inventory/items/:id", (request) => getItem(itemParam.parse(request.params).id, priceQuery.parse(request.query)));
-  app.post("/inventory/items", async (request, reply) => reply.code(201).send(await createItem(createItemInput.parse(request.body))));
-  app.patch("/inventory/items/:id", (request) => updateItem(itemParam.parse(request.params).id, updateItemInput.parse(request.body)));
-  app.delete("/inventory/items/:id", async (request, reply) => {
+  app.get("/items/:id", (request) => getItem(itemParam.parse(request.params).id, priceQuery.parse(request.query)));
+  app.post("/items", async (request, reply) => reply.code(201).send(await createItem(createItemInput.parse(request.body))));
+  app.patch("/items/:id", (request) => updateItem(itemParam.parse(request.params).id, updateItemInput.parse(request.body)));
+  app.delete("/items/:id", async (request, reply) => {
     await deleteItem(itemParam.parse(request.params).id);
     return reply.code(204).send();
   });
 
   // pictures: sent as JSON (base64, already shrunk by the browser), served as the image itself
-  app.put("/inventory/items/:id/image", { bodyLimit: 1_500_000 }, async (request, reply) => {
+  app.put("/items/:id/image", { bodyLimit: 1_500_000 }, async (request, reply) => {
     await setImage(itemParam.parse(request.params).id, imageInput.parse(request.body));
     return reply.code(204).send();
   });
-  app.delete("/inventory/items/:id/image", async (request, reply) => {
+  app.delete("/items/:id/image", async (request, reply) => {
     await removeImage(itemParam.parse(request.params).id);
     return reply.code(204).send();
   });
-  app.get("/inventory/items/:id/image", async (request, reply) => {
+  app.get("/items/:id/image", async (request, reply) => {
     const { id: itemId } = itemParam.parse(request.params);
     const { size } = z.object({ size: z.enum(["thumb", "full"]).default("thumb") }).parse(request.query);
     const picture = await getImage(itemId, size);
@@ -63,11 +64,11 @@ export async function inventoryRoutes(app: FastifyInstance) {
   // the bytes are read when one is opened
   const datasheetBytes = DATASHEET_LIMITS.bytes + 4_096;
   app.addContentTypeParser("application/pdf", { parseAs: "buffer", bodyLimit: datasheetBytes }, (_request, body, done) => done(null, body));
-  app.post("/inventory/items/:id/datasheets", { bodyLimit: datasheetBytes }, async (request, reply) => {
+  app.post("/items/:id/datasheets", { bodyLimit: datasheetBytes }, async (request, reply) => {
     const { name } = datasheetQuery.parse(request.query);
     return reply.code(201).send(await addDatasheet(itemParam.parse(request.params).id, name, request.body));
   });
-  app.get("/inventory/datasheets/:id", async (request, reply) => {
+  app.get("/datasheets/:id", async (request, reply) => {
     const sheet = await getDatasheet(itemParam.parse(request.params).id);
     const filename = encodeURIComponent(/\.pdf$/i.test(sheet.name) ? sheet.name : `${sheet.name}.pdf`);
     // the API says "nothing may be loaded from me" about everything it sends, which a PDF viewer does not
@@ -79,98 +80,98 @@ export async function inventoryRoutes(app: FastifyInstance) {
       .type("application/pdf")
       .send(sheet.data);
   });
-  app.delete("/inventory/datasheets/:id", async (request, reply) => {
+  app.delete("/datasheets/:id", async (request, reply) => {
     await removeDatasheet(itemParam.parse(request.params).id);
     return reply.code(204).send();
   });
 
   // goods arriving and moving
-  app.post("/inventory/receive", async (request, reply) => reply.code(201).send(await receive(receiveInput.parse(request.body))));
-  app.post("/inventory/movements", async (request, reply) => reply.code(201).send(await addMovement(movementInput.parse(request.body))));
+  app.post("/receive", async (request, reply) => reply.code(201).send(await receive(receiveInput.parse(request.body))));
+  app.post("/movements", async (request, reply) => reply.code(201).send(await addMovement(movementInput.parse(request.body))));
 
-  app.delete("/inventory/movements/:id", async (request, reply) => {
+  app.delete("/movements/:id", async (request, reply) => {
     await undoMovement(itemParam.parse(request.params).id);
     return reply.code(204).send();
   });
 
   // things we make
-  app.post("/inventory/builds", async (request, reply) => reply.code(201).send(await build(buildInput.parse(request.body))));
-  app.get("/inventory/components", (request) => listComponents(componentsQuery.parse(request.query)));
-  app.get("/inventory/components/:id/plan", (request) => getPlan(itemParam.parse(request.params).id, planQuery.parse(request.query)));
-  app.get("/inventory/components/:id", (request) => getComponent(itemParam.parse(request.params).id, priceQuery.parse(request.query)));
-  app.post("/inventory/components/:id/parts", async (request, reply) =>
+  app.post("/builds", async (request, reply) => reply.code(201).send(await build(buildInput.parse(request.body))));
+  app.get("/components", (request) => listComponents(componentsQuery.parse(request.query)));
+  app.get("/components/:id/plan", (request) => getPlan(itemParam.parse(request.params).id, planQuery.parse(request.query)));
+  app.get("/components/:id", (request) => getComponent(itemParam.parse(request.params).id, priceQuery.parse(request.query)));
+  app.post("/components/:id/parts", async (request, reply) =>
     reply.code(201).send(await addPart(itemParam.parse(request.params).id, partInput.parse(request.body))),
   );
-  app.patch("/inventory/components/:id/parts/:partId", (request) => {
+  app.patch("/components/:id/parts/:partId", (request) => {
     const { id: componentId, partId } = partParams.parse(request.params);
     return updatePart(componentId, partId, updatePartInput.parse(request.body));
   });
-  app.delete("/inventory/components/:id/parts/:partId", async (request, reply) => {
+  app.delete("/components/:id/parts/:partId", async (request, reply) => {
     const { id: componentId, partId } = partParams.parse(request.params);
     await removePart(componentId, partId);
     return reply.code(204).send();
   });
 
   // the types of item and their parameters (kept on the Settings page)
-  app.get("/inventory/types", () => listTypes());
-  app.post("/inventory/types", async (request, reply) => reply.code(201).send(await createType(createTypeInput.parse(request.body))));
-  app.patch("/inventory/types/:id", (request) => updateType(itemParam.parse(request.params).id, updateTypeInput.parse(request.body)));
-  app.delete("/inventory/types/:id", async (request, reply) => {
+  app.get("/types", () => listTypes());
+  app.post("/types", async (request, reply) => reply.code(201).send(await createType(createTypeInput.parse(request.body))));
+  app.patch("/types/:id", (request) => updateType(itemParam.parse(request.params).id, updateTypeInput.parse(request.body)));
+  app.delete("/types/:id", async (request, reply) => {
     await deleteType(itemParam.parse(request.params).id);
     return reply.code(204).send();
   });
-  app.post("/inventory/types/:id/params", async (request, reply) =>
+  app.post("/types/:id/params", async (request, reply) =>
     reply.code(201).send(await addParam(itemParam.parse(request.params).id, createParamInput.parse(request.body))),
   );
-  app.put("/inventory/types/:id/params/order", async (request, reply) => {
+  app.put("/types/:id/params/order", async (request, reply) => {
     await orderParams(itemParam.parse(request.params).id, orderInput.parse(request.body).ids);
     return reply.code(204).send();
   });
-  app.patch("/inventory/params/:id", (request) => updateParam(itemParam.parse(request.params).id, updateParamInput.parse(request.body)));
-  app.delete("/inventory/params/:id", async (request, reply) => {
+  app.patch("/params/:id", (request) => updateParam(itemParam.parse(request.params).id, updateParamInput.parse(request.body)));
+  app.delete("/params/:id", async (request, reply) => {
     await deleteParam(itemParam.parse(request.params).id);
     return reply.code(204).send();
   });
 
   // the lists the inventory is written with: what the forms offer, and the Settings page that keeps them
-  app.get("/inventory/locations", () => listLocations());
-  app.get("/inventory/units", () => listUnits());
-  app.get("/inventory/category-fields", () => getCategoryFields());
-  app.get("/inventory/lists", () => readLists());
-  app.put("/inventory/category-fields/:id", async (request, reply) => {
+  app.get("/locations", () => listLocations());
+  app.get("/units", () => listUnits());
+  app.get("/category-fields", () => getCategoryFields());
+  app.get("/lists", () => readLists());
+  app.put("/category-fields/:id", async (request, reply) => {
     await setCategoryFields(itemParam.parse(request.params).id, z.object({ fields }).parse(request.body).fields);
     return reply.code(204).send();
   });
-  app.put("/inventory/uncategorized-fields", async (request, reply) => {
+  app.put("/uncategorized-fields", async (request, reply) => {
     await setUncategorizedFields(z.object({ fields }).parse(request.body).fields);
     return reply.code(204).send();
   });
-  app.post("/inventory/units", async (request, reply) => reply.code(201).send(await createUnit(z.object({ name: shortText(20) }).parse(request.body).name)));
-  app.patch("/inventory/units/:id", async (request, reply) => {
+  app.post("/units", async (request, reply) => reply.code(201).send(await createUnit(z.object({ name: shortText(20) }).parse(request.body).name)));
+  app.patch("/units/:id", async (request, reply) => {
     await renameUnit(itemParam.parse(request.params).id, z.object({ name: shortText(20) }).parse(request.body).name);
     return reply.code(204).send();
   });
-  app.delete("/inventory/units/:id", async (request, reply) => {
+  app.delete("/units/:id", async (request, reply) => {
     await deleteUnit(itemParam.parse(request.params).id);
     return reply.code(204).send();
   });
-  app.post("/inventory/locations", async (request, reply) =>
+  app.post("/locations", async (request, reply) =>
     reply.code(201).send(await createLocation(z.object({ room: placeName, shelf: placePart.optional(), levels: z.array(placeName).min(1).max(40).optional() }).parse(request.body))),
   );
-  app.patch("/inventory/locations/:id", async (request, reply) => {
+  app.patch("/locations/:id", async (request, reply) => {
     await updateLocation(itemParam.parse(request.params).id, z.object({ room: placeName.optional(), shelf: placePart.optional(), level: placePart.optional() }).parse(request.body));
     return reply.code(204).send();
   });
-  app.delete("/inventory/locations/:id", async (request, reply) => {
+  app.delete("/locations/:id", async (request, reply) => {
     await deleteLocation(itemParam.parse(request.params).id);
     return reply.code(204).send();
   });
-  app.put("/inventory/locations/order", async (request, reply) => {
+  app.put("/locations/order", async (request, reply) => {
     await orderLocations(orderInput.parse(request.body).ids);
     return reply.code(204).send();
   });
 
-  app.get("/inventory/stats", (request) => {
+  app.get("/stats", (request) => {
     const query = statsQuery.parse(request.query);
     return getStats(query.by, query.basis);
   });

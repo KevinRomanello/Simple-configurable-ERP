@@ -7,7 +7,7 @@ import { today } from "../../core/today";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { bankSnapshot, teamInflow } from "../../db/schema/budget";
-import { canChangeInflows, canManageCash, getCurrentUser } from "../../platform/auth/auth.service";
+import { canChangeInflows, canManageCash, getCurrentUser, type User } from "../../platform/auth/auth.service";
 import { currentActive } from "../../platform/platform.public";
 import { assertSeasonOpen, getCurrentSeason } from "../../platform/seasons/seasons.service";
 import { inflowDeleting, inflowReceipts, registerBank, registerSponsorship } from "./budget.ports";
@@ -155,10 +155,7 @@ export async function deleteInflow(inflowId: number) {
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select({ seasonId: teamInflow.seasonId }).from(teamInflow).where(eq(teamInflow.id, inflowId));
     if (target) await assertSeasonOpen(tx, target.seasonId);
-    // whoever tied the inflow to something (the register that received it) may refuse
-    await contracts.emit(inflowDeleting, currentActive(), tx, { inflowId, actor });
-    const deleted = await tx.delete(teamInflow).where(eq(teamInflow.id, inflowId)).returning({ id: teamInflow.id });
-    if (deleted.length === 0) throw notFound("Inflow");
+    if ((await deleteInflowsIn(tx, [inflowId], actor)) === 0) throw notFound("Inflow");
   });
 }
 
@@ -197,9 +194,15 @@ export async function inflowsOfSeason(reader: Reader, seasonId: number): Promise
   return (await reader.select().from(teamInflow).where(eq(teamInflow.seasonId, seasonId))).map(factOf);
 }
 
-/** Deletes inflows inside a transaction that is already open. */
-export async function deleteInflowsIn(tx: Tx, ids: number[]) {
-  if (ids.length > 0) await tx.delete(teamInflow).where(inArray(teamInflow.id, ids));
+/**
+ * Deletes inflows inside a transaction that is already open, and says how many there were. Whoever tied an inflow to something (the
+ * register that received it) is asked first and may refuse (`inflowDeleting`): the budget's own delete and the bridge's go through here,
+ * so the rule is the same for both. Who may delete at all is the caller's to check (`assertCanChangeInflows`), as a route does.
+ */
+export async function deleteInflowsIn(tx: Tx, ids: number[], actor: User): Promise<number> {
+  for (const inflowId of ids) await contracts.emit(inflowDeleting, currentActive(), tx, { inflowId, actor });
+  if (ids.length === 0) return 0;
+  return (await tx.delete(teamInflow).where(inArray(teamInflow.id, ids)).returning({ id: teamInflow.id })).length;
 }
 
 /**

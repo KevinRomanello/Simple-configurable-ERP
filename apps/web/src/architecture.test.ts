@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MANIFESTS } from "./manifests";
 
 // The site uses only the types of the registry's engine (docs/anagrafiche.md, §2): the values are worked out by
 // the server, never again in the browser. And every table is the same one, so that all of them behave alike
@@ -68,12 +69,11 @@ describe("the site and the engine of the registry", () => {
 // module lends is the list of names of its public.ts, written below: changing it is a choice. The slots of a module are defined in
 // its slots.ts (§7.4).
 
-/** The modules each bridge joins: a bridge is on only when both are on. */
-const SITE_BRIDGES: Record<string, string[]> = {
-  "treasury-budget": ["treasury", "budget"],
-  "inventory-budget": ["inventory", "budget"],
-  "registry-access": ["registry"],
-};
+/**
+ * The modules each bridge joins, as its manifest says (a bridge is on only when they all are): read from the manifests, not written
+ * again here. The server's architecture test checks that they are the bridges the server declares.
+ */
+const SITE_BRIDGES: Record<string, string[]> = Object.fromEntries(MANIFESTS.filter((m) => m.needs?.length).map((m) => [m.key, m.needs!]));
 
 /**
  * Where the site still reaches into another owner's files, as `file → what it imports` (paths from src, without the extension).

@@ -9,7 +9,7 @@ import { loadOutsideBudget } from "./outside-budget.service";
 // What the bridge between the register and the budget does for both (docs/moduli-architettura.md, §5 and §8): it answers what the budget asks
 // of the register (the BANK, the inflows that arrived, the sponsorship money, what the payments paid, what is outside the budget), what the register
 // asks of the budget (what each movement is tied to, whether it may change), and it lets the treasury also change the inflows. The bridge is on only
-// when both are on, so without it the budget has its plain answers and the register shows nothing tied. It is read when the server starts (app.ts).
+// when both are on, so without it the budget has its plain answers and the register shows nothing tied. It is read when the server starts (wiring.ts).
 
 const OWNER = "treasury-budget";
 

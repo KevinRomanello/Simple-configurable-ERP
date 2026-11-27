@@ -7,7 +7,7 @@ import { startCategoryFields } from "./lists.service";
 
 // What the inventory answers to the core and hears from it (docs/moduli-architettura.md, §5): who uses a category, a renamed or a new
 // category, who keeps the inventory, and the names the History gives its rows. Its own lists (units, places, the fields of a category)
-// it counts and renames itself (lists.service.ts). It is read when the server starts (app.ts).
+// it counts and renames itself (lists.service.ts). It is read when the server starts (wiring.ts).
 
 contracts.answer(usedBy, "inventory", async (db, { kind, subjects }) => {
   const names = subjects.map((s) => s.name);

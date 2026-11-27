@@ -7,7 +7,7 @@ import { carsOfReceipts, keepMovementProjectIn, lineReceiptsOf, makeProjectsOf, 
 // What the bridge between the inventory and the budget does for both (docs/moduli-architettura.md, §5 and §8): it answers what the inventory asks
 // of the budget (the projects, the ties of the movements, what the statistics need) and what the budget asks of the inventory (what arrived of each
 // line). The bridge is on only when both are on: without it the inventory has no project to offer and the budget sees nothing arrived. It is read
-// when the server starts (app.ts).
+// when the server starts (wiring.ts).
 
 const OWNER = "inventory-budget";
 

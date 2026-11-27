@@ -1,7 +1,7 @@
 import { contracts } from "../../core/contracts";
 import { auditLabels, auditText, moduleInfo, permissionRules, userFlags } from "../../platform/platform.public";
 
-// What the register of the team's money gives the core: the Treasury box of a person and the names the History gives its rows. It is read when the server starts (app.ts).
+// What the register of the team's money gives the core: the Treasury box of a person and the names the History gives its rows. It is read when the server starts (wiring.ts).
 
 contracts.declare(auditLabels, "treasury", {
   cash_entry: (row) => auditText(row, "description"),
