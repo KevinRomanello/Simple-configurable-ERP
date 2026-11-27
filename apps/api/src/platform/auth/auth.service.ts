@@ -97,6 +97,9 @@ export function permissionsOf(user: User) {
     canChangeInflows: can(user, "canChangeInflows"),
     canManageSuppliers: can(user, "canManageSuppliers"),
     canManageInventory: can(user, "canManageInventory"),
+    // TO PAY and its orders, for who keeps the budget (the bridge between the register and the budget declares them)
+    canSeeToPay: can(user, "canSeeToPay"),
+    canGroupOrders: can(user, "canGroupOrders"),
     canViewHistory: runsProjects(user),
     canManageUsers: user.role === "admin",
     canManageSettings: user.role === "admin",

@@ -125,7 +125,7 @@ Vedi §4.
 
 ### 5.4 TO PAY: pagare le righe del budget dal registro
 
-La pagina **TO PAY** (gruppo **Treasury** del menù, solo `canManageCash`) è la copia di PENDING per la tesoreria: invece delle merci non arrivate, le righe **non ancora pagate**.
+La pagina **TO PAY** (gruppo **Treasury** del menù) è la copia di PENDING per la tesoreria: invece delle merci non arrivate, le righe **non ancora pagate**. Dalla fase D (27 novembre 2026) la vede **chi tiene il budget** (admin e User, `canSeeToPay`): tutte le righe, di tutte le aree, per raggrupparle in **ordini** (sotto); **pagare resta della tesoreria e degli admin** (`canManageCash`), e a chi non paga la risposta non porta il metodo dell'ultimo pagamento.
 
 - **Cosa elenca**: le righe ACTUAL per cui il team deve ancora far uscire dei soldi (netto del fondo del team e IVA a suo carico, meno i pagamenti collegati). Non ci sono le righe pagate solo da uno sponsor, quelle già pagate per intero e la fase EXPECTED. La stagione scelta nel menù, o **All seasons**.
 - **Colonne** (ordinabili, come PENDING; a schede sul telefono): LINE (con la categoria), PROJECT (con l'area), BOUGHT FROM, BOUGHT ON, WAITING (giorni dall'acquisto), TO PAY (con «net … + VAT …» o la data dell'IVA), PAID, STATE (**To pay**, **Planned** se la data è futura, **Part paid**, **Overpaid** se i pagamenti superano il dovuto dopo una modifica del prezzo). Una ricerca per riga, progetto o fornitore. Il Download dà la tabella.
@@ -133,6 +133,20 @@ La pagina **TO PAY** (gruppo **Treasury** del menù, solo `canManageCash`) è la
 - **«Voce di default» per categoria**: in Settings, nel riquadro «Register: Voce of a payment, by budget category», per ogni categoria del budget si sceglie la Voce da cui parte il pagamento (per esempio Asset → «1.1 Attrezzature»). Si può cambiare nel modulo. È la colonna `category.default_voce_id` (migrazione `0023`); si cambia da chi gestisce i soldi del team.
 - **«Payments to tie to a line»**, in fondo alla pagina: le uscite della stagione che non pagano nessuna riga (fatte a mano o caricate dal foglio), dalla più recente, **solo quelle senza Voce o di una Voce «On a project»** (quelle di una Voce fuori budget stanno in ADMINISTRATION, quelle ignorate non sono da collegare: [spese-fuori-budget.md](spese-fuori-budget.md)); **Link to lines** apre in un **pannello** l'elenco del §5.3. Così le righe pagate prima del registro escono dalla lista senza rifare il pagamento.
 - API: `GET /api/treasury-budget/to-pay` (`?allSeasons=1`, con `lastMethodId` e per ogni riga `suggestedCategoryId`), `POST /api/treasury-budget/to-pay/pay` (`{ on, account, methodId, categoryId, description?, lines: [{ lineId, amount }] }`), `GET /api/treasury-budget/to-link`, `GET /api/treasury-budget/category-voci` e `PUT /api/treasury-budget/category-voci/:id` (`{ voceId }`). Il calcolo è `toPayLines` in `packages/calc/src/toPay.ts`; la scrittura è in `payments.service.ts` del ponte (`apps/api/src/bridges/treasury-budget/`, con `insertEntry`); le pagine sono `ToPayPage.tsx`, `PayForm.tsx` e `PayLines.tsx`.
+
+### 5.4bis Gli ordini (fase D, server: 27 novembre 2026)
+
+Un **ordine** è un gruppo di righe del budget comprate insieme: due pezzi, un solo ordine, una sola fattura, un solo bonifico. Vive nel ponte tesoreria×budget ([moduli-architettura.md](moduli-architettura.md)): il budget non sa degli ordini.
+
+- **Dati** (migrazione `0043`): `purchase_order` (stagione, nome unico nella stagione senza contare le maiuscole, data di creazione) e `order_line` (una riga del budget in un ordine: al massimo uno per riga). Tutte e due nello storico. **Un ordine rimasto senza righe sparisce da solo**, nella stessa transazione: lo fa un trigger del database (`order_line_drop_empty_order`), così vale per ogni modo in cui una riga esce da un ordine (tolta, spostata in un altro, cancellata dal budget).
+- **Regole** (`bridges/treasury-budget/orders.service.ts`):
+  - un ordine ha almeno due righe quando nasce, e tutte della stessa stagione («Lines of different seasons cannot be one order»); la stagione dev'essere aperta;
+  - mettere una riga in un ordine o toglierla vuol dire modificarla: un User può solo con le righe delle sue aree («You cannot change "<item>" (area <area>)»), la tesoreria e gli admin con tutte (raggruppano per pagare);
+  - rinominare o sciogliere un ordine: la tesoreria e gli admin sempre, un User se può cambiare tutte le sue righe;
+  - una riga messa in un ordine esce da quello in cui era; un nome già usato nella stagione dà `409` («There is already an order "<nome>"»);
+  - chi può cambiare gli ordini: `canGroupOrders` (admin e User), dichiarato dal ponte.
+- **API**: `POST /api/treasury-budget/orders` (`{ name, lineIds }`, almeno due righe; risponde l'ordine), `PATCH /api/treasury-budget/orders/:id` (`{ name?, addLineIds?, removeLineIds? }`), `DELETE /api/treasury-budget/orders/:id` (scioglie: le righe restano). `GET /api/treasury-budget/to-pay` porta per ogni riga `orderId`, `orderName` e `canGroup` (se la persona può metterla in un ordine), e gli `orders` delle stagioni mostrate con `canChange`; `GET /api/treasury-budget/payable-lines` porta `orderId` e `orderName`. Il raggruppamento delle righe in righe d'ordine lo fa il sito (tappa 2); il calcolo (`toPayLines`) non cambia.
+- **Nel sito**: la tappa 2 della fase D (la riga d'ordine in TO PAY, «Group as one order», «Add to order…», pagare un ordine, gli ordini in «Link to budget lines»).
 
 ### 5.5 FINANCIAL STATEMENT: il rendiconto uguale al foglio
 

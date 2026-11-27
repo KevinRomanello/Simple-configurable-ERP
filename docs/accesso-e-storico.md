@@ -116,6 +116,10 @@ Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modific
 | BANK scritto a mano (CASH FLOW), segnare un inflow come ricevuto (e riprenderlo indietro) | sì | **no** | **sì** | **no** | no |
 | Aggiungere un inflow (CASH FLOW) e cancellarlo | sì | **no** | **sì** | **sì** (non uno già ricevuto: `403`) | no |
 | **Registro di cassa** (vederlo e scriverlo, le sue liste, l'import, i collegamenti alle righe del budget) | sì | **no** (`403`) | **sì** | **no** (`403`) | no (`403`) |
+| **TO PAY**: vedere le righe da pagare, di tutte le aree (fase D, 27 novembre 2026) | sì | **sì** | sì | sì | no (`403`) |
+| **Ordini** di TO PAY: raggruppare righe comprate insieme, aggiungerne, toglierne | tutte le righe | **solo le righe delle aree assegnate** | **tutte** le righe | come il pm | no (`403`) |
+| Rinominare o sciogliere un ordine | sì | solo se può cambiare **tutte** le sue righe | sì | come il pm | no |
+| **Pagare** le righe (TO PAY, «Pay») | sì | **no** (`403`) | **sì** | **no** (`403`) | no |
 | Scegliere la stagione da guardare (menù) | sì | sì | sì | sì | sì |
 | Stagioni: crearle, la loro macchina, la sola lettura (Settings) | sì | no | no | no | no |
 | Fornitori (aggiungere, eliminare) | sì | **sì** | **sì** | **sì** | no |

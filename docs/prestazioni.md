@@ -27,7 +27,7 @@ docker compose exec api sh -c "cd /app/apps/api && pnpm bench"
 
 **Cosa non misura:** le scritture (salvare una riga, un pagamento), più richieste insieme, la rete e il browser (la tabella e i grafici del sito).
 
-## 3. I numeri di riferimento (baseline di fine G5, 27 novembre 2026; rinnovate solo le righe la cui risposta è cambiata apposta: `core: settings` in G6, `me` in G8)
+## 3. I numeri di riferimento (baseline di fine G5, 27 novembre 2026; rinnovate solo le righe la cui risposta è cambiata apposta: `core: settings` in G6, `me` in G8, `me`, TO PAY e le righe da pagare nella fase D)
 
 Rispetto alla baseline di fine G4: **tutte le risposte identiche** tranne `core: settings`, che dalla tappa 2 di G5 non ha più unità, posti e campi (stanno nella pagina nuova `inventory: lists of Settings`); le pagine dentro il ±10% (la corsa salvata: lo snapshot +1% e -1%, PENDING -4% e +1%, l'elenco degli articoli +4% e +4%). Le pagine `core: units` e `core: places` si chiamano ora `inventory: units` e `inventory: places` (sono dell'inventario, a `/api/inventory/units` e `/locations`), e PENDING si misura a `/api/inventory-budget/pending`. Prima di G1 le pagine del budget, del registro e dell'inventario erano queste stesse, dentro il rumore.
 
@@ -95,6 +95,8 @@ Millisecondi, mediana di 15 richieste, su questo computer (Docker su Mac). **I n
 - **G8, tappa 1 (gli interruttori):** il cancello legge gli interruttori **una volta a ogni richiesta**, tutte, non solo quelle di un modulo (serve a `currentActive()` anche nel nucleo: `/api/settings` chiede ai moduli accesi chi usa una categoria). Costa una query piccola, circa 0,05–0,2 ms: si vede in percentuale sugli indirizzi da meno di 1 ms (fino a +40% su `inventory: places` allo stress, da 0,5 a 0,7 ms) e sparisce nelle pagine del budget e dei ponti (fra −9% e +3%). Nessuna pagina oltre la regola del §5 (+10% e +1 ms insieme). Tutte le risposte identiche tranne `me`, che dice anche i ponti e i quattro moduli: rinnovata solo quella riga della baseline. Misura dei contratti a 112–122 ns (computer un po' occupato).
 
 - **G8, tappe 2 e 3 (il sito che si spegne a pezzi, l'area ADMINISTRATION solo con il registro):** le 66 risposte identiche alla baseline, le pagine pesanti fra −12% e +3%; sugli indirizzi più piccoli resta il costo della lettura degli interruttori (sotto 1 ms). Misura dei contratti a 113 ns: computer non libero, baseline non rinnovata (si rinnova a computer libero, quando la misura torna a 101–105 ns).
+
+- **Fase D, tappa 1 (gli ordini nel server):** TO PAY e le righe da pagare portano l'ordine di ogni riga, e TO PAY anche se la persona può raggrupparla e gli ordini della stagione (due letture piccole in più, limitate alle stagioni mostrate). Cambiano apposta le risposte di `me` (due permessi nuovi), di TO PAY e delle righe da pagare: rinnovate solo quelle tre righe della baseline (la taglia grande misurata da sola, a computer più tranquillo). Con il controllo «può raggruppare» fatto una volta per area, TO PAY è a −4%…+9% e le righe da pagare a −1%…+6% nelle corse complete; le altre 63 risposte identiche. **Da sapere:** lanciare una taglia sola (`BENCH_SCALES=stress`) dà «DIFFERENT ANSWER» sulle risposte con gli id (lo snapshot, i fondi, il foglio di un'area), perché i dati di prova nascono con id diversi: le risposte si confrontano solo con le due taglie in fila, come è registrata la baseline.
 
 ## 5. La regola per i passi della fase G
 

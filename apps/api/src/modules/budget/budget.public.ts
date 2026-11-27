@@ -17,8 +17,8 @@ export { lineCars, lockLine, projectsByIds, projectsOfSeason } from "./budget.se
 export { getDerivedAreaCategory } from "./lookups.service";
 /** The season each of these lines is in, by line. */
 export { seasonsOfLines } from "./budget.service";
-/** The name (the item) of each of these lines, by line. */
-export { lineLabels } from "./budget.service";
+/** The name (the item) of each of these lines, by line; and the item, area and season of each (what an order checks). */
+export { lineFacts, lineLabels } from "./budget.service";
 
 /** The inflows of CASH FLOW as plain facts, and how to delete them inside a transaction already open. */
 export { deleteInflowsIn, inflowsByIds, inflowsOfSeason } from "./cashflow.service";

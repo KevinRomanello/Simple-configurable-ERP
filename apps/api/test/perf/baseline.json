@@ -8,11 +8,11 @@
       "hash": "7382449ba4"
     },
     "me (every page starts here)": {
-      "medianMs": 0.76,
-      "p95Ms": 0.99,
-      "minMs": 0.65,
-      "bytes": 467,
-      "hash": "558f911d6a"
+      "medianMs": 0.85,
+      "p95Ms": 0.95,
+      "minMs": 0.71,
+      "bytes": 508,
+      "hash": "c4aa2dc59c"
     },
     "core: seasons": {
       "medianMs": 0.86,
@@ -176,11 +176,11 @@
       "hash": "e39afcb986"
     },
     "treasury\u00d7budget: TO PAY": {
-      "medianMs": 27.97,
-      "p95Ms": 39.59,
-      "minMs": 25.49,
-      "bytes": 228826,
-      "hash": "d861f35a13"
+      "medianMs": 31.23,
+      "p95Ms": 34.29,
+      "minMs": 28.68,
+      "bytes": 252550,
+      "hash": "f5f495051f"
     },
     "treasury\u00d7budget: payments to tie": {
       "medianMs": 1.21,
@@ -190,11 +190,11 @@
       "hash": "5e53327273"
     },
     "treasury\u00d7budget: lines to pay": {
-      "medianMs": 25.64,
-      "p95Ms": 26.66,
-      "minMs": 24.19,
-      "bytes": 66461,
-      "hash": "989be9edac"
+      "medianMs": 27.1,
+      "p95Ms": 28.81,
+      "minMs": 25.79,
+      "bytes": 82269,
+      "hash": "5960a2e633"
     },
     "inventory: items": {
       "medianMs": 7.9,
@@ -241,11 +241,11 @@
       "hash": "8167da825c"
     },
     "me (every page starts here)": {
-      "medianMs": 0.59,
-      "p95Ms": 0.74,
-      "minMs": 0.51,
-      "bytes": 467,
-      "hash": "558f911d6a"
+      "medianMs": 0.84,
+      "p95Ms": 1.05,
+      "minMs": 0.71,
+      "bytes": 508,
+      "hash": "c4aa2dc59c"
     },
     "core: seasons": {
       "medianMs": 1.08,
@@ -409,11 +409,11 @@
       "hash": "c9a9ca1e6a"
     },
     "treasury\u00d7budget: TO PAY": {
-      "medianMs": 118.69,
-      "p95Ms": 141.69,
-      "minMs": 115.92,
-      "bytes": 1286769,
-      "hash": "345b156c6c"
+      "medianMs": 113.24,
+      "p95Ms": 135.35,
+      "minMs": 109.9,
+      "bytes": 1418973,
+      "hash": "0712d35e70"
     },
     "treasury\u00d7budget: payments to tie": {
       "medianMs": 2.37,
@@ -423,11 +423,11 @@
       "hash": "3d6a07e225"
     },
     "treasury\u00d7budget: lines to pay": {
-      "medianMs": 113.41,
-      "p95Ms": 152.18,
-      "minMs": 109.6,
-      "bytes": 377961,
-      "hash": "6541fca455"
+      "medianMs": 113.98,
+      "p95Ms": 235.01,
+      "minMs": 108.07,
+      "bytes": 466089,
+      "hash": "e999eb19c7"
     },
     "inventory: items": {
       "medianMs": 34.69,

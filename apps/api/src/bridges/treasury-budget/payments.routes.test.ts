@@ -228,7 +228,7 @@ describe("a payment that paid lines of the budget", () => {
     const row = (await register()).entries.find((e: { id: number }) => e.id === bill.id);
     expect(row.lines).toEqual([{ lineId: sensor, item: "Sensor", cents: 25_050 }]);
     expect((await api.get("/api/treasury-budget/payable-lines")).body).toEqual([
-      { lineId: sensor, item: "Sensor", project: "Steering", teamFundCents: 100_000, teamVatCents: 22_000, totalCents: 122_000, paidCents: 25_050 },
+      { lineId: sensor, item: "Sensor", project: "Steering", teamFundCents: 100_000, teamVatCents: 22_000, totalCents: 122_000, paidCents: 25_050, orderId: null, orderName: null },
     ]);
 
     await pay(bill.id, []); // taking the links away
@@ -401,11 +401,15 @@ describe("TO PAY: what the team still owes of the lines bought", () => {
     expect(await count()).toBe(before);
   });
 
-  it("is for the treasury and the admins, and a closed season takes no payment", async () => {
+  it("is seen by who keeps the budget and paid by the treasury and the admins, and a closed season takes no payment", async () => {
     const lineId = await bought(later(-3));
+    expect((await api.as({ email: "viewer@team.test", role: "viewer" }).get("/api/treasury-budget/to-pay")).status).toBe(403);
     for (const person of [PM, SP]) {
       const as = api.as(person);
-      expect((await as.get("/api/treasury-budget/to-pay")).status).toBe(403);
+      // they see what is to pay (to group it into orders), without the method of the last payment, and they do not pay
+      const seen = await as.get("/api/treasury-budget/to-pay");
+      expect(seen.status).toBe(200);
+      expect(seen.body.lastMethodId).toBeNull();
       expect((await as.post("/api/treasury-budget/to-pay/pay", { on: today(), account: "bank", lines: [{ lineId, amount: "1" }] })).status).toBe(403);
       expect((await as.get("/api/treasury-budget/to-link")).status).toBe(403);
       expect((await as.get("/api/treasury-budget/category-voci")).status).toBe(403);

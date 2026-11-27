@@ -180,7 +180,7 @@ export async function resetData() {
   for (const [index, name] of CASH_METHODS.entries()) await ownerPool.query("insert into cash_method (name, position) values ($1, $2)", [name, index + 1]);
   await restoreSettings(); // its history rows go with the truncate below
   await ownerPool.query(
-    "truncate table line_figures, budget_line, project, fund_contract, team_inflow, bank_snapshot, supplier, audit_log, stock_movement, component_part, item_image, inventory_item, item_type restart identity cascade",
+    "truncate table line_figures, budget_line, project, fund_contract, team_inflow, bank_snapshot, supplier, audit_log, stock_movement, component_part, item_image, inventory_item, item_type, purchase_order restart identity cascade",
   );
   await db.delete(fund).where(eq(fund.kind, "external"));
   // the seasons a test added go, with their team fund; the seed season is put back as it starts,

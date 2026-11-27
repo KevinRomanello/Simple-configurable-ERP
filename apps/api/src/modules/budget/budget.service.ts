@@ -79,6 +79,18 @@ export async function seasonsOfLines(reader: Db, lineIds: number[]): Promise<Map
   return new Map(rows.map((r) => [r.id, r.seasonId]));
 }
 
+/** What an order needs to know of each of these lines, by line: its item, its area (who may change it) and its season. */
+export async function lineFacts(reader: Db, lineIds: number[]): Promise<Map<number, { item: string; areaId: number; areaName: string; seasonId: number }>> {
+  if (lineIds.length === 0) return new Map();
+  const rows = await reader
+    .select({ id: budgetLine.id, item: budgetLine.item, areaId: area.id, areaName: area.name, seasonId: project.seasonId })
+    .from(budgetLine)
+    .innerJoin(project, eq(budgetLine.projectId, project.id))
+    .innerJoin(area, eq(project.areaId, area.id))
+    .where(anyOf(budgetLine.id, lineIds));
+  return new Map(rows.map(({ id, ...facts }) => [id, facts]));
+}
+
 /** The name (the item) of each of these lines, by line. */
 export async function lineLabels(reader: Db, lineIds: number[]): Promise<Map<number, string>> {
   if (lineIds.length === 0) return new Map();

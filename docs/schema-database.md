@@ -1,6 +1,6 @@
 # Com'è organizzato il database
 
-Le **50 tabelle** di PostgreSQL, disegnate (37 dell'ERP e le 13 delle anagrafiche, sezione 6bis). La fonte vera è la cartella [apps/api/src/db/schema/](../apps/api/src/db/schema) (un file per proprietario: `platform`, `budget`, `treasury`, `inventory`, `registry` e i ponti `treasury-budget`, `inventory-budget` e `registry-access`) (e le migrazioni in `apps/api/drizzle/`): se cambia lo schema, questo documento va aggiornato nello stesso lavoro. Per le regole di business di ogni area si vedano i documenti indicati in ogni sezione; per l'elenco in tabella e la descrizione di ogni colonna, [architettura.md](architettura.md) (Modello dati).
+Le **52 tabelle** di PostgreSQL, disegnate (39 dell'ERP e le 13 delle anagrafiche, sezione 6bis). La fonte vera è la cartella [apps/api/src/db/schema/](../apps/api/src/db/schema) (un file per proprietario: `platform`, `budget`, `treasury`, `inventory`, `registry` e i ponti `treasury-budget`, `inventory-budget` e `registry-access`) (e le migrazioni in `apps/api/drizzle/`): se cambia lo schema, questo documento va aggiornato nello stesso lavoro. Per le regole di business di ogni area si vedano i documenti indicati in ogni sezione; per l'elenco in tabella e la descrizione di ogni colonna, [architettura.md](architettura.md) (Modello dati).
 
 **Come leggere i diagrammi.** Ogni riquadro è una tabella con le colonne che contano (chiave `PK`, chiave esterna `FK`); le altre sono nei file di `db/schema/`. Le linee sono le chiavi esterne con la loro cardinalità («zampa di gallina»):
 
@@ -261,6 +261,7 @@ erDiagram
 - Un movimento ha **un solo conto** e un importo **mai zero**; la spunta Sponsorship ha senso solo se l'importo è positivo (due controlli del database).
 - `cash_entry_line`: l'importo è sempre sopra zero ed è unico per coppia uscita+voce. Le somme (non oltre l'uscita, non oltre la quota del fondo del team) le controlla l'API.
 - Cancellare un movimento cancella i suoi collegamenti alle voci (cascata) e libera l'eventuale inflow; cancellare una voce del budget cancella i collegamenti che la riguardano.
+- **Gli ordini** (fase D, migrazione `0043`, tabelle del ponte tesoreria×budget): `purchase_order` (`season_id` → `season`, cascata; `name`, unico nella stagione senza maiuscole e non vuoto; `created_at`) e `order_line` (`line_id` → `budget_line`, **unico**: una riga in un ordine al più; `order_id` → `purchase_order`; tutte e due in cascata). Il trigger `order_line_drop_empty_order` toglie un ordine quando ne esce l'ultima riga (tolta, spostata, o cancellata dal budget). Tutte e due nello storico ([registro-di-cassa.md](registro-di-cassa.md), §5.4bis).
 
 ## 5. Inventario
 

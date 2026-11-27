@@ -1,6 +1,6 @@
 import { toPayLines, type CalcLine } from "@erp/calc";
 import { eq } from "drizzle-orm";
-import { invalid, notFound } from "../../core/errors";
+import { forbidden, invalid, notFound } from "../../core/errors";
 import { fromCents, toCents } from "../../core/money";
 import { today } from "../../core/today";
 import { runWrite } from "../../core/tx";
@@ -11,6 +11,9 @@ import { allSeasons, assertSeasonOpen, getCurrentSeason, getSeasonById } from ".
 import { computedLines, seasonsOfLines } from "../../modules/budget/budget.public";
 import { assertCanManageCash, entriesByIds, insertEntry, lastPaymentMethodId, paymentsBetween } from "../../modules/treasury/treasury.public";
 import { payingEntries } from "./links.service";
+import { mayGroupLine, ordersOfLines, ordersOfSeasons } from "./orders.service";
+import { getCurrentUser } from "../../platform/auth/auth.service";
+import { can } from "../../platform/platform.public";
 import type { PayInput } from "./treasury-budget.schema";
 
 // The payments of the register tied to the lines of the budget (docs/registro-di-cassa.md, section 5.3): a
@@ -28,9 +31,12 @@ export interface PayableLine {
   totalCents: number;
   /** What every payment has paid of it, this one included. */
   paidCents: number;
+  /** The order the line is in (several lines bought together), if it is in one. */
+  orderId: number | null;
+  orderName: string | null;
 }
 
-const payableOf = (l: CalcLine): PayableLine => ({
+const payableOf = (l: CalcLine, order?: { orderId: number; orderName: string }): PayableLine => ({
   lineId: l.id,
   item: l.item,
   project: l.projectName,
@@ -38,12 +44,16 @@ const payableOf = (l: CalcLine): PayableLine => ({
   teamVatCents: l.actual.teamVatCents,
   totalCents: l.actual.teamFundCents + l.actual.teamVatCents,
   paidCents: l.actual.paidCents,
+  orderId: order?.orderId ?? null,
+  orderName: order?.orderName ?? null,
 });
 
 /** The ACTUAL lines of the season that the team pays for (the only ones a payment can be tied to), with how much is paid. */
 export async function listPayableLines(): Promise<PayableLine[]> {
   await assertCanManageCash();
-  return (await computedLines(await getCurrentSeason())).map(payableOf).filter((l) => l.totalCents > 0);
+  const season = await getCurrentSeason();
+  const orders = await ordersOfLines([season.id]);
+  return (await computedLines(season)).map((l) => payableOf(l, orders.get(l.id))).filter((l) => l.totalCents > 0);
 }
 
 /** A payment never covers more of a line than the team pays for it, with the other payments of the line. */
@@ -105,21 +115,39 @@ export async function setEntryLines(entryId: number, lines: { lineId: number; am
 // --- TO PAY ------------------------------------------------------------------------------------
 
 /**
- * What the team still has to pay of the lines bought (the page TO PAY): the lines of the season chosen in the
- * menu, or of every season; with the Voce each category starts from and the method of the last payment, for the
- * form that pays them.
+ * What the team still has to pay of the lines bought (the page TO PAY): the lines of the season chosen in the menu, or of every season,
+ * each with its order and whether the person may put it in an order or take it out; the orders of those seasons; the Voce each category
+ * starts from; and, for who pays, the method of the last payment. Everybody who keeps the budget sees it: paying stays the treasury's.
  */
 export async function listToPay(everySeason: boolean) {
-  await assertCanManageCash();
+  const actor = await getCurrentUser();
+  if (!can(actor, "canSeeToPay")) throw forbidden("Only who keeps the budget can see what is to pay");
   const seasons = everySeason ? await allSeasons() : [await getCurrentSeason()];
   const voceOf = new Map((await db.select({ name: category.name, voceId: categoryVoce.voceId }).from(category).leftJoin(categoryVoce, eq(categoryVoce.categoryId, category.id))).map((c) => [c.name.toLowerCase(), c.voceId]));
+  const orderOf = await ordersOfLines(seasons.map((s) => s.id));
+  // whether the person may group a line depends only on its area: asked once per area, not once per line
+  const groupsArea = new Map<number, boolean>();
+  const mayGroup = async (areaId: number) => {
+    if (!groupsArea.has(areaId)) groupsArea.set(areaId, can(actor, "canGroupOrders") && (await mayGroupLine(actor, areaId)));
+    return groupsArea.get(areaId)!;
+  };
   const rows = [];
   for (const season of seasons) {
     for (const row of toPayLines(await computedLines(season), today())) {
-      rows.push({ ...row, seasonId: season.id, seasonName: season.name, suggestedCategoryId: row.category ? (voceOf.get(row.category.toLowerCase()) ?? null) : null });
+      const order = orderOf.get(row.lineId);
+      rows.push({
+        ...row,
+        seasonId: season.id,
+        seasonName: season.name,
+        suggestedCategoryId: row.category ? (voceOf.get(row.category.toLowerCase()) ?? null) : null,
+        orderId: order?.orderId ?? null,
+        orderName: order?.orderName ?? null,
+        canGroup: await mayGroup(row.areaId),
+      });
     }
   }
-  return { rows, lastMethodId: await lastPaymentMethodId(db) };
+  const orders = await ordersOfSeasons(actor, seasons.map((s) => s.id));
+  return { rows, orders, lastMethodId: can(actor, "canManageCash") ? await lastPaymentMethodId(db) : null };
 }
 
 /**

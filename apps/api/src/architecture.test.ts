@@ -151,7 +151,7 @@ describe("who owns what, and who may use it", () => {
 /** What each public file shows to the others. A name added or taken away fails the test above, so that it is a choice. */
 const PUBLIC_NAMES: Record<string, string[]> = {
   "modules/budget/budget.public": [
-    "InflowFact", "InflowReceipt", "RegisterIncome", "assertCanChangeInflows", "bankOf", "computedLines", "computedSeason", "deleteInflowsIn", "getDerivedAreaCategory", "inflowDeleting", "inflowReceipts", "inflowsByIds", "inflowsOfSeason", "lineCars", "lineLabels", "linePayments", "lineReceipts", "lockLine", "outsideBudgetOf", "projectsByIds", "projectsOfSeason", "registerBank", "registerSponsorship", "seasonsOfLines",
+    "InflowFact", "InflowReceipt", "RegisterIncome", "assertCanChangeInflows", "bankOf", "computedLines", "computedSeason", "deleteInflowsIn", "getDerivedAreaCategory", "inflowDeleting", "inflowReceipts", "inflowsByIds", "inflowsOfSeason", "lineCars", "lineFacts", "lineLabels", "linePayments", "lineReceipts", "lockLine", "outsideBudgetOf", "projectsByIds", "projectsOfSeason", "registerBank", "registerSponsorship", "seasonsOfLines",
   ],
   "modules/inventory/inventory.public": [
     "MovementFact", "MovementTie", "ReceiptOfPurchaseInput", "StatsBudget", "assertCanManageInventory", "buildNeedsProject", "checkReceipt", "itemIdentities", "keepMakeProject", "keepMovementProject", "knownProjects", "lineCarsOfReceipts", "makeProjects", "movementTies", "movementsByIds", "receiptOfPurchaseInput", "receiveIn", "statsBudget",

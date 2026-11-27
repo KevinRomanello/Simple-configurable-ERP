@@ -141,8 +141,9 @@ describe("admin", () => {
 
 describe("what the interface is told a person may do (GET /api/me)", () => {
   // The rules of the permissions, written out once: a person, their boxes, and what they may do. The boxes only count for a project manager.
-  const NONE = { canEditShared: false, canManageCash: false, canChangeInflows: false, canManageSuppliers: false, canManageInventory: false, canViewHistory: false, canManageUsers: false, canManageSettings: false };
-  const RUNS = { canManageSuppliers: true, canManageInventory: true, canViewHistory: true };
+  const NONE = { canEditShared: false, canManageCash: false, canChangeInflows: false, canManageSuppliers: false, canManageInventory: false, canSeeToPay: false, canGroupOrders: false, canViewHistory: false, canManageUsers: false, canManageSettings: false };
+  // who keeps the budget: the suppliers, the inventory, TO PAY and its orders, the History
+  const RUNS = { canManageSuppliers: true, canManageInventory: true, canSeeToPay: true, canGroupOrders: true, canViewHistory: true };
   const cases: [string, Person, object][] = [
     ["an admin", { email: "a@team.test", role: "admin" }, { canEditShared: true, canManageCash: true, canChangeInflows: true, ...RUNS, canManageUsers: true, canManageSettings: true }],
     ["a project manager", { email: "p@team.test", role: "pm" }, { ...NONE, ...RUNS }],

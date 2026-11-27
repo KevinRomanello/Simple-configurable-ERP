@@ -40,9 +40,22 @@ contracts.declare(permissionRules, OWNER, {
   rule: (user) => user.role === "pm" && user.flags.includes("treasury"),
 });
 
+// TO PAY is for everybody who keeps the budget (admins and users), not only for who pays: they see what is still to pay and group the
+// lines bought together into orders (docs/registro-di-cassa.md, section 5.3); paying stays the treasury's (canManageCash)
+contracts.declare(permissionRules, OWNER, {
+  key: "canSeeToPay",
+  rule: (user) => user.role === "admin" || user.role === "pm",
+});
+contracts.declare(permissionRules, OWNER, {
+  key: "canGroupOrders",
+  rule: (user) => user.role === "admin" || user.role === "pm",
+});
+
 contracts.declare(auditLabels, OWNER, {
   inflow_receipt: (row) => `inflow ${String(row.inflow_id ?? "")} received by movement ${String(row.entry_id ?? "")}`,
   category_voce: (row) => `Voce ${String(row.voce_id ?? "")} for category ${String(row.category_id ?? "")}`,
+  purchase_order: (row) => `order ${auditText(row, "name")}`,
+  order_line: (row) => `line ${String(row.line_id ?? "")} in order ${String(row.order_id ?? "")}`,
 });
 
 // what joins it to its modules and goes off with either of them (Settings › App › Modules says it under each)
