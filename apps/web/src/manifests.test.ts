@@ -10,7 +10,7 @@ import type { Me, Permissions } from "./platform/types";
 
 const NONE: Permissions = {
   canEditShared: false, canManageCash: false, canChangeInflows: false, canManageSuppliers: false,
-  canManageInventory: false, canViewHistory: false, canManageUsers: false, canManageSettings: false,
+  canManageInventory: false, canSeeToPay: false, canGroupOrders: false, canViewHistory: false, canManageUsers: false, canManageSettings: false,
 };
 const ALL: Permissions = Object.fromEntries(Object.keys(NONE).map((key) => [key, true])) as unknown as Permissions;
 /** A person on a site with these modules off; the bridges are on as the server says: while all their modules are. */
@@ -67,6 +67,18 @@ describe("the menu and the pages, from the manifests", () => {
       .map(({ by, owner }) => `${by} → ${owner}`);
     expect(wrong).toEqual([]);
     expect(MANIFESTS.flatMap((m) => m.fills ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("shows a user TO PAY alone in the Treasury group, and the treasury and the admins the register and the statement too", () => {
+    const treasuryEntries = (me: Me) =>
+      on(me)
+        .flatMap((m) => m.menu ?? [])
+        .filter((e) => e.group === "treasury" && (e.shown?.(me) ?? true))
+        .sort(byOrder)
+        .map((e) => (e.element as { props: { to: string } }).props.to);
+    expect(treasuryEntries(person("admin", ALL))).toEqual(["/register", "/to-pay", "/statement"]);
+    expect(treasuryEntries(person("pm", { canSeeToPay: true, canGroupOrders: true }))).toEqual(["/to-pay"]);
+    expect(treasuryEntries(person("viewer", {}))).toEqual([]); // the group is not drawn at all
   });
 
   it("turns a bridge on only while both of its modules are on, and never turns the platform off", () => {

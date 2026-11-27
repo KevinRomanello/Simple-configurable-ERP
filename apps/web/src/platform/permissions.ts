@@ -33,6 +33,7 @@ export function lockEditing(me: Me): Me {
       canChangeInflows: false,
       canManageSuppliers: false,
       canManageInventory: false,
+      canGroupOrders: false,
       canManageUsers: false,
       canManageSettings: false,
     },

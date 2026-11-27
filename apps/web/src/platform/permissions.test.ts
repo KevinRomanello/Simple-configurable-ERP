@@ -8,7 +8,7 @@ const person = (role: Me["role"], areaIds: number[] = []): Me => ({
   name: "A",
   role,
   areaIds,
-  permissions: { canEditShared: false, canManageCash: false, canChangeInflows: false, canManageSuppliers: false, canManageInventory: false, canViewHistory: false, canManageUsers: false, canManageSettings: false },
+  permissions: { canEditShared: false, canManageCash: false, canChangeInflows: false, canManageSuppliers: false, canManageInventory: false, canSeeToPay: false, canGroupOrders: false, canViewHistory: false, canManageUsers: false, canManageSettings: false },
   editOnPhone: true,
   modules: { registry: true },
   bridges: {},
@@ -40,7 +40,7 @@ describe("ROLE_NAME", () => {
 describe("read-only on a phone", () => {
   const everything = {
     ...person("admin", [1, 2]),
-    permissions: { canEditShared: true, canManageCash: true, canChangeInflows: true, canManageSuppliers: true, canManageInventory: true, canViewHistory: true, canManageUsers: true, canManageSettings: true },
+    permissions: { canEditShared: true, canManageCash: true, canChangeInflows: true, canManageSuppliers: true, canManageInventory: true, canSeeToPay: true, canGroupOrders: true, canViewHistory: true, canManageUsers: true, canManageSettings: true },
   };
 
   it("is on only for a phone, and only when an admin turned editing off", () => {
@@ -51,7 +51,7 @@ describe("read-only on a phone", () => {
 
   it("takes away every command that changes something, even from an admin, and leaves the ones that only look", () => {
     const locked = lockEditing(everything);
-    expect(locked.permissions).toEqual({ canEditShared: false, canManageCash: false, canChangeInflows: false, canManageSuppliers: false, canManageInventory: false, canViewHistory: true, canManageUsers: false, canManageSettings: false });
+    expect(locked.permissions).toEqual({ canEditShared: false, canManageCash: false, canChangeInflows: false, canManageSuppliers: false, canManageInventory: false, canSeeToPay: true, canGroupOrders: false, canViewHistory: true, canManageUsers: false, canManageSettings: false });
     expect(locked.role).toBe("admin"); // who they are does not change
     expect(canEditArea(locked, 1)).toBe(false);
     expect(canEditArea(everything, 1)).toBe(true);

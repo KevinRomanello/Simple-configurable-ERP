@@ -150,11 +150,13 @@
   color: var(--text-strong);
 }
 /* the title of a group folds and unfolds it */
-.nav-chevron {
+.nav-chevron,
+.row-chevron {
   font-size: 10px;
   transition: transform 0.15s;
 }
-.nav-chevron.shut {
+.nav-chevron.shut,
+.row-chevron.shut {
   transform: rotate(-90deg);
 }
 .nav-items {
@@ -829,6 +831,24 @@
   background: var(--bg-sub);
   color: var(--text-strong);
   font-weight: 700;
+}
+/* a row that opens to show the rows in it (an order of TO PAY): a light ground; the rows in it are indented under its name */
+.data-table tr.order-row > td {
+  background: var(--bg-weak);
+}
+.order-title {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-2xs);
+}
+.data-table tr.order-line > td.cell-title {
+  padding-left: calc(var(--space-xs) + 28px + var(--space-2xs)); /* under the name, after the arrow (an .icon-btn is 28px) */
+}
+/* several buttons in one cell, side by side */
+.cell-buttons {
+  display: inline-flex;
+  gap: var(--space-2xs);
+  align-items: center;
 }
 .negative {
   color: var(--error-default);
@@ -1655,6 +1675,15 @@ body.no-scroll {
   }
   .data-table.phone-cards tr:last-child {
     margin-bottom: 0;
+  }
+  .data-table.phone-cards tr.order-row {
+    background: var(--bg-weak);
+  }
+  .data-table.phone-cards tr.order-line {
+    margin-left: var(--space-m);
+  }
+  .data-table.phone-cards tr.order-line > td.cell-title {
+    padding-left: 0;
   }
   /* the name of the column on the left, the value on the right; a value of several lines stays one under the other */
   .data-table.phone-cards td {

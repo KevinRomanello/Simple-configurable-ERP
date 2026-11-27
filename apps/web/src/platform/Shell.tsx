@@ -57,14 +57,18 @@ function NavGroup({ id, title, closed, onToggle, children }: { id: string; title
   );
 }
 
-/** A group of the menu with its entries, when the person sees it (each group asks on its own: the Registry asks the server). */
+/**
+ * A group of the menu with its entries, when the person sees it (each group asks on its own: the Registry asks the server) and sees at
+ * least one of its entries: a group with none of them is not drawn.
+ */
 function ShownGroup({ group, entries, closed, onToggle }: { group: MenuGroup; entries: MenuEntry[]; closed: string[]; onToggle: (id: string) => void }) {
   const me = useMe();
   const shown = group.useShown?.(me) ?? true;
-  if (!shown) return null;
+  const visible = entries.filter((entry) => entry.shown?.(me) ?? true);
+  if (!shown || visible.length === 0) return null;
   return (
     <NavGroup id={group.id} title={group.title} closed={closed} onToggle={onToggle}>
-      {entries.filter((entry) => entry.shown?.(me) ?? true).map((entry) => (
+      {visible.map((entry) => (
         <Fragment key={entry.order}>{entry.element}</Fragment>
       ))}
     </NavGroup>

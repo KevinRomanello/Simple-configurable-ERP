@@ -610,7 +610,7 @@ Cinque tappe: le cartelle con il client e i tipi divisi (1), i manifesti (2), i 
   - `key` e `needs`, i moduli di cui ha bisogno: un ponte è acceso solo con tutti e due i suoi;
   - `routes`, le pagine; il registry anche `openRoutes`, i moduli pubblici fuori dal login;
   - `menuGroups`, i gruppi del menù: titolo, posto, gli indirizzi che lo aprono da solo, e chi lo vede (`useShown`, un hook: il Registry chiede al server);
-  - `menu`, le voci: in un gruppo suo o di un altro, con il posto e chi le vede (`shown`);
+  - `menu`, le voci: in un gruppo suo o di un altro, con il posto e chi le vede (`shown`). Un gruppo di cui la persona non vede nessuna voce non si disegna (fase D: un User senza la spunta Treasury vede il gruppo Treasury con la sola TO PAY, un viewer non lo vede);
   - `settings`, le sezioni di Settings: chiave, nome, posto, chi può usarle e il componente.
 
   Anche la piattaforma ha il suo (`platform/index.tsx`: Users, Settings, History, il gruppo Admin e la sezione App).

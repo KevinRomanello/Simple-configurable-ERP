@@ -33,14 +33,16 @@ interface PayDraft {
   amounts: Record<number, string>;
 }
 
-/** The title of the payment of these lines. */
-const payTitle = (rows: ToPayRow[]) => (rows.length === 1 ? `Pay: ${rows[0]!.item}` : `Pay ${rows.length} lines in one payment`);
+/** The title of the payment of these lines (of the order `order`, when they are its lines). */
+const payTitle = (rows: ToPayRow[], order?: string) =>
+  order !== undefined ? `Pay order ${order} (${rows.length} ${rows.length === 1 ? "line" : "lines"})` : rows.length === 1 ? `Pay: ${rows[0]!.item}` : `Pay ${rows.length} lines in one payment`;
 
 /**
  * `compact` is the short form of one line for the popover: the day, the account and the amount; the method, the Voce and the
- * description are the ones the full form starts from (the same payment, with fewer boxes to see).
+ * description are the ones the full form starts from (the same payment, with fewer boxes to see). `order` is the name of the order
+ * the lines are, when its Pay was pressed: the payment is called after it.
  */
-export function PayForm({ rows, lastMethodId, compact = false, onDone }: { rows: ToPayRow[]; lastMethodId: number | null; compact?: boolean; onDone: () => void }) {
+export function PayForm({ rows, lastMethodId, order, compact = false, onDone }: { rows: ToPayRow[]; lastMethodId: number | null; order?: string; compact?: boolean; onDone: () => void }) {
   const act = useAction();
   const methods = useQuery({ queryKey: ["cash-methods"], queryFn: registerLists.methods });
   const voci = useQuery({ queryKey: ["cash-categories"], queryFn: registerLists.voci });
@@ -53,7 +55,7 @@ export function PayForm({ rows, lastMethodId, compact = false, onDone }: { rows:
     account: "bank",
     methodId: lastMethodId === null ? "" : String(lastMethodId),
     voceId: suggested.size === 1 && !suggested.has(null) ? String([...suggested][0]) : "",
-    description: `${suppliers.length > 0 ? `${suppliers.join(", ")} — ` : ""}${rows.map((r) => r.item).join(", ")}`.slice(0, 500),
+    description: (order ?? `${suppliers.length > 0 ? `${suppliers.join(", ")} — ` : ""}${rows.map((r) => r.item).join(", ")}`).slice(0, 500),
     amounts: Object.fromEntries(rows.map((r) => [r.lineId, decimalText(r.dueCents, 2)])),
   }));
   // what is written is kept while it is typed (the compact form and the full one are the same draft)
@@ -79,7 +81,7 @@ export function PayForm({ rows, lastMethodId, compact = false, onDone }: { rows:
 
   return (
     <FormPanel
-      title={payTitle(rows)}
+      title={payTitle(rows, order)}
       description={compact ? undefined : "The payment is made in the register, tied to the lines, and they leave this list. It covers the net first and then the VAT: lower an amount to pay a line in instalments."}
       submitLabel={`Pay ${money(total)}`}
       canSubmit={total > 0 && !tooMuch && on !== ""}

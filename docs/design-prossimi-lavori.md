@@ -9,7 +9,7 @@ Sette richieste dell'utente:
 | A | La spunta **«ACTUAL same as EXPECTED»** nel form «Add item» | piccolo — **fatta** (26 novembre 2026) |
 | B | Le azioni di una riga (collegare, pagare, ricevere, cambiare…) si aprono in un **popup** invece che in cima alla pagina | piccolo-medio — **fatta** (26 novembre 2026) |
 | C | **Cancellare un inflow** di CASH FLOW scegliendo da dove: EXPECTED, ACTUAL, registro di cassa | piccolo-medio — **fatta** (26 novembre 2026) |
-| D | **TO PAY** visibile a chi tiene il budget, e gli **ordini** (più righe comprate in un solo ordine) | medio-grande — **tappa 1 (server) fatta** (27 novembre 2026); restano il sito (tappa 2) e la chiusura (tappa 3) |
+| D | **TO PAY** visibile a chi tiene il budget, e gli **ordini** (più righe comprate in un solo ordine) | medio-grande — **tappe 1 (server) e 2 (sito) fatte** (27 novembre 2026); resta la chiusura (tappa 3: il giro nel browser e i documenti) |
 | E | **Non perdere quello che si sta scrivendo** quando si cambia pagina (bozze) | medio — **fatta** (26 novembre 2026, in due passi: E1 la base e i form più usati, E2 tutti gli altri) |
 | F | **Ctrl+Z** (annulla) e Ctrl+Shift+Z (rifai) | grande |
 | G | **I moduli**: budget, tesoreria, inventario e anagrafiche spegnibili, che si parlano solo con «API come funzioni». Design a parte: [moduli-architettura.md](moduli-architettura.md) (ADR-2) | molto grande, a passi — **fatta**: G0–G8 (26–27 novembre 2026) |
@@ -282,7 +282,7 @@ Le chiavi sono proposte: l'importante è che siano stabili e contengano ciò che
 | «New movement» / «Change movement» (registro) | `modules/treasury/CashRegisterPage.tsx` | `cash-movement:new` / `cash-movement:<id>` | il movimento |
 | «Link to budget lines» | `bridges/treasury-budget/PayLines.tsx` | `pay-lines:<entryId>` | le righe già legate |
 | «Pay…» | `bridges/treasury-budget/PayForm.tsx` | `pay:<id delle righe, in ordine>` | — |
-| «Group as one order» (fase D) | `bridges/treasury-budget/ToPayPage.tsx` | `order:new` | — |
+| «Group as one order» / «Add to order…» (fase D) | `bridges/treasury-budget/OrderForms.tsx` | `order:new` / `order:add` (il popup aperto, con le righe, in `open:to-pay:grouping`) | — |
 | Cancellare un inflow (fase C) | `bridges/treasury-budget/DeleteInflow.tsx` | non serve (solo spunte, si rifà in un attimo) | — |
 | «New supplier» | `modules/budget/SuppliersPage.tsx` | `new-supplier` | — |
 | «New season» | `platform/SeasonsPanel.tsx` | `new-season` | — |

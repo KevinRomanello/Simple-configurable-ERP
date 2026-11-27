@@ -1,5 +1,5 @@
 // The calls of treasury-budget to the API (split from api/client.ts in G7: docs/moduli-architettura.md, §7.1).
-import { del, get, post, put } from "../../core/api";
+import { del, get, patch, post, put } from "../../core/api";
 import type { CashAccount } from "../../modules/treasury/public";
 import type { CategoryDefault, PayableLine, Receivable, RelatedInflows, ToLinkRow, ToPay } from "./types";
 
@@ -19,6 +19,11 @@ export const treasuryBudgetApi = {
   toPay: (allSeasons: boolean) => get<ToPay>(`/treasury-budget/to-pay${allSeasons ? "?allSeasons=1" : ""}`),
   payLines: (body: PayBody) => post<{ id: number }>("/treasury-budget/to-pay/pay", body),
   toLink: () => get<ToLinkRow[]>("/treasury-budget/to-link"),
+  /** The orders of TO PAY: lines bought together (a line that was in another order moves; an order left without lines goes). */
+  createOrder: (body: { name: string; lineIds: number[] }) => post<{ id: number; name: string; seasonId: number }>("/treasury-budget/orders", body),
+  updateOrder: (id: number, body: { name?: string; addLineIds?: number[]; removeLineIds?: number[] }) => patch(`/treasury-budget/orders/${id}`, body),
+  /** Ungroups an order: its lines stay, without an order. */
+  deleteOrder: (id: number) => del(`/treasury-budget/orders/${id}`),
   categoryDefaults: () => get<CategoryDefault[]>("/treasury-budget/category-voci"),
   setCategoryDefault: (categoryId: number, voceId: number | null) => put(`/treasury-budget/category-voci/${categoryId}`, { voceId }),
   setCashEntryLines: (id: number, lines: { lineId: number; amount: string }[]) => put(`/treasury-budget/entries/${id}/lines`, { lines }),

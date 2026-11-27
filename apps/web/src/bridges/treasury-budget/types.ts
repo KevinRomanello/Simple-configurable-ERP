@@ -46,16 +46,33 @@ export interface PayableLine {
   /** The net and the VAT together: the most a payment can cover. */
   totalCents: number;
   paidCents: number;
+  /** The order the line was bought in, if it is in one (docs/registro-di-cassa.md, §5.4bis). */
+  orderId: number | null;
+  orderName: string | null;
 }
-/** GET /api/treasury-budget/to-pay: a line the team still has to pay, with the season it is of and the Voce its category starts from. */
+/**
+ * GET /api/treasury-budget/to-pay: a line the team still has to pay, with the season it is of, the Voce its category starts from, the
+ * order it was bought in and whether the person may put it in an order or take it out.
+ */
 export interface ToPayRow extends ToPayLine {
   seasonId: number;
   seasonName: string;
   suggestedCategoryId: number | null;
+  orderId: number | null;
+  orderName: string | null;
+  canGroup: boolean;
+}
+/** An order of TO PAY: lines of the budget bought together, of one season. `canChange`: the person may rename or ungroup it. */
+export interface PurchaseOrder {
+  id: number;
+  name: string;
+  seasonId: number;
+  canChange: boolean;
 }
 export interface ToPay {
   rows: ToPayRow[];
-  /** The method of the last payment: the next one starts from it. */
+  orders: PurchaseOrder[];
+  /** The method of the last payment: the next one starts from it (null for who does not pay). */
   lastMethodId: number | null;
 }
 /** GET /api/treasury-budget/to-link: a payment that pays no line of the budget yet. */

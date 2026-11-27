@@ -35,6 +35,10 @@ export interface Permissions {
   canChangeInflows: boolean;
   canManageSuppliers: boolean;
   canManageInventory: boolean;
+  /** TO PAY (the bridge between the register and the budget): who keeps the budget, admins and users. Paying stays `canManageCash`. */
+  canSeeToPay: boolean;
+  /** Grouping the lines of TO PAY bought in one order: a user the lines of their areas, the treasury and the admins any line. */
+  canGroupOrders: boolean;
   canViewHistory: boolean;
   canManageUsers: boolean;
   canManageSettings: boolean;

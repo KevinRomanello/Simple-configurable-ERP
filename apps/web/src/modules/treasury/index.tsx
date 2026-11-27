@@ -12,11 +12,12 @@ export const treasuryManifest: Manifest = {
     { path: "register", element: <CashRegisterPage /> },
     { path: "statement", element: <StatementPage /> },
   ],
-  // the team's own money, for the treasury and the admins: the register, what is still to pay (the bridge to the budget) and the financial statement
-  menuGroups: [{ id: "treasury", title: "Treasury", order: 40, paths: ["/register", "/statement"], useShown: (me) => me.permissions.canManageCash }],
+  // the team's own money: the register and the financial statement are the treasury's and the admins'; TO PAY (the bridge to the budget)
+  // is for who keeps the budget too, so the group shows to whoever sees one of its entries
+  menuGroups: [{ id: "treasury", title: "Treasury", order: 40, paths: ["/register", "/statement"] }],
   menu: [
-    { group: "treasury", order: 10, element: <MenuLink to="/register" icon={faBookOpen}>CASH REGISTER</MenuLink> },
-    { group: "treasury", order: 30, element: <MenuLink to="/statement" icon={faFileInvoiceDollar}>FINANCIAL STATEMENT</MenuLink> },
+    { group: "treasury", order: 10, shown: (me) => me.permissions.canManageCash, element: <MenuLink to="/register" icon={faBookOpen}>CASH REGISTER</MenuLink> },
+    { group: "treasury", order: 30, shown: (me) => me.permissions.canManageCash, element: <MenuLink to="/statement" icon={faFileInvoiceDollar}>FINANCIAL STATEMENT</MenuLink> },
   ],
   settings: [
     { key: "register", label: "Register", order: 30, allowed: (me) => me.permissions.canManageSettings || me.permissions.canManageCash, Content: CashListsPanel },
