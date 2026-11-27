@@ -7,7 +7,7 @@ import { Button, IconButton } from "../../core/Button";
 import { CashImport } from "./CashImport";
 import { Chips } from "../../core/Chips";
 import { useSlot } from "../../core/slots";
-import { registerRowActions } from "./public";
+import { registerRowActions } from "./slots";
 import { CommitInput } from "../../core/CommitInput";
 import { EditCell } from "../../core/EditCell";
 import { TableBox } from "../../core/ExportBlocks";

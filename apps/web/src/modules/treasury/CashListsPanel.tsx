@@ -8,7 +8,7 @@ import { QuickAdd, usedBy } from "../../core/QuickAdd";
 import { DataTable, Panel, type Column } from "../../core/ui";
 import { useAction } from "../../core/useAction";
 import { Slot } from "../../core/slots";
-import { registerSettings } from "./public";
+import { registerSettings } from "./slots";
 
 // Settings: the two lists of the register of the team's money, kept by the treasury and the admins.
 // Not designed in Figma: the lists of Settings. docs/registro-di-cassa.md

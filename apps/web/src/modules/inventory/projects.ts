@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSlot } from "../../core/slots";
-import { purposeProjects } from "./public";
+import { purposeProjects } from "./slots";
 import type { ProjectRef } from "./types";
 
 const none = async (): Promise<ProjectRef[]> => [];

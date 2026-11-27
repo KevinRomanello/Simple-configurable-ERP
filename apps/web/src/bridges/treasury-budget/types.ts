@@ -1,6 +1,6 @@
 // The shapes of the answers of treasury-budget (split from api/types.ts in G7: docs/moduli-architettura.md, §7.1).
 import type { ToPayLine } from "@erp/calc";
-import type { CashAccount } from "../../modules/treasury/types";
+import type { CashAccount } from "../../modules/treasury/public";
 
 /** One thing that can be deleted from CASH FLOW: an inflow (expected or actual) or a movement of the register (GET /api/treasury-budget/inflows/related). */
 export interface RelatedVoice {

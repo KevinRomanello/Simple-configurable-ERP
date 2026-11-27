@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { treasuryBudgetApi } from "./api";
 import type { CategoryDefault } from "./types";
-import { treasuryApi } from "../../modules/treasury/api";
+import { registerLists } from "../../modules/treasury/public";
 import { DataTable, Panel, type Column } from "../../core/ui";
 import { useAction } from "../../core/useAction";
 
@@ -11,7 +11,7 @@ import { useAction } from "../../core/useAction";
 export function CategoryVoci() {
   const act = useAction();
   const defaults = useQuery({ queryKey: ["category-defaults"], queryFn: treasuryBudgetApi.categoryDefaults });
-  const voci = useQuery({ queryKey: ["cash-categories"], queryFn: treasuryApi.cashCategories });
+  const voci = useQuery({ queryKey: ["cash-categories"], queryFn: registerLists.voci });
   const columns: Column<CategoryDefault>[] = [
     { key: "category", header: "BUDGET CATEGORY", cell: (c) => c.name },
     {

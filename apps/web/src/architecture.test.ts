@@ -64,8 +64,9 @@ describe("the site and the engine of the registry", () => {
 // The same rules as the server's (apps/api/src/architecture.test.ts): every file belongs to an owner, by its folder. `core/` is the
 // frame every page is drawn with (it knows no module), `platform/` the core of the ERP (sign-in, users, Settings, History, seasons), a
 // module is a folder of `modules/`, a bridge one of `bridges/`. A module uses its own files, the core, the platform and the `public.ts`
-// of another module; a bridge, the `public.ts` of its two modules; nobody imports a bridge but the wiring (App.tsx). Where today's
-// code does not obey yet, the list below says where, and it can only shrink (G7).
+// of another module; a bridge, the `public.ts` of its two modules; nobody imports a bridge but the wiring (manifests.ts). What a
+// module lends is the list of names of its public.ts, written below: changing it is a choice. The slots of a module are defined in
+// its slots.ts (§7.4).
 
 /** The modules each bridge joins: a bridge is on only when both are on. */
 const SITE_BRIDGES: Record<string, string[]> = {
@@ -74,28 +75,27 @@ const SITE_BRIDGES: Record<string, string[]> = {
   "registry-access": ["registry"],
 };
 
-/** Where the site still reaches into another owner's files, as `file → what it imports` (paths from src, without the extension). */
-const SITE_EXCEPTIONS: string[] = [
-  // the core reaches into the sign-in and into a file of the budget
-  "core/draftGuard → platform/auth",
-  "core/useAction → platform/auth",
-  "core/useDraft → platform/auth",
-  "core/useDragOrder → modules/budget/projectView",
-  // a bridge uses the private files of its modules: their public.ts take them over (G7, tappa 4)
-  "bridges/treasury-budget/CategoryVoci → modules/treasury/api",
-  "bridges/inventory-budget/PendingPage → modules/inventory/ReceiveForm",
-  "bridges/inventory-budget/PendingPage → modules/inventory/api",
-  "bridges/inventory-budget/PendingPage → modules/inventory/inventory",
-  "bridges/inventory-budget/PendingPage → modules/inventory/price",
-  "bridges/treasury-budget/PayForm → modules/treasury/api",
-  "bridges/treasury-budget/PayForm → modules/treasury/types",
-  "bridges/treasury-budget/PayLines → modules/treasury/types",
-  "bridges/treasury-budget/ReceiveInflow → modules/budget/types",
-  "bridges/treasury-budget/ReceiveInflow → modules/treasury/api",
-  "bridges/treasury-budget/ReceiveInflow → modules/treasury/types",
-  "bridges/treasury-budget/api → modules/treasury/types",
-  "bridges/treasury-budget/types → modules/treasury/types",
-];
+/**
+ * Where the site still reaches into another owner's files, as `file → what it imports` (paths from src, without the extension).
+ * Empty since G7, tappa 4: a new line here is a choice to discuss, not a way to make the test pass.
+ */
+const SITE_EXCEPTIONS: string[] = [];
+
+/** What each module lends to the others: the names its public.ts exports (G7, tappa 4). */
+const SITE_PUBLIC: Record<string, string[]> = {
+  "modules/budget/public": ["ArrivalPill", "Inflow", "inflowActions"],
+  "modules/inventory/public": ["ProjectRef", "PurchaseToReceive", "ReceiveForm", "inventoryItems", "purposeProjects", "useInventoryLookups", "usePrice"],
+  "modules/treasury/public": ["CashAccount", "CashEntryRow", "registerLists", "registerRowActions", "registerSettings"],
+};
+
+/** The names a file exports: its own declarations and what it passes on from others. */
+function exportedNames(text: string): string[] {
+  const declared = [...text.matchAll(/^export\s+(?:const|function|class|interface|type)\s+(\w+)/gm)].map((m) => m[1]!);
+  const passed = [...text.matchAll(/^export\s+(?:type\s+)?\{([^}]*)\}/gm)].flatMap((m) =>
+    m[1]!.split(",").map((name) => name.trim().replace(/^type\s+/, "").split(/\s+as\s+/).pop()!).filter(Boolean),
+  );
+  return [...declared, ...passed].sort();
+}
 
 const sitePath = (path: string) => path.replace(/^\.\//, "").replace(/\.tsx?$/, "");
 
@@ -113,7 +113,7 @@ function siteMayImport(from: string, to: string, target: string): boolean {
   if (from === "core") return false;
   if (to === "platform") return true;
   if (from === "platform") return false;
-  if (SITE_BRIDGES[to]) return false; // a bridge is plugged in by App.tsx only
+  if (SITE_BRIDGES[to]) return false; // a bridge is plugged in by the wiring only (manifests.ts)
   const isPublic = target.endsWith("/public");
   if (SITE_BRIDGES[from]) return SITE_BRIDGES[from]!.includes(to) && isPublic;
   return isPublic; // a module reaches another module only through its public.ts
@@ -144,7 +144,7 @@ describe("who owns what in the site, and who may use it", () => {
     expect(wiring).toEqual(["App", "main", "manifests", "manifests.test"]);
   });
 
-  it("keeps each owner to its own files, the core, the platform and the public files of the others; nobody but App.tsx imports a bridge", () => {
+  it("keeps each owner to its own files, the core, the platform and the public files of the others; only the wiring imports a bridge", () => {
     const found = siteSources.flatMap((s) =>
       s.imports
         .map((spec) => resolveSite(s.rel, spec))
@@ -153,5 +153,21 @@ describe("who owns what in the site, and who may use it", () => {
     );
     expect({ new: found.filter((v) => !SITE_EXCEPTIONS.includes(v)).sort() }).toEqual({ new: [] });
     expect({ gone: SITE_EXCEPTIONS.filter((v) => !found.includes(v)).sort() }).toEqual({ gone: [] });
+  });
+
+  it("lends to the others only the names written here: the public.ts of each module", () => {
+    const lent = Object.fromEntries(
+      Object.entries(everyFile)
+        .filter(([path]) => /^\.\/modules\/[\w-]+\/public\.ts$/.test(path))
+        .map(([path, text]) => [sitePath(path), exportedNames(text)]),
+    );
+    expect(lent).toEqual(SITE_PUBLIC);
+  });
+
+  it("defines the slots of a module in its slots.ts, and only there", () => {
+    const elsewhere = Object.entries(everyFile)
+      .filter(([path, text]) => /\bdefineSlot\s*</.test(text) && !/^\.\/modules\/[\w-]+\/slots\.ts$/.test(path) && path !== "./core/slots.tsx")
+      .map(([path]) => sitePath(path));
+    expect(elsewhere).toEqual([]);
   });
 });

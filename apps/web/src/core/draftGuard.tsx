@@ -1,5 +1,5 @@
 import { createContext, useCallback, useRef, useState } from "react";
-import { useMe } from "../platform/auth";
+import { useSession } from "./session";
 import { DISCARD_QUESTION, readDraft } from "./drafts";
 
 // A box that holds a form and can be closed (the panel of an action, the form that opens under a yellow button) must not lose
@@ -42,7 +42,7 @@ export function useGuardedClose(onClose: () => void) {
  * for the form's own Cancel and Save, which have already dealt with the draft.
  */
 export function useAdder(draftKey?: string) {
-  const userId = useMe().id;
+  const { userId } = useSession();
   const [adding, setAdding] = useState(() => draftKey !== undefined && readDraft(userId, draftKey) !== null);
   const hide = useCallback(() => setAdding(false), []);
   const { report, close } = useGuardedClose(hide);

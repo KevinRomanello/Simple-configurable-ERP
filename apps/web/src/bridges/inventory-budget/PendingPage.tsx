@@ -1,16 +1,13 @@
 import { faBoxOpen } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
 import { Fragment } from "react";
-import { inventoryApi } from "../../modules/inventory/api";
 import { inventoryBudgetApi } from "./api";
 import type { PendingRow } from "./types";
 import { ArrivalPill } from "../../modules/budget/public";
 import { Button } from "../../core/Button";
-import { ReceiveForm } from "../../modules/inventory/ReceiveForm";
+import { inventoryItems, ReceiveForm, useInventoryLookups, usePrice } from "../../modules/inventory/public";
 import { useMe } from "../../platform/auth";
 import { date, moneyE4, quantity } from "../../core/format";
-import { useInventoryLookups } from "../../modules/inventory/inventory";
-import { usePrice } from "../../modules/inventory/price";
 import { TableBox } from "../../core/ExportBlocks";
 import { SortTh } from "../../core/SortTh";
 import { EmptyRow, PageHeader, Panel, RowAction, Table } from "../../core/ui";
@@ -38,7 +35,7 @@ export function PendingPage() {
   const lookups = useInventoryLookups();
   const [price] = usePrice();
   const pending = useQuery({ queryKey: ["inventory-pending"], queryFn: inventoryBudgetApi.pending });
-  const items = useQuery({ queryKey: ["inventory-items", price, {}], queryFn: () => inventoryApi.inventoryItems(price) });
+  const items = useQuery({ queryKey: ["inventory-items", price, {}], queryFn: () => inventoryItems(price) });
   // the purchase whose panel is open, remembered with its form: coming back to the page the panel is open with what was written
   const [open, setOpen] = useRemembered<number | null>("pending:open", null, (id) => (id === null ? null : `receive:line:${id}`));
   const sort = useSort(SORT);

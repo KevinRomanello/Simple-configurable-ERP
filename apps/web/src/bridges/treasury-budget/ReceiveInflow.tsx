@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { treasuryApi } from "../../modules/treasury/api";
 import { treasuryBudgetApi } from "./api";
-import type { CashAccount } from "../../modules/treasury/types";
-import type { Inflow } from "../../modules/budget/types";
+import { registerLists, type CashAccount } from "../../modules/treasury/public";
+import type { Inflow } from "../../modules/budget/public";
 import { SearchSelect } from "../../core/SearchSelect";
 import { Field, FormPanel } from "../../core/ui";
 import { date, moneyFromDecimal } from "../../core/format";
@@ -37,8 +36,8 @@ interface ReceiveInflowDraft {
 
 export function ReceiveInflow({ inflow, compact = false, onClose }: { inflow: Inflow; compact?: boolean; onClose: () => void }) {
   const act = useAction();
-  const categories = useQuery({ queryKey: ["cash-categories"], queryFn: treasuryApi.cashCategories });
-  const methods = useQuery({ queryKey: ["cash-methods"], queryFn: treasuryApi.cashMethods });
+  const categories = useQuery({ queryKey: ["cash-categories"], queryFn: registerLists.voci });
+  const methods = useQuery({ queryKey: ["cash-methods"], queryFn: registerLists.methods });
   const receivable = useQuery({ queryKey: ["receivable"], queryFn: treasuryBudgetApi.receivable });
   const [initial] = useState<ReceiveInflowDraft>(() => ({ mode: "new", on: todayIso(), account: "bank", amount: inflow.amount, categoryId: "", methodId: "", entryId: "" }));
   // what is written is kept while it is typed (the compact form and the full one are the same draft)

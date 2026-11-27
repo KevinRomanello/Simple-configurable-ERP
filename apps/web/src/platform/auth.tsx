@@ -1,10 +1,11 @@
-import { useQuery, type QueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { platformApi } from "./api";
 import { ApiError } from "../core/api";
 import type { Me } from "./types";
 import { LoginPage } from "./LoginPage";
 import { dropAllDrafts } from "../core/drafts";
+import { SessionProvider } from "../core/session";
 import { isReadOnlyHere, lockEditing } from "./permissions";
 import { SCREEN, useMaxWidth } from "../core/screen";
 
@@ -38,5 +39,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (me.error instanceof ApiError) return <p className="empty">{me.error.message}. Ask an admin if this is a mistake.</p>;
   if (me.isError) return <p className="empty">The server cannot be reached. Try again in a moment.</p>;
   if (me.data === null) return <LoginPage />;
-  return <MeContext value={me.data}>{children}</MeContext>;
+  return (
+    <MeContext value={me.data}>
+      <CoreSession userId={me.data.id}>{children}</CoreSession>
+    </MeContext>
+  );
+}
+
+/** Tells the core who is signed in (the drafts are theirs) and how an expired session ends (`core/session.ts`). */
+function CoreSession({ userId, children }: { userId: number; children: ReactNode }) {
+  const queryClient = useQueryClient();
+  const session = useMemo(() => ({ userId, expired: () => forgetUser(queryClient) }), [userId, queryClient]);
+  return <SessionProvider value={session}>{children}</SessionProvider>;
 }

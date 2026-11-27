@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { treasuryApi } from "../../modules/treasury/api";
 import { treasuryBudgetApi } from "./api";
-import type { CashAccount } from "../../modules/treasury/types";
+import { registerLists, type CashAccount } from "../../modules/treasury/public";
 import type { ToPayRow } from "./types";
 import { SearchSelect } from "../../core/SearchSelect";
 import { Field, FormPanel, Table, TableScroll } from "../../core/ui";
@@ -43,8 +42,8 @@ const payTitle = (rows: ToPayRow[]) => (rows.length === 1 ? `Pay: ${rows[0]!.ite
  */
 export function PayForm({ rows, lastMethodId, compact = false, onDone }: { rows: ToPayRow[]; lastMethodId: number | null; compact?: boolean; onDone: () => void }) {
   const act = useAction();
-  const methods = useQuery({ queryKey: ["cash-methods"], queryFn: treasuryApi.cashMethods });
-  const voci = useQuery({ queryKey: ["cash-categories"], queryFn: treasuryApi.cashCategories });
+  const methods = useQuery({ queryKey: ["cash-methods"], queryFn: registerLists.methods });
+  const voci = useQuery({ queryKey: ["cash-categories"], queryFn: registerLists.voci });
 
   const suppliers = [...new Set(rows.map((r) => r.supplierName).filter((s): s is string => s !== null))];
   // the Voce the categories of the lines start from, when they all agree

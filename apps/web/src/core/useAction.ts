@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { isUnauthorized } from "./api";
 import { useNotify } from "./Notice";
-import { forgetUser } from "../platform/auth";
+import { useSession } from "./session";
 
 /**
  * Runs a write: a refused one (validation, conflict, in use, not allowed) becomes a message in
@@ -13,19 +13,20 @@ import { forgetUser } from "../platform/auth";
 export function useAction() {
   const queryClient = useQueryClient();
   const notify = useNotify();
+  const { expired } = useSession();
   return useCallback(
     async (work: () => Promise<unknown>) => {
       try {
         await work();
         return true;
       } catch (error) {
-        if (isUnauthorized(error)) forgetUser(queryClient);
+        if (isUnauthorized(error)) expired();
         else notify("error", error instanceof Error ? error.message : "Something went wrong");
         return false;
       } finally {
         await queryClient.invalidateQueries();
       }
     },
-    [queryClient, notify],
+    [queryClient, notify, expired],
   );
 }

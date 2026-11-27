@@ -1,6 +1,6 @@
 // The calls of treasury-budget to the API (split from api/client.ts in G7: docs/moduli-architettura.md, §7.1).
 import { del, get, post, put } from "../../core/api";
-import type { CashAccount } from "../../modules/treasury/types";
+import type { CashAccount } from "../../modules/treasury/public";
 import type { CategoryDefault, PayableLine, Receivable, RelatedInflows, ToLinkRow, ToPay } from "./types";
 
 /** What the form of TO PAY sends: one new payment for the lines, with an amount for each. */

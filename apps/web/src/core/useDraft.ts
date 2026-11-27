@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { useMe } from "../platform/auth";
+import { useSession } from "./session";
 import { DraftGuardContext } from "./draftGuard";
 import { DISCARD_QUESTION, hasDraft, readDraft, removeDraft, sameValue, writeDraft } from "./drafts";
 
@@ -26,7 +26,7 @@ export interface DraftControls {
  * what an edit started from (a version, the values read): if it is not the same when the draft is found, `stale` is true.
  */
 export function useDraft<T>(key: string, initial: T, options: { base?: string | number | null } = {}): [T, Dispatch<SetStateAction<T>>, DraftControls] {
-  const userId = useMe().id;
+  const { userId } = useSession();
   const report = useContext(DraftGuardContext);
   const base = options.base == null ? null : String(options.base);
   const first = useRef<ReturnType<typeof readDraft<T>> | undefined>(undefined);
@@ -99,7 +99,7 @@ export const fieldSetter =
  * with «*»: see `hasDraft`): when that form has no draft there is nothing to come back to, and the page starts closed.
  */
 export function useRemembered<T>(key: string, initial: T, draftKeyOf?: (value: T) => string | string[] | null): [T, (next: T) => void] {
-  const userId = useMe().id;
+  const { userId } = useSession();
   const name = `open:${key}`;
   const [value, setRaw] = useState<T>(() => {
     const found = readDraft<T>(userId, name)?.value;

@@ -339,6 +339,8 @@ Ogni modulo e ogni ponte dichiara in un solo oggetto:
 
 - **Le pagine di un modulo importano solo**: i loro file, `core`, `platform` e il `public.ts` degli altri moduli. Un modulo non importa mai un ponte.
 - **Un ponte importa** i `public.ts` dei suoi due moduli.
+- **Il `core` non importa nessuno** (da G7, tappa 4): quel che sa di chi è dentro glielo dà la piattaforma (`core/session.ts`).
+- **Ciò che un modulo presta** è l'elenco dei nomi del suo `public.ts`, scritto nella prova: cambiarlo è una scelta. I suoi punti di aggancio li definisce in `slots.ts`.
 - **`App.tsx` e `Shell.tsx`** conoscono i moduli solo dall'elenco dei manifesti.
 
 ### 7.4 I punti di aggancio (slot)
@@ -628,6 +630,14 @@ Cinque tappe: le cartelle con il client e i tipi divisi (1), i manifesti (2), i 
   - **Restano per G8:** senza il ponte tesoreria×budget in CASH FLOW non c'è modo di cancellare un inflow (la cancellazione è tutta del ponte, perché è il suo indirizzo che lista anche il registro). Il budget da solo avrà bisogno della sua.
   - **Le regole del sito:** le eccezioni scendono da 35 a 17. Restano le 4 del core e le 13 dei ponti che usano file privati dei moduli (la tappa 4), compresa una nuova: `CategoryVoci` legge le Voci dal registro.
   - **Prova nuova** in `manifests.test.ts`: un ponte riempie solo i punti di aggancio dei suoi due moduli, un modulo solo i suoi.
+- **Tappa 4, le regole strette:** le eccezioni delle regole del sito sono **zero** (erano 17).
+  - **Il core non importa più nessuno.** `useDraft`, `useRemembered`, `useAdder` e `useAction` chiedevano al login (`platform/auth.tsx`) l'id di chi è dentro e cosa fare a sessione scaduta. Ora lo chiedono a `core/session.ts` (`useSession`: `userId`, `expired`), che la piattaforma riempie quando qualcuno entra (`AuthGate`, con `forgetUser` come `expired`). `moveNear`, `dropTarget` e `Drop` (dove cade una riga trascinata) passano da `modules/budget/projectView.ts` a `core/dragOrder.ts`, con le loro prove: li usa `useDragOrder`, cioè ogni lista da trascinare.
+  - **I ponti usano solo i `public.ts`.** Ogni modulo ha ora `slots.ts` (i suoi punti di aggancio, che le sue pagine importano) e `public.ts` (l'elenco di ciò che presta, che importano gli altri). Così l'inventario non ha più un giro di import (public → ReceiveForm → projects → public). Cosa prestano:
+    - il budget: `inflowActions`, il tipo `Inflow`, `ArrivalPill`;
+    - la tesoreria: `registerRowActions`, `registerSettings`, i tipi `CashAccount` e `CashEntryRow`, `registerLists` (le Voci e i metodi di pagamento, che il pagamento e l'incasso del ponte scelgono);
+    - l'inventario: `purposeProjects`, i tipi `ProjectRef` e `PurchaseToReceive`, `ReceiveForm`, `useInventoryLookups`, `usePrice`, `inventoryItems` (quel che serve a PENDING).
+  - **Due regole nuove** in `architecture.test.ts`: i nomi di ogni `public.ts` sono scritti nella prova (`SITE_PUBLIC`, come `PUBLIC_NAMES` del server), e `defineSlot` sta solo nei `slots.ts`. `SITE_EXCEPTIONS` resta, vuota: una riga nuova è una scelta da discutere.
+  - **Le tre liste dei conti** (Cassa, Banca, Paypal) restano tre: il registro mette prima la Cassa, il pagamento e l'incasso del ponte prima la Banca (quella di partenza).
 
 **I documenti da aggiornare alla fine**:
 - [architettura.md](architettura.md) (struttura del repository e livelli);
@@ -658,7 +668,7 @@ Estendono `apps/api/src/architecture.test.ts`.
 
 ### Prove di architettura (sito)
 
-Le regole del §7.3, nello stesso stile di quelle del server, in `apps/web/src/architecture.test.ts` (da G7, tappa 1): il proprietario di ogni file è la sua cartella, e la lista `SITE_EXCEPTIONS` dice dove il codice non obbedisce ancora; può solo scendere. I manifesti e i punti di aggancio si provano in `manifests.test.ts` (tappe 2 e 3): sezioni di Settings per ruolo, gruppi del menù, indirizzi, ponti accesi, e chi riempie quali punti di aggancio.
+Le regole del §7.3, nello stesso stile di quelle del server, in `apps/web/src/architecture.test.ts` (da G7, tappa 1): il proprietario di ogni file è la sua cartella; la lista `SITE_EXCEPTIONS` è vuota dalla tappa 4 (una riga nuova è una scelta da discutere); `SITE_PUBLIC` elenca i nomi di ogni `public.ts`; `defineSlot` sta solo nei `slots.ts`. I manifesti e i punti di aggancio si provano in `manifests.test.ts` (tappe 2 e 3): sezioni di Settings per ruolo, gruppi del menù, indirizzi, ponti accesi, e chi riempie quali punti di aggancio.
 
 ### Le combinazioni
 

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { treasuryBudgetApi } from "./api";
-import type { CashEntryRow } from "../../modules/treasury/types";
+import type { CashEntryRow } from "../../modules/treasury/public";
 
 /** What the panel needs of a payment: the register row, or a payment that pays no line yet. */
 type Payment = Pick<CashEntryRow, "id" | "cents" | "lines">;

@@ -13,7 +13,7 @@ import { date, moneyFromDecimal } from "../../core/format";
 import { useCanChangeInflows, useCanManageCash } from "../../platform/season";
 import { useAction } from "../../core/useAction";
 import { useSlot } from "../../core/slots";
-import { inflowActions } from "./public";
+import { inflowActions } from "./slots";
 import { fieldSetter, useDraft, useRemembered } from "../../core/useDraft";
 
 const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };

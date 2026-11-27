@@ -1,5 +1,5 @@
 import { useId, useLayoutEffect, useRef, useState, type HTMLAttributes } from "react";
-import { dropTarget, moveNear, type Drop } from "../modules/budget/projectView";
+import { dropTarget, moveNear, type Drop } from "./dragOrder";
 
 /** The pointer has to move this many pixels before a press on the handle becomes a drag (a plain click moves nothing). */
 const DRAG_THRESHOLD = 5;
