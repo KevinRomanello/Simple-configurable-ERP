@@ -19,8 +19,8 @@ const categoryId = async (name: string) => (await settings()).categories.find((c
 
 /** A project in the area `sw` with one line of the given category; gives back the line. */
 async function lineOf(category: string) {
-  const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
-  return (await api.post(`/api/projects/${project.id}/lines`, { item: "Part", category })).body;
+  const project = (await api.post("/api/budget/projects", { areaCode: "sw", name: "P" })).body;
+  return (await api.post(`/api/budget/projects/${project.id}/lines`, { item: "Part", category })).body;
 }
 
 describe("who", () => {
@@ -42,7 +42,7 @@ describe("who", () => {
     // the switches of the calculation, the VAT rates and the seasons stay with the admin
     const notTheirs = [
       await user.post("/api/settings/vat-rates", { rate: 5 }),
-      await user.patch("/api/settings/calculation", { inflowVatRate: 10 }),
+      await user.patch("/api/budget/settings/calculation", { inflowVatRate: 10 }),
       await user.post("/api/seasons", { startYear: 2030, car: "Car" }),
     ];
     expect(notTheirs.map((r) => r.status)).toEqual([403, 403, 403]);
@@ -55,7 +55,7 @@ describe("who", () => {
       await viewing.post("/api/inventory/units", { name: "drum" }),
       await viewing.post("/api/inventory/locations", { room: "Lab", shelf: "Shelf" }),
       await viewing.post("/api/settings/vat-rates", { rate: 5 }),
-      await viewing.patch("/api/settings/calculation", { inflowVatRate: 10 }),
+      await viewing.patch("/api/budget/settings/calculation", { inflowVatRate: 10 }),
     ];
     expect(tries.map((r) => r.status)).toEqual([403, 403, 403, 403, 403, 403, 403]);
     expect((await api.get("/api/me")).body.permissions.canManageSettings).toBe(true);
@@ -70,7 +70,8 @@ describe("who", () => {
     expect(lists.units).toHaveLength(8);
     expect(lists.locations).toHaveLength(10);
     expect(lists.uncategorizedFields).toEqual(["purpose", "storageNotes"]);
-    expect(s.calculation).toEqual({ varianceThreshold: 0.15, vatBaseWhenTotalSponsor: "net", inflowVatRate: 11, bankCompare: { summary: "day", timeline: "month" } });
+    // the switches of the calculation are the budget's (GET /api/lookups/settings)
+    expect((await api.get("/api/budget/lookups/settings")).body).toMatchObject({ varianceThreshold: 0.15, vatBaseWhenTotalSponsor: "net", inflowVatRate: 11, bankCompare: { summary: "day", timeline: "month" } });
   });
 });
 
@@ -87,7 +88,7 @@ describe("categories", () => {
     const line = await lineOf("Asset");
     const item = (await api.post("/api/inventory/items", { name: "Drill", category: "Asset" })).body;
     expect((await api.patch(`/api/settings/categories/${await categoryId("Asset")}`, { name: "Assets" })).status).toBe(204);
-    const sheet = (await api.get("/api/areas/sw/sheet")).body;
+    const sheet = (await api.get("/api/budget/areas/sw/sheet")).body;
     expect(sheet.projects[0].lines.find((l: { id: number }) => l.id === line.id).category).toBe("Assets");
     expect((await api.get(`/api/inventory/items/${item.id}`)).body.item.category).toBe("Assets");
     expect((await api.patch(`/api/settings/categories/${await categoryId("Assets")}`, { name: "software" })).status).toBe(409);
@@ -117,7 +118,7 @@ describe("categories", () => {
     const ids = (await settings()).categories.map((c: { id: number }) => c.id);
     expect((await api.put("/api/settings/categories/order", { ids: [...ids].reverse() })).status).toBe(204);
     expect((await api.get("/api/lookups/categories")).body[0]).toBe("Software");
-    expect((await api.get("/api/views/totals")).body.blocks.map((b: { block: string }) => b.block).slice(0, 2)).toEqual(["ALL", "Software"]);
+    expect((await api.get("/api/budget/views/totals")).body.blocks.map((b: { block: string }) => b.block).slice(0, 2)).toEqual(["ALL", "Software"]);
     expect((await api.put("/api/settings/categories/order", { ids: ids.slice(1) })).status).toBe(400); // one missing
     expect((await api.put("/api/settings/categories/order", { ids: [ids[0], ...ids.slice(0, -1)] })).status).toBe(400); // one twice
   });
@@ -130,7 +131,7 @@ describe("VAT rates", () => {
     expect((await api.post("/api/settings/vat-rates", { rate: 4.555 })).status).toBe(400);
     expect((await api.post("/api/settings/vat-rates", { rate: 101 })).status).toBe(400);
     expect((await api.get("/api/lookups/vat-rates")).body).toEqual([0, 5, 11, 22]);
-    expect((await api.post("/api/funds", { name: "Five", vatRate: 5 })).status).toBe(201); // a sponsor can use it now
+    expect((await api.post("/api/budget/funds", { name: "Five", vatRate: 5 })).status).toBe(201); // a sponsor can use it now
   });
 
   it("a rate in use cannot be deleted", async () => {
@@ -145,33 +146,33 @@ describe("VAT rates", () => {
 
 describe("the switches of the calculation", () => {
   it("change every page at once", async () => {
-    await api.post("/api/inflows", { phase: "estimate", sourceName: "Sponsor", amount: "1000", inflowDate: "2026-12-10" });
-    const vatOf = async () => (await api.get("/api/views/cashflow")).body.estimate.summary.teamOutflowsCents;
+    await api.post("/api/budget/inflows", { phase: "estimate", sourceName: "Sponsor", amount: "1000", inflowDate: "2026-12-10" });
+    const vatOf = async () => (await api.get("/api/budget/views/cashflow")).body.estimate.summary.teamOutflowsCents;
     expect(await vatOf()).toBe(11_000);
-    expect((await api.patch("/api/settings/calculation", { inflowVatRate: 10 })).status).toBe(204);
+    expect((await api.patch("/api/budget/settings/calculation", { inflowVatRate: 10 })).status).toBe(204);
     expect(await vatOf()).toBe(10_000);
   });
 
   it("the VAT of a sponsor that covers the whole line follows the choice", async () => {
     const barter = await sponsorId(api, "Barter", { type: "gift_vat", vatRate: 11 });
-    const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
-    await api.post(`/api/projects/${project.id}/lines`, { item: "Ad", figures: { estimate: { quantity: 1, unitNetCost: "1000", fundIds: [barter] } } });
-    const vat = async () => (await api.get("/api/areas/sw/sheet")).body.projects[0].lines[0].estimate.amounts.vatCents;
+    const project = (await api.post("/api/budget/projects", { areaCode: "sw", name: "P" })).body;
+    await api.post(`/api/budget/projects/${project.id}/lines`, { item: "Ad", figures: { estimate: { quantity: 1, unitNetCost: "1000", fundIds: [barter] } } });
+    const vat = async () => (await api.get("/api/budget/areas/sw/sheet")).body.projects[0].lines[0].estimate.amounts.vatCents;
     expect(await vat()).toBe(11_000); // on the whole value, as the treasurer confirmed
-    expect((await api.patch("/api/settings/calculation", { vatBaseWhenTotalSponsor: "net-minus-sponsor" })).status).toBe(204);
+    expect((await api.patch("/api/budget/settings/calculation", { vatBaseWhenTotalSponsor: "net-minus-sponsor" })).status).toBe(204);
     expect(await vat()).toBe(0);
   });
 
   it("refuses values out of range and leaves out what is not sent", async () => {
     const tries = [
-      await api.patch("/api/settings/calculation", { varianceThreshold: 1.5 }),
-      await api.patch("/api/settings/calculation", { inflowVatRate: -1 }),
-      await api.patch("/api/settings/calculation", { vatBaseWhenTotalSponsor: "half" }),
-      await api.patch("/api/settings/calculation", { bankCompare: { summary: "week" } }),
+      await api.patch("/api/budget/settings/calculation", { varianceThreshold: 1.5 }),
+      await api.patch("/api/budget/settings/calculation", { inflowVatRate: -1 }),
+      await api.patch("/api/budget/settings/calculation", { vatBaseWhenTotalSponsor: "half" }),
+      await api.patch("/api/budget/settings/calculation", { bankCompare: { summary: "week" } }),
     ];
     expect(tries.map((r) => r.status)).toEqual([400, 400, 400, 400]);
-    await api.patch("/api/settings/calculation", { varianceThreshold: 0.2, bankCompare: { timeline: "day" } });
-    expect((await settings()).calculation).toEqual({ varianceThreshold: 0.2, vatBaseWhenTotalSponsor: "net", inflowVatRate: 11, bankCompare: { summary: "day", timeline: "day" } });
+    await api.patch("/api/budget/settings/calculation", { varianceThreshold: 0.2, bankCompare: { timeline: "day" } });
+    expect((await api.get("/api/budget/lookups/settings")).body).toMatchObject({ varianceThreshold: 0.2, vatBaseWhenTotalSponsor: "net", inflowVatRate: 11, bankCompare: { summary: "day", timeline: "day" } });
   });
 });
 
@@ -207,7 +208,7 @@ describe("editing from a phone", () => {
 describe("history", () => {
   it("records every change with who made it", async () => {
     await api.post("/api/settings/categories", { name: "Tools" });
-    await api.patch("/api/settings/calculation", { inflowVatRate: 10 });
+    await api.patch("/api/budget/settings/calculation", { inflowVatRate: 10 });
     const entries = (await api.get("/api/audit")).body.entries as { table: string; action: string; actor: { email: string } | null; label: string }[];
     expect(entries.some((e) => e.table === "category" && e.action === "insert" && e.label === "Tools" && e.actor?.email)).toBe(true);
     expect(entries.some((e) => e.table === "setting" && e.action === "update" && e.label === "settings")).toBe(true);

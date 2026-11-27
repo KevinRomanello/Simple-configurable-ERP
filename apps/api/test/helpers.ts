@@ -200,9 +200,9 @@ type Client = Pick<ReturnType<typeof testApp>, "get" | "post" | "put">;
 
 /** The id of the sponsor called `name` (any case): created as a virtual fund of 22% if it is new. */
 export async function sponsorId(api: Client, name: string, extra: object = {}): Promise<number> {
-  const existing = (await api.get("/api/funds")).body.find((f: { name: string }) => f.name.toLowerCase() === name.toLowerCase());
+  const existing = (await api.get("/api/budget/funds")).body.find((f: { name: string }) => f.name.toLowerCase() === name.toLowerCase());
   if (existing) return existing.id;
-  const created = await api.post("/api/funds", { name, vatRate: 22, ...extra });
+  const created = await api.post("/api/budget/funds", { name, vatRate: 22, ...extra });
   if (created.status !== 201) throw new Error(`Could not create the sponsor "${name}": ${JSON.stringify(created.body)}`);
   return created.body.id;
 }
@@ -213,5 +213,5 @@ export async function addContract(
   body: { fundName: string; phase?: "estimate" | "actual"; amount?: string; inflowDate?: string | null },
 ) {
   const { fundName, phase = "estimate", ...rest } = body;
-  return api.put(`/api/funds/${await sponsorId(api, fundName)}/contracts/${phase}`, { amount: "1000", ...rest });
+  return api.put(`/api/budget/funds/${await sponsorId(api, fundName)}/contracts/${phase}`, { amount: "1000", ...rest });
 }

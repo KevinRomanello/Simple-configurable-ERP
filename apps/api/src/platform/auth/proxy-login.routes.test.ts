@@ -111,20 +111,20 @@ describe("who is signed in", () => {
 describe("what a signed-in person may do: the roles stay ours", () => {
   it("lets a project manager write in their own area and nowhere else", async () => {
     await createUser({ email: "pm-sw@team.test", role: "pm", areas: ["sw"] });
-    const own = await call("POST", "/api/projects", as("pm-sw@team.test"), { areaCode: "sw", name: "Mine" });
-    const other = await call("POST", "/api/projects", as("pm-sw@team.test"), { areaCode: "hw", name: "Not mine" });
+    const own = await call("POST", "/api/budget/projects", as("pm-sw@team.test"), { areaCode: "sw", name: "Mine" });
+    const other = await call("POST", "/api/budget/projects", as("pm-sw@team.test"), { areaCode: "hw", name: "Not mine" });
     expect([own.status, other.status]).toEqual([201, 403]);
     expect((await call("GET", "/api/me", as("pm-sw@team.test"))).body.areaIds).toHaveLength(1);
   });
 
   it("lets a person seen for the first time read and not write", async () => {
-    expect((await call("GET", "/api/areas/sw/sheet", as("newcomer@team.test"))).status).toBe(200);
-    expect((await call("POST", "/api/projects", as("newcomer@team.test"), { areaCode: "sw", name: "X" })).status).toBe(403);
+    expect((await call("GET", "/api/budget/areas/sw/sheet", as("newcomer@team.test"))).status).toBe(200);
+    expect((await call("POST", "/api/budget/projects", as("newcomer@team.test"), { areaCode: "sw", name: "X" })).status).toBe(403);
   });
 
   it("records who made a change in the history", async () => {
     await createUser({ email: "pm-sw@team.test", role: "pm", areas: ["sw"] });
-    await call("POST", "/api/projects", as("pm-sw@team.test"), { areaCode: "sw", name: "Traced" });
+    await call("POST", "/api/budget/projects", as("pm-sw@team.test"), { areaCode: "sw", name: "Traced" });
     const history = await call("GET", "/api/audit", as("boss@team.test"));
     expect(JSON.stringify(history.body)).toContain("pm-sw@team.test");
   });
@@ -134,10 +134,10 @@ describe("requests from other sites", () => {
   it("are refused even with the header: the proxy adds it to every request of a signed-in browser", async () => {
     await createUser({ email: "pm-sw@team.test", role: "pm", areas: ["sw"] });
     const body = { areaCode: "sw", name: "Forged" };
-    const foreign = await call("POST", "/api/projects", as("pm-sw@team.test", { origin: "https://evil.example" }), body);
+    const foreign = await call("POST", "/api/budget/projects", as("pm-sw@team.test", { origin: "https://evil.example" }), body);
     expect(foreign.status).toBe(403);
     expect(foreign.body.error).toMatch(/Cross-site/);
-    const ours = await call("POST", "/api/projects", as("pm-sw@team.test", { origin: "http://localhost:5173" }), body);
+    const ours = await call("POST", "/api/budget/projects", as("pm-sw@team.test", { origin: "http://localhost:5173" }), body);
     expect(ours.status).toBe(201);
   });
 });

@@ -27,7 +27,7 @@ docker compose exec api sh -c "cd /app/apps/api && pnpm bench"
 
 **Cosa non misura:** le scritture (salvare una riga, un pagamento), più richieste insieme, la rete e il browser (la tabella e i grafici del sito).
 
-## 3. I numeri di riferimento (baseline rinnovata il 27 novembre 2026, alla chiusura di G5: l'inventario in `modules/inventory` e il ponte `bridges/inventory-budget` ai loro indirizzi)
+## 3. I numeri di riferimento (baseline di fine G5, 27 novembre 2026; in G6 rinnovata solo la riga `core: settings`, la cui risposta è cambiata apposta)
 
 Rispetto alla baseline di fine G4: **tutte le risposte identiche** tranne `core: settings`, che dalla tappa 2 di G5 non ha più unità, posti e campi (stanno nella pagina nuova `inventory: lists of Settings`); le pagine dentro il ±10% (la corsa salvata: lo snapshot +1% e -1%, PENDING -4% e +1%, l'elenco degli articoli +4% e +4%). Le pagine `core: units` e `core: places` si chiamano ora `inventory: units` e `inventory: places` (sono dell'inventario, a `/api/inventory/units` e `/locations`), e PENDING si misura a `/api/inventory-budget/pending`. Prima di G1 le pagine del budget, del registro e dell'inventario erano queste stesse, dentro il rumore.
 
@@ -38,7 +38,7 @@ Millisecondi, mediana di 15 richieste, su questo computer (Docker su Mac). **I n
 | calculation: snapshot of the season | 25.67 | 40.28 | 819 | 96.08 | 107.1 | 3492 |
 | me (every page starts here) | 0.83 | 1.03 | 0 | 0.63 | 0.66 | 0 |
 | core: seasons | 0.86 | 0.93 | 0 | 1.08 | 1.11 | 0 |
-| core: settings | 1.4 | 1.75 | 1 | 2.2 | 2.25 | 1 |
+| core: settings | 1.31 | 1.88 | 0 | 2.05 | 2.1 | 0 |
 | core: users | 0.79 | 0.98 | 0 | 0.81 | 0.9 | 0 |
 | core: history | 1.17 | 3.77 | 20 | 1.33 | 5.84 | 20 |
 | core: history of a table | 1.28 | 1.37 | 20 | 1.27 | 1.49 | 20 |
@@ -89,6 +89,8 @@ Millisecondi, mediana di 15 richieste, su questo computer (Docker su Mac). **I n
 - **G5, tappe 1 e 2 (i legami con il budget in tabelle del ponte; le liste dell'inventario nel suo modulo):** con il computer libero (la misura dei contratti di nuovo a 107–123 ns), tutte le risposte identiche alla baseline di fine G4 tranne una voluta: `core: settings` (`GET /api/settings`) non ha più unità, posti e campi, che stanno nella pagina nuova `inventory: lists of Settings` (`GET /api/inventory/lists`, 1,2 ms alla taglia reale). `core: units` e `core: places` si misurano ai nuovi indirizzi (`/api/inventory/units`, `/locations`) con lo stesso nome, e rispondono uguali. Tempi dentro il ±10% in tre corse; l'elenco degli articoli alla taglia reale +7…+12% (+0,5–1 ms: le due letture dei legami dei movimenti), sotto 1 ms. Prima, con il computer occupato, tutte le pagine erano al +30…+60% e la misura dei contratti a 145–195 ns: quelle corse non valgono.
 
 - **G5, tappa 3 (il ponte inventario×budget):** tutte le risposte identiche (tranne `core: settings`, cambiata apposta nella tappa 2), tempi dentro il rumore in tre corse. Lo snapshot chiede ARRIVED a una porta: il ponte legge i suoi legami e chiede all'inventario quantità e date dei movimenti (una lista di id come un solo parametro), e lo snapshot resta com'era (-5…+1%). L'elenco degli articoli alla taglia reale +10…+12%, cioè 0,8–0,9 ms: le due letture dei legami dei movimenti, sotto la soglia di 1 ms.
+
+- **G6 (il budget in un modulo):** tutte le risposte identiche alla baseline di fine G5, tranne `core: settings`, che dalla tappa 1 non ha più gli interruttori del calcolo (ora `/api/budget/lookups/settings`): solo quella riga della baseline è rinnovata. Una baseline intera nuova **non** è stata salvata: in quattro tentativi il computer era occupato (la misura dei contratti a 109–163 ns contro 101, pagine di tutti i moduli oltre il +10% insieme, anche lo snapshot misurato da solo, che G6 non tocca); un confronto con il computer meno carico dà le pagine del budget fra -3% e +12%. Si rinnova a computer libero, prima della prossima tappa che ne ha bisogno.
 
 ## 5. La regola per i passi della fase G
 

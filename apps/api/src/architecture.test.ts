@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { BRIDGES, FOLDER_OWNERS, IMPORT_EXCEPTIONS, SCHEMA_FILES, SNAPSHOT_OWNER, type Owner } from "./architecture.map";
+import { BRIDGES, FOLDER_OWNERS, IMPORT_EXCEPTIONS, SCHEMA_FILES, type Owner } from "./architecture.map";
 
 // The boundaries of the modules, checked on the code (docs/anagrafiche.md, §2; CLAUDE.md): a module may change
 // inside without touching the others, because they reach it only through what it chooses to show.
@@ -61,7 +61,6 @@ const slash = (path: string) => path.split("\\").join("/").replace(/\.tsx?$/, ""
 const folderOf = (rel: string) => rel.match(/^modules\/([^/]+)(?:\/|$)/)?.[1];
 
 function whoOwns(rel: string): Who {
-  if (rel === "snapshot") return SNAPSHOT_OWNER;
   if (rel.startsWith("platform/")) return "platform";
   // a bridge's folder is named after it (`bridges/registry-access`)
   const bridge = rel.match(/^bridges\/([\w-]+)(?:\/|$)/)?.[1];
@@ -152,13 +151,13 @@ describe("who owns what, and who may use it", () => {
 /** What each public file shows to the others. A name added or taken away fails the test above, so that it is a choice. */
 const PUBLIC_NAMES: Record<string, string[]> = {
   "modules/budget/budget.public": [
-    "InflowFact", "InflowReceipt", "RegisterIncome", "assertCanChangeInflows", "bankOf", "computedLines", "computedSeason", "deleteInflowsIn", "inflowDeleting", "inflowReceipts", "inflowsByIds", "inflowsOfSeason", "lineCars", "lineLabels", "linePayments", "lineReceipts", "lockLine", "outsideBudgetOf", "projectsByIds", "projectsOfSeason", "registerBank", "registerSponsorship", "seasonsOfLines",
+    "InflowFact", "InflowReceipt", "RegisterIncome", "assertCanChangeInflows", "bankOf", "computedLines", "computedSeason", "deleteInflowsIn", "getDerivedAreaCategory", "inflowDeleting", "inflowReceipts", "inflowsByIds", "inflowsOfSeason", "lineCars", "lineLabels", "linePayments", "lineReceipts", "lockLine", "outsideBudgetOf", "projectsByIds", "projectsOfSeason", "registerBank", "registerSponsorship", "seasonsOfLines",
   ],
   "modules/inventory/inventory.public": [
     "MovementFact", "MovementTie", "ReceiptOfPurchaseInput", "StatsBudget", "assertCanManageInventory", "checkReceipt", "itemIdentities", "keepMakeProject", "keepMovementProject", "knownProjects", "lineCarsOfReceipts", "makeProjects", "movementTies", "movementsByIds", "receiptOfPurchaseInput", "receiveIn", "statsBudget",
   ],
   "modules/treasury/treasury.public": [
-    "CreateEntryInput", "DayRange", "EntryFact", "EntryLink", "OutsideFact", "assertCanManageCash", "assertListed", "deleteEntryIn", "entriesByIds", "entryChanging", "entryLinks", "insertEntry", "lastPaymentMethodId", "moneyInBetween", "outsideBetween", "paymentsBetween", "registerBalanceAt", "sponsorshipMoneyBetween",
+    "CreateEntryInput", "DayRange", "EntryFact", "EntryLink", "OutsideFact", "assertCanManageCash", "assertListed", "deleteEntryIn", "entriesByIds", "entryChanging", "entryLinks", "getStatementLayout", "insertEntry", "lastPaymentMethodId", "moneyInBetween", "outsideBetween", "paymentsBetween", "registerBalanceAt", "sponsorshipMoneyBetween",
   ],
   "platform/platform.public": [
     "AuditRow", "PermissionRule", "UsageKind", "UsageRow", "UsageSubject", "UserFlag", "auditLabels", "auditText", "can", "categoryCreated", "currentActive", "declaredFlags", "lookupRenamed", "permissionRules", "seasonCreated", "totalUse", "usageOf", "usedBy", "userFlags",

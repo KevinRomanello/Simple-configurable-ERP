@@ -9,14 +9,15 @@ import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { budgetLine, fund, lineFigures, lineFund, project, supplier } from "../../db/schema/budget";
 import { area } from "../../db/schema/platform";
-import { loadSnapshot } from "../../snapshot";
+import { loadSnapshot } from "./snapshot";
 import { canWrite, getCurrentUser, type User } from "../../platform/auth/auth.service";
-import { getDefaultVatRate, listCategories, listVatRates } from "../../platform/lookups/lookups.service";
+import { listCategories, listVatRates } from "../../platform/lookups/lookups.service";
+import { getDefaultVatRate } from "./lookups.service";
 import { assertCarExists, assertSeasonOpen, getCurrentSeason } from "../../platform/seasons/seasons.service";
-import { ensureSupplier } from "../suppliers/suppliers.service";
+import { ensureSupplier } from "./suppliers.service";
 import type { CreateLineInput, FiguresInput, UpdateLineInput } from "./budget.schema";
 
-/** One area as the old area sheets showed it (GET /api/areas/:code/sheet). */
+/** One area as the old area sheets showed it (GET /api/budget/areas/:code/sheet). */
 export async function getAreaSheet(areaCode: string): Promise<AreaSheet> {
   const snapshot = await loadSnapshot();
   if (!snapshot.areas.some((a) => a.code === areaCode)) throw notFound(`Area "${areaCode}"`);

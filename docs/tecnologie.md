@@ -207,7 +207,7 @@ Nel progetto i test sono di tre tipi, dal più piccolo al più grande:
 
 **Il problema.** Il sito deve poter chiedere "dammi i dati di quest'area" o "salva questa modifica". Serve un programma che resti in ascolto di richieste HTTP e risponda.
 
-**Come funziona.** Una richiesta HTTP ha un **metodo** (GET legge, POST crea, PATCH modifica, PUT sostituisce, DELETE cancella), un **percorso** (`/api/areas/hw/sheet`) e a volte un **corpo** JSON. Fastify associa ogni (metodo, percorso) a una funzione:
+**Come funziona.** Una richiesta HTTP ha un **metodo** (GET legge, POST crea, PATCH modifica, PUT sostituisce, DELETE cancella), un **percorso** (`/api/budget/areas/hw/sheet`) e a volte un **corpo** JSON. Fastify associa ogni (metodo, percorso) a una funzione:
 
 ```ts
 export async function healthRoutes(app: FastifyInstance) {
@@ -468,7 +468,7 @@ function editableCell(commit, toPatch) {
 }
 ```
 
-Il `valueSetter` non scrive nella riga: chiama `commit`, che spedisce `PATCH /api/lines/:id`. Poi `useAction` ricarica tutto e le righe arrivano nuove dal server. In questo modo i calcoli (IVA, totali) non possono divergere dal motore.
+Il `valueSetter` non scrive nella riga: chiama `commit`, che spedisce `PATCH /api/budget/lines/:id`. Poi `useAction` ricarica tutto e le righe arrivano nuove dal server. In questo modo i calcoli (IVA, totali) non possono divergere dal motore.
 
 - **Tema**: `themeQuartz.withParams({...})` accetta variabili CSS, quindi la griglia usa i token Figma e cambia insieme a chiaro/scuro (`theme/grid.ts`).
 - **Una griglia per progetto**: AG Grid Community non ha il raggruppamento di righe (è nella versione a pagamento, Enterprise), quindi ogni progetto ha la sua griglia con i suoi subtotali. L'incolla di più righe da Google Sheets nella versione Community non è garantita: è da verificare.

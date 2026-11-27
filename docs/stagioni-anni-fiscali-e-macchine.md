@@ -68,7 +68,7 @@ La pagina **CALENDAR YEARS**, fatta prima nello stesso giorno, è diventata YEAR
   - Senza header vale la stagione di oggi. Un header che non è un numero dà 400; una stagione che non esiste dà 404 (il browser che ne ricorda una sparita torna da solo a quella di oggi).
 - **La sola lettura** la controlla `assertSeasonOpen` in ogni scrittura di budget (`budget.service.ts`, `funds.service.ts`, `cashflow.service.ts`), sulla stagione della riga toccata, non su quella dell'header.
 - **Le statistiche dell'inventario.** Il motore (`stats` in `packages/calc/src/inventory.ts`) riceve il periodo della stagione e, per By car, la macchina di ogni arrivo. Quest'ultima la calcola l'API con una sola query: macchina scelta sull'arrivo, altrimenti quella della riga, altrimenti la stagione della riga, altrimenti la stagione della data (`receiptCars` in `stats.service.ts`).
-- **Le pagine TOTAL.** `GET /api/views/totals?season=`, `/totals/year?year=` e `/totals/car?car=` calcolano le righe di ogni stagione con il proprio snapshot (ognuna con i suoi fondi), le filtrano (`linesOfYear` in `packages/calc/src/years.ts`; per la macchina, nell'API) e le passano a `totalsOfLines` (`totals.ts`), lo stesso calcolo del TOTAL di sempre, che ora dà anche i progetti di ogni area. Le entrate le calcola `moneyIn` (`moneyIn.ts`).
+- **Le pagine TOTAL.** `GET /api/budget/views/totals?season=`, `/totals/year?year=` e `/totals/car?car=` calcolano le righe di ogni stagione con il proprio snapshot (ognuna con i suoi fondi), le filtrano (`linesOfYear` in `packages/calc/src/years.ts`; per la macchina, nell'API) e le passano a `totalsOfLines` (`totals.ts`), lo stesso calcolo del TOTAL di sempre, che ora dà anche i progetti di ogni area. Le entrate le calcola `moneyIn` (`moneyIn.ts`).
 - **Il report IVA per area** parte dai trimestri della stagione mostrata (dal 3° trimestre del primo anno al 4° del secondo; prima era fisso sul 2026-27).
 
 ## 4. API
@@ -79,10 +79,10 @@ La pagina **CALENDAR YEARS**, fatta prima nello stesso giorno, è diventata YEAR
 | `GET` | `/api/seasons/current` | la stagione su cui lavora la richiesta (quella dell'header, o quella di oggi) |
 | `POST` | `/api/seasons` | admin: `{ startYear, car }`. Crea la stagione che parte a settembre di `startYear`, a partire dalla più recente. 409 se esiste già |
 | `PATCH` | `/api/seasons/:id` | admin: `{ car?, readOnly? }` |
-| `GET` | `/api/views/totals?season=` | SEASON TOTAL: il TOTAL di una stagione (senza `season`, quella del menù), con i progetti di ogni area e `moneyIn` |
-| `GET` | `/api/views/totals/year?year=2026` | YEAR TOTAL: le fasi di ogni stagione con data in quell'anno, `moneyIn` di quell'anno e `undated` (le fasi senza data) |
-| `GET` | `/api/views/totals/car?car=EG-26` | CAR TOTAL: le righe di ogni stagione per quella macchina (il nome, senza badare alle maiuscole); `moneyIn` è `null` |
-| `PATCH` | `/api/lines/:id`, `POST /api/projects/:id/lines` | accettano `carSeasonId` (l'id della stagione di cui è la macchina; `null` = quella della propria stagione). Una macchina che non esiste dà 409 |
+| `GET` | `/api/budget/views/totals?season=` | SEASON TOTAL: il TOTAL di una stagione (senza `season`, quella del menù), con i progetti di ogni area e `moneyIn` |
+| `GET` | `/api/budget/views/totals/year?year=2026` | YEAR TOTAL: le fasi di ogni stagione con data in quell'anno, `moneyIn` di quell'anno e `undated` (le fasi senza data) |
+| `GET` | `/api/budget/views/totals/car?car=EG-26` | CAR TOTAL: le righe di ogni stagione per quella macchina (il nome, senza badare alle maiuscole); `moneyIn` è `null` |
+| `PATCH` | `/api/budget/lines/:id`, `POST /api/budget/projects/:id/lines` | accettano `carSeasonId` (l'id della stagione di cui è la macchina; `null` = quella della propria stagione). Una macchina che non esiste dà 409 |
 | `POST` | `/api/inventory/receive` | accetta `carSeasonId` solo per gli arrivi fuori budget (con `lineId` dà 400) |
 | `GET` | `/api/inventory/stats?by=car` | il taglio per macchina; ogni risposta dice anche `season` (nome e date) |
 

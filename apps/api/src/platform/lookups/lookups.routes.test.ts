@@ -15,22 +15,22 @@ describe("health", () => {
 describe("lookups", () => {
   it("serves the hardcoded lists", async () => {
     expect((await api.get("/api/lookups/categories")).body).toHaveLength(7);
-    expect((await api.get("/api/lookups/priorities")).body).toEqual(["High", "Medium", "Low"]);
+    expect((await api.get("/api/budget/lookups/priorities")).body).toEqual(["High", "Medium", "Low"]);
     expect((await api.get("/api/lookups/vat-rates")).body).toEqual([0, 11, 22]);
   });
 
   it("serves the VAT rates a kind of sponsor cannot choose", async () => {
-    expect((await api.get("/api/lookups/sponsor-rates")).body).toEqual({ gift: 0, gift_vat: 11 });
+    expect((await api.get("/api/budget/lookups/sponsor-rates")).body).toEqual({ gift: 0, gift_vat: 11 });
   });
 
   it("serves the VAT deadline rules", async () => {
-    const { body } = await api.get("/api/lookups/vat-rules");
+    const { body } = await api.get("/api/budget/lookups/vat-rules");
     expect(body.shiftWeekendToMonday).toBe(true);
     expect(body.deadlines).toHaveLength(4);
   });
 
   it("serves the settings that mirror the old script", async () => {
-    const { body } = await api.get("/api/lookups/settings");
+    const { body } = await api.get("/api/budget/lookups/settings");
     expect(body.vatBaseWhenTotalSponsor).toBe("net");
     expect(body.bankCompare).toEqual({ summary: "day", timeline: "month" });
   });

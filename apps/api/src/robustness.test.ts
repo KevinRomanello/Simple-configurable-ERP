@@ -14,8 +14,8 @@ afterAll(() => api.close());
 beforeEach(resetData);
 
 async function lineIn(areaCode = "sw") {
-  const project = (await api.post("/api/projects", { areaCode, name: "P" })).body;
-  const line = (await api.post(`/api/projects/${project.id}/lines`, { item: "A" })).body;
+  const project = (await api.post("/api/budget/projects", { areaCode, name: "P" })).body;
+  const line = (await api.post(`/api/budget/projects/${project.id}/lines`, { item: "A" })).body;
   return { project, line };
 }
 
@@ -23,19 +23,19 @@ describe("numbers that are too big", () => {
   it("refuses a contract, an inflow, the BANK and a sponsor above the limits, with a 400", async () => {
     const fundId = await sponsorId(api, "F");
     const answers = [
-      await api.put(`/api/funds/${fundId}/contracts/estimate`, { amount: "9999999999999.99" }),
-      await api.put(`/api/funds/${fundId}/contracts/estimate`, { amount: "1000000000.01" }),
-      await api.post("/api/inflows", { phase: "estimate", sourceName: "F", amount: "9999999999999.99" }),
-      await api.put("/api/bank", { amount: "9999999999999.99" }),
-      await api.put("/api/bank", { amount: "99999999999999999999" }),
+      await api.put(`/api/budget/funds/${fundId}/contracts/estimate`, { amount: "9999999999999.99" }),
+      await api.put(`/api/budget/funds/${fundId}/contracts/estimate`, { amount: "1000000000.01" }),
+      await api.post("/api/budget/inflows", { phase: "estimate", sourceName: "F", amount: "9999999999999.99" }),
+      await api.put("/api/budget/bank", { amount: "9999999999999.99" }),
+      await api.put("/api/budget/bank", { amount: "99999999999999999999" }),
     ];
     expect(answers.map((a) => a.status)).toEqual([400, 400, 400, 400, 400]);
-    expect((await api.put(`/api/funds/${fundId}/contracts/estimate`, { amount: "1000000000" })).status).toBe(200);
+    expect((await api.put(`/api/budget/funds/${fundId}/contracts/estimate`, { amount: "1000000000" })).status).toBe(200);
   });
 
   it("refuses quantity and unit cost above their limits, and a net cost above 100,000,000", async () => {
     const { line } = await lineIn();
-    const patch = (figures: object, version: number) => api.patch(`/api/lines/${line.id}`, { version, figures: { estimate: figures } });
+    const patch = (figures: object, version: number) => api.patch(`/api/budget/lines/${line.id}`, { version, figures: { estimate: figures } });
 
     expect((await patch({ quantity: "100000000000" }, 1)).status).toBe(400);
     expect((await patch({ quantity: "1000000.001" }, 1)).status).toBe(400);
@@ -50,13 +50,13 @@ describe("numbers that are too big", () => {
 
     // right at the limit still works, and is added up exactly
     expect((await patch({ unitNetCost: "100", sponsorType: "none", vatRate: 22 }, 2)).status).toBe(200);
-    const sheet = (await api.get("/api/areas/sw/sheet")).body;
+    const sheet = (await api.get("/api/budget/areas/sw/sheet")).body;
     expect(sheet.total.estimate).toMatchObject({ netCents: 10_000_000_000, vatCents: 2_200_000_000 });
   });
 
   it("refuses a version that does not fit the database", async () => {
     const { line } = await lineIn();
-    expect((await api.patch(`/api/lines/${line.id}`, { version: 99999999999, item: "x" })).status).toBe(400);
+    expect((await api.patch(`/api/budget/lines/${line.id}`, { version: 99999999999, item: "x" })).status).toBe(400);
   });
 });
 
@@ -64,16 +64,16 @@ describe("ids", () => {
   it("answers 400 for ids no database row can have, on every route that takes one", async () => {
     const huge = "2147483648";
     const answers = [
-      await api.patch(`/api/lines/${huge}`, { version: 1 }),
-      await api.del(`/api/lines/${huge}`),
-      await api.post(`/api/projects/${huge}/lines`, { item: "x" }),
-      await api.patch(`/api/projects/${huge}`, { name: "x" }),
-      await api.del(`/api/projects/${huge}`),
-      await api.del(`/api/funds/${huge}/contracts/estimate`),
-      await api.patch(`/api/funds/${huge}`, { group: "g" }),
-      await api.del(`/api/funds/${huge}`),
-      await api.del(`/api/inflows/${huge}`),
-      await api.del(`/api/suppliers/${huge}`),
+      await api.patch(`/api/budget/lines/${huge}`, { version: 1 }),
+      await api.del(`/api/budget/lines/${huge}`),
+      await api.post(`/api/budget/projects/${huge}/lines`, { item: "x" }),
+      await api.patch(`/api/budget/projects/${huge}`, { name: "x" }),
+      await api.del(`/api/budget/projects/${huge}`),
+      await api.del(`/api/budget/funds/${huge}/contracts/estimate`),
+      await api.patch(`/api/budget/funds/${huge}`, { group: "g" }),
+      await api.del(`/api/budget/funds/${huge}`),
+      await api.del(`/api/budget/inflows/${huge}`),
+      await api.del(`/api/budget/suppliers/${huge}`),
       await api.patch(`/api/users/${huge}`, { role: "pm" }),
       await api.patch("/api/users/1", { areaIds: [2147483648] }),
       await api.get(`/api/audit?rowId=${huge}`),
@@ -84,9 +84,9 @@ describe("ids", () => {
 
   it("refuses ids written in a way Number() would still understand", async () => {
     for (const bad of ["0x10", "1e3", "1.5", "-1", "%201", "007x"]) {
-      expect([bad, (await api.del(`/api/lines/${bad}`)).status]).toEqual([bad, 400]);
+      expect([bad, (await api.del(`/api/budget/lines/${bad}`)).status]).toEqual([bad, 400]);
     }
-    expect((await api.del("/api/lines/999999")).status).toBe(404); // a plain unknown id is still a 404
+    expect((await api.del("/api/budget/lines/999999")).status).toBe(404); // a plain unknown id is still a 404
   });
 });
 
@@ -95,19 +95,19 @@ describe("text", () => {
     const nul = "a\u0000b";
     const { project, line } = await lineIn();
     const answers = [
-      await api.post("/api/suppliers", { name: nul }),
-      await api.post("/api/projects", { areaCode: "sw", name: nul }),
-      await api.post("/api/projects", { areaCode: nul, name: "x" }),
-      await api.patch(`/api/projects/${project.id}`, { ownerName: nul }),
-      await api.post(`/api/projects/${project.id}/lines`, { item: nul }),
-      await api.patch(`/api/lines/${line.id}`, { version: 1, note: nul }),
-      await api.patch(`/api/lines/${line.id}`, { version: 1, category: nul }),
-      await api.post("/api/funds", { name: nul, vatRate: 22 }),
-      await api.post("/api/funds", { name: "x", vatRate: 22, group: nul }),
-      await api.post("/api/inflows", { phase: "estimate", sourceName: nul, amount: "1" }),
+      await api.post("/api/budget/suppliers", { name: nul }),
+      await api.post("/api/budget/projects", { areaCode: "sw", name: nul }),
+      await api.post("/api/budget/projects", { areaCode: nul, name: "x" }),
+      await api.patch(`/api/budget/projects/${project.id}`, { ownerName: nul }),
+      await api.post(`/api/budget/projects/${project.id}/lines`, { item: nul }),
+      await api.patch(`/api/budget/lines/${line.id}`, { version: 1, note: nul }),
+      await api.patch(`/api/budget/lines/${line.id}`, { version: 1, category: nul }),
+      await api.post("/api/budget/funds", { name: nul, vatRate: 22 }),
+      await api.post("/api/budget/funds", { name: "x", vatRate: 22, group: nul }),
+      await api.post("/api/budget/inflows", { phase: "estimate", sourceName: nul, amount: "1" }),
       await api.get(`/api/audit?table=${encodeURIComponent(nul)}`),
-      await api.get(`/api/views/vat-report?area=${encodeURIComponent(nul)}`),
-      await api.get(`/api/areas/${encodeURIComponent(nul)}/sheet`),
+      await api.get(`/api/budget/views/vat-report?area=${encodeURIComponent(nul)}`),
+      await api.get(`/api/budget/areas/${encodeURIComponent(nul)}/sheet`),
     ];
     expect(answers.map((a) => a.status)).toEqual(answers.map(() => 400));
   });
@@ -116,10 +116,10 @@ describe("text", () => {
     for (const length of [201, 3000, 50_000]) {
       const text = randomBytes(length).toString("base64").slice(0, length);
       const answers = [
-        await api.post("/api/suppliers", { name: text }),
-        await api.post("/api/funds", { name: text, vatRate: 22 }),
-        await api.post("/api/inflows", { phase: "estimate", sourceName: text, amount: "1" }),
-        await api.post("/api/projects", { areaCode: "sw", name: text }),
+        await api.post("/api/budget/suppliers", { name: text }),
+        await api.post("/api/budget/funds", { name: text, vatRate: 22 }),
+        await api.post("/api/budget/inflows", { phase: "estimate", sourceName: text, amount: "1" }),
+        await api.post("/api/budget/projects", { areaCode: "sw", name: text }),
       ];
       expect([length, answers.map((a) => a.status)]).toEqual([length, [400, 400, 400, 400]]);
     }
@@ -128,15 +128,15 @@ describe("text", () => {
   it("keeps ordinary text as it is: accents, emoji, line breaks, long notes", async () => {
     const { line } = await lineIn();
     const note = "caffè ☕ 😀\nsecond line " + "x".repeat(4_000);
-    expect((await api.patch(`/api/lines/${line.id}`, { version: 1, note })).body.note).toBe(note);
-    expect((await api.post("/api/suppliers", { name: "Caffè 日本語 😀" })).body.name).toBe("Caffè 日本語 😀");
+    expect((await api.patch(`/api/budget/lines/${line.id}`, { version: 1, note })).body.note).toBe(note);
+    expect((await api.post("/api/budget/suppliers", { name: "Caffè 日本語 😀" })).body.name).toBe("Caffè 日本語 😀");
   });
 });
 
 describe("dates", () => {
   it("accepts only real days between 2000 and 2100", async () => {
     const date = async (d: string) =>
-      api.put(`/api/funds/${await sponsorId(api, `F ${d}`)}/contracts/estimate`, { amount: "1", inflowDate: d });
+      api.put(`/api/budget/funds/${await sponsorId(api, `F ${d}`)}/contracts/estimate`, { amount: "1", inflowDate: d });
     for (const bad of ["0000-01-01", "0001-01-01", "1999-12-31", "2101-01-01", "9999-12-31", "10000-01-01", "2026-02-30"]) {
       expect([bad, (await date(bad)).status]).toEqual([bad, 400]);
     }
@@ -146,7 +146,7 @@ describe("dates", () => {
   it("keeps the views small: no date can stretch a timeline over thousands of years", async () => {
     await addContract(api, { fundName: "Old", amount: "1", inflowDate: "0001-01-01" });
     await addContract(api, { fundName: "Far", amount: "1", inflowDate: "9999-12-31" });
-    const summary = await api.get("/api/views/funds-summary?phase=estimate");
+    const summary = await api.get("/api/budget/views/funds-summary?phase=estimate");
     expect(summary.status).toBe(200);
     expect(JSON.stringify(summary.body).length).toBeLessThan(5_000);
   });
@@ -154,15 +154,15 @@ describe("dates", () => {
 
 describe("requests at the same moment", () => {
   it("gives every line added at once its own position, in the order they were stored", async () => {
-    const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
-    const answers = await Promise.all(Array.from({ length: 15 }, (_, i) => api.post(`/api/projects/${project.id}/lines`, { item: `L${i}` })));
+    const project = (await api.post("/api/budget/projects", { areaCode: "sw", name: "P" })).body;
+    const answers = await Promise.all(Array.from({ length: 15 }, (_, i) => api.post(`/api/budget/projects/${project.id}/lines`, { item: `L${i}` })));
     expect(answers.map((a) => a.status)).toEqual(answers.map(() => 201));
-    const lines = (await api.get("/api/areas/sw/sheet")).body.projects[0].lines;
+    const lines = (await api.get("/api/budget/areas/sw/sheet")).body.projects[0].lines;
     expect(lines.map((l: { position: number }) => l.position)).toEqual(Array.from({ length: 15 }, (_, i) => i + 1));
   });
 
   it("does the same for projects", async () => {
-    const answers = await Promise.all(Array.from({ length: 10 }, (_, i) => api.post("/api/projects", { areaCode: "hw", name: `Q${i}` })));
+    const answers = await Promise.all(Array.from({ length: 10 }, (_, i) => api.post("/api/budget/projects", { areaCode: "hw", name: `Q${i}` })));
     expect(answers.map((a) => a.status)).toEqual(answers.map(() => 201));
     const positions = answers.map((a) => a.body.position).sort((a, b) => a - b);
     expect(positions).toEqual(Array.from({ length: 10 }, (_, i) => i + 1));
@@ -170,30 +170,30 @@ describe("requests at the same moment", () => {
 
   it("lets one of many edits of the same version win and tells the others to reload", async () => {
     const { line } = await lineIn();
-    const answers = await Promise.all(Array.from({ length: 20 }, (_, i) => api.patch(`/api/lines/${line.id}`, { version: 1, note: `n${i}` })));
+    const answers = await Promise.all(Array.from({ length: 20 }, (_, i) => api.patch(`/api/budget/lines/${line.id}`, { version: 1, note: `n${i}` })));
     const statuses = answers.map((a) => a.status).sort();
     expect(statuses.filter((s) => s === 200)).toHaveLength(1);
     expect(statuses.filter((s) => s === 409)).toHaveLength(19);
   });
 
   it("creates one sponsor and answers 409 to the others, when the same name is used at once", async () => {
-    const answers = await Promise.all(Array.from({ length: 12 }, (_, i) => api.post("/api/funds", { name: i % 2 ? "NewFund" : "newfund", vatRate: 22 })));
+    const answers = await Promise.all(Array.from({ length: 12 }, (_, i) => api.post("/api/budget/funds", { name: i % 2 ? "NewFund" : "newfund", vatRate: 22 })));
     expect(answers.filter((a) => a.status === 201)).toHaveLength(1);
     expect(answers.filter((a) => a.status === 409)).toHaveLength(11);
-    expect((await api.get("/api/funds")).body.filter((f: { name: string }) => f.name.toLowerCase() === "newfund")).toHaveLength(1);
+    expect((await api.get("/api/budget/funds")).body.filter((f: { name: string }) => f.name.toLowerCase() === "newfund")).toHaveLength(1);
   });
 
   it("keeps one contract per sponsor and phase, when the money is set at once", async () => {
     const fundId = await sponsorId(api, "Busy");
-    const answers = await Promise.all(Array.from({ length: 12 }, (_, i) => api.put(`/api/funds/${fundId}/contracts/estimate`, { amount: String(i + 1) })));
+    const answers = await Promise.all(Array.from({ length: 12 }, (_, i) => api.put(`/api/budget/funds/${fundId}/contracts/estimate`, { amount: String(i + 1) })));
     expect(answers.map((a) => a.status)).toEqual(answers.map(() => 200));
-    const busy = (await api.get("/api/funds")).body.find((f: { id: number }) => f.id === fundId);
+    const busy = (await api.get("/api/budget/funds")).body.find((f: { id: number }) => f.id === fundId);
     expect(Number(busy.contracts.estimate.amount)).toBeGreaterThanOrEqual(1); // one of them won
     expect(await db.select().from(fundContract).where(eq(fundContract.fundId, fundId))).toHaveLength(1);
   });
 
   it("answers 409 to all but one of many equal suppliers", async () => {
-    const answers = await Promise.all(Array.from({ length: 10 }, () => api.post("/api/suppliers", { name: "Same" })));
+    const answers = await Promise.all(Array.from({ length: 10 }, () => api.post("/api/budget/suppliers", { name: "Same" })));
     expect(answers.filter((a) => a.status === 201)).toHaveLength(1);
     expect(answers.filter((a) => a.status === 409)).toHaveLength(9);
   });

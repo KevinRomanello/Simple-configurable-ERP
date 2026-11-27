@@ -18,7 +18,7 @@ const addPart = (componentId: number, partId: number, quantity: string) =>
 /** The project the pieces are made for (made once per test: the data is wiped before each one). */
 const projectOf = async () => {
   const known = (await api.get("/api/inventory-budget/projects")).body as { id: number }[];
-  return known[0]?.id ?? ((await api.post("/api/projects", { areaCode: "sw", name: "Pedals" })).body.id as number);
+  return known[0]?.id ?? ((await api.post("/api/budget/projects", { areaCode: "sw", name: "Pedals" })).body.id as number);
 };
 const build = async (componentId: number, quantity: string, extra: object = {}) =>
   api.post("/api/inventory/builds", {

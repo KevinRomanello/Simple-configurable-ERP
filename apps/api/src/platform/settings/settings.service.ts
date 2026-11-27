@@ -5,11 +5,10 @@ import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { category, setting, vatRate } from "../../db/schema/platform";
 import { canKeepCategories, getCurrentUser, requireAdmin } from "../auth/auth.service";
-import { getSettings } from "../lookups/lookups.service";
 import { categoryCreated, currentActive, lookupRenamed, totalUse, usageOf, type UsageKind, type UsageRow, type UsageSubject } from "../platform.public";
 
-// The Settings page of the core (docs/impostazioni.md). The switches of the calculation, the VAT rates and the
-// seasons are the admin's; the categories, which the lines and the items are written with, are also kept by the
+// The Settings page of the core (docs/impostazioni.md). The VAT rates and the seasons are the admin's (the switches of the
+// calculation are the budget's: modules/budget/lookups.service.ts); the categories, which the lines and the items are written with, are also kept by the
 // project managers. The lists of the inventory (units, places, the fields of a category) are the inventory's
 // (modules/inventory/lists.service.ts). Every change goes into the history (the tables have the audit trigger).
 
@@ -36,13 +35,12 @@ const sameName = (column: typeof category.name, name: string) => sql`lower(${col
 
 // --- reading -------------------------------------------------------------------------------------
 
-/** What the Settings page of the core shows, with how much each entry is used (GET /api/settings). */
+/** What the Settings page of the core shows, with how much each entry is used (GET /api/settings); the switches of the calculation are the budget's. */
 export async function readSettings() {
   await asCategoryKeeper();
-  const [categories, rates, calculation] = await Promise.all([
+  const [categories, rates] = await Promise.all([
     db.select().from(category).orderBy(asc(category.position), asc(category.id)),
     db.select().from(vatRate).orderBy(asc(vatRate.rate)),
-    getSettings(),
   ]);
   // who uses each entry: one question per list, answered by the modules that are on
   const [categoryUse, rateUse] = await Promise.all([
@@ -52,12 +50,6 @@ export async function readSettings() {
   return {
     categories: categories.map((c) => ({ id: c.id, name: c.name, usedBy: totalUse(categoryUse.get(String(c.id))) })),
     vatRates: rates.map((r) => ({ id: r.id, rate: Number(r.rate), usedBy: totalUse(rateUse.get(String(r.id))) })),
-    calculation: {
-      varianceThreshold: calculation.varianceThreshold,
-      vatBaseWhenTotalSponsor: calculation.vatBaseWhenTotalSponsor,
-      inflowVatRate: calculation.inflowVatRate,
-      bankCompare: calculation.bankCompare,
-    },
   };
 }
 
@@ -137,14 +129,7 @@ export async function deleteVatRate(rateId: number) {
   });
 }
 
-// --- the switches of the calculation ------------------------------------------------------------
-
-export interface CalculationInput {
-  varianceThreshold?: number;
-  vatBaseWhenTotalSponsor?: "net" | "net-minus-sponsor";
-  inflowVatRate?: number;
-  bankCompare?: { summary?: "day" | "month"; timeline?: "day" | "month" };
-}
+// --- the site ------------------------------------------------------------------------------------
 
 /** Lets the site be changed from a phone, or not (on a phone everybody sees it read-only): admins only. */
 export async function updateSite(input: { editOnPhone: boolean }) {
@@ -153,21 +138,3 @@ export async function updateSite(input: { editOnPhone: boolean }) {
     await tx.update(setting).set({ editOnPhone: input.editOnPhone }).where(eq(setting.id, 1));
   });
 }
-
-/** Changes the switches of the calculation; what is left out stays as it is. Every page uses them at once. */
-export async function updateCalculation(input: CalculationInput) {
-  const actor = await asAdmin();
-  await runWrite(actor, async (tx) => {
-    await tx
-      .update(setting)
-      .set({
-        ...(input.varianceThreshold !== undefined ? { varianceThreshold: input.varianceThreshold.toFixed(4) } : {}),
-        ...(input.vatBaseWhenTotalSponsor !== undefined ? { vatBaseWhenTotalSponsor: input.vatBaseWhenTotalSponsor } : {}),
-        ...(input.inflowVatRate !== undefined ? { inflowVatRate: input.inflowVatRate.toFixed(2) } : {}),
-        ...(input.bankCompare?.summary !== undefined ? { bankCompareSummary: input.bankCompare.summary } : {}),
-        ...(input.bankCompare?.timeline !== undefined ? { bankCompareTimeline: input.bankCompare.timeline } : {}),
-      })
-      .where(eq(setting.id, 1));
-  });
-}
-

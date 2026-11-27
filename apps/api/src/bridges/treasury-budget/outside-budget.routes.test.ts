@@ -28,7 +28,7 @@ async function move(name: string | null, cents: number, over: { on?: string; spo
   expect(created.status).toBe(201);
   return created.body as { id: number };
 }
-const sheet = async () => (await api.get("/api/areas/administration/sheet")).body;
+const sheet = async () => (await api.get("/api/budget/areas/administration/sheet")).body;
 const lineNames = async () => (await sheet()).projects.flatMap((p: { lines: { item: string }[] }) => p.lines.map((l) => l.item));
 const month = (date: string) => date.slice(0, 7);
 
@@ -66,7 +66,7 @@ describe("the derived area", () => {
     expect(areas.map((a) => a.code).at(-1)).toBe("administration");
     expect(areas.filter((a) => a.derived).map((a) => a.code)).toEqual(["administration"]);
     expect((await sheet()).area).toMatchObject({ code: "administration", derived: true });
-    expect((await api.post("/api/projects", { areaCode: "administration", name: "Mine" })).status).toBe(403);
+    expect((await api.post("/api/budget/projects", { areaCode: "administration", name: "Mine" })).status).toBe(403);
   });
 
   it("has a project for each section of the financial statement and a line for each Voce and month, from the register", async () => {
@@ -113,9 +113,9 @@ describe("the derived area", () => {
     expect(await lineNames()).toEqual([]);
 
     // an outside payment tied to a budget line counts as the line, not here
-    const project = (await api.post("/api/projects", { areaCode: "mt-dmt", name: "Steering" })).body;
-    const team = (await api.get("/api/funds")).body.find((f: { kind: string }) => f.kind === "team");
-    const bought = (await api.post(`/api/projects/${project.id}/lines`, {
+    const project = (await api.post("/api/budget/projects", { areaCode: "mt-dmt", name: "Steering" })).body;
+    const team = (await api.get("/api/budget/funds")).body.find((f: { kind: string }) => f.kind === "team");
+    const bought = (await api.post(`/api/budget/projects/${project.id}/lines`, {
       item: "Sensor", figures: { actual: { quantity: 1, unitNetCost: "10", sponsorType: "none", vatRate: 0, fundIds: [team.id], purchaseDate: today() } },
     })).body;
     const stamp = await move("8.2 Imposta di bollo", -1_000);
@@ -140,15 +140,15 @@ describe("the derived area", () => {
     await move("8.2 Imposta di bollo", -1_600);
     const line = (await sheet()).projects[0].lines[0];
     expect(line.id).toBeLessThan(0);
-    expect([400, 404]).toContain((await api.patch(`/api/lines/${line.id}`, { item: "Mine", version: 0 })).status);
-    expect([400, 404]).toContain((await api.del(`/api/lines/${line.id}`)).status);
+    expect([400, 404]).toContain((await api.patch(`/api/budget/lines/${line.id}`, { item: "Mine", version: 0 })).status);
+    expect([400, 404]).toContain((await api.del(`/api/budget/lines/${line.id}`)).status);
   });
 });
 
 describe("in the views", () => {
   it("is a row of TOTAL, in ALL and in its category, and it adds to the total without a warning of a variance", async () => {
     await move("8.2 Imposta di bollo", -1_600);
-    const { blocks } = (await api.get("/api/views/totals")).body;
+    const { blocks } = (await api.get("/api/budget/views/totals")).body;
     const rowOf = (name: string) => blocks.find((b: { block: string }) => b.block === name).rows.find((r: { areaCode: string }) => r.areaCode === "administration");
     expect(rowOf("ALL")).toMatchObject({ areaName: "ADMINISTRATION", actualOutflowCents: 1_600, estimateOutflowCents: 0, outflowVariance: null, outflowOutOfRange: false });
     expect(rowOf("ALL").projects.map((p: { name: string }) => p.name)).toEqual(["8. IMPOSTE E TASSE"]);
@@ -161,17 +161,17 @@ describe("in the views", () => {
     await move("8.2 Imposta di bollo", -1_600);
     await move("1. QUOTE ASSOCIATIVE", 2_500);
     await move("1. QUOTE ASSOCIATIVE", 1_500);
-    const total = (await api.get(`/api/views/totals/year?year=${year}`)).body;
+    const total = (await api.get(`/api/budget/views/totals/year?year=${year}`)).body;
     expect(total.blocks[0].total.actualOutflowCents).toBe(1_600);
     expect(total.moneyIn.rows).toContainEqual({ kind: "register", label: "1. QUOTE ASSOCIATIVE", asOf: null, estimateCents: 0, actualCents: 4_000 });
     expect(total.moneyIn.total.actual).toBe(4_000);
   });
 
   it("does not count as money in what is ticked as sponsorship or has received an inflow: those are inflows already", async () => {
-    const yearRows = async () => (await api.get(`/api/views/totals/year?year=${year}`)).body.moneyIn.rows.filter((r: { kind: string }) => r.kind === "register");
+    const yearRows = async () => (await api.get(`/api/budget/views/totals/year?year=${year}`)).body.moneyIn.rows.filter((r: { kind: string }) => r.kind === "register");
     await move("1. QUOTE ASSOCIATIVE", 500, { sponsorship: true });
     const received = await move("2.1 da soci e tesserati", 700);
-    const expected = (await api.post("/api/inflows", { phase: "estimate", sourceName: "Acme", amount: "700", inflowDate: today(), sponsorship: false })).body;
+    const expected = (await api.post("/api/budget/inflows", { phase: "estimate", sourceName: "Acme", amount: "700", inflowDate: today(), sponsorship: false })).body;
     expect((await api.post(`/api/treasury-budget/inflows/${expected.id}/receive`, { entryId: received.id })).status).toBeLessThan(300);
     expect(await yearRows()).toEqual([]);
     // the same money, tied to nothing, is a fee that came in outside the budget
@@ -180,13 +180,13 @@ describe("in the views", () => {
   });
 
   it("does not change CASH FLOW: the team fund pays none of it, even after the BANK day", async () => {
-    await api.put("/api/bank", { amount: "5000", asOfDate: "2020-01-01" });
+    await api.put("/api/budget/bank", { amount: "5000", asOfDate: "2020-01-01" });
     const cashFlow = async () => {
-      const { bank, estimate, actual } = (await api.get("/api/views/cashflow")).body;
+      const { bank, estimate, actual } = (await api.get("/api/budget/views/cashflow")).body;
       return { bank, estimate, actual: actual };
     };
     const before = await cashFlow();
-    const ganttBefore = (await api.get("/api/views/gantt?phase=actual")).body;
+    const ganttBefore = (await api.get("/api/budget/views/gantt?phase=actual")).body;
     await move("8.2 Imposta di bollo", -1_600);
     await move("2.1 Assicurazioni", -50_000);
     await move("1. QUOTE ASSOCIATIVE", 2_500);
@@ -195,7 +195,7 @@ describe("in the views", () => {
     expect(after.actual.summary).toEqual(before.actual.summary);
     expect(after.estimate.summary).toEqual(before.estimate.summary);
     expect(after.actual.monthly).toEqual(before.actual.monthly);
-    expect((await api.get("/api/views/gantt?phase=actual")).body.blocks.length).toBeGreaterThan(ganttBefore.blocks.length);
+    expect((await api.get("/api/budget/views/gantt?phase=actual")).body.blocks.length).toBeGreaterThan(ganttBefore.blocks.length);
   });
 
   it("is not pending in the inventory and not to pay", async () => {
@@ -220,7 +220,7 @@ describe("the projects stock can be used for", () => {
   it("are those of the budget: the area derived from the register has none, they are not rows of the database", async () => {
     await move("8.2 Imposta di bollo", -1_600);
     expect((await sheet()).projects.length).toBeGreaterThan(0); // the area has its project
-    const id = (await api.post("/api/projects", { areaCode: "sw", name: "Brakes" })).body.id as number;
+    const id = (await api.post("/api/budget/projects", { areaCode: "sw", name: "Brakes" })).body.id as number;
     const offered = (await api.get("/api/inventory-budget/projects")).body as { id: number; areaCode: string }[];
     expect(offered.map((p) => p.id)).toEqual([id]);
   });

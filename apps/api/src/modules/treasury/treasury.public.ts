@@ -13,6 +13,9 @@ export { assertCanManageCash } from "./cash.service";
 export { assertListed } from "./cash.service";
 export type { CreateEntryInput } from "./cash.schema";
 
+/** The rows of the financial statement (the sections of the Voci: the derived area of the budget is made of them). */
+export { getStatementLayout } from "./statement.service";
+
 /** Movements of the register as plain facts, for the bridge to tie them to the budget. */
 export { entriesByIds, lastPaymentMethodId, moneyInBetween, outsideBetween, paymentsBetween, sponsorshipMoneyBetween } from "./treasury.reads";
 export type { DayRange, EntryFact, OutsideFact } from "./treasury.reads";

@@ -6,15 +6,15 @@ afterAll(() => api.close());
 beforeEach(resetData);
 
 async function project(name = "Steering", areaCode = "mt-dmt") {
-  return (await api.post("/api/projects", { areaCode, name })).body;
+  return (await api.post("/api/budget/projects", { areaCode, name })).body;
 }
 async function sheet(areaCode = "mt-dmt") {
-  return (await api.get(`/api/areas/${areaCode}/sheet`)).body;
+  return (await api.get(`/api/budget/areas/${areaCode}/sheet`)).body;
 }
 
 describe("projects", () => {
   it("adds projects at the end of an area, with their owner", async () => {
-    const first = await api.post("/api/projects", { areaCode: "mt-dmt", name: "Steering", ownerName: "Someone" });
+    const first = await api.post("/api/budget/projects", { areaCode: "mt-dmt", name: "Steering", ownerName: "Someone" });
     expect(first.status).toBe(201);
     await project("Brakes");
     const { projects } = await sheet();
@@ -23,24 +23,24 @@ describe("projects", () => {
 
   it("renames, changes the owner and deletes with all the lines", async () => {
     const created = await project();
-    await api.post(`/api/projects/${created.id}/lines`, { item: "Sensor" });
-    const patched = await api.patch(`/api/projects/${created.id}`, { name: "Steering 2", ownerName: "Ann" });
+    await api.post(`/api/budget/projects/${created.id}/lines`, { item: "Sensor" });
+    const patched = await api.patch(`/api/budget/projects/${created.id}`, { name: "Steering 2", ownerName: "Ann" });
     expect(patched.body).toMatchObject({ name: "Steering 2", ownerName: "Ann" });
-    expect((await api.del(`/api/projects/${created.id}`)).status).toBe(204);
+    expect((await api.del(`/api/budget/projects/${created.id}`)).status).toBe(204);
     expect((await sheet()).projects).toEqual([]);
   });
 
   it("rejects an unknown area and an empty name", async () => {
-    expect((await api.post("/api/projects", { areaCode: "nope", name: "X" })).status).toBe(404);
-    expect((await api.post("/api/projects", { areaCode: "sw", name: "  " })).status).toBe(400);
-    expect((await api.patch("/api/projects/9999", { name: "X" })).status).toBe(404);
+    expect((await api.post("/api/budget/projects", { areaCode: "nope", name: "X" })).status).toBe(404);
+    expect((await api.post("/api/budget/projects", { areaCode: "sw", name: "  " })).status).toBe(400);
+    expect((await api.patch("/api/budget/projects/9999", { name: "X" })).status).toBe(404);
   });
 });
 
 describe("lines", () => {
   it("creates a line with figures and shows the computed amounts", async () => {
     const { id } = await project();
-    const created = await api.post(`/api/projects/${id}/lines`, {
+    const created = await api.post(`/api/budget/projects/${id}/lines`, {
       item: "Torquemeter",
       category: "Asset",
       priority: "High",
@@ -56,37 +56,37 @@ describe("lines", () => {
 
   it("keeps the brand and the model of what is bought, and shows them on the sheet", async () => {
     const { id } = await project();
-    const created = await api.post(`/api/projects/${id}/lines`, { item: "Drill", brand: " Bosch ", model: "GBH 2-26" });
+    const created = await api.post(`/api/budget/projects/${id}/lines`, { item: "Drill", brand: " Bosch ", model: "GBH 2-26" });
     expect(created.body).toMatchObject({ brand: "Bosch", model: "GBH 2-26" }); // the spaces around are not kept
     const [line] = (await sheet()).projects[0].lines;
     expect(line).toMatchObject({ item: "Drill", brand: "Bosch", model: "GBH 2-26" });
     // a line made without them has none
-    await api.post(`/api/projects/${id}/lines`, { item: "Bolt" });
+    await api.post(`/api/budget/projects/${id}/lines`, { item: "Bolt" });
     expect((await sheet()).projects[0].lines[1]).toMatchObject({ brand: null, model: null });
   });
 
   it("changes the brand and the model one at a time, and an empty text takes them away", async () => {
     const { id } = await project();
-    const line = (await api.post(`/api/projects/${id}/lines`, { item: "Drill", brand: "Bosch", model: "GBH 2-26" })).body;
-    const changed = await api.patch(`/api/lines/${line.id}`, { version: 1, model: "GBH 18V" });
+    const line = (await api.post(`/api/budget/projects/${id}/lines`, { item: "Drill", brand: "Bosch", model: "GBH 2-26" })).body;
+    const changed = await api.patch(`/api/budget/lines/${line.id}`, { version: 1, model: "GBH 18V" });
     expect(changed.body).toMatchObject({ brand: "Bosch", model: "GBH 18V", version: 2 }); // the brand was left alone
-    expect((await api.patch(`/api/lines/${line.id}`, { version: 2, brand: "   ", model: null })).body).toMatchObject({ brand: null, model: null });
+    expect((await api.patch(`/api/budget/lines/${line.id}`, { version: 2, brand: "   ", model: null })).body).toMatchObject({ brand: null, model: null });
     expect((await sheet()).projects[0].lines[0]).toMatchObject({ brand: null, model: null });
   });
 
   it("refuses a brand or a model that is too long", async () => {
     const { id } = await project();
-    const line = (await api.post(`/api/projects/${id}/lines`, { item: "A" })).body;
-    expect((await api.post(`/api/projects/${id}/lines`, { item: "B", brand: "x".repeat(201) })).status).toBe(400);
-    expect((await api.patch(`/api/lines/${line.id}`, { version: 1, model: "x".repeat(201) })).status).toBe(400);
-    expect((await api.patch(`/api/lines/${line.id}`, { version: 1, model: "x".repeat(200) })).status).toBe(200);
+    const line = (await api.post(`/api/budget/projects/${id}/lines`, { item: "A" })).body;
+    expect((await api.post(`/api/budget/projects/${id}/lines`, { item: "B", brand: "x".repeat(201) })).status).toBe(400);
+    expect((await api.patch(`/api/budget/lines/${line.id}`, { version: 1, model: "x".repeat(201) })).status).toBe(400);
+    expect((await api.patch(`/api/budget/lines/${line.id}`, { version: 1, model: "x".repeat(200) })).status).toBe(200);
   });
 
   it("subtotals the project and the area", async () => {
     const { id } = await project();
     const figures = { estimate: { quantity: 1, unitNetCost: "50", sponsorType: "none", vatRate: 0 } };
-    await api.post(`/api/projects/${id}/lines`, { item: "A", figures });
-    await api.post(`/api/projects/${id}/lines`, { item: "B", figures });
+    await api.post(`/api/budget/projects/${id}/lines`, { item: "A", figures });
+    await api.post(`/api/budget/projects/${id}/lines`, { item: "B", figures });
     const result = await sheet();
     expect(result.projects[0].subtotal.estimate.netCents).toBe(10_000);
     expect(result.total.estimate.outflowCents).toBe(10_000);
@@ -94,8 +94,8 @@ describe("lines", () => {
 
   it("updates fields and bumps the version", async () => {
     const { id } = await project();
-    const line = (await api.post(`/api/projects/${id}/lines`, { item: "A" })).body;
-    const updated = await api.patch(`/api/lines/${line.id}`, {
+    const line = (await api.post(`/api/budget/projects/${id}/lines`, { item: "A" })).body;
+    const updated = await api.patch(`/api/budget/lines/${line.id}`, {
       version: 1,
       item: "A2",
       note: "hello",
@@ -109,11 +109,11 @@ describe("lines", () => {
 
   it("merges a partial change into existing figures and lets null clear a field", async () => {
     const { id } = await project();
-    const line = (await api.post(`/api/projects/${id}/lines`, {
+    const line = (await api.post(`/api/budget/projects/${id}/lines`, {
       item: "A",
       figures: { estimate: { quantity: 3, unitNetCost: "10", sponsorType: "none", vatRate: 22, purchaseDate: "2026-11-20" } },
     })).body;
-    await api.patch(`/api/lines/${line.id}`, { version: 1, figures: { estimate: { quantity: 4, purchaseDate: null } } });
+    await api.patch(`/api/budget/lines/${line.id}`, { version: 1, figures: { estimate: { quantity: 4, purchaseDate: null } } });
     const [fromSheet] = (await sheet()).projects[0].lines;
     expect(fromSheet.estimate.amounts.netCents).toBe(4_000); // new quantity, unit cost kept
     expect(fromSheet.estimate.purchaseDate).toBeNull();
@@ -121,48 +121,48 @@ describe("lines", () => {
 
   it("refuses a write made on an outdated version (409) and keeps the other person's change", async () => {
     const { id } = await project();
-    const line = (await api.post(`/api/projects/${id}/lines`, { item: "A" })).body;
-    expect((await api.patch(`/api/lines/${line.id}`, { version: 1, item: "first" })).status).toBe(200);
-    const stale = await api.patch(`/api/lines/${line.id}`, { version: 1, item: "second" });
+    const line = (await api.post(`/api/budget/projects/${id}/lines`, { item: "A" })).body;
+    expect((await api.patch(`/api/budget/lines/${line.id}`, { version: 1, item: "first" })).status).toBe(200);
+    const stale = await api.patch(`/api/budget/lines/${line.id}`, { version: 1, item: "second" });
     expect(stale.status).toBe(409);
     expect((await sheet()).projects[0].lines[0].item).toBe("first");
   });
 
   it("deletes a line; unknown lines are 404", async () => {
     const { id } = await project();
-    const line = (await api.post(`/api/projects/${id}/lines`, { item: "A" })).body;
-    expect((await api.del(`/api/lines/${line.id}`)).status).toBe(204);
-    expect((await api.del(`/api/lines/${line.id}`)).status).toBe(404);
-    expect((await api.patch("/api/lines/9999", { version: 1, item: "x" })).status).toBe(404);
+    const line = (await api.post(`/api/budget/projects/${id}/lines`, { item: "A" })).body;
+    expect((await api.del(`/api/budget/lines/${line.id}`)).status).toBe(204);
+    expect((await api.del(`/api/budget/lines/${line.id}`)).status).toBe(404);
+    expect((await api.patch("/api/budget/lines/9999", { version: 1, item: "x" })).status).toBe(404);
   });
 });
 
 describe("validation", () => {
   async function newLine() {
     const { id } = await project();
-    return (await api.post(`/api/projects/${id}/lines`, {
+    return (await api.post(`/api/budget/projects/${id}/lines`, {
       item: "A",
       figures: { estimate: { quantity: 10, unitNetCost: "100", sponsorType: "none", vatRate: 22 } },
     })).body;
   }
   const patch = async (lineId: number, figures: object, extra: object = {}) =>
-    api.patch(`/api/lines/${lineId}`, { version: 1, figures: { estimate: figures }, ...extra });
+    api.patch(`/api/budget/lines/${lineId}`, { version: 1, figures: { estimate: figures }, ...extra });
 
   it("takes the arrival date in EXPECTED, and never in ACTUAL (it comes from the arrivals of PENDING)", async () => {
     const line = await newLine();
     expect((await patch(line.id, { arrivalDate: "2026-12-01" })).status).toBe(200);
     expect((await sheet()).projects[0].lines[0].estimate.arrivalDate).toBe("2026-12-01");
-    const typed = await api.patch(`/api/lines/${line.id}`, { version: 2, figures: { actual: { arrivalDate: "2026-12-05" } } });
+    const typed = await api.patch(`/api/budget/lines/${line.id}`, { version: 2, figures: { actual: { arrivalDate: "2026-12-05" } } });
     expect(typed.status).toBe(400);
     expect(typed.body.error).toMatch(/not typed/);
-    const created = await api.post(`/api/projects/${(await project()).id}/lines`, { item: "B", figures: { actual: { quantity: 1, arrivalDate: "2026-12-05" } } });
+    const created = await api.post(`/api/budget/projects/${(await project()).id}/lines`, { item: "B", figures: { actual: { quantity: 1, arrivalDate: "2026-12-05" } } });
     expect(created.status).toBe(400);
     expect((await sheet()).projects[0].lines[0].actual.arrivalDate).toBeNull();
   });
 
   it("only accepts known categories and VAT rates", async () => {
     const { id } = await project();
-    expect((await api.post(`/api/projects/${id}/lines`, { item: "A", category: "Nonsense" })).status).toBe(400);
+    expect((await api.post(`/api/budget/projects/${id}/lines`, { item: "A", category: "Nonsense" })).status).toBe(400);
     const line = await newLine();
     expect((await patch(line.id, { vatRate: 15 })).status).toBe(400);
     expect((await patch(line.id, { vatRate: 11 })).status).toBe(200);
@@ -188,7 +188,7 @@ describe("validation", () => {
   it("forgets the typed sponsor value when the type stops being partial", async () => {
     const line = await newLine();
     await patch(line.id, { sponsorType: "partial", sponsorValue: "400" });
-    await api.patch(`/api/lines/${line.id}`, { version: 2, figures: { estimate: { sponsorType: "total" } } });
+    await api.patch(`/api/budget/lines/${line.id}`, { version: 2, figures: { estimate: { sponsorType: "total" } } });
     const [fromSheet] = (await sheet()).projects[0].lines;
     expect(fromSheet.estimate.amounts.sponsorCents).toBe(100_000); // the whole net, not 400
   });
@@ -196,7 +196,7 @@ describe("validation", () => {
   it("re-checks the sponsor when quantity or cost change", async () => {
     const line = await newLine();
     await patch(line.id, { sponsorType: "partial", sponsorValue: "900" });
-    expect((await api.patch(`/api/lines/${line.id}`, { version: 2, figures: { estimate: { quantity: 1 } } })).status).toBe(400);
+    expect((await api.patch(`/api/budget/lines/${line.id}`, { version: 2, figures: { estimate: { quantity: 1 } } })).status).toBe(400);
   });
 
   it("refuses a fund or supplier that does not exist", async () => {
@@ -209,13 +209,13 @@ describe("the funds that pay a line", () => {
   /** A sponsor with a contract of `euros` in the estimate; extra settings are passed through. */
   async function fund(name: string, euros: number, extra: object = {}) {
     const fundId = await sponsorId(api, name, extra);
-    if (euros > 0) await api.put(`/api/funds/${fundId}/contracts/estimate`, { amount: String(euros) });
+    if (euros > 0) await api.put(`/api/budget/funds/${fundId}/contracts/estimate`, { amount: String(euros) });
     return fundId;
   }
   /** A line of `net` euros, paid by the funds in `fundIds`; gives back its estimate as the sheet shows it. */
   async function paid(fundIds: number[], net = 1000, projectName = "P") {
     const { id } = await project(projectName);
-    const created = await api.post(`/api/projects/${id}/lines`, {
+    const created = await api.post(`/api/budget/projects/${id}/lines`, {
       item: "Part",
       figures: { estimate: { quantity: 1, unitNetCost: String(net), fundIds, vatRate: 22 } },
     });
@@ -242,19 +242,19 @@ describe("the funds that pay a line", () => {
     const b = await fund("B", 100, { group: "g" });
     const { lineId, estimate } = await paid([a], 1000);
     expect(estimate.shortCents).toBe(62_000); // 1 220.00 with its VAT, on a 600.00 contract
-    const both = await api.patch(`/api/lines/${lineId}`, { version: 1, figures: { estimate: { fundIds: [a, b] } } });
+    const both = await api.patch(`/api/budget/lines/${lineId}`, { version: 1, figures: { estimate: { fundIds: [a, b] } } });
     expect(both.status).toBe(200);
     const [line] = (await sheet()).projects[0].lines;
     expect(line.estimate.shortCents).toBe(52_000); // B only had 100.00 of the 620.00 left to cover
     expect(line.estimate.figures.fundIds).toEqual([a, b]);
 
-    await api.patch(`/api/lines/${lineId}`, { version: 2, figures: { estimate: { fundIds: [] } } });
+    await api.patch(`/api/budget/lines/${lineId}`, { version: 2, figures: { estimate: { fundIds: [] } } });
     expect((await sheet()).projects[0].lines[0].estimate.figures.fundIds).toEqual([]);
   });
 
   it("takes the VAT rate from the sponsor, and from the line for the team fund", async () => {
     const sponsor = await fund("S", 5000, { vatRate: 11 });
-    const team = (await api.get("/api/funds")).body[0].id;
+    const team = (await api.get("/api/budget/funds")).body[0].id;
     expect((await paid([sponsor], 1000)).estimate.amounts.vatCents).toBe(11_000); // the 22% typed is ignored
     expect((await paid([team], 1000, "Q")).estimate.amounts.vatCents).toBe(22_000);
     // in the totals the VAT is counted twice, as it is on the lines, but the team's own is only the one of its fund
@@ -275,13 +275,13 @@ describe("the funds that pay a line", () => {
     /** The line, as the sheet shows it (with its version), and what a phase says about fund and supplier. */
     const lineOf = async (lineId: number) => (await sheet()).projects.flatMap((p: any) => p.lines).find((l: any) => l.id === lineId);
     const change = async (lineId: number, figures: object, phase = "estimate", as = api) =>
-      as.patch(`/api/lines/${lineId}`, { version: (await lineOf(lineId)).version, figures: { [phase]: figures } });
-    const supplierNamed = async (name: string) => ((await api.get("/api/suppliers")).body as any[]).find((s) => s.name === name).id as number;
+      as.patch(`/api/budget/lines/${lineId}`, { version: (await lineOf(lineId)).version, figures: { [phase]: figures } });
+    const supplierNamed = async (name: string) => ((await api.get("/api/budget/suppliers")).body as any[]).find((s) => s.name === name).id as number;
 
     it("choosing the sponsor as the fund chooses it as the supplier, replacing the one that was there", async () => {
       const barter = await fund("Barter", 0, { type: "gift_vat" });
-      const amazon = (await api.post("/api/suppliers", { name: "Amazon" })).body.id;
-      const team = (await api.get("/api/funds")).body[0].id;
+      const amazon = (await api.post("/api/budget/suppliers", { name: "Amazon" })).body.id;
+      const team = (await api.get("/api/budget/funds")).body[0].id;
       const { lineId } = await paid([team], 100);
       await change(lineId, { supplierId: amazon });
       expect((await lineOf(lineId)).estimate).toMatchObject({ fundName: "Team's fund", supplierName: "Amazon" });
@@ -311,7 +311,7 @@ describe("the funds that pay a line", () => {
     it("does nothing for what is not goods from a sponsor", async () => {
       const gift = await fund("Gift", 0, { type: "gift" });
       const money = await fund("Money", 5000);
-      const amazon = (await api.post("/api/suppliers", { name: "Amazon" })).body.id;
+      const amazon = (await api.post("/api/budget/suppliers", { name: "Amazon" })).body.id;
       const { lineId } = await paid([gift], 100); // fund Gift, supplier Gift
       await change(lineId, { supplierId: amazon }); // a supplier that is no sponsor: the fund stays
       expect((await lineOf(lineId)).estimate).toMatchObject({ fundName: "Gift", supplierName: "Amazon" });
@@ -326,7 +326,7 @@ describe("the funds that pay a line", () => {
 
     it("keeps both when both are chosen together", async () => {
       const barter = await fund("Barter", 0, { type: "gift_vat" });
-      const amazon = (await api.post("/api/suppliers", { name: "Amazon" })).body.id;
+      const amazon = (await api.post("/api/budget/suppliers", { name: "Amazon" })).body.id;
       const { lineId } = await paid([]);
       await change(lineId, { fundIds: [barter], supplierId: amazon });
       expect((await lineOf(lineId)).estimate).toMatchObject({ fundName: "Barter", supplierName: "Amazon" });
@@ -347,9 +347,9 @@ describe("the funds that pay a line", () => {
     const other = await fund("Other", 100, { group: "h" });
     const loner = await fund("Loner", 100);
     const gift = await fund("Gift", 0, { type: "gift" });
-    const team = (await api.get("/api/funds")).body[0].id;
+    const team = (await api.get("/api/budget/funds")).body[0].id;
     const { lineId } = await paid([]);
-    const set = (fundIds: number[]) => api.patch(`/api/lines/${lineId}`, { version: 1, figures: { estimate: { fundIds } } });
+    const set = (fundIds: number[]) => api.patch(`/api/budget/lines/${lineId}`, { version: 1, figures: { estimate: { fundIds } } });
 
     const refused = [
       await set([a, other]), // another group
@@ -380,7 +380,7 @@ describe("the funds that pay a line", () => {
     let version = 1;
     // each added fund covers about its 100.00 (VAT included) and the line is short by less, until the sixth one covers it
     for (const [count, shortCents] of [[2, 34_901], [3, 24_902], [4, 14_903], [5, 4_904], [6, 0]] as const) {
-      const answer = await api.patch(`/api/lines/${lineId}`, { version, figures: { estimate: { fundIds: ids.slice(0, count) } } });
+      const answer = await api.patch(`/api/budget/lines/${lineId}`, { version, figures: { estimate: { fundIds: ids.slice(0, count) } } });
       expect(answer.status).toBe(200);
       version += 1;
       const line = (await sheet()).projects[0].lines[0];
@@ -392,7 +392,7 @@ describe("the funds that pay a line", () => {
   it("follows a fund that changes: the next sheet already uses the new rate", async () => {
     const s = await fund("S", 5000, { vatRate: 22 });
     await paid([s], 1000);
-    await api.patch(`/api/funds/${s}`, { vatRate: 0 });
+    await api.patch(`/api/budget/funds/${s}`, { vatRate: 0 });
     expect((await sheet()).projects[0].lines[0].estimate.amounts.vatCents).toBe(0);
   });
 });
@@ -402,7 +402,7 @@ describe("a price typed with the VAT", () => {
   const phaseOf = async () => (await sheet()).projects[0].lines[0].actual;
   async function lineWith(figures: object) {
     const { id } = await project();
-    const created = await api.post(`/api/projects/${id}/lines`, { item: "Receipt", figures: { actual: figures } });
+    const created = await api.post(`/api/budget/projects/${id}/lines`, { item: "Receipt", figures: { actual: figures } });
     expect(created.status).toBe(201);
     return created.body.id as number;
   }
@@ -418,18 +418,18 @@ describe("a price typed with the VAT", () => {
   it("keeps the number typed when the rate changes: the gross stays and the net moves", async () => {
     const lineId = await lineWith({ quantity: 1, unitGrossCost: "10.01" });
     expect((await phaseOf()).amounts).toMatchObject({ grossCents: 1_001, netCents: 820, vatCents: 181 });
-    await api.patch(`/api/lines/${lineId}`, { version: 1, figures: { actual: { vatRate: 11 } } });
+    await api.patch(`/api/budget/lines/${lineId}`, { version: 1, figures: { actual: { vatRate: 11 } } });
     expect((await phaseOf()).amounts).toMatchObject({ grossCents: 1_001, netCents: 902, vatCents: 99 });
   });
 
   it("typing a net price takes the line back to a price without VAT, which is kept as typed", async () => {
     const lineId = await lineWith({ quantity: 1, unitGrossCost: "122" });
-    expect((await api.patch(`/api/lines/${lineId}`, { version: 1, figures: { actual: { unitNetCost: "100" } } })).status).toBe(200);
+    expect((await api.patch(`/api/budget/lines/${lineId}`, { version: 1, figures: { actual: { unitNetCost: "100" } } })).status).toBe(200);
     const actual = await phaseOf();
     expect(actual.figures).toMatchObject({ unitCostE4: 1_000_000, unitGrossE4: null });
     expect(actual.amounts).toMatchObject({ netCents: 10_000, vatCents: 2_200, grossCents: 12_200 });
     // and the other way again
-    await api.patch(`/api/lines/${lineId}`, { version: 2, figures: { actual: { unitGrossCost: "50" } } });
+    await api.patch(`/api/budget/lines/${lineId}`, { version: 2, figures: { actual: { unitGrossCost: "50" } } });
     expect((await phaseOf()).figures).toMatchObject({ unitCostE4: 0, unitGrossE4: 500_000 });
   });
 
@@ -443,21 +443,21 @@ describe("a price typed with the VAT", () => {
 
   it("refuses both prices at once, and a partial sponsor with a price with VAT (in both orders)", async () => {
     const { id } = await project();
-    const both = await api.post(`/api/projects/${id}/lines`, { item: "X", figures: { actual: { unitNetCost: "1", unitGrossCost: "1" } } });
+    const both = await api.post(`/api/budget/projects/${id}/lines`, { item: "X", figures: { actual: { unitNetCost: "1", unitGrossCost: "1" } } });
     expect(both.status).toBe(400);
 
-    const withVat = (await api.post(`/api/projects/${id}/lines`, { item: "Y", figures: { actual: { quantity: 1, unitGrossCost: "100" } } })).body;
-    const partial = await api.patch(`/api/lines/${withVat.id}`, { version: 1, figures: { actual: { sponsorType: "partial", sponsorValue: "10" } } });
+    const withVat = (await api.post(`/api/budget/projects/${id}/lines`, { item: "Y", figures: { actual: { quantity: 1, unitGrossCost: "100" } } })).body;
+    const partial = await api.patch(`/api/budget/lines/${withVat.id}`, { version: 1, figures: { actual: { sponsorType: "partial", sponsorValue: "10" } } });
     expect(partial.status).toBe(400);
     expect(partial.body.error).toMatch(/net price/);
 
-    const net = (await api.post(`/api/projects/${id}/lines`, { item: "Z", figures: { actual: { quantity: 1, unitNetCost: "100", sponsorType: "partial", sponsorValue: "10", vatRate: 22 } } })).body;
-    expect((await api.patch(`/api/lines/${net.id}`, { version: 1, figures: { actual: { unitGrossCost: "100" } } })).status).toBe(400);
+    const net = (await api.post(`/api/budget/projects/${id}/lines`, { item: "Z", figures: { actual: { quantity: 1, unitNetCost: "100", sponsorType: "partial", sponsorValue: "10", vatRate: 22 } } })).body;
+    expect((await api.patch(`/api/budget/lines/${net.id}`, { version: 1, figures: { actual: { unitGrossCost: "100" } } })).status).toBe(400);
   });
 
   it("limits the cost of a line with VAT like the net one, and refuses a negative or untidy price", async () => {
     const { id } = await project();
-    const post = (figures: object) => api.post(`/api/projects/${id}/lines`, { item: "Big", figures: { actual: figures } });
+    const post = (figures: object) => api.post(`/api/budget/projects/${id}/lines`, { item: "Big", figures: { actual: figures } });
     expect((await post({ quantity: 20, unitGrossCost: "9000000" })).status).toBe(400);
     expect((await post({ quantity: 1, unitGrossCost: "-1" })).status).toBe(400);
     expect((await post({ quantity: 1, unitGrossCost: "1.23456" })).status).toBe(400);
@@ -466,14 +466,14 @@ describe("a price typed with the VAT", () => {
 
 describe("lines paid from a fund with no limit", () => {
   const setup = async () => {
-    const free = (await api.post("/api/funds", { name: "Free", vatRate: 22, group: "g", unlimited: true })).body;
+    const free = (await api.post("/api/budget/funds", { name: "Free", vatRate: 22, group: "g", unlimited: true })).body;
     const small = await sponsorId(api, "Small", { group: "g" });
-    await api.put(`/api/funds/${small}/contracts/actual`, { amount: "122" }); // covers 100,00 net with its VAT
+    await api.put(`/api/budget/funds/${small}/contracts/actual`, { amount: "122" }); // covers 100,00 net with its VAT
     const created = (await project()).id;
-    const added = (await api.post(`/api/projects/${created}/lines`, { item: "Part", figures: { actual: { quantity: 1, unitNetCost: "1000" } } })).body;
+    const added = (await api.post(`/api/budget/projects/${created}/lines`, { item: "Part", figures: { actual: { quantity: 1, unitNetCost: "1000" } } })).body;
     return { free: free.id as number, small, line: added.id as number };
   };
-  const patch = (line: number, version: number, figures: object) => api.patch(`/api/lines/${line}`, { version, figures });
+  const patch = (line: number, version: number, figures: object) => api.patch(`/api/budget/lines/${line}`, { version, figures });
 
   it("pays in ACTUAL: VAT covered, nothing short, whatever the price", async () => {
     const { free, line } = await setup();
@@ -489,7 +489,7 @@ describe("lines paid from a fund with no limit", () => {
     const estimate = (await sheet()).projects[0].lines[0].estimate;
     expect(estimate.figures.fundIds).toEqual([free]);
     expect(estimate).toMatchObject({ shortCents: 0, teamVatCents: 0, amounts: { netCents: 1_000, vatCents: 220, outflowCents: 1_220 } });
-    const onCreate = await api.post(`/api/projects/${(await sheet()).projects[0].id}/lines`, {
+    const onCreate = await api.post(`/api/budget/projects/${(await sheet()).projects[0].id}/lines`, {
       item: "New", figures: { estimate: { quantity: 1, unitNetCost: "10", fundIds: [free] } },
     });
     expect(onCreate.status).toBe(201);
@@ -501,5 +501,16 @@ describe("lines paid from a fund with no limit", () => {
     const shares = (await sheet()).projects[0].lines[0].actual.shares;
     expect(shares.map((x: any) => [x.fundName, x.drawnCents])).toEqual([["Small", 12_200], ["Free", 109_800]]);
     expect((await sheet()).projects[0].lines[0].actual.shortCents).toBe(0);
+  });
+});
+
+describe("the addresses", () => {
+  it("are the budget's (/api/budget): the old ones are gone, with no redirect, and the core keeps its own", async () => {
+    const old = ["/api/areas/sw/sheet", "/api/funds", "/api/suppliers", "/api/inflows?phase=estimate", "/api/bank", "/api/views/totals", "/api/lookups/priorities", "/api/lookups/settings"];
+    for (const url of old) expect((await api.get(url)).status, url).toBe(404);
+    const now = ["/api/budget/areas/sw/sheet", "/api/budget/funds", "/api/budget/suppliers", "/api/budget/inflows?phase=estimate", "/api/budget/bank", "/api/budget/views/totals", "/api/budget/lookups/priorities", "/api/budget/lookups/settings"];
+    for (const url of now) expect((await api.get(url)).status, url).toBe(200);
+    // the core's lists and pages stay where they are
+    for (const url of ["/api/areas", "/api/lookups/categories", "/api/lookups/vat-rates", "/api/settings"]) expect((await api.get(url)).status, url).toBe(200);
   });
 });

@@ -22,9 +22,9 @@ async function itemWithStock(name = "M3 screw", quantity = "100", extra: object 
 
 /** A project and a line of the budget that was bought: `quantity` units at `unit` euros net, 22% VAT. */
 async function boughtLine(options: { quantity?: number; unit?: string; item?: string; area?: string; sponsorType?: string } = {}) {
-  const project = (await api.post("/api/projects", { areaCode: options.area ?? "sw", name: "Brakes" })).body;
-  const line = (await api.post(`/api/projects/${project.id}/lines`, { item: options.item ?? "Pressure sensor", category: "Components" })).body;
-  await api.patch(`/api/lines/${line.id}`, {
+  const project = (await api.post("/api/budget/projects", { areaCode: options.area ?? "sw", name: "Brakes" })).body;
+  const line = (await api.post(`/api/budget/projects/${project.id}/lines`, { item: options.item ?? "Pressure sensor", category: "Components" })).body;
+  await api.patch(`/api/budget/lines/${line.id}`, {
     version: 1,
     figures: {
       actual: {
@@ -35,7 +35,7 @@ async function boughtLine(options: { quantity?: number; unit?: string; item?: st
   });
   return { project, line };
 }
-const arrivalOf = async (areaCode: string) => (await api.get(`/api/areas/${areaCode}/sheet`)).body.projects[0].lines[0].arrival;
+const arrivalOf = async (areaCode: string) => (await api.get(`/api/budget/areas/${areaCode}/sheet`)).body.projects[0].lines[0].arrival;
 
 describe("the lists the forms are built from", () => {
   it("offers the locations, the units and which fields each category shows", async () => {
@@ -171,7 +171,7 @@ describe("what happens on the shelf", () => {
 
   it("uses goods for a project and refuses to take more than there is at that place", async () => {
     const item = await itemWithStock("Screw", "10");
-    const project = (await api.post("/api/projects", { areaCode: "sw", name: "Logger" })).body;
+    const project = (await api.post("/api/budget/projects", { areaCode: "sw", name: "Logger" })).body;
     expect((await move({ itemId: item.id, kind: "use", quantity: "4", projectId: project.id })).status).toBe(201);
     expect(await stockOf(item.id)).toEqual([["s1-r1", "", 6]]);
     const refused = await move({ itemId: item.id, kind: "use", quantity: "7" });
@@ -427,9 +427,9 @@ describe("what makes an item the item it is: its name, brand and model together"
 
   describe("from the budget to the shelf", () => {
     const boughtMake = async (item: string, brand: string | null, model: string | null) => {
-      const project = (await api.post("/api/projects", { areaCode: "sw", name: "Brakes" })).body;
-      const line = (await api.post(`/api/projects/${project.id}/lines`, { item, category: "Components", ...(brand ? { brand } : {}), ...(model ? { model } : {}) })).body;
-      await api.patch(`/api/lines/${line.id}`, { version: 1, figures: { actual: { quantity: 10, unitNetCost: "5", sponsorType: "none", vatRate: 22, purchaseDate: "2026-10-01" } } });
+      const project = (await api.post("/api/budget/projects", { areaCode: "sw", name: "Brakes" })).body;
+      const line = (await api.post(`/api/budget/projects/${project.id}/lines`, { item, category: "Components", ...(brand ? { brand } : {}), ...(model ? { model } : {}) })).body;
+      await api.patch(`/api/budget/lines/${line.id}`, { version: 1, figures: { actual: { quantity: 10, unitNetCost: "5", sponsorType: "none", vatRate: 22, purchaseDate: "2026-10-01" } } });
       return line as { id: number };
     };
     const receive = (lineId: number, itemId: number) => api.post(`/api/inventory-budget/pending/${lineId}/receive`, { itemId, quantity: "3", receivedOn: "2026-10-05", location: "s1-r1" });

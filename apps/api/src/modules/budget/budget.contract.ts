@@ -2,10 +2,11 @@ import { count, eq, inArray } from "drizzle-orm";
 import { contracts, type Db } from "../../core/contracts";
 import { countRows, rowsOf } from "../../core/usage";
 import { budgetLine, fund, lineFigures, project } from "../../db/schema/budget";
-import { auditLabels, auditText, lookupRenamed, seasonCreated, usedBy, userFlags } from "../../platform/platform.public";
+import { auditLabels, auditText, lookupRenamed, permissionRules, seasonCreated, usedBy, userFlags } from "../../platform/platform.public";
 
 // What the budget answers to the core and hears from it (docs/moduli-architettura.md, §5): who uses a category or a rate, a renamed
-// category, a new season, and the names the History gives its rows. It is read when the server starts (app.ts).
+// category, a new season, the Sponsors box and who may change the budget's shared data, and the names the History gives its rows. It is
+// read when the server starts (app.ts).
 
 contracts.answer(usedBy, "budget", async (db, { kind, subjects }) => {
   const names = subjects.map((s) => s.name);
@@ -68,4 +69,25 @@ contracts.declare(userFlags, "budget", {
   label: "Sponsors",
   explanation: "Keeps the sponsors: their funds and contracts (CASH FROM)",
   roles: ["pm"],
+});
+
+// who may change the budget's shared data (the core's `can` asks; with the budget off nobody can, because there is no budget)
+const sponsorsKeeper = (user: { role: string; flags: string[] }) => user.role === "admin" || (user.role === "pm" && user.flags.includes("sponsors"));
+
+contracts.declare(permissionRules, "budget", {
+  key: "canManageFunds",
+  // the sponsors and their contracts (CASH FROM): the admins and the project managers with the sponsors box
+  rule: sponsorsKeeper,
+});
+
+contracts.declare(permissionRules, "budget", {
+  key: "canChangeInflows",
+  // adding and deleting the inflows of CASH FLOW: the sponsors too, because some inflows are their money (the bridge to the treasury adds the treasury)
+  rule: sponsorsKeeper,
+});
+
+contracts.declare(permissionRules, "budget", {
+  key: "canManageSuppliers",
+  // the list of suppliers (BOUGHT FROM) is shared by every area: the people who run the projects keep it up to date
+  rule: (user) => user.role === "admin" || user.role === "pm",
 });

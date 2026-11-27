@@ -69,10 +69,10 @@ describe("users", () => {
   it("applies a change at once to a person who is signed in", async () => {
     const person = { email: "someone@team.test", role: "pm" as const, areas: ["sw"] };
     const as = api.as(person);
-    expect((await as.post("/api/projects", { areaCode: "sw", name: "A" })).status).toBe(201);
+    expect((await as.post("/api/budget/projects", { areaCode: "sw", name: "A" })).status).toBe(201);
     const id = (await createUser(person)).id;
     await api.patch(`/api/users/${id}`, { areaIds: [] });
-    expect((await as.post("/api/projects", { areaCode: "sw", name: "B" })).status).toBe(403);
+    expect((await as.post("/api/budget/projects", { areaCode: "sw", name: "B" })).status).toBe(403);
     await api.patch(`/api/users/${id}`, { active: false });
     expect((await as.get("/api/me")).status).toBe(401);
   });

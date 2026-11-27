@@ -15,9 +15,6 @@ export interface User {
   flags: string[];
 }
 
-/** Whether the box `key` is ticked for `user`. */
-export const hasFlag = (user: User, key: string) => user.flags.includes(key);
-
 /** Who is making the request (GET /api/me). Answers 401 when nobody is signed in. */
 export async function getCurrentUser(): Promise<User> {
   const user = userStorage.getStore();
@@ -44,9 +41,9 @@ export async function canWrite(user: User, areaId: number | null): Promise<boole
 /** The people who run the projects: admins and project managers (a viewer only looks). */
 const runsProjects = (user: User) => user.role === "admin" || user.role === "pm";
 
-/** The supplier list is shared by every area, so project managers may keep it up to date. */
+/** The supplier list (BOUGHT FROM): who keeps it, the budget declares (`budget.contract.ts`: admins and project managers). */
 export async function canManageSuppliers(user: User): Promise<boolean> {
-  return runsProjects(user);
+  return can(user, "canManageSuppliers");
 }
 
 /** The inventory: who keeps it, the inventory declares (`inventory.contract.ts`: admins and project managers). */
@@ -64,9 +61,9 @@ export async function canViewHistory(user: User): Promise<boolean> {
   return runsProjects(user);
 }
 
-/** The funds of the sponsors and their contracts (CASH FROM): the admins, and the project managers with the sponsors box. */
+/** The funds of the sponsors and their contracts (CASH FROM): who keeps them, the budget declares (admins, project managers with the sponsors box). */
 export async function canManageFunds(user: User): Promise<boolean> {
-  return user.role === "admin" || (user.role === "pm" && hasFlag(user, "sponsors"));
+  return can(user, "canManageFunds");
 }
 
 /**
@@ -83,11 +80,9 @@ export async function canManageCash(user: User): Promise<boolean> {
  * Marking an inflow as received (it is tied to the register) and the BANK stay with the treasury (`canManageCash`).
  */
 export async function canChangeInflows(user: User): Promise<boolean> {
-  return changesInflows(user);
+  // the budget lets the admins and the sponsors (`budget.contract.ts`), the bridge to the treasury adds the treasury (`treasury-budget.contract.ts`)
+  return can(user, "canChangeInflows");
 }
-
-/** The admins and the sponsors may change the inflows; the bridge to the treasury adds the treasury (`treasury-budget.contract.ts`). */
-const changesInflows = (user: User) => user.role === "admin" || (user.role === "pm" && hasFlag(user, "sponsors")) || can(user, "canChangeInflows");
 
 export function requireAdmin(user: User): void {
   if (user.role !== "admin") throw forbidden("Only an admin can do this");
@@ -96,10 +91,11 @@ export function requireAdmin(user: User): void {
 /** What the interface needs to know to show or hide commands (the server enforces them anyway). */
 export function permissionsOf(user: User) {
   return {
-    canEditShared: user.role === "admin" || (user.role === "pm" && hasFlag(user, "sponsors")),
+    // the shared data of the budget (the sponsors, CASH FROM): the same people who keep the funds
+    canEditShared: can(user, "canManageFunds"),
     canManageCash: can(user, "canManageCash"),
-    canChangeInflows: changesInflows(user),
-    canManageSuppliers: runsProjects(user),
+    canChangeInflows: can(user, "canChangeInflows"),
+    canManageSuppliers: can(user, "canManageSuppliers"),
     canManageInventory: can(user, "canManageInventory"),
     canViewHistory: runsProjects(user),
     canManageUsers: user.role === "admin",

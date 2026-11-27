@@ -18,13 +18,13 @@ Uno sponsor è una voce di **CASH FROM**. Nella riga del budget scegli *con cosa
 
 ## 2. Come si definisce uno sponsor
 
-Pagina **CASH FROM**: il bottone giallo **New sponsor** in alto apre il form in un riquadro (nome, parametri e soldi del fondo); sotto, il riquadro **SPONSORS** è la tabella dove si modifica tutto sul posto, **soldi e data compresi**; i riquadri EXPECTED e ACTUAL mostrano solo i risultati (cosa resta di ogni fondo, gli ingressi per mese). Scrivono l'admin e i pm con la spunta «Sponsors», chi tiene gli sponsor (`GET`/`POST`/`PATCH`/`DELETE /api/funds`):
+Pagina **CASH FROM**: il bottone giallo **New sponsor** in alto apre il form in un riquadro (nome, parametri e soldi del fondo); sotto, il riquadro **SPONSORS** è la tabella dove si modifica tutto sul posto, **soldi e data compresi**; i riquadri EXPECTED e ACTUAL mostrano solo i risultati (cosa resta di ogni fondo, gli ingressi per mese). Scrivono l'admin e i pm con la spunta «Sponsors», chi tiene gli sponsor (`GET`/`POST`/`PATCH`/`DELETE /api/budget/funds`):
 
 | Campo | Valori | Cosa decide |
 | --- | --- | --- |
 | Nome | testo, unico senza distinguere le maiuscole | come compare nelle tendine |
 | Gives (`type`, `unlimited`) | **Gives a fund** (A) · **Gives a fund, no limit** (D, §10) · **Gives goods, no VAT** (B) · **Gives goods, VAT on the counter-invoice** (C) | come si copre la riga e chi paga l'IVA (§3). Il fondo senza limite è, nel database, un fondo di tipo A con `unlimited` vero |
-| VAT % (`vat_rate`) | 0, 11, 22 (le aliquote dell'elenco di Settings) | l'aliquota di *tutti* gli acquisti pagati con quello sponsor, che il fondo copre. **Uno sponsor che non paga IVA si definisce con 0%**: non c'è una casella apposta. **Si sceglie solo per un fondo (A)**: per un regalo senza IVA (B) è sempre **0**, per un regalo con controfattura (C) sempre **11**. Il valore fisso lo dice `GET /api/lookups/sponsor-rates` (`getFixedSponsorRates`), da cui lo leggono sia l'API sia il form; non dipende dall'elenco delle aliquote scelte dall'admin |
+| VAT % (`vat_rate`) | 0, 11, 22 (le aliquote dell'elenco di Settings) | l'aliquota di *tutti* gli acquisti pagati con quello sponsor, che il fondo copre. **Uno sponsor che non paga IVA si definisce con 0%**: non c'è una casella apposta. **Si sceglie solo per un fondo (A)**: per un regalo senza IVA (B) è sempre **0**, per un regalo con controfattura (C) sempre **11**. Il valore fisso lo dice `GET /api/budget/lookups/sponsor-rates` (`getFixedSponsorRates`), da cui lo leggono sia l'API sia il form; non dipende dall'elenco delle aliquote scelte dall'admin |
 | Group (`group_name`) | testo facoltativo | i fondi dello stesso gruppo possono pagare insieme una riga (§4) |
 | I soldi (`contracts`) | **un valore e una data per fase**, nelle colonne EXPECTED e ACTUAL della riga dello sponsor (VALUE e ARRIVES) | quanto vale il fondo e quando arriva. Si cambiano sul posto; il valore vuoto toglie i soldi di quella fase, e la data si può mettere solo dopo il valore. Nel form del nuovo sponsor si inseriscono subito (per EXPECTED, ACTUAL o tutte e due: sponsor e soldi si salvano insieme o per niente). Uno sponsor che dà merce (B, C) non ha soldi: non è una somma. Prima i contratti erano righe da aggiungere una a una; la migrazione `0008` ha unito quelle doppie (somma e data più vecchia) |
 
@@ -118,13 +118,13 @@ La migrazione `0009_one_kind_of_sponsor.sql` ha trasformato gli sponsor in cassa
 
 | Metodo | Percorso | Cosa fa |
 | --- | --- | --- |
-| `GET` | `/api/funds?phase=` | i fondi, ognuno con i suoi soldi (`contracts.estimate` / `contracts.actual`: valore e data, oppure `null`); con la fase solo quelli che una riga può usare: team, regali, sponsor con soldi nella fase e, in ACTUAL, i fondi senza limite |
-| `POST` | `/api/funds` | nuovo sponsor (`name`, `vatRate` obbligatoria tranne per il regalo senza IVA, `unlimited` per un fondo senza limite, il resto facoltativo) e, se si vuole, i suoi `contracts` (`phase`, `amount`, `inflowDate`: massimo uno per fase; solo per chi dà un fondo): tutto o niente |
-| `PATCH` | `/api/funds/:id` | cambia qualunque parametro; il risultato è ricontrollato per intero |
-| `DELETE` | `/api/funds/:id` | se nessuna riga è pagata da lui; si porta via anche i suoi soldi |
-| `PUT` | `/api/funds/:id/contracts/:phase` | `{ amount, inflowDate }`: mette (o sostituisce) i soldi dello sponsor in quella fase; solo per chi dà un fondo. Due richieste insieme non lasciano mai due righe |
-| `DELETE` | `/api/funds/:id/contracts/:phase` | toglie i soldi di quella fase |
-| `PATCH` | `/api/lines/:id` | `figures.<fase>.fundIds`: l'elenco ordinato dei fondi (`[]` li toglie) |
+| `GET` | `/api/budget/funds?phase=` | i fondi, ognuno con i suoi soldi (`contracts.estimate` / `contracts.actual`: valore e data, oppure `null`); con la fase solo quelli che una riga può usare: team, regali, sponsor con soldi nella fase e, in ACTUAL, i fondi senza limite |
+| `POST` | `/api/budget/funds` | nuovo sponsor (`name`, `vatRate` obbligatoria tranne per il regalo senza IVA, `unlimited` per un fondo senza limite, il resto facoltativo) e, se si vuole, i suoi `contracts` (`phase`, `amount`, `inflowDate`: massimo uno per fase; solo per chi dà un fondo): tutto o niente |
+| `PATCH` | `/api/budget/funds/:id` | cambia qualunque parametro; il risultato è ricontrollato per intero |
+| `DELETE` | `/api/budget/funds/:id` | se nessuna riga è pagata da lui; si porta via anche i suoi soldi |
+| `PUT` | `/api/budget/funds/:id/contracts/:phase` | `{ amount, inflowDate }`: mette (o sostituisce) i soldi dello sponsor in quella fase; solo per chi dà un fondo. Due richieste insieme non lasciano mai due righe |
+| `DELETE` | `/api/budget/funds/:id/contracts/:phase` | toglie i soldi di quella fase |
+| `PATCH` | `/api/budget/lines/:id` | `figures.<fase>.fundIds`: l'elenco ordinato dei fondi (`[]` li toglie) |
 
 ## 7. Cosa è rimasto di prima
 
@@ -176,7 +176,7 @@ Un fondo che **non ha un tetto**: chi lo dà dice di comprare con lui e basta, q
 | Mai in rosso | il suo saldo è illimitato, come i soldi del team: la riga non risulta mai «corta» e non serve ALSO FROM |
 | Con un gruppo | come per gli altri: in ACTUAL può pagare quello che un fondo dello stesso gruppo non copre, se viene dopo di lui |
 | Cosa si vede | pagina **CASH FROM**, riquadri **EXPECTED** e **ACTUAL**: una riga con il suo nome, **TOTAL CONTRACT «no limit»**, **SPENT** (netto + IVA di ciò che ha pagato, come per gli altri fondi; in EXPECTED quanto ci si aspetta di spendere con lui) e LEFT VALUE vuoto. La riga c'è anche quando ancora non si è comprato niente (0). Compare anche nelle CASH FROM ANALYSES, per quote delle righe, come ogni fondo |
-| Cosa non ha | contratti (la richiesta `PUT /api/funds/:id/contracts/:phase` e un contratto nel `POST` sono rifiutati), inflow, scadenza di un incasso: non entra in «inflow per mese» né in CASH FLOW come soldi che arrivano. Non conta come buco (shortfall) del CASH FLOW |
+| Cosa non ha | contratti (la richiesta `PUT /api/budget/funds/:id/contracts/:phase` e un contratto nel `POST` sono rifiutati), inflow, scadenza di un incasso: non entra in «inflow per mese» né in CASH FLOW come soldi che arrivano. Non conta come buco (shortfall) del CASH FLOW |
 
 **Regole del server** (`funds.service.ts`, `budget.service.ts`): solo un fondo (tipo A) può essere senza limite; un fondo che ha dei soldi non diventa senza limite finché i soldi non si tolgono (e un fondo senza limite non può riceverne); il tipo di uno senza limite non si cambia in merce senza togliere prima il flag. Il resto è come per ogni sponsor (nome unico, non si cancella se paga delle righe).
 
@@ -190,7 +190,7 @@ Un fondo che **non ha un tetto**: chi lo dà dice di comprare con lui e basta, q
 
 - `packages/calc/src/settle.test.ts` (17): regali B e C, aliquota dello sponsor, il fondo che copre l'IVA (anche a 0%), sponsor parziale importato, più fondi (resto, ordine del foglio, ultimo fondo in negativo, netto che ci sta con l'IVA, fino a sei fondi uno dopo l'altro), righe senza fondo. I numeri dei casi con più fondi sono calcolati a mano prima di lanciare il test.
 - `packages/calc/src/cash.test.ts` (8) e `vat.test.ts`: l'11% sugli inflow e il giorno in cui si paga (ultimo giorno del trimestre, primo giorno, anno bisestile; `firstDayOfNextQuarter` confrontato con un calcolo indipendente su ogni giorno dal 2000 al 2100), CASH FLOW, Gantt, saldi.
-- `apps/api/src/modules/funds/funds.routes.test.ts` e `budget.routes.test.ts`: definizione dello sponsor e sue regole, nomi unici (anche in parallelo), i soldi dello sponsor (messi, sostituiti, tolti, anche insieme), combinazioni rifiutate con il motivo, un cambiamento rifiutato non tocca la riga.
+- `apps/api/src/modules/budget/funds.routes.test.ts` e `budget.routes.test.ts`: definizione dello sponsor e sue regole, nomi unici (anche in parallelo), i soldi dello sponsor (messi, sostituiti, tolti, anche insieme), combinazioni rifiutate con il motivo, un cambiamento rifiutato non tocca la riga.
 - Riconciliazione col foglio (`pnpm reconcile`, anche `-- --db` dopo `load --replace`): **1.995 controlli uguali**, con le aliquote ora prese dallo sponsor e anche dopo il 26/10/2026 (il foglio non ha inflow e tutti i suoi sponsor coprono l'IVA).
 - **L'11% fisso del tipo C** (`funds.routes.test.ts`, `lookups.routes.test.ts`): un tipo C creato con 22% o 0% o senza aliquota è salvato a 11; passando da «Fund 22%» a tipo C diventa 11 e tornando a «Fund» resta 11 ma si può cambiare; cambiarne l'aliquota è ignorato; un fondo deve ancora sceglierla; il valore fisso non dipende dall'elenco delle aliquote (anche togliendo 0 e 11 da Settings). Nel browser: il form mostra 0% o 11% bloccato, la cella della tabella è solo testo. La migrazione `0012` porta a 11 gli sponsor di quel tipo che avessero un'altra aliquota (nei dati di sviluppo non ce n'è nessuno).
 - **Sponsor di merce e fornitori** (`funds.routes.test.ts`, 5; `budget.routes.test.ts`, 6): creazione (con e senza IVA, non per un fondo di soldi), fornitore già presente in un'altra grafia, passaggio da soldi a merce, rinomina (anche solo delle maiuscole, e con un nome già preso), cancellazione che lascia il fornitore; nella riga: il fondo completa il fornitore (al posto di Amazon, e solo nella sua fase), una riga fatta già pagata dallo sponsor, il fornitore completa il fondo, nessun effetto per ciò che non è merce da sponsor, entrambi scelti insieme, togliere uno non tocca l'altro, un capo area. Togliendo le due regole i test falliscono (7 su 11). Nel browser: lo sponsor creato dal form compare in BOUGHT FROM, e le celle CASH FROM e BOUGHT FROM della griglia si completano in entrambe le direzioni.

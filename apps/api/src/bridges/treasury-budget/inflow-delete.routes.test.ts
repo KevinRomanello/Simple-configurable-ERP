@@ -15,17 +15,17 @@ const PM = { email: "pm-del@team.test", role: "pm" as const, areas: ["mt-dmt"] }
 const VIEWER = { email: "viewer-del@team.test", role: "viewer" as const };
 
 const inflow = async (body: object = {}) =>
-  (await api.post("/api/inflows", { phase: "estimate", sourceName: "Acme", amount: "1000", inflowDate: "2026-12-01", ...body })).body;
+  (await api.post("/api/budget/inflows", { phase: "estimate", sourceName: "Acme", amount: "1000", inflowDate: "2026-12-01", ...body })).body;
 /** Marks the inflow as received with a new movement of the register (the amount, 800 unless said) and gives the movement's id. */
 async function receive(inflowId: number, amount = "800") {
   expect((await api.post(`/api/treasury-budget/inflows/${inflowId}/receive`, { on: "2026-12-05", account: "bank", amount })).status).toBe(204);
-  const row = (await api.get("/api/inflows?phase=estimate")).body.find((i: { id: number }) => i.id === inflowId);
+  const row = (await api.get("/api/budget/inflows?phase=estimate")).body.find((i: { id: number }) => i.id === inflowId);
   return row.cashEntryId as number;
 }
 type Client = Pick<typeof api, "get" | "post">;
 const related = (query: string, as: Client = api) => as.get(`/api/treasury-budget/inflows/related?${query}`);
 const remove = (body: { inflowIds?: number[]; cashEntryIds?: number[] }, as: Client = api) => as.post("/api/treasury-budget/inflows/delete", { inflowIds: [], cashEntryIds: [], ...body });
-const estimate = async () => (await api.get("/api/inflows?phase=estimate")).body as { id: number; cashEntryId: number | null }[];
+const estimate = async () => (await api.get("/api/budget/inflows?phase=estimate")).body as { id: number; cashEntryId: number | null }[];
 const entries = async () => ((await api.get("/api/treasury/register?year=2026")).body.entries as { id: number }[]).map((e) => e.id);
 
 describe("what is of the same company", () => {
@@ -87,7 +87,7 @@ describe("deleting where the person chooses", () => {
     expect((await remove({ inflowIds: [expected.id] })).status).toBe(204);
     expect((await estimate()).map((i) => i.id)).toEqual([]);
     expect(await entries()).toContain(entryId);
-    expect((await api.get("/api/inflows?phase=actual")).body.some((i: { id: number }) => i.id === actual.id)).toBe(true);
+    expect((await api.get("/api/budget/inflows?phase=actual")).body.some((i: { id: number }) => i.id === actual.id)).toBe(true);
   });
 
   it("deletes only the movement: the inflow is expected again", async () => {
@@ -104,7 +104,7 @@ describe("deleting where the person chooses", () => {
     const entryId = await receive(expected.id);
     expect((await remove({ inflowIds: [expected.id, actual.id], cashEntryIds: [entryId] })).status).toBe(204);
     expect(await estimate()).toEqual([]);
-    expect((await api.get("/api/inflows?phase=actual")).body).toEqual([]);
+    expect((await api.get("/api/budget/inflows?phase=actual")).body).toEqual([]);
     expect(await entries()).not.toContain(entryId);
   });
 
@@ -113,8 +113,8 @@ describe("deleting where the person chooses", () => {
     const gala = await inflow({ sourceName: "Gala" });
     const entryId = await receive(gala.id);
     // a movement that pays budget lines (a strange thing for money in: put there by hand) is not deleted from here
-    const project = (await api.post("/api/projects", { areaCode: "mt-dmt", name: "P" })).body;
-    const line = (await api.post(`/api/projects/${project.id}/lines`, { item: "L" })).body;
+    const project = (await api.post("/api/budget/projects", { areaCode: "mt-dmt", name: "P" })).body;
+    const line = (await api.post(`/api/budget/projects/${project.id}/lines`, { item: "L" })).body;
     await db.insert(cashEntryLine).values({ entryId, lineId: line.id, amount: "1" });
 
     const refused = await remove({ inflowIds: [plain.id], cashEntryIds: [entryId] });

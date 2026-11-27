@@ -66,8 +66,8 @@ Cambiarla cambia subito tutte le righe pagate da uno sponsor così. La pagina lo
 | --- | --- |
 | tabelle | `category`, `category_field` (categoria × campo; `category_id` vuoto = articoli senza categoria; dell'inventario), `vat_rate`, `unit` e `location` (dell'inventario), `setting` (una riga sola): migrazione `0010_admin_settings.sql`, che le crea **già riempite con i valori di prima** (quindi all'inizio non cambia niente) e mette il trigger dello storico |
 | valori di partenza | `apps/api/src/platform/lookups/defaults.ts` (`LOOKUP_DEFAULTS`): gli stessi della migrazione. Li usano i test (ogni test riparte da lì) e la riconciliazione col foglio |
-| lettura | `listCategories`, `listVatRates`, `getSettings` in `platform/lookups/lookups.service.ts`; `listLocations`, `listUnits`, `getCategoryFields` in `modules/inventory/lists.service.ts` (dal passo G5): leggono il database (regola 4) |
-| scrittura | `apps/api/src/platform/settings/` (categorie, aliquote, interruttori); `apps/api/src/modules/inventory/lists.service.ts` (campi delle categorie, unità, posti) |
+| lettura | `listCategories`, `listVatRates` in `platform/lookups/lookups.service.ts`; `getSettings` (gli interruttori del calcolo, dal passo G6) in `modules/budget/lookups.service.ts`; `listLocations`, `listUnits`, `getCategoryFields` in `modules/inventory/lists.service.ts` (dal passo G5): leggono il database (regola 4) |
+| scrittura | `apps/api/src/platform/settings/` (categorie, aliquote, «editing on a phone»); `modules/budget/lookups.service.ts` (`updateCalculation`, gli interruttori del calcolo); `apps/api/src/modules/inventory/lists.service.ts` (campi delle categorie, unità, posti) |
 | pagina | `apps/web/src/pages/SettingsPage.tsx` (una sezione alla volta, §1), fatta con i modelli dell'interfaccia ([stile-interfaccia.md](stile-interfaccia.md)); non c'è un riferimento Figma, come per Users e History |
 | permesso | `canManageSettings` in `permissionsOf` (`auth.service.ts`) |
 
@@ -75,7 +75,7 @@ Cambiarla cambia subito tutte le righe pagate da uno sponsor così. La pagina lo
 
 | Metodo | Percorso | Cosa fa |
 | --- | --- | --- |
-| `GET` | `/api/settings` | ciò che la parte del nucleo mostra (categorie, aliquote, interruttori), con USED BY |
+| `GET` | `/api/settings` | ciò che la parte del nucleo mostra (categorie e aliquote), con USED BY; gli interruttori del calcolo sono del budget e si leggono da `GET /api/budget/lookups/settings` (dal passo G6) |
 | `POST` / `PATCH` / `DELETE` | `/api/settings/categories[/:id]` | nuova (`name`), rinomina, cancella |
 | `PUT` | `/api/settings/categories/order` | `{ ids }`: il nuovo ordine, con ogni categoria una volta |
 | `POST` / `DELETE` | `/api/settings/vat-rates[/:id]` | `{ rate }` |
@@ -85,7 +85,7 @@ Cambiarla cambia subito tutte le righe pagate da uno sponsor così. La pagina lo
 | `POST` / `PATCH` / `DELETE` | `/api/inventory/units[/:id]` | `{ name }` |
 | `POST` / `PATCH` / `DELETE` | `/api/inventory/locations[/:id]` | creazione `{ room, shelf?, levels?[] }` (un posto per ripiano, tutti o nessuno; restituisce il primo e quanti ne ha fatti), modifica `{ room?, shelf?, level? }` |
 | `PUT` | `/api/inventory/locations/order` | `{ ids }` |
-| `PATCH` | `/api/settings/calculation` | `varianceThreshold` (0–1), `inflowVatRate` (%), `vatBaseWhenTotalSponsor`, `bankCompare.summary` / `.timeline` (`day`/`month`); ciò che manca resta com'è |
+| `PATCH` | `/api/budget/settings/calculation` | `varianceThreshold` (0–1), `inflowVatRate` (%), `vatBaseWhenTotalSponsor`, `bankCompare.summary` / `.timeline` (`day`/`month`); ciò che manca resta com'è |
 
 Le letture per le altre pagine sono `GET /api/lookups/...` (categorie, priorità, aliquote, interruttori) e, per i moduli dell'inventario, `GET /api/inventory/locations`, `/units`, `/category-fields` (prima `/api/lookups/…`), aperte a chi ha fatto l'accesso.
 

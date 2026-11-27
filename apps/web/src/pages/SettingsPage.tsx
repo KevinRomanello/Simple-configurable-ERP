@@ -42,12 +42,15 @@ export function SettingsPage() {
   const section = currentSection(allowed, asked);
   // the inventory's lists (the fields of a category, the units, the places) are the inventory's: they come from its own address
   const lists = useQuery({ queryKey: ["inventory-lists"], queryFn: api.inventoryLists, enabled: canManageInventory && section === "inventory" });
+  // the switches of the calculation are the budget's: they come from its own address
+  const calculation = useQuery({ queryKey: ["calculation"], queryFn: api.calculation, enabled: section === "budget" });
 
   // an address that is not one of the person's sections goes to the first of them (a viewer has one only: no tabs, no redirect)
   if (allowed.length > 1 && asked !== section) return <Navigate to={`/settings/${section}`} replace />;
   const needsLists = section === "budget" || section === "inventory";
   if (needsLists && !view.data) return <Loading />;
   if (section === "inventory" && !lists.data) return <Loading />;
+  if (section === "budget" && !calculation.data) return <Loading />;
 
   return (
     <>
@@ -68,10 +71,10 @@ export function SettingsPage() {
           ))}
         </nav>
       )}
-      {section === "budget" && view.data && (
+      {section === "budget" && view.data && calculation.data && (
         <>
           <SeasonsPanel />
-          <CalculationPanel key={JSON.stringify(view.data.calculation)} calculation={view.data.calculation} />
+          <CalculationPanel key={JSON.stringify(calculation.data)} calculation={calculation.data} />
           <VatRatesPanel rates={view.data.vatRates} />
         </>
       )}

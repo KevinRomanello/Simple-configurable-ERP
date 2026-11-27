@@ -39,7 +39,7 @@ Scrivi `http://localhost:5173/budget/hw` e premi invio.
 | 3 | `AreaPage` | lancia otto `useQuery`: la scheda dell'area e le liste per le tendine (categorie, priorità, aliquote IVA, fondi per fase e in tutto, fornitori); il menu e la tabella dell'IVA ne lanciano altre due |
 | 4 | `api/client.ts` | ogni query è una `fetch("/api/…")` |
 | 5 | Vite → Fastify | il proxy inoltra a `http://api:3000/api/…` (dentro Docker) |
-| 6 | Fastify | trova la rotta `GET /api/areas/:code/sheet` e chiama `getAreaSheet("hw")` |
+| 6 | Fastify | trova la rotta `GET /api/budget/areas/:code/sheet` e chiama `getAreaSheet("hw")` |
 | 7 | `loadSnapshot()` | apre **una transazione di sola lettura** e legge nove tabelle (aree, progetti, voci, cifre, fondi, contratti, ingressi, fornitori, BANK), più le impostazioni da `loadLookups()`. Ne esce lo **snapshot**: un unico oggetto con tutto, in interi |
 | 8 | `calc.areaSheet()` | `computeLines` calcola ogni voce (importi, IVA a carico del team, scadenza), poi somma per progetto e per area |
 | 9 | Fastify → React | la risposta è JSON; React Query la mette in cache con chiave `["sheet","hw"]` |
@@ -62,7 +62,7 @@ Clicchi la cella *Priority* di una voce e scegli "High".
 | 1 | AG Grid | si apre la tendina; scegli "High" |
 | 2 | `valueSetter` (`areaColumns.tsx`) | **non scrive nella riga**: chiama `commit(riga, { priority: "High" })` e risponde "non ho cambiato niente io" |
 | 3 | `commit` (`AreaPage.tsx`) | `act(() => api.updateLine(id, { version, priority }))`: la `version` è quella che la riga aveva quando l'hai caricata |
-| 4 | Rete | `PATCH /api/lines/91` con corpo `{"version":1,"priority":"High"}` |
+| 4 | Rete | `PATCH /api/budget/lines/91` con corpo `{"version":1,"priority":"High"}` |
 | 5 | Fastify + Zod | `updateLineInput.parse(corpo)`: la versione deve essere un intero positivo, la priorità una delle tre |
 | 6 | `updateLine()` | chiede l'utente (`getCurrentUser`: il controllo comune l'aveva già ricavato dal cookie con il JWT e dal database), valida la categoria e apre `runWrite(...)` |
 | 7 | `runWrite` | **apre la transazione e dice al database chi sta scrivendo**; il servizio trova la voce e la sua area e chiede `canWrite(utente, area)`: un `viewer`, o un `pm` di un'altra area, ricevono **403** e la transazione si annulla |
@@ -153,7 +153,7 @@ erDiagram
 Alcune cose erano fisse *per un po'* ma dovevano diventare impostazioni. Invece di scriverle come costanti sparse, **ognuna viveva dentro la funzione che un giorno sarebbe stata l'API di quella cosa**. Il 26 ottobre 2026 è successo per categorie, aliquote, unità, posti e interruttori del calcolo ([impostazioni.md](impostazioni.md)), ed è cambiato **solo il corpo** di quelle funzioni:
 
 ```ts
-// apps/api/src/platform/lookups/lookups.service.ts
+// apps/api/src/modules/budget/lookups.service.ts (fino al passo G6 era in platform/lookups)
 export async function getSettings(): Promise<Settings> {
   const [row] = await db.select().from(setting); // prima: un oggetto scritto qui, con // HARDCODED
   return { varianceThreshold: Number(row.varianceThreshold), /* … */ };
@@ -199,7 +199,7 @@ Cosa la riconciliazione **non** copre: i dati reali sono semplici (IVA quasi sem
 
 | Voglio… | Tocco |
 | --- | --- |
-| una categoria in più, un'aliquota IVA, le scadenze IVA | la funzione giusta in `apps/api/src/platform/lookups/lookups.service.ts` |
+| una categoria in più, un'aliquota IVA, le scadenze IVA | la funzione giusta in `apps/api/src/platform/lookups/lookups.service.ts` (categorie, aliquote) o in `apps/api/src/modules/budget/lookups.service.ts` (scadenze IVA, priorità, interruttori del calcolo) |
 | cambiare la risposta a Q1 (IVA con sponsor totale) o Q2 (confronto con BANK) | la pagina **Settings** (tabella `setting`); nel codice `getSettings()` |
 | il modo di arrotondare (Q7) | `roundDiv` in `packages/calc/src/money.ts` |
 | un colore, un font, una spaziatura | `apps/web/src/theme/tokens.css` (e Figma) |
@@ -209,7 +209,7 @@ Cosa la riconciliazione **non** copre: i dati reali sono semplici (IVA quasi sem
 | i permessi dei ruoli | `canWrite()` e le funzioni vicine in `platform/auth/auth.service.ts` (+ il test `roles.test.ts`) |
 | il login e i token | `platform/auth/` ([accesso-e-storico.md](accesso-e-storico.md)) |
 | tracciare un'altra tabella nello storico | una migrazione che aggancia il trigger `audit_row()` (come `0002_audit_triggers.sql`) |
-| i dati per le analisi con script | gli endpoint `/api/views/*` restituiscono già JSON pronto per Python |
+| i dati per le analisi con script | gli endpoint `/api/budget/views/*` restituiscono già JSON pronto per Python |
 | l'inventario | un modulo nuovo (`modules/inventory/`) con le sue tabelle, che punta a `budget_line.id` |
 
 ## 10. Il glossario foglio ↔ codice

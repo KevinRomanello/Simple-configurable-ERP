@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ALL_ACTIVE, contracts, definePort } from "../../src/core/contracts";
 import { ownerPool } from "../../src/db/owner";
-import { loadSnapshot } from "../../src/snapshot";
+import { loadSnapshot } from "../../src/modules/budget/snapshot";
 import { ADMIN, cookieFor, createUser, resetData, testApp } from "../helpers";
 import { buildSeason, SIZES } from "./dataset";
 
@@ -29,18 +29,18 @@ const PAGES: { name: string; url: string }[] = [
   { name: "core: categories", url: "/api/lookups/categories" },
   { name: "inventory: units", url: "/api/inventory/units" },
   { name: "inventory: places", url: "/api/inventory/locations" },
-  { name: "core: settings of the calculation", url: "/api/lookups/settings" },
-  { name: "budget: area sheet", url: "/api/areas/mt-dmt/sheet" },
-  { name: "budget: funds", url: "/api/funds" },
-  { name: "budget: CASH FLOW", url: "/api/views/cashflow" },
-  { name: "budget: gantt expected", url: "/api/views/gantt?phase=estimate" },
-  { name: "budget: gantt actual", url: "/api/views/gantt?phase=actual" },
-  { name: "budget: TOTAL", url: "/api/views/totals" },
-  { name: "budget: funds summary", url: "/api/views/funds-summary?phase=actual" },
-  { name: "budget: analysis of the funds", url: "/api/views/analysis/funds" },
-  { name: "budget: analysis of the suppliers", url: "/api/views/analysis/suppliers" },
-  { name: "budget: items view", url: "/api/views/items" },
-  { name: "budget: inflows", url: "/api/inflows?phase=estimate" },
+  { name: "core: settings of the calculation", url: "/api/budget/lookups/settings" },
+  { name: "budget: area sheet", url: "/api/budget/areas/mt-dmt/sheet" },
+  { name: "budget: funds", url: "/api/budget/funds" },
+  { name: "budget: CASH FLOW", url: "/api/budget/views/cashflow" },
+  { name: "budget: gantt expected", url: "/api/budget/views/gantt?phase=estimate" },
+  { name: "budget: gantt actual", url: "/api/budget/views/gantt?phase=actual" },
+  { name: "budget: TOTAL", url: "/api/budget/views/totals" },
+  { name: "budget: funds summary", url: "/api/budget/views/funds-summary?phase=actual" },
+  { name: "budget: analysis of the funds", url: "/api/budget/views/analysis/funds" },
+  { name: "budget: analysis of the suppliers", url: "/api/budget/views/analysis/suppliers" },
+  { name: "budget: items view", url: "/api/budget/views/items" },
+  { name: "budget: inflows", url: "/api/budget/inflows?phase=estimate" },
   { name: "treasury: register", url: "/api/treasury/register?year=2026" },
   { name: "treasury: financial statement", url: "/api/treasury/statement?year=2026" },
   { name: "treasury×budget: TO PAY", url: "/api/treasury-budget/to-pay" },

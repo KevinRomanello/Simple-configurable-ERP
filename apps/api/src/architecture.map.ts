@@ -2,8 +2,8 @@
 // The design is docs/moduli-architettura.md (ADR-2): a core (`platform`) that is always on, modules that can be turned off
 // (`budget`, `treasury`, `inventory`, `registry`) and bridges, each between two modules, that hold what needs both.
 //
-// The folders still have today's names: this file says which owner each one belongs to, and the exceptions say where the
-// code still does not obey (docs/moduli-architettura.md, §2.2). The step of the plan that fixes a violation takes it out of the
+// This file says which owner each folder belongs to, and the exceptions say where the code still does not obey (none since G5;
+// docs/moduli-architettura.md, §2.2). The step of the plan that fixes a violation takes it out of the
 // list; the tests fail for a violation that is not in the list and for one that is in it and is gone, so the list only shrinks.
 
 export type Owner =
@@ -23,20 +23,13 @@ export const BRIDGES: Partial<Record<Owner, Owner[]>> = {
   "registry-access": ["registry"],
 };
 
-/** The folders of `apps/api/src/modules`, with the owner each is meant to have (what is under `platform/` is the core, and `snapshot.ts` is the budget's). */
+/** The folders of `apps/api/src/modules`, with the owner each is (what is under `platform/` is the core). One folder for each module since G6. */
 export const FOLDER_OWNERS: Record<string, Owner> = {
   budget: "budget",
-  funds: "budget",
-  suppliers: "budget",
-  views: "budget",
-  cashflow: "budget",
   treasury: "treasury",
   inventory: "inventory",
   registry: "registry",
 };
-
-/** The owner of `src/snapshot.ts`: the whole calculation of the budget reads from it. */
-export const SNAPSHOT_OWNER: Owner = "budget";
 
 /**
  * The schema files of `db/schema/` (the tables of each owner, nothing else): a table is reached by importing the file of its owner, so the

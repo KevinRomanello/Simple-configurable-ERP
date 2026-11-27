@@ -22,11 +22,11 @@
       "hash": "26a66b99bb"
     },
     "core: settings": {
-      "medianMs": 1.4,
-      "p95Ms": 1.75,
-      "minMs": 1.33,
-      "bytes": 547,
-      "hash": "145020cfd5"
+      "medianMs": 1.31,
+      "p95Ms": 1.88,
+      "minMs": 1.17,
+      "bytes": 404,
+      "hash": "78ed73dbca"
     },
     "core: users": {
       "medianMs": 0.79,
@@ -175,21 +175,21 @@
       "bytes": 8820,
       "hash": "e39afcb986"
     },
-    "treasury×budget: TO PAY": {
+    "treasury\u00d7budget: TO PAY": {
       "medianMs": 27.97,
       "p95Ms": 39.59,
       "minMs": 25.49,
       "bytes": 228826,
       "hash": "d861f35a13"
     },
-    "treasury×budget: payments to tie": {
+    "treasury\u00d7budget: payments to tie": {
       "medianMs": 1.21,
       "p95Ms": 1.33,
       "minMs": 1.17,
       "bytes": 4504,
       "hash": "5e53327273"
     },
-    "treasury×budget: lines to pay": {
+    "treasury\u00d7budget: lines to pay": {
       "medianMs": 25.64,
       "p95Ms": 26.66,
       "minMs": 24.19,
@@ -203,7 +203,7 @@
       "bytes": 177488,
       "hash": "f8dd10ed28"
     },
-    "inventory×budget: PENDING": {
+    "inventory\u00d7budget: PENDING": {
       "medianMs": 33.38,
       "p95Ms": 47.38,
       "minMs": 30.64,
@@ -255,11 +255,11 @@
       "hash": "77f1a52cd1"
     },
     "core: settings": {
-      "medianMs": 2.2,
-      "p95Ms": 2.25,
-      "minMs": 2.16,
-      "bytes": 551,
-      "hash": "92e4fdcb5b"
+      "medianMs": 2.05,
+      "p95Ms": 2.1,
+      "minMs": 2.02,
+      "bytes": 408,
+      "hash": "54fb4c12c2"
     },
     "core: users": {
       "medianMs": 0.81,
@@ -408,21 +408,21 @@
       "bytes": 8895,
       "hash": "c9a9ca1e6a"
     },
-    "treasury×budget: TO PAY": {
+    "treasury\u00d7budget: TO PAY": {
       "medianMs": 118.69,
       "p95Ms": 141.69,
       "minMs": 115.92,
       "bytes": 1286769,
       "hash": "345b156c6c"
     },
-    "treasury×budget: payments to tie": {
+    "treasury\u00d7budget: payments to tie": {
       "medianMs": 2.37,
       "p95Ms": 2.6,
       "minMs": 2.31,
       "bytes": 20293,
       "hash": "3d6a07e225"
     },
-    "treasury×budget: lines to pay": {
+    "treasury\u00d7budget: lines to pay": {
       "medianMs": 113.41,
       "p95Ms": 152.18,
       "minMs": 109.6,
@@ -436,7 +436,7 @@
       "bytes": 893421,
       "hash": "9aed3b9f97"
     },
-    "inventory×budget: PENDING": {
+    "inventory\u00d7budget: PENDING": {
       "medianMs": 240.12,
       "p95Ms": 258.3,
       "minMs": 217.33,

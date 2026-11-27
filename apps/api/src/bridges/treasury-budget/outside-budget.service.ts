@@ -1,8 +1,8 @@
 import { outsideBudget, sectionsOfVoci, type AreaInput, type OutsideBudget, type OutsideEntry } from "@erp/calc";
 import type { Db } from "../../core/contracts";
 import { cashEntryLine, inflowReceipt } from "../../db/schema/treasury-budget";
-import { getDerivedAreaCategory, getStatementLayout } from "../../platform/lookups/lookups.service";
-import { outsideBetween } from "../../modules/treasury/treasury.public";
+import { getDerivedAreaCategory } from "../../modules/budget/budget.public";
+import { getStatementLayout, outsideBetween } from "../../modules/treasury/treasury.public";
 
 // What the team spends and receives outside the budget, read from the register: the movements the derived area is made of
 // (docs/spese-fuori-budget.md). Nothing is stored; the snapshot asks for it at every reading, through the port `outsideBudgetOf`.

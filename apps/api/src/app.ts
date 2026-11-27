@@ -17,16 +17,17 @@ import { createGoogleClient, type GoogleClient } from "./platform/auth/google";
 import { areasRoutes } from "./platform/areas/areas.routes";
 import { auditRoutes } from "./platform/audit/audit.routes";
 import { budgetRoutes } from "./modules/budget/budget.routes";
+import { budgetLookupsRoutes } from "./modules/budget/lookups.routes";
 import { cashRoutes } from "./modules/treasury/cash.routes";
-import { cashflowRoutes } from "./modules/cashflow/cashflow.routes";
-import { fundsRoutes } from "./modules/funds/funds.routes";
+import { cashflowRoutes } from "./modules/budget/cashflow.routes";
+import { fundsRoutes } from "./modules/budget/funds.routes";
 import { healthRoutes } from "./platform/health/health.routes";
 import { inventoryRoutes } from "./modules/inventory/inventory.routes";
 import { lookupsRoutes } from "./platform/lookups/lookups.routes";
 import { addSeasonHook, seasonsRoutes } from "./platform/seasons/seasons.routes";
-import { suppliersRoutes } from "./modules/suppliers/suppliers.routes";
+import { suppliersRoutes } from "./modules/budget/suppliers.routes";
 import { usersRoutes } from "./platform/users/users.routes";
-import { viewsRoutes } from "./modules/views/views.routes";
+import { viewsRoutes } from "./modules/budget/views.routes";
 import { settingsRoutes } from "./platform/settings/settings.routes";
 import { registryRoutes } from "./modules/registry/registry.routes";
 import { rolesyncRoutes } from "./bridges/registry-access/rolesync.routes";
@@ -93,16 +94,15 @@ export function buildApp(options: AppOptions = {}) {
       await api.register(lookupsRoutes);
       await api.register(seasonsRoutes);
       await api.register(areasRoutes);
-      await api.register(budgetRoutes);
-      await api.register(fundsRoutes);
-      await api.register(suppliersRoutes);
+      // a module and a bridge answer under their own name: /api/budget/…, /api/treasury/…, /api/treasury-budget/…, /api/inventory-budget/…
+      // (docs/moduli-architettura.md, §8; the inventory's routes are written with /inventory in their file)
+      for (const budgetPart of [budgetRoutes, budgetLookupsRoutes, fundsRoutes, suppliersRoutes, cashflowRoutes, viewsRoutes]) {
+        await api.register(budgetPart, { prefix: "/budget" });
+      }
       await api.register(inventoryRoutes);
-      await api.register(cashflowRoutes);
-      // a module and a bridge answer under their own name: /api/treasury/…, /api/treasury-budget/…, /api/inventory-budget/… (docs/moduli-architettura.md, §8)
       await api.register(cashRoutes, { prefix: "/treasury" });
       await api.register(treasuryBudgetRoutes, { prefix: "/treasury-budget" });
       await api.register(inventoryBudgetRoutes, { prefix: "/inventory-budget" });
-      await api.register(viewsRoutes);
       await api.register(settingsRoutes);
       await api.register(registryRoutes);
       // a bridge answers under its own name: /api/registry-access/… (docs/moduli-architettura.md, §8)

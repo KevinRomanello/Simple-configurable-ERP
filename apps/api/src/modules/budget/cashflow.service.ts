@@ -10,7 +10,7 @@ import { bankSnapshot, teamInflow } from "../../db/schema/budget";
 import { canChangeInflows, canManageCash, getCurrentUser } from "../../platform/auth/auth.service";
 import { currentActive } from "../../platform/platform.public";
 import { assertSeasonOpen, getCurrentSeason } from "../../platform/seasons/seasons.service";
-import { inflowDeleting, inflowReceipts, registerBank, registerSponsorship } from "../budget/budget.ports";
+import { inflowDeleting, inflowReceipts, registerBank, registerSponsorship } from "./budget.ports";
 
 type Reader = Pick<Tx, "select">;
 type Season = { id: number; startsOn: string; endsOn: string };

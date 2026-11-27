@@ -1,15 +1,15 @@
 import { addDays, type Figures, type Phase, type Snapshot } from "@erp/calc";
 import { asc, eq } from "drizzle-orm";
-import { contracts } from "./core/contracts";
-import { toCents, toScaled } from "./core/money";
-import { db } from "./db/client";
-import { budgetLine, fund, fundContract, lineFigures, lineFund, project, supplier } from "./db/schema/budget";
-import { area } from "./db/schema/platform";
-import { linePayments, lineReceipts, outsideBudgetOf } from "./modules/budget/budget.ports";
-import { bankOf, loadInflows } from "./modules/cashflow/cashflow.service";
-import { loadLookups } from "./platform/lookups/lookups.service";
-import { currentActive } from "./platform/platform.public";
-import { getCurrentSeason } from "./platform/seasons/seasons.service";
+import { contracts } from "../../core/contracts";
+import { toCents, toScaled } from "../../core/money";
+import { db } from "../../db/client";
+import { budgetLine, fund, fundContract, lineFigures, lineFund, project, supplier } from "../../db/schema/budget";
+import { area } from "../../db/schema/platform";
+import { linePayments, lineReceipts, outsideBudgetOf } from "./budget.ports";
+import { bankOf, loadInflows } from "./cashflow.service";
+import { loadLookups } from "./lookups.service";
+import { currentActive } from "../../platform/platform.public";
+import { getCurrentSeason } from "../../platform/seasons/seasons.service";
 
 type FigureRow = typeof lineFigures.$inferSelect;
 

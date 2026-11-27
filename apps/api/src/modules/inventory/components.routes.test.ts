@@ -318,7 +318,7 @@ describe("how many can be made, and what a job would take", () => {
 });
 
 describe("what «Make new» starts from, set when the item is created", () => {
-  const project = async () => (await api.post("/api/projects", { areaCode: "sw", name: "Pedals" })).body.id as number;
+  const project = async () => (await api.post("/api/budget/projects", { areaCode: "sw", name: "Pedals" })).body.id as number;
 
   it("keeps the project and the places on an item made by the team, and changes them later", async () => {
     const id = await project();
@@ -353,7 +353,7 @@ describe("what «Make new» starts from, set when the item is created", () => {
   it("forgets the project when it is deleted", async () => {
     const id = await project();
     const made = await makeItem("Bracket", "made", { makeProjectId: id });
-    expect((await api.del(`/api/projects/${id}`)).status).toBe(204);
+    expect((await api.del(`/api/budget/projects/${id}`)).status).toBe(204);
     expect((await api.get(`/api/inventory/items/${made.id}`)).body.item.makeProjectId).toBeNull();
   });
 });
@@ -369,8 +369,8 @@ describe("finding a component", () => {
     const harness = (await api.post("/api/inventory/types", { name: "Harness", categoryId: category })).body.id as number;
     const dash = (await api.post("/api/inventory/types", { name: "Dash", parentId: harness, categoryId: category })).body.id as number;
     const bracketType = (await api.post("/api/inventory/types", { name: "Bracket", categoryId: category })).body.id as number;
-    const brakes = (await api.post("/api/projects", { areaCode: "sw", name: "Brakes" })).body.id as number;
-    const cooling = (await api.post("/api/projects", { areaCode: "sw", name: "Cooling" })).body.id as number;
+    const brakes = (await api.post("/api/budget/projects", { areaCode: "sw", name: "Brakes" })).body.id as number;
+    const cooling = (await api.post("/api/budget/projects", { areaCode: "sw", name: "Cooling" })).body.id as number;
     await makeItem("Dash harness", "made", { areaId: await areaId("hw"), typeId: dash, makeProjectId: brakes, purpose: "Wires the dashboard" });
     await makeItem("Bracket A", "made", { areaId: await areaId("sw"), typeId: bracketType, makeProjectId: cooling, code: "BR-A" });
     await makeItem("Pedal", "made");
@@ -433,9 +433,9 @@ describe("finding a component", () => {
 describe("statistics", () => {
   /** A purchase of the budget (10 sensors at 5 euros net), 4 of them arrived; a gift of glue; one sensor used. */
   async function scene() {
-    const project = (await api.post("/api/projects", { areaCode: "sw", name: "Brakes" })).body;
-    const line = (await api.post(`/api/projects/${project.id}/lines`, { item: "Sensor", category: "Components" })).body;
-    await api.patch(`/api/lines/${line.id}`, {
+    const project = (await api.post("/api/budget/projects", { areaCode: "sw", name: "Brakes" })).body;
+    const line = (await api.post(`/api/budget/projects/${project.id}/lines`, { item: "Sensor", category: "Components" })).body;
+    await api.patch(`/api/budget/lines/${line.id}`, {
       version: 1,
       figures: { actual: { quantity: 10, unitNetCost: "5", sponsorType: "none", vatRate: 22, purchaseDate: "2026-10-01" } },
     });

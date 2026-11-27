@@ -92,13 +92,13 @@ describe("protection of the API", () => {
   it("refuses writes that come from another site, accepts our own pages and non-browser clients", async () => {
     const body = { areaCode: "sw", name: "P" };
     const proxied = { host: "api:3000" }; // a proxy in front of the API rewrites the Host header
-    expect((await api.post("/api/projects", body, { ...proxied, origin: "https://evil.example" })).status).toBe(403);
-    expect((await api.post("/api/projects", body, { ...proxied, origin: "not a url" })).status).toBe(403);
+    expect((await api.post("/api/budget/projects", body, { ...proxied, origin: "https://evil.example" })).status).toBe(403);
+    expect((await api.post("/api/budget/projects", body, { ...proxied, origin: "not a url" })).status).toBe(403);
     // PUBLIC_URL of the tests is http://localhost:5173
-    expect((await api.post("/api/projects", body, { ...proxied, origin: "http://localhost:5173" })).status).toBe(201);
+    expect((await api.post("/api/budget/projects", body, { ...proxied, origin: "http://localhost:5173" })).status).toBe(201);
     // ...or the very host the request was addressed to
-    expect((await api.post("/api/projects", body, { host: "127.0.0.1:5173", origin: "http://127.0.0.1:5173" })).status).toBe(201);
-    expect((await api.post("/api/projects", body)).status).toBe(201); // no Origin: curl, scripts
+    expect((await api.post("/api/budget/projects", body, { host: "127.0.0.1:5173", origin: "http://127.0.0.1:5173" })).status).toBe(201);
+    expect((await api.post("/api/budget/projects", body)).status).toBe(201); // no Origin: curl, scripts
   });
 });
 

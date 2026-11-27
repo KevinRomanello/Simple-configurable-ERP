@@ -561,11 +561,10 @@ export interface PriceChoice {
 }
 
 /** What the Settings page shows (admin only): the lists with how much each entry is used, and the switches. */
-/** GET /api/settings: the core's part of the Settings page. */
+/** GET /api/settings: the core's part of the Settings page (the switches of the calculation are the budget's: `Calculation`). */
 export interface SettingsView {
   categories: { id: number; name: string; usedBy: number }[];
   vatRates: { id: number; rate: number; usedBy: number }[];
-  calculation: Calculation;
 }
 
 /** GET /api/inventory/lists: the inventory's part of the Settings page. */

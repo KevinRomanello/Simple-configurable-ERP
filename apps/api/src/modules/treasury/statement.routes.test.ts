@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { resetData, testApp } from "../../../test/helpers";
-import { getStatementLayout } from "../../platform/lookups/lookups.service";
+import { getStatementLayout } from "./statement.service";
 
 const api = testApp();
 afterAll(() => api.close());

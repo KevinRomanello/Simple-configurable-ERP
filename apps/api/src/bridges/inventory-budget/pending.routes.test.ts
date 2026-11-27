@@ -22,9 +22,9 @@ async function itemWithStock(name = "M3 screw", quantity = "100", extra: object 
 
 /** A project and a line of the budget that was bought: `quantity` units at `unit` euros net, 22% VAT. */
 async function boughtLine(options: { quantity?: number; unit?: string; item?: string; area?: string; sponsorType?: string } = {}) {
-  const project = (await api.post("/api/projects", { areaCode: options.area ?? "sw", name: "Brakes" })).body;
-  const line = (await api.post(`/api/projects/${project.id}/lines`, { item: options.item ?? "Pressure sensor", category: "Components" })).body;
-  await api.patch(`/api/lines/${line.id}`, {
+  const project = (await api.post("/api/budget/projects", { areaCode: options.area ?? "sw", name: "Brakes" })).body;
+  const line = (await api.post(`/api/budget/projects/${project.id}/lines`, { item: options.item ?? "Pressure sensor", category: "Components" })).body;
+  await api.patch(`/api/budget/lines/${line.id}`, {
     version: 1,
     figures: {
       actual: {
@@ -35,7 +35,7 @@ async function boughtLine(options: { quantity?: number; unit?: string; item?: st
   });
   return { project, line };
 }
-const arrivalOf = async (areaCode: string) => (await api.get(`/api/areas/${areaCode}/sheet`)).body.projects[0].lines[0].arrival;
+const arrivalOf = async (areaCode: string) => (await api.get(`/api/budget/areas/${areaCode}/sheet`)).body.projects[0].lines[0].arrival;
 
 describe("goods that arrive from a purchase of the budget", () => {
   it("shows what was bought and has not arrived, oldest first, with how long it has waited", async () => {
@@ -51,9 +51,9 @@ describe("goods that arrive from a purchase of the budget", () => {
   });
 
   it("does not list lines that were only planned", async () => {
-    const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
-    const line = (await api.post(`/api/projects/${project.id}/lines`, { item: "Planned" })).body;
-    await api.patch(`/api/lines/${line.id}`, { version: 1, figures: { estimate: { quantity: 3, unitNetCost: "9", sponsorType: "none", vatRate: 22 } } });
+    const project = (await api.post("/api/budget/projects", { areaCode: "sw", name: "P" })).body;
+    const line = (await api.post(`/api/budget/projects/${project.id}/lines`, { item: "Planned" })).body;
+    await api.patch(`/api/budget/lines/${line.id}`, { version: 1, figures: { estimate: { quantity: 3, unitNetCost: "9", sponsorType: "none", vatRate: 22 } } });
     expect((await api.get("/api/inventory-budget/pending")).body).toEqual([]);
     expect(await arrivalOf("sw")).toMatchObject({ status: "planned" });
     const refused = await api.post(`/api/inventory-budget/pending/${line.id}/receive`, { newItem: newItem("Planned"), quantity: "1", receivedOn: "2026-10-05", location: "s1-r1" });
@@ -89,7 +89,7 @@ describe("goods that arrive from a purchase of the budget", () => {
 
   it("puts the day of the last arrival in ARRIVAL DATE of ACTUAL, only once all of it has arrived", async () => {
     const { line } = await boughtLine({ quantity: 10, unit: "5" });
-    const arrivalDate = async () => (await api.get("/api/areas/sw/sheet")).body.projects[0].lines[0].actual.arrivalDate;
+    const arrivalDate = async () => (await api.get("/api/budget/areas/sw/sheet")).body.projects[0].lines[0].actual.arrivalDate;
     const receiveLine = (body: object) => api.post(`/api/inventory-budget/pending/${line.id}/receive`, { location: "s1-r1", ...body });
     expect(await arrivalDate()).toBeNull();
 
@@ -118,7 +118,7 @@ describe("goods that arrive from a purchase of the budget", () => {
   it("keeps the receipt when the budget line is deleted later", async () => {
     const { line } = await boughtLine({ quantity: 2 });
     const { body } = await api.post(`/api/inventory-budget/pending/${line.id}/receive`, { newItem: newItem("Sensor"), quantity: "2", receivedOn: "2026-10-05", location: "s1-r1" });
-    expect((await api.del(`/api/lines/${line.id}`)).status).toBe(204);
+    expect((await api.del(`/api/budget/lines/${line.id}`)).status).toBe(204);
     const detail = (await api.get(`/api/inventory/items/${body.item.id}`)).body;
     expect(detail.onHandMilli).toBe(2_000);
     expect(detail.movements[0].budgetLineId).toBeNull();

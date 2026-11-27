@@ -4,7 +4,7 @@ import {
   type ItemsFilters, type Phase, type Snapshot,
 } from "@erp/calc";
 import { notFound } from "../../core/errors";
-import { loadSnapshot } from "../../snapshot";
+import { loadSnapshot } from "./snapshot";
 import { allSeasons, getCurrentSeason, getSeasonById } from "../../platform/seasons/seasons.service";
 
 // Every view is the same two steps: read the snapshot, hand it to a pure function of the engine.

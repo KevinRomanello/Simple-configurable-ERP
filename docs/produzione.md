@@ -76,7 +76,7 @@ Le stime sono mie e non misurate: **S** ≈ 1 ora, **M** ≈ 2 ore, **L** ≈ 3�
 ### D. Il resto del progetto (non è nella v0)
 
 - **Inventario**: unità con tag e QR, stati, ubicazioni, movimenti, creazione dall'arrivo di una voce (piano originale, fase 6). Si aggiunge come modulo nuovo che punta a `budget_line.id`.
-- **Analisi con script**: gli endpoint `/api/views/*` restituiscono già JSON utilizzabile da Python; mancano un accesso per gli analisti (token) e i primi notebook.
+- **Analisi con script**: gli endpoint `/api/budget/views/*` restituiscono già JSON utilizzabile da Python; mancano un accesso per gli analisti (token) e i primi notebook.
 - Se serviranno analisi SQL dirette: tabelle `calc_*` e un utente del database di sola lettura.
 
 ## 4. Dove ospitarlo

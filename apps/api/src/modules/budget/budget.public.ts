@@ -13,15 +13,17 @@ export { computedLines } from "./budget.service";
 export { computedSeason } from "./budget.service";
 /** The projects with these ids, with their names; the car of each line; and the lock two arrivals of one purchase take turns on. */
 export { lineCars, lockLine, projectsByIds, projectsOfSeason } from "./budget.service";
+/** The budget category the lines of the derived area (ADMINISTRATION) are in. */
+export { getDerivedAreaCategory } from "./lookups.service";
 /** The season each of these lines is in, by line. */
 export { seasonsOfLines } from "./budget.service";
 /** The name (the item) of each of these lines, by line. */
 export { lineLabels } from "./budget.service";
 
 /** The inflows of CASH FLOW as plain facts, and how to delete them inside a transaction already open. */
-export { deleteInflowsIn, inflowsByIds, inflowsOfSeason } from "../cashflow/cashflow.service";
-export type { InflowFact } from "../cashflow/cashflow.service";
+export { deleteInflowsIn, inflowsByIds, inflowsOfSeason } from "./cashflow.service";
+export type { InflowFact } from "./cashflow.service";
 /** The BANK of a season and whether the register or a person says so (the day is today, or the last day of a season that is over). */
-export { bankOf } from "../cashflow/cashflow.service";
+export { bankOf } from "./cashflow.service";
 /** Refuses the person who may not add or delete inflows. */
-export { assertCanChangeInflows } from "../cashflow/cashflow.service";
+export { assertCanChangeInflows } from "./cashflow.service";

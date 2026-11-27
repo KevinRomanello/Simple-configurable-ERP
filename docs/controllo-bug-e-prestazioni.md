@@ -149,7 +149,7 @@ L'apertura resta uguale, ed è la parte che il documento chiamava «seconda moss
 
 ### P9. CASH FLOW calcola le righe quattro volte
 
-**Cosa succede.** `GET /api/views/cashflow` calcola tutte le righe del budget quattro volte: per ognuna delle due fasi, una volta per il riepilogo e una per i saldi dei fondi. A 8.000 righe sono 42 ms: non è un problema, ma è lavoro inutile.
+**Cosa succede.** `GET /api/budget/views/cashflow` calcola tutte le righe del budget quattro volte: per ognuna delle due fasi, una volta per il riepilogo e una per i saldi dei fondi. A 8.000 righe sono 42 ms: non è un problema, ma è lavoro inutile.
 
 **Soluzione proposta.** Calcolare le righe una volta per richiesta e passarle (oppure ricordare il risultato per la stessa fotografia dei dati). Bassa priorità.
 

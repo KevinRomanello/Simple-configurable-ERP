@@ -245,8 +245,10 @@ export const api = {
   tokens: () => get<ApiTokenRow[]>("/tokens"),
   createToken: (name: string, userId: number) => post<{ id: number; name: string; token: string }>("/tokens", { name, userId }),
   revokeToken: (id: number) => del(`/tokens/${id}`),
+  /** The switches of the calculation (the budget's; the answer has the span of the VAT report too). */
+  calculation: () => get<Calculation>("/budget/lookups/settings"),
   updateCalculation: (body: Partial<Omit<Calculation, "bankCompare">> & { bankCompare?: Partial<Calculation["bankCompare"]> }) =>
-    patch<void>("/settings/calculation", body),
+    patch<void>("/budget/settings/calculation", body),
 
   // inventory
   locations: () => get<Location[]>("/inventory/locations"),
@@ -318,10 +320,10 @@ export const api = {
 
   // lookups
   categories: () => get<string[]>("/lookups/categories"),
-  priorities: () => get<string[]>("/lookups/priorities"),
+  priorities: () => get<string[]>("/budget/lookups/priorities"),
   vatRates: () => get<number[]>("/lookups/vat-rates"),
   /** The VAT rate that some kinds of sponsor cannot choose (goods: 0, goods against a counter-invoice: 11). */
-  fixedSponsorRates: () => get<Partial<Record<FundType, number>>>("/lookups/sponsor-rates"),
+  fixedSponsorRates: () => get<Partial<Record<FundType, number>>>("/budget/lookups/sponsor-rates"),
 
   // the register of the team's money (treasury and admins)
   cashRegister: (year?: number) => get<CashRegister>(`/treasury/register${year ? `?year=${year}` : ""}`),
@@ -359,30 +361,30 @@ export const api = {
 
   // budget
   areas: () => get<Area[]>("/areas"),
-  sheet: (code: string) => get<AreaSheet>(`/areas/${code}/sheet`),
-  vatReport: (code: string) => get<VatReport>(`/views/vat-report?area=${code}`),
-  createProject: (body: { areaCode: string; name: string; ownerName?: string | null }) => post("/projects", body),
-  updateProject: (id: number, body: { name?: string; ownerName?: string | null }) => patch(`/projects/${id}`, body),
-  deleteProject: (id: number) => del(`/projects/${id}`),
-  createLine: (projectId: number, body: NewLineBody) => post(`/projects/${projectId}/lines`, body),
-  updateLine: (id: number, body: LinePatch) => patch(`/lines/${id}`, body),
-  deleteLine: (id: number) => del(`/lines/${id}`),
+  sheet: (code: string) => get<AreaSheet>(`/budget/areas/${code}/sheet`),
+  vatReport: (code: string) => get<VatReport>(`/budget/views/vat-report?area=${code}`),
+  createProject: (body: { areaCode: string; name: string; ownerName?: string | null }) => post("/budget/projects", body),
+  updateProject: (id: number, body: { name?: string; ownerName?: string | null }) => patch(`/budget/projects/${id}`, body),
+  deleteProject: (id: number) => del(`/budget/projects/${id}`),
+  createLine: (projectId: number, body: NewLineBody) => post(`/budget/projects/${projectId}/lines`, body),
+  updateLine: (id: number, body: LinePatch) => patch(`/budget/lines/${id}`, body),
+  deleteLine: (id: number) => del(`/budget/lines/${id}`),
 
   // funds, suppliers, cash flow
-  funds: (phase?: Phase) => get<Fund[]>(`/funds${phase ? `?phase=${phase}` : ""}`),
-  createFund: (body: Partial<SponsorBody> & { name: string; contracts?: NewContract[] }) => post<Fund>("/funds", body),
-  updateFund: (id: number, body: Partial<SponsorBody>) => patch<Fund>(`/funds/${id}`, body),
-  deleteFund: (id: number) => del(`/funds/${id}`),
+  funds: (phase?: Phase) => get<Fund[]>(`/budget/funds${phase ? `?phase=${phase}` : ""}`),
+  createFund: (body: Partial<SponsorBody> & { name: string; contracts?: NewContract[] }) => post<Fund>("/budget/funds", body),
+  updateFund: (id: number, body: Partial<SponsorBody>) => patch<Fund>(`/budget/funds/${id}`, body),
+  deleteFund: (id: number) => del(`/budget/funds/${id}`),
   setContract: (fundId: number, phase: Phase, body: { amount: string; inflowDate: string | null }) =>
-    put(`/funds/${fundId}/contracts/${phase}`, body),
-  clearContract: (fundId: number, phase: Phase) => del(`/funds/${fundId}/contracts/${phase}`),
-  suppliers: () => get<Supplier[]>("/suppliers"),
-  createSupplier: (name: string) => post("/suppliers", { name }),
-  deleteSupplier: (id: number) => del(`/suppliers/${id}`),
-  inflows: (phase: Phase) => get<Inflow[]>(`/inflows?phase=${phase}`),
+    put(`/budget/funds/${fundId}/contracts/${phase}`, body),
+  clearContract: (fundId: number, phase: Phase) => del(`/budget/funds/${fundId}/contracts/${phase}`),
+  suppliers: () => get<Supplier[]>("/budget/suppliers"),
+  createSupplier: (name: string) => post("/budget/suppliers", { name }),
+  deleteSupplier: (id: number) => del(`/budget/suppliers/${id}`),
+  inflows: (phase: Phase) => get<Inflow[]>(`/budget/inflows?phase=${phase}`),
   createInflow: (body: { phase: Phase; sourceName: string; amount: string; inflowDate?: string | null; sponsorship?: boolean }) =>
-    post("/inflows", body),
-  deleteInflow: (id: number) => del(`/inflows/${id}`),
+    post("/budget/inflows", body),
+  deleteInflow: (id: number) => del(`/budget/inflows/${id}`),
   relatedInflows: (from: { inflowId: number } | { cashEntryId: number }) =>
     get<RelatedInflows>(`/treasury-budget/inflows/related?${"inflowId" in from ? `inflowId=${from.inflowId}` : `cashEntryId=${from.cashEntryId}`}`),
   deleteInflows: (body: { inflowIds: number[]; cashEntryIds: number[] }) => post<void>("/treasury-budget/inflows/delete", body),
@@ -391,27 +393,27 @@ export const api = {
   receiveInflow: (id: number, body: { entryId: number } | { on: string; account: CashAccount; amount?: string; categoryId?: number | null; methodId?: number | null }) =>
     post(`/treasury-budget/inflows/${id}/receive`, body),
   unreceiveInflow: (id: number) => del(`/treasury-budget/inflows/${id}/receive`),
-  bank: () => get<Bank | null>("/bank"),
-  setBank: (body: { amount: string; asOfDate?: string | null }) => put("/bank", body),
-  clearBank: () => del("/bank"),
+  bank: () => get<Bank | null>("/budget/bank"),
+  setBank: (body: { amount: string; asOfDate?: string | null }) => put("/budget/bank", body),
+  clearBank: () => del("/budget/bank"),
 
   // views
   fundsSummary: (phase: Phase) =>
-    get<{ rows: FundSummaryRow[]; monthly: MonthlyInflow[] }>(`/views/funds-summary?phase=${phase}`),
+    get<{ rows: FundSummaryRow[]; monthly: MonthlyInflow[] }>(`/budget/views/funds-summary?phase=${phase}`),
   cashFlow: () =>
     get<{
       bank: { amountCents: number; asOfDate: string | null } | null;
       estimate: { summary: CashFlowSummary; monthly: MonthlyInflow[] };
       actual: { summary: CashFlowSummary; monthly: MonthlyInflow[] };
-    }>("/views/cashflow"),
-  gantt: (phase: Phase) => get<Gantt>(`/views/gantt?phase=${phase}`),
+    }>("/budget/views/cashflow"),
+  gantt: (phase: Phase) => get<Gantt>(`/budget/views/gantt?phase=${phase}`),
   // the three TOTAL pages choose their season, year or car on their own, whatever the menu says
-  totals: (season: number) => get<TotalsView>(`/views/totals?season=${season}`),
-  yearTotals: (year: number) => get<TotalsView>(`/views/totals/year?year=${year}`),
-  carTotals: (car: string) => get<TotalsView>(`/views/totals/car?car=${encodeURIComponent(car)}`),
-  fundAnalysis: () => get<Analysis>("/views/analysis/funds"),
-  supplierAnalysis: () => get<Analysis>("/views/analysis/suppliers"),
-  items: (query: string) => get<ItemsView>(`/views/items?${query}`),
+  totals: (season: number) => get<TotalsView>(`/budget/views/totals?season=${season}`),
+  yearTotals: (year: number) => get<TotalsView>(`/budget/views/totals/year?year=${year}`),
+  carTotals: (car: string) => get<TotalsView>(`/budget/views/totals/car?car=${encodeURIComponent(car)}`),
+  fundAnalysis: () => get<Analysis>("/budget/views/analysis/funds"),
+  supplierAnalysis: () => get<Analysis>("/budget/views/analysis/suppliers"),
+  items: (query: string) => get<ItemsView>(`/budget/views/items?${query}`),
 };
 
 /** The plain JSON calls, for the modules that keep their own list of endpoints (api/registry.ts). */

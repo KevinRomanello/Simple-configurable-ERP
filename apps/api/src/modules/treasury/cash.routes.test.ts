@@ -40,33 +40,33 @@ describe("who can use the register", () => {
 
   it("the treasury keeps CASH FLOW (inflows, BANK) but not CASH FROM (sponsors), and is otherwise the project manager they are", async () => {
     const as = api.as(TREASURER);
-    expect((await as.post("/api/inflows", { phase: "estimate", sourceName: "Gala", amount: "100" })).status).toBe(201);
-    expect((await as.put("/api/bank", { amount: "100" })).status).toBe(200);
-    expect((await as.post("/api/funds", { name: "Acme", vatRate: 22 })).status).toBe(403);
-    expect((await as.post("/api/projects", { areaCode: "sw", name: "X" })).status).toBe(403); // no areas assigned
-    expect((await as.get("/api/areas/sw/sheet")).status).toBe(200);
+    expect((await as.post("/api/budget/inflows", { phase: "estimate", sourceName: "Gala", amount: "100" })).status).toBe(201);
+    expect((await as.put("/api/budget/bank", { amount: "100" })).status).toBe(200);
+    expect((await as.post("/api/budget/funds", { name: "Acme", vatRate: 22 })).status).toBe(403);
+    expect((await as.post("/api/budget/projects", { areaCode: "sw", name: "X" })).status).toBe(403); // no areas assigned
+    expect((await as.get("/api/budget/areas/sw/sheet")).status).toBe(200);
     expect((await as.get("/api/me")).body.permissions).toMatchObject({ canManageCash: true, canEditShared: false, canManageInventory: true, canViewHistory: true });
     expect((await api.as(PM).get("/api/me")).body.permissions.canManageCash).toBe(false);
-    expect((await api.as(PM).post("/api/inflows", { phase: "estimate", sourceName: "Gala", amount: "100" })).status).toBe(403);
+    expect((await api.as(PM).post("/api/budget/inflows", { phase: "estimate", sourceName: "Gala", amount: "100" })).status).toBe(403);
   });
 
   it("a project manager with the sponsors box keeps the sponsors and their money (CASH FROM) and nothing of the team's money", async () => {
     const as = api.as(SP);
-    const sponsor = await as.post("/api/funds", { name: "Acme", vatRate: 22 });
+    const sponsor = await as.post("/api/budget/funds", { name: "Acme", vatRate: 22 });
     expect(sponsor.status).toBe(201);
-    expect((await as.put(`/api/funds/${sponsor.body.id}/contracts/estimate`, { amount: "1000" })).status).toBe(200);
-    expect((await as.patch(`/api/funds/${sponsor.body.id}`, { name: "Acme 2" })).status).toBe(200);
-    expect((await as.del(`/api/funds/${sponsor.body.id}`)).status).toBe(204);
+    expect((await as.put(`/api/budget/funds/${sponsor.body.id}/contracts/estimate`, { amount: "1000" })).status).toBe(200);
+    expect((await as.patch(`/api/budget/funds/${sponsor.body.id}`, { name: "Acme 2" })).status).toBe(200);
+    expect((await as.del(`/api/budget/funds/${sponsor.body.id}`)).status).toBe(204);
     // some inflows are the sponsors' money: the sponsors box adds and deletes them; marking them received and the BANK stay with the treasury
-    const gala = await as.post("/api/inflows", { phase: "estimate", sourceName: "Gala", amount: "100" });
+    const gala = await as.post("/api/budget/inflows", { phase: "estimate", sourceName: "Gala", amount: "100" });
     expect(gala.status).toBe(201);
-    expect((await as.del(`/api/inflows/${gala.body.id}`)).status).toBe(204);
-    expect((await as.put("/api/bank", { amount: "100" })).status).toBe(403);
+    expect((await as.del(`/api/budget/inflows/${gala.body.id}`)).status).toBe(204);
+    expect((await as.put("/api/budget/bank", { amount: "100" })).status).toBe(403);
     expect((await as.get("/api/treasury-budget/inflows/receivable")).status).toBe(403);
-    expect((await as.post("/api/projects", { areaCode: "sw", name: "X" })).status).toBe(403);
+    expect((await as.post("/api/budget/projects", { areaCode: "sw", name: "X" })).status).toBe(403);
     expect((await as.get("/api/me")).body.permissions).toMatchObject({ canEditShared: true, canManageCash: false, canChangeInflows: true, canManageInventory: true, canViewHistory: true });
     // a project manager, with or without the treasury box, does not keep the sponsors unless the sponsors box is ticked
-    expect((await api.as(TREASURER).post("/api/funds", { name: "Beta", vatRate: 22 })).status).toBe(403);
+    expect((await api.as(TREASURER).post("/api/budget/funds", { name: "Beta", vatRate: 22 })).status).toBe(403);
   });
 
   it("the treasury and the sponsors are boxes of a project manager, set by an admin, and cleared when the person is anything else", async () => {
@@ -84,11 +84,11 @@ describe("who can use the register", () => {
     expect((await api.patch(`/api/users/${me.id}`, { role: "pm", flags: ["treasury"] })).body).toMatchObject({ role: "pm", flags: ["treasury"] });
 
     // the sponsors box opens CASH FROM, from the next request on, and goes with the role like the other one
-    expect((await as.post("/api/funds", { name: "Gamma", vatRate: 22 })).status).toBe(403);
+    expect((await as.post("/api/budget/funds", { name: "Gamma", vatRate: 22 })).status).toBe(403);
     expect((await api.patch(`/api/users/${me.id}`, { flags: ["treasury", "sponsors"] })).body).toMatchObject({ role: "pm", flags: ["sponsors", "treasury"] });
-    expect((await as.post("/api/funds", { name: "Gamma", vatRate: 22 })).status).toBe(201);
+    expect((await as.post("/api/budget/funds", { name: "Gamma", vatRate: 22 })).status).toBe(201);
     expect((await api.patch(`/api/users/${me.id}`, { role: "viewer" })).body).toMatchObject({ role: "viewer", flags: [] });
-    expect((await as.post("/api/funds", { name: "Delta", vatRate: 22 })).status).toBe(403);
+    expect((await as.post("/api/budget/funds", { name: "Delta", vatRate: 22 })).status).toBe(403);
     expect((await api.patch(`/api/users/${me.id}`, { flags: ["sponsors"] })).status).toBe(400); // not a project manager
     expect((await api.as(PM).patch(`/api/users/${me.id}`, { flags: ["treasury"] })).status).toBe(403); // admins only
   });
@@ -229,30 +229,30 @@ describe("the Voci and the payment methods", () => {
 });
 
 describe("the sponsorship box of an inflow", () => {
-  const vatOf = async () => (await api.get("/api/views/cashflow")).body.estimate.summary.teamOutflowsCents;
+  const vatOf = async () => (await api.get("/api/budget/views/cashflow")).body.estimate.summary.teamOutflowsCents;
 
   it("is on by default, as before: the inflow owes 11% VAT; off, it is money like a membership fee, without VAT", async () => {
-    await api.post("/api/inflows", { phase: "estimate", sourceName: "Sponsor", amount: "1000", inflowDate: "2026-01-09" });
+    await api.post("/api/budget/inflows", { phase: "estimate", sourceName: "Sponsor", amount: "1000", inflowDate: "2026-01-09" });
     expect(await vatOf()).toBe(11_000);
-    await api.post("/api/inflows", { phase: "estimate", sourceName: "Fees", amount: "2000", inflowDate: "2026-01-09", sponsorship: false });
+    await api.post("/api/budget/inflows", { phase: "estimate", sourceName: "Fees", amount: "2000", inflowDate: "2026-01-09", sponsorship: false });
     expect(await vatOf()).toBe(11_000); // the fees add no VAT...
-    const total = (await api.get("/api/views/cashflow")).body.estimate.summary.totalCashFlowCents;
+    const total = (await api.get("/api/budget/views/cashflow")).body.estimate.summary.totalCashFlowCents;
     expect(total).toBe(300_000); // ...but they are money in
-    const listed = (await api.get("/api/inflows?phase=estimate")).body;
+    const listed = (await api.get("/api/budget/inflows?phase=estimate")).body;
     expect(listed.map((i: any) => [i.sourceName, i.sponsorship]).sort()).toEqual([["Fees", false], ["Sponsor", true]]);
   });
 });
 
 describe("the BANK of CASH FLOW from the register", () => {
   const later = (days: number) => new Date(new Date(`${today()}T12:00:00Z`).getTime() + days * 86_400_000).toISOString().slice(0, 10);
-  const bank = async () => (await api.get("/api/bank")).body;
-  const cashFlow = async () => (await api.get("/api/views/cashflow")).body;
+  const bank = async () => (await api.get("/api/budget/bank")).body;
+  const cashFlow = async () => (await api.get("/api/budget/views/cashflow")).body;
   const money = async (year: number, account: string, amount: string, on: string, direction = "in") =>
     api.post("/api/treasury/entries", entry({ on, account, direction, amount, description: "x" }));
 
   it("is the one written by hand while the register cannot say, and the register's Cassa + Banca once it can", async () => {
     expect(await bank()).toBeNull();
-    await api.put("/api/bank", { amount: "100", asOfDate: "2026-02-01" });
+    await api.put("/api/budget/bank", { amount: "100", asOfDate: "2026-02-01" });
     expect(await bank()).toMatchObject({ amount: "100.00", asOfDate: "2026-02-01", source: "typed" });
 
     await money(2026, "bank", "50", "2026-03-01"); // movements without an opening balance are not a balance
@@ -273,14 +273,14 @@ describe("the BANK of CASH FLOW from the register", () => {
 
   it("starts CASH FLOW from it: inflows after its day count, and one that is late counts from the day after", async () => {
     await api.put("/api/treasury/openings", { year: 2026, account: "bank", amount: "1000" });
-    await api.post("/api/inflows", { phase: "estimate", sourceName: "Past", amount: "400", inflowDate: later(-3), sponsorship: false });
-    await api.post("/api/inflows", { phase: "estimate", sourceName: "Tomorrow", amount: "200", inflowDate: later(1), sponsorship: false });
-    await api.post("/api/inflows", { phase: "estimate", sourceName: "Later", amount: "300", inflowDate: later(40), sponsorship: false });
+    await api.post("/api/budget/inflows", { phase: "estimate", sourceName: "Past", amount: "400", inflowDate: later(-3), sponsorship: false });
+    await api.post("/api/budget/inflows", { phase: "estimate", sourceName: "Tomorrow", amount: "200", inflowDate: later(1), sponsorship: false });
+    await api.post("/api/budget/inflows", { phase: "estimate", sourceName: "Later", amount: "300", inflowDate: later(40), sponsorship: false });
     const summary = (await cashFlow()).estimate.summary;
     // "Past" was due and has not arrived (it is not in the register): it is late and still to come, not lost
     expect(summary.totalCashFlowCents).toBe(100_000 + 40_000 + 20_000 + 30_000);
     // the Gantt compares by day too with such a BANK: tomorrow's inflow is in it, even in the same month
-    const gantt = (await api.get("/api/views/gantt?phase=estimate")).body;
+    const gantt = (await api.get("/api/budget/views/gantt?phase=estimate")).body;
     const inflow = gantt.teamFund.rows.reduce((sum: number, r: { inflowCents: number }) => sum + r.inflowCents, 0);
     expect(inflow).toBe(100_000 + 40_000 + 20_000 + 30_000);
   });
@@ -289,7 +289,7 @@ describe("the BANK of CASH FLOW from the register", () => {
     await api.put("/api/treasury/openings", { year: 2026, account: "bank", amount: "1000" });
     await money(2026, "bank", "500", "2026-12-01");
     const old = (await api.post("/api/seasons", { startYear: 2025, car: "Old" })).body;
-    const view = (await api.get("/api/views/cashflow", { "x-season": String(old.id) })).body;
+    const view = (await api.get("/api/budget/views/cashflow", { "x-season": String(old.id) })).body;
     // 2025-2026 ended on 2026-08-31: the 500 of December is not in its BANK
     expect(view.bank).toEqual({ amountCents: 100_000, asOfDate: "2026-08-31" });
   });

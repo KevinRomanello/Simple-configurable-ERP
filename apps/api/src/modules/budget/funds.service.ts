@@ -5,9 +5,10 @@ import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { fund, fundContract, lineFund } from "../../db/schema/budget";
 import { canManageFunds, getCurrentUser } from "../../platform/auth/auth.service";
-import { getFixedSponsorRates, listVatRates } from "../../platform/lookups/lookups.service";
+import { listVatRates } from "../../platform/lookups/lookups.service";
+import { getFixedSponsorRates } from "./lookups.service";
 import { assertSeasonOpen, getCurrentSeason } from "../../platform/seasons/seasons.service";
-import { ensureSupplier, renameSupplier } from "../suppliers/suppliers.service";
+import { ensureSupplier, renameSupplier } from "./suppliers.service";
 
 async function assertCanManageShared() {
   const actor = await getCurrentUser();
@@ -55,7 +56,7 @@ function fundOut(row: FundRow, money: MoneyByPhase = NO_MONEY) {
 /**
  * The funds a line can be paid from in a phase: the team fund, every gift (it needs no money), every
  * sponsor that has a contract in that phase and every fund with no ceiling (it has no money, in both
- * phases). GET /api/funds?phase=. Without a phase, every fund.
+ * phases). GET /api/budget/funds?phase=. Without a phase, every fund.
  */
 export async function listFunds(phase?: Phase) {
   const season = await getCurrentSeason();

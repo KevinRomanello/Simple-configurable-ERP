@@ -1,23 +1,15 @@
-import { PRIORITIES, type BankCompareMode, type FundType, type Lookups, type Priority, type Quarter, type Settings, type StatementSpec, type VatRules } from "@erp/calc";
 import { asc } from "drizzle-orm";
 import { db } from "../../db/client";
 import { category, setting, vatRate } from "../../db/schema/platform";
-import { getCurrentSeason } from "../seasons/seasons.service";
-import { LOOKUP_DEFAULTS } from "./defaults";
 
-// The lists and switches that an admin sets on the Settings page (docs/impostazioni.md), plus the
-// fixed domain enums. What is still "hardcoded for now" lives INSIDE the function that will later
-// serve it (project rule 4) and is listed in docs/hardcoded-registry.md.
+// The lists of the core that every module writes with (docs/impostazioni.md): the categories and the VAT rates, and the switch of the
+// site that everybody is told about. The budget's lists and switches are in modules/budget/lookups.service.ts, the inventory's in
+// modules/inventory/lists.service.ts, the layout of the financial statement in the treasury (statement.service.ts).
 
 /** The categories, in their order (the blocks of TOTAL and of the Gantt follow it). */
 export async function listCategories(): Promise<string[]> {
   const rows = await db.select({ name: category.name }).from(category).orderBy(asc(category.position), asc(category.id));
   return rows.map((r) => r.name);
-}
-
-/** Fixed by design (red/orange/green in the sheet); not configurable. */
-export async function listPriorities(): Promise<readonly Priority[]> {
-  return PRIORITIES;
 }
 
 /** VAT rates a line can use, in percent. */
@@ -26,183 +18,9 @@ export async function listVatRates(): Promise<number[]> {
   return rows.map((r) => Number(r.rate));
 }
 
-/**
- * The VAT rate a line starts from when its price is typed with the VAT in it and no rate is chosen yet, in
- * percent: the main one, which the person can change on the line.
- */
-export async function getDefaultVatRate(): Promise<number> {
-  // HARDCODED: the main VAT rate will be a value of the Settings page, chosen among the VAT rates
-  return 22;
-}
-
-/**
- * The budget category of the lines of the derived area (what the team spends outside the budget, calculated from the
- * register). It is one of the categories of the Settings page, so it shows in the blocks of TOTAL and of the Gantt.
- */
-export async function getDerivedAreaCategory(): Promise<string> {
-  // HARDCODED: the category of the lines calculated from the register will be a value of the Settings page, chosen among the categories
-  return "Administration";
-}
-
-/**
- * The rows of the financial statement, in the order and with the labels the team must show (they are copied from the
- * sheet "voci di ricavocosto": docs/registro-di-cassa.md). `row` is the row of that sheet, which the sums refer to. A
- * Voce of the register is counted in the row that has its name, in every account. Three defects of the sheet are
- * corrected on purpose (the treasury agreed on 17 November 2026): Paypal is counted in every row, "4.4 da università"
- * is in section 4 and "PRODUTTIVE MARGINALI" in the total, so that every Voce row is added by some sum.
- */
-export async function getStatementLayout(): Promise<StatementSpec[]> {
-  // HARDCODED: the rows of the financial statement will be a list of the Settings page, kept by the admin
-  return [
-    { row: 1, kind: "title", label: "RICAVI" },
-    { row: 2, kind: "voce", label: "1. QUOTE ASSOCIATIVE", bold: true },
-    { row: 3, kind: "sum", label: "2. CONTRIBUTI DEGLI ASSOCIATI E DEI TESSERATI", of: [4, 5, 6], total: false },
-    { row: 4, kind: "voce", label: "2.1 da soci e tesserati", bold: false },
-    { row: 5, kind: "voce", label: "2.2 da altre associazioni", bold: false },
-    { row: 6, kind: "voce", label: "2.3 da altri (ad es. Federazioni)", bold: false },
-    { row: 7, kind: "sum", label: "3. EROGAZIONI LIBERALI RICEVUTE", of: [8, 9], total: false },
-    { row: 8, kind: "voce", label: "3.1 da soci", bold: false },
-    { row: 9, kind: "voce", label: "3.2 da non soci", bold: false },
-    { row: 10, kind: "sum", label: "4. CONTRIBUTI DA ENTI PUBBLICI", of: [11, 12, 13, 14], total: false },
-    { row: 11, kind: "voce", label: "4.1 da comune, provincia, regione, stato", bold: false },
-    { row: 12, kind: "voce", label: "4.2 da Comunità europea e da altri organismi internazionali", bold: false },
-    { row: 13, kind: "voce", label: "4.3 da 5 per mille", bold: false },
-    { row: 14, kind: "voce", label: "4.4 da università", bold: false },
-    { row: 15, kind: "voce", label: "5. ENTRATE DA ATTIVITA’ COMMERCIALI", bold: true },
-    { row: 16, kind: "voce", label: "PRODUTTIVE MARGINALI (Eventi di raccolta fondi)", bold: false },
-    { row: 17, kind: "sum", label: "TOTALE RICAVI DA ATTIVITA' ISTITUZIONALE (tipica)", of: [2, 3, 7, 10, 15, 16], total: true },
-    { row: 18, kind: "sum", label: "6. ENTRATE COMMERCIALI (da attività accessoria)", of: [19, 20, 21], total: false },
-    { row: 19, kind: "voce", label: "6.1 Da pubblicità e sponsorizzazioni", bold: false },
-    { row: 20, kind: "voce", label: "6.2 per attività svolte nei confronti di non associati", bold: false },
-    { row: 21, kind: "voce", label: "6.3 Entrate commerciali di altro tipo (rimborsi)", bold: false },
-    { row: 22, kind: "sum", label: "TOTALE RICAVI DA ATTIVITA' COMMERCIALE (accessoria)", of: [18], total: true },
-    { row: 23, kind: "sum", label: "7. ALTRE ENTRATE", of: [24, 25, 26], total: false },
-    { row: 24, kind: "voce", label: "7.1 Da rendite patrimoniali", bold: false },
-    { row: 25, kind: "voce", label: "7.2 rendite finanziarie", bold: false },
-    { row: 26, kind: "voce", label: "7.3 altro: CAMBI ATTIVI", bold: false },
-    { row: 27, kind: "sum", label: "TOTALE RICAVI", of: [17, 22, 23], total: true },
-    { row: 28, kind: "blank" },
-    { row: 29, kind: "title", label: "COSTI" },
-    { row: 30, kind: "sum", label: "1. ACQUISTO DI BENI E DI MERCI", of: [31, 32, 33, 34], total: false },
-    { row: 31, kind: "voce", label: "1.1 Attrezzature", bold: false },
-    { row: 32, kind: "voce", label: "1.2 Cancelleria e materiali da ufficio", bold: false },
-    { row: 33, kind: "voce", label: "1.3 Materiale sportivo (per le ASD)", bold: false },
-    { row: 34, kind: "voce", label: "1.4 Altro", bold: false },
-    { row: 35, kind: "sum", label: "2. ACQUISTO DI SERVIZI", of: [36, 37, 38, 39, 40], total: false },
-    { row: 36, kind: "voce", label: "2.1 Assicurazioni", bold: false },
-    { row: 37, kind: "voce", label: "2.2 Servizi informatici", bold: false },
-    { row: 38, kind: "voce", label: "2.3 Spese postali", bold: false },
-    { row: 39, kind: "voce", label: "2.4 Consulenze/ servizi contabili", bold: false },
-    { row: 40, kind: "voce", label: "2.5 Altri", bold: false },
-    { row: 41, kind: "sum", label: "3. UTENZE (telefono, luce, riscaldamento,…)", of: [42, 43, 44, 45], total: false },
-    { row: 42, kind: "voce", label: "3.1 Luce", bold: false },
-    { row: 43, kind: "voce", label: "3.2 Acqua", bold: false },
-    { row: 44, kind: "voce", label: "3.3 Gas", bold: false },
-    { row: 45, kind: "voce", label: "3.4 Altre", bold: false },
-    { row: 46, kind: "sum", label: "4. GODIMENTO BENI DI TERZI (affitti e noleggi)", of: [47, 48, 49], total: false },
-    { row: 47, kind: "voce", label: "4.1 Affitti", bold: false },
-    { row: 48, kind: "voce", label: "4.2 Noleggi", bold: false },
-    { row: 49, kind: "voce", label: "4.3 Altri", bold: false },
-    { row: 50, kind: "sum", label: "5. AFFILIAZIONI E TESSERAMENTI", of: [51, 52], total: false },
-    { row: 51, kind: "voce", label: "5.1 Affiliazioni a federazioni", bold: false },
-    { row: 52, kind: "voce", label: "5.2 Altri", bold: false },
-    { row: 53, kind: "sum", label: "6. COSTI PER COLLABORATORI", of: [54, 55, 56], total: false },
-    { row: 54, kind: "voce", label: "6.1 Costi per collaboratori (occasionali, forfettari e dipendenti)", bold: false },
-    { row: 55, kind: "voce", label: "6.2 Rimborsi spese analitici", bold: false },
-    { row: 56, kind: "voce", label: "6.3 Altri costi", bold: false },
-    { row: 57, kind: "sum", label: "7. COSTI BANCARI", of: [58, 59], total: false },
-    { row: 58, kind: "voce", label: "7.1 Commissioni e spese tenuta conto", bold: false },
-    { row: 59, kind: "voce", label: "7.2 Altri", bold: false },
-    { row: 60, kind: "sum", label: "8. IMPOSTE E TASSE", of: [61, 62, 63, 64], total: false },
-    { row: 61, kind: "voce", label: "8.1 IRES/IRAP", bold: false },
-    { row: 62, kind: "voce", label: "8.2 Imposta di bollo", bold: false },
-    { row: 63, kind: "voce", label: "8.3 Dazi doganali", bold: false },
-    { row: 64, kind: "sum", label: "9. IVA", of: [65, 66, 67], total: false },
-    { row: 65, kind: "voce", label: "9.1 IVA a credito", bold: false },
-    { row: 66, kind: "voce", label: "9.2 IVA a debito", bold: false },
-    { row: 67, kind: "voce", label: "9.3 Liquidazione IVA", bold: false },
-    { row: 68, kind: "sum", label: "TOTALE COSTI", of: [30, 35, 41, 46, 50, 53, 57, 60], total: true },
-    { row: 69, kind: "blank" },
-    { row: 70, kind: "result", label: "AVANZO O DISAVANZO DI GESTIONE", plus: 27, minus: 68 },
-  ];
-}
-
-/**
- * The VAT rate a kind of sponsor cannot choose, in percent: goods given for free owe no VAT, goods
- * given against an advertising counter-invoice always owe the same. The other kinds choose their own.
- */
-export async function getFixedSponsorRates(): Promise<Partial<Record<FundType, number>>> {
-  // HARDCODED: the VAT of the counter-invoice (11%) will be a value of the Settings page
-  return { gift: 0, gift_vat: 11 };
-}
-
-/** When the VAT of a purchase falls due (ASD, Legge 398/1991 quarterly planning). */
-export async function getVatRules(): Promise<VatRules> {
-  // HARDCODED: goes away when the VAT of the lines is paid on the payment date (docs/sponsor-e-fondi.md).
-  // Purchases of Jan-Mar are due 16 May, Apr-Jun 20 Aug, Jul-Sep 16 Nov, Oct-Dec 16 Feb of the
-  // next year. Weekends move to Monday; holidays and extraordinary extensions are not modelled.
-  return {
-    deadlines: [
-      { quarter: 1, month: 5, day: 16, yearOffset: 0 },
-      { quarter: 2, month: 8, day: 20, yearOffset: 0 },
-      { quarter: 3, month: 11, day: 16, yearOffset: 0 },
-      { quarter: 4, month: 2, day: 16, yearOffset: 1 },
-    ],
-    shiftWeekendToMonday: true,
-  };
-}
-
-/**
- * The default span of the per-area VAT report for the season starting in September of `startYear`:
- * its quarters and the deadlines after them. It widens by itself around the purchase dates.
- */
-function vatReportHorizon(startYear: number): { from: Quarter; to: Quarter } {
-  // HARDCODED: goes away when the VAT of the lines is paid on the payment date (docs/sponsor-e-fondi.md)
-  return { from: { year: startYear, quarter: 3 }, to: { year: startYear + 1, quarter: 4 } };
-}
-
-/** The switches of the calculation, as an admin set them on the Settings page. */
-export async function getSettings(): Promise<Settings> {
-  const [row] = await db.select().from(setting);
-  if (!row) throw new Error("The settings are missing: run the migrations (pnpm db:migrate)");
-  return {
-    varianceThreshold: Number(row.varianceThreshold),
-    vatBaseWhenTotalSponsor: row.vatBaseWhenTotalSponsor as Settings["vatBaseWhenTotalSponsor"],
-    inflowVatRate: Number(row.inflowVatRate),
-    bankCompare: { summary: row.bankCompareSummary as BankCompareMode, timeline: row.bankCompareTimeline as BankCompareMode },
-    vatReportHorizon: vatReportHorizon(Number((await getCurrentSeason()).startsOn.slice(0, 4))),
-  };
-}
-
 /** Whether the site can be changed from a phone: an admin switch of the Settings page (everybody reads it, with who they are). */
 export async function getEditOnPhone(): Promise<boolean> {
   const [row] = await db.select({ editOnPhone: setting.editOnPhone }).from(setting);
   if (!row) throw new Error("The settings are missing: run the migrations (pnpm db:migrate)");
   return row.editOnPhone;
-}
-
-/**
- * The lookups of the old sheet, whatever an admin changed since: what the reconciliation with the
- * sheet compares with. No database needed.
- */
-export async function defaultLookups(): Promise<Lookups> {
-  return {
-    categories: LOOKUP_DEFAULTS.categories.map((c) => c.name),
-    priorities: PRIORITIES,
-    vatRates: LOOKUP_DEFAULTS.vatRates,
-    vatRules: await getVatRules(),
-    settings: { ...LOOKUP_DEFAULTS.settings, vatReportHorizon: vatReportHorizon(2026) }, // the old sheet is the budget 2026-27
-  };
-}
-
-/** All lookups in the shape the calculation engine wants them (part of every snapshot). */
-export async function loadLookups(): Promise<Lookups> {
-  const [categories, priorities, vatRates, vatRules, settings] = await Promise.all([
-    listCategories(),
-    listPriorities(),
-    listVatRates(),
-    getVatRules(),
-    getSettings(),
-  ]);
-  return { categories, priorities, vatRates, vatRules, settings };
 }

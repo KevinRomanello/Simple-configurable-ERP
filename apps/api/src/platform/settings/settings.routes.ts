@@ -8,7 +8,6 @@ import {
   deleteVatRate,
   orderCategories,
   readSettings,
-  updateCalculation,
   updateCategory,
   updateSite,
 } from "./settings.service";
@@ -18,7 +17,6 @@ const idParam = z.object({ id });
 const name = shortText(60);
 const order = z.object({ ids: z.array(id).max(500) });
 const percent = z.number().min(0).max(100).refine((n) => Math.abs(n * 100 - Math.round(n * 100)) < 1e-9, "At most two decimals");
-const compare = z.enum(["day", "month"]);
 
 export async function settingsRoutes(app: FastifyInstance) {
   app.get("/settings", () => readSettings());
@@ -48,19 +46,6 @@ export async function settingsRoutes(app: FastifyInstance) {
 
   app.patch("/settings/site", async (request, reply) => {
     await updateSite(z.object({ editOnPhone: z.boolean() }).parse(request.body));
-    return reply.code(204).send();
-  });
-
-  app.patch("/settings/calculation", async (request, reply) => {
-    const body = z
-      .object({
-        varianceThreshold: z.number().min(0).max(1).optional(),
-        vatBaseWhenTotalSponsor: z.enum(["net", "net-minus-sponsor"]).optional(),
-        inflowVatRate: percent.optional(),
-        bankCompare: z.object({ summary: compare.optional(), timeline: compare.optional() }).optional(),
-      })
-      .parse(request.body);
-    await updateCalculation(body);
     return reply.code(204).send();
   });
 }

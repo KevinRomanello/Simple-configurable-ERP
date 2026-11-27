@@ -24,9 +24,9 @@ const entry = async (body: object) => {
   return created.body;
 };
 const inflow = async (body: object = {}) =>
-  (await api.post("/api/inflows", { phase: "estimate", sourceName: "Acme", amount: "500", inflowDate: later(-5), sponsorship: true, ...body })).body;
-const inflows = async (phase = "estimate") => (await api.get(`/api/inflows?phase=${phase}`)).body;
-const cashFlow = async () => (await api.get("/api/views/cashflow")).body;
+  (await api.post("/api/budget/inflows", { phase: "estimate", sourceName: "Acme", amount: "500", inflowDate: later(-5), sponsorship: true, ...body })).body;
+const inflows = async (phase = "estimate") => (await api.get(`/api/budget/inflows?phase=${phase}`)).body;
+const cashFlow = async () => (await api.get("/api/budget/views/cashflow")).body;
 const register = async () => (await api.get(`/api/treasury/register?year=${year}`)).body;
 
 describe("an expected inflow that arrives", () => {
@@ -102,17 +102,17 @@ describe("an expected inflow that arrives", () => {
     expect((await api.as(TREASURER).post(`/api/treasury-budget/inflows/${gala.id}/receive`, { on: today(), account: "bank" })).status).toBe(204);
     // the sponsors box adds and deletes inflows but cannot take apart what the treasury received: not undo it, not delete it
     expect((await api.as(SP).del(`/api/treasury-budget/inflows/${gala.id}/receive`)).status).toBe(403);
-    expect((await api.as(SP).del(`/api/inflows/${gala.id}`)).status).toBe(403);
+    expect((await api.as(SP).del(`/api/budget/inflows/${gala.id}`)).status).toBe(403);
 
     // the money that arrived with the sponsorship box is also an actual inflow now, read from the register
-    expect((await api.get("/api/inflows?phase=actual")).body).toMatchObject([{ sourceName: "Acme", source: "register" }]);
+    expect((await api.get("/api/budget/inflows?phase=actual")).body).toMatchObject([{ sourceName: "Acme", source: "register" }]);
     expect((await api.post("/api/treasury-budget/inflows/99999/receive", { on: today(), account: "bank" })).status).toBe(404);
     expect((await api.post(`/api/treasury-budget/inflows/${gala.id}/receive`, { on: "nope", account: "bank" })).status).toBe(400);
     expect((await api.post(`/api/treasury-budget/inflows/${gala.id}/receive`, {})).status).toBe(400);
   });
 
   it("is not a thing when the BANK is written by hand: the expected inflows count as they always did", async () => {
-    await api.put("/api/bank", { amount: "100", asOfDate: later(-10) });
+    await api.put("/api/budget/bank", { amount: "100", asOfDate: later(-10) });
     await inflow({ amount: "500", inflowDate: later(-5) });
     expect((await inflows())[0]).toMatchObject({ late: false });
     expect((await cashFlow()).estimate.summary.totalCashFlowCents).toBe(10_000 + 50_000);
@@ -121,7 +121,7 @@ describe("an expected inflow that arrives", () => {
 
 describe("the actual side with the BANK from the register", () => {
   it("is the sponsorship money of the register in the season, read only; typed actual inflows are not used", async () => {
-    await api.post("/api/inflows", { phase: "actual", sourceName: "Typed before", amount: "70" });
+    await api.post("/api/budget/inflows", { phase: "actual", sourceName: "Typed before", amount: "70" });
     await openRegister();
     await entry({ description: "Sponsor wire", amount: "300", sponsorship: true });
     await entry({ description: "Membership fee", amount: "40", sponsorship: false });
@@ -131,14 +131,14 @@ describe("the actual side with the BANK from the register", () => {
     const actual = await inflows("actual");
     expect(actual).toHaveLength(1);
     expect(actual[0]).toMatchObject({ sourceName: "Sponsor wire", amount: "300.00", source: "register", inflowDate: today() });
-    expect((await api.post("/api/inflows", { phase: "actual", sourceName: "X", amount: "1" })).status).toBe(400);
-    expect((await api.post("/api/inflows", { phase: "estimate", sourceName: "X", amount: "1" })).status).toBe(201);
+    expect((await api.post("/api/budget/inflows", { phase: "actual", sourceName: "X", amount: "1" })).status).toBe(400);
+    expect((await api.post("/api/budget/inflows", { phase: "estimate", sourceName: "X", amount: "1" })).status).toBe(201);
     // the VAT of the sponsorship that reached the register is owed, the fee owes none
     expect((await cashFlow()).actual.summary.teamOutflowsCents).toBe(3_300);
   });
 
   it("goes back to the typed inflows when the register cannot give the BANK", async () => {
-    await api.post("/api/inflows", { phase: "actual", sourceName: "Typed", amount: "70" });
+    await api.post("/api/budget/inflows", { phase: "actual", sourceName: "Typed", amount: "70" });
     expect((await inflows("actual")).map((i: { sourceName: string }) => i.sourceName)).toEqual(["Typed"]);
   });
 });
@@ -146,9 +146,9 @@ describe("the actual side with the BANK from the register", () => {
 describe("a payment that paid lines of the budget", () => {
   /** A line the team fund pays 1000 for (plus 22% VAT), bought on `purchaseDate`. */
   async function line(purchaseDate: string | null, item = "Sensor") {
-    const { id } = (await api.get("/api/areas/mt-dmt/sheet")).body.projects[0] ?? (await api.post("/api/projects", { areaCode: "mt-dmt", name: "Steering" })).body;
-    const team = (await api.get("/api/funds")).body.find((f: { kind: string }) => f.kind === "team");
-    const created = await api.post(`/api/projects/${id}/lines`, {
+    const { id } = (await api.get("/api/budget/areas/mt-dmt/sheet")).body.projects[0] ?? (await api.post("/api/budget/projects", { areaCode: "mt-dmt", name: "Steering" })).body;
+    const team = (await api.get("/api/budget/funds")).body.find((f: { kind: string }) => f.kind === "team");
+    const created = await api.post(`/api/budget/projects/${id}/lines`, {
       item,
       figures: { actual: { quantity: 1, unitNetCost: "1000", sponsorType: "none", vatRate: 22, fundIds: [team.id], ...(purchaseDate ? { purchaseDate } : {}) } },
     });
@@ -180,7 +180,7 @@ describe("a payment that paid lines of the budget", () => {
     // both were bought before the BANK day: their purchases are in it already, only the VAT (on its deadline) is still to come
     const before = await outflows();
     const ganttTotal = async () =>
-      ((await api.get("/api/views/gantt?phase=actual")).body.teamFund.rows as { outflowAllCents: number }[]).reduce((sum, r) => sum + r.outflowAllCents, 0);
+      ((await api.get("/api/budget/views/gantt?phase=actual")).body.teamFund.rows as { outflowAllCents: number }[]).reduce((sum, r) => sum + r.outflowAllCents, 0);
     const ganttBefore = await ganttTotal();
 
     const bill = await entry({ direction: "out", amount: "400", on: later(-9) });
@@ -193,13 +193,13 @@ describe("a payment that paid lines of the budget", () => {
   });
 
   it("ignores the payments when the BANK is written by hand: they are not in it", async () => {
-    await api.put("/api/bank", { amount: "100", asOfDate: later(-3) });
+    await api.put("/api/budget/bank", { amount: "100", asOfDate: later(-3) });
     const sensor = await line(later(20));
     await openRegister(); // the register has the BANK now; it is taken away again below
     const bill = await entry({ direction: "out", amount: "400", on: later(-1) });
     await pay(bill.id, [{ lineId: sensor, amount: "400" }]);
     await api.put("/api/treasury/openings", { year, account: "bank", amount: null });
-    expect((await api.get("/api/bank")).body.source).toBe("typed");
+    expect((await api.get("/api/budget/bank")).body.source).toBe("typed");
     expect(await outflows()).toBe(100_000 + 22_000);
   });
 
@@ -267,9 +267,9 @@ describe("a payment that paid lines of the budget", () => {
 describe("a payment covers the net first and then the VAT, in the forecast", () => {
   // a line of 1000,00 + 22% bought 10 days ago: the net is in the past, the VAT is due after the BANK day
   async function bought(purchaseDate: string) {
-    const { id } = (await api.post("/api/projects", { areaCode: "mt-dmt", name: "Steering" })).body;
-    const team = (await api.get("/api/funds")).body.find((f: { kind: string }) => f.kind === "team");
-    const created = await api.post(`/api/projects/${id}/lines`, {
+    const { id } = (await api.post("/api/budget/projects", { areaCode: "mt-dmt", name: "Steering" })).body;
+    const team = (await api.get("/api/budget/funds")).body.find((f: { kind: string }) => f.kind === "team");
+    const created = await api.post(`/api/budget/projects/${id}/lines`, {
       item: "Sensor",
       figures: { actual: { quantity: 1, unitNetCost: "1000", sponsorType: "none", vatRate: 22, fundIds: [team.id], purchaseDate } },
     });
@@ -292,10 +292,10 @@ describe("a payment covers the net first and then the VAT, in the forecast", () 
 
 describe("TO PAY: what the team still owes of the lines bought", () => {
   async function bought(purchaseDate: string | null, item = "Sensor", net = "1000") {
-    const projects = (await api.get("/api/areas/mt-dmt/sheet")).body.projects;
-    const { id } = projects[0] ?? (await api.post("/api/projects", { areaCode: "mt-dmt", name: "Steering" })).body;
-    const team = (await api.get("/api/funds")).body.find((f: { kind: string }) => f.kind === "team");
-    const created = await api.post(`/api/projects/${id}/lines`, {
+    const projects = (await api.get("/api/budget/areas/mt-dmt/sheet")).body.projects;
+    const { id } = projects[0] ?? (await api.post("/api/budget/projects", { areaCode: "mt-dmt", name: "Steering" })).body;
+    const team = (await api.get("/api/budget/funds")).body.find((f: { kind: string }) => f.kind === "team");
+    const created = await api.post(`/api/budget/projects/${id}/lines`, {
       item,
       category: "Asset",
       figures: { actual: { quantity: 1, unitNetCost: net, sponsorType: "none", vatRate: 22, fundIds: [team.id], ...(purchaseDate ? { purchaseDate } : {}) } },
@@ -409,7 +409,7 @@ describe("TO PAY: what the team still owes of the lines bought", () => {
 
 describe("the addresses", () => {
   it("are the register's (/api/treasury) and the bridge's (/api/treasury-budget): the old ones are gone, with no redirect", async () => {
-    for (const old of ["/api/cash/register", "/api/cash/to-pay", "/api/cash/payable-lines", "/api/cash/category-defaults", "/api/inflows/receivable", "/api/inflows/related?inflowId=1"]) {
+    for (const old of ["/api/cash/register", "/api/cash/to-pay", "/api/cash/payable-lines", "/api/cash/category-defaults", "/api/budget/inflows/receivable", "/api/budget/inflows/related?inflowId=1"]) {
       expect((await api.get(old)).status, old).toBe(404);
     }
     expect((await api.get("/api/treasury/register")).status).toBe(200);
