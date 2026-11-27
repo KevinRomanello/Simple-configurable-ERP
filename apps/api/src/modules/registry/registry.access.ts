@@ -2,9 +2,9 @@ import { atLeast, canSeeTable, isFilter, recordPermission, tablePermission, view
 import { eq, sql } from "drizzle-orm";
 import { forbidden, invalid, notFound } from "../../core/errors";
 import { db } from "../../db/client";
-import { regTable } from "../../db/schema";
-import { userStorage } from "../auth/auth.context";
-import type { User } from "../auth/auth.service";
+import { regTable } from "../../db/schema/registry";
+import { userStorage } from "../../platform/auth/auth.context";
+import type { User } from "../../platform/auth/auth.service";
 
 // Who is looking and what they may do, for the services of the registry. The rules themselves are in the
 // engine (packages/registry/src/access.ts); here they meet the signed-in user of the request.

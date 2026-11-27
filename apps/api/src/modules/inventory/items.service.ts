@@ -3,22 +3,23 @@ import {
   type Bom, type PricePoint, type StockRow,
 } from "@erp/calc";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { conflict, forbidden, invalid, notFound } from "../../core/errors";
+import { contracts, type Db } from "../../core/contracts";
+import { conflict, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { today } from "../../core/today";
 import { db } from "../../db/client";
-import { appUser, area, componentPart, inventoryItem, itemDatasheet, itemImage, project, stockMovement } from "../../db/schema";
-import { canManageInventory, getCurrentUser } from "../auth/auth.service";
-import { listCategories, listLocations, listUnits } from "../lookups/lookups.service";
+import { componentPart, inventoryItem, itemDatasheet, itemImage, stockMovement } from "../../db/schema/inventory";
+import { appUser, area } from "../../db/schema/platform";
+import { listCategories } from "../../platform/lookups/lookups.service";
+import { currentActive } from "../../platform/platform.public";
+import { keepMakeProject, knownProjects, makeProjects, movementTies } from "./inventory.ports";
+import { assertCanManageInventory } from "./access";
+import { listLocations, listUnits } from "./lists.service";
 import { IMAGE_LIMITS, type CreateItemInput, type ParamFilter, type PriceQuery, type UpdateItemInput } from "./inventory.schema";
 import { itemLabel, loadInventory } from "./inventory.data";
 import { categoryOfType, checkAreaAndType, itemsMatching, subtreeIds, valuesByItem, writeValues, type ParamValues } from "./types.service";
 
-export async function assertCanManageInventory() {
-  const actor = await getCurrentUser();
-  if (!(await canManageInventory(actor))) throw forbidden("You cannot change the inventory");
-  return actor;
-}
+export { assertCanManageInventory } from "./access";
 
 type MakeDefaults = { makeProjectId?: number | null; makeTo?: string | null; makeToSpot?: string };
 
@@ -26,7 +27,7 @@ type MakeDefaults = { makeProjectId?: number | null; makeTo?: string | null; mak
 async function checkMakeDefaults(origin: "bought" | "made", input: MakeDefaults) {
   const set = input.makeProjectId != null || input.makeTo != null || (input.makeToSpot ?? "") !== "";
   if (set && origin !== "made") throw invalid("Only an item made by the team has what it takes to make some");
-  if (input.makeProjectId != null && (await db.select({ id: project.id }).from(project).where(eq(project.id, input.makeProjectId))).length === 0) {
+  if (input.makeProjectId != null && (await contracts.ask(knownProjects, currentActive(), db, { ids: [input.makeProjectId] })).length === 0) {
     throw invalid(`Unknown project ${input.makeProjectId}`);
   }
   const places = (await listLocations()).map((l) => l.code);
@@ -65,17 +66,34 @@ async function assertNotTaken(tx: Pick<Tx, "select">, item: Identity, exceptId?:
   if (found) throw conflict(`There is already an item "${itemLabel(found)}" with this name, brand and model or this code`);
 }
 
+/** The project «Make new» starts from, for these items (or every item), from whoever keeps it (the bridge to the budget; none without it). */
+export async function makeProjectsOf(reader: Db, itemIds?: number[]): Promise<Map<number, number>> {
+  const rows = itemIds !== undefined && itemIds.length === 0 ? [] : await contracts.ask(makeProjects, currentActive(), reader, itemIds === undefined ? {} : { itemIds });
+  return new Map(rows.map((r) => [r.itemId, r.projectId]));
+}
+
+/** An item as its pages and its writes answer it: its row and the project «Make new» starts from. */
+export async function withMakeProject<T extends { id: number }>(reader: Db, item: T): Promise<T & { makeProjectId: number | null }> {
+  return { ...item, makeProjectId: (await makeProjectsOf(reader, [item.id])).get(item.id) ?? null };
+}
+
+/** Sets (or, with null, takes away) the project «Make new» starts from: whoever keeps it does (the bridge to the budget). */
+async function setMakeProject(tx: Tx, itemId: number, projectId: number | null) {
+  await contracts.ask(keepMakeProject, currentActive(), tx, { itemId, projectId });
+}
+
 /** Creates an item (used by the receiving flow too, inside its own transaction). */
 export async function insertItem(tx: Tx, input: CreateItemInput) {
-  const { params, ...columns } = input;
+  const { params, makeProjectId, ...columns } = input;
   await checkItemFields(columns);
-  await checkMakeDefaults(columns.origin, columns);
+  await checkMakeDefaults(columns.origin, { ...columns, makeProjectId });
   await assertNotTaken(tx, columns);
   // an item takes the category of its type: what is sent is only for an item without a type (or of a type with none yet)
   const category = (await categoryOfType(tx, columns.typeId)) ?? columns.category;
   const [created] = await tx.insert(inventoryItem).values({ ...columns, category }).returning();
   await writeValues(tx, created!.id, created!.typeId, params);
-  return created!;
+  if (makeProjectId != null) await setMakeProject(tx, created!.id, makeProjectId);
+  return { ...created!, makeProjectId: makeProjectId ?? null };
 }
 
 export async function createItem(input: CreateItemInput) {
@@ -85,12 +103,12 @@ export async function createItem(input: CreateItemInput) {
 
 export async function updateItem(itemId: number, input: UpdateItemInput) {
   const actor = await assertCanManageInventory();
-  const { params = [], ...columns } = input;
+  const { params = [], makeProjectId, ...columns } = input;
   await checkItemFields(columns);
   return runWrite(actor, async (tx) => {
     const [target] = await tx.select().from(inventoryItem).where(eq(inventoryItem.id, itemId)).for("update");
     if (!target) throw notFound("Item");
-    await checkMakeDefaults(target.origin, columns);
+    await checkMakeDefaults(target.origin, { ...columns, makeProjectId });
     let updated = target;
     // the category follows the type (the one the item has now, or the one it is given): see insertItem
     const typeCategory = columns.typeId !== undefined || columns.category !== undefined ? await categoryOfType(tx, columns.typeId === undefined ? target.typeId : columns.typeId) : null;
@@ -102,7 +120,8 @@ export async function updateItem(itemId: number, input: UpdateItemInput) {
     }
     // checked against the type the item has now: a type and its parameters can change together
     await writeValues(tx, itemId, updated.typeId, params);
-    return updated;
+    if (makeProjectId !== undefined) await setMakeProject(tx, itemId, makeProjectId);
+    return withMakeProject(tx, updated);
   });
 }
 
@@ -247,7 +266,7 @@ export interface DatasheetRow {
 }
 
 export interface ItemDetail {
-  item: typeof inventoryItem.$inferSelect;
+  item: typeof inventoryItem.$inferSelect & { makeProjectId: number | null };
   /** What is written in the parameters of its type. */
   values: ParamValues;
   datasheets: DatasheetRow[];
@@ -281,18 +300,20 @@ export async function getItem(itemId: number, query: PriceQuery): Promise<ItemDe
     .where(eq(itemDatasheet.itemId, itemId))
     .orderBy(itemDatasheet.id);
   const [image] = await db.select({ id: itemImage.itemId }).from(itemImage).where(eq(itemImage.itemId, itemId));
-  const rows = await db
-    .select({ movement: stockMovement, projectName: project.name })
-    .from(stockMovement)
-    .leftJoin(project, eq(stockMovement.projectId, project.id))
-    .where(eq(stockMovement.itemId, itemId))
-    .orderBy(desc(stockMovement.occurredOn), desc(stockMovement.id))
-    .limit(200);
+  const moves = await db.select().from(stockMovement).where(eq(stockMovement.itemId, itemId)).orderBy(desc(stockMovement.occurredOn), desc(stockMovement.id)).limit(200);
+  // the project and the purchase of each movement, from whoever ties them (the bridge to the budget)
+  const ties = new Map((await contracts.ask(movementTies, currentActive(), db, { movementIds: moves.map((m) => m.id) })).map((t) => [t.movementId, t]));
+  const projectIds = [...new Set([...ties.values()].flatMap((t) => (t.projectId === null ? [] : [t.projectId])))];
+  const projectNames = new Map(projectIds.length === 0 ? [] : (await contracts.ask(knownProjects, currentActive(), db, { ids: projectIds })).map((p) => [p.id, p.name]));
+  const rows = moves.map((movement) => {
+    const tie = ties.get(movement.id);
+    return { movement, projectName: tie?.projectId == null ? null : (projectNames.get(tie.projectId) ?? null), budgetLineId: tie?.lineId ?? null };
+  });
   const made = data.parts.some((p) => p.componentId === itemId);
   const itemsById = new Map(data.items.map((i) => [i.id, i]));
 
   return {
-    item,
+    item: await withMakeProject(db, item),
     values: (await valuesByItem(db, itemId)).get(itemId) ?? {},
     datasheets: sheets.map((s) => ({ ...s, uploadedAt: s.uploadedAt.toISOString() })),
     hasImage: image !== undefined,
@@ -302,7 +323,7 @@ export async function getItem(itemId: number, query: PriceQuery): Promise<ItemDe
     unitE4: cost.unitE4,
     complete: cost.complete,
     history: priceHistory(data.movements, itemId, query.basis),
-    movements: rows.map(({ movement: m, projectName }) => ({
+    movements: rows.map(({ movement: m, projectName, budgetLineId }) => ({
       id: m.id,
       kind: m.kind,
       on: m.occurredOn,
@@ -315,7 +336,7 @@ export async function getItem(itemId: number, query: PriceQuery): Promise<ItemDe
       unitGross: m.unitGross,
       unitTeam: m.unitTeam,
       projectName,
-      budgetLineId: m.budgetLineId,
+      budgetLineId,
       builtBy: m.builtBy,
       note: m.note,
     })),

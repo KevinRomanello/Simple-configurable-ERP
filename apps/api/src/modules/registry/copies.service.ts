@@ -3,8 +3,8 @@ import { fieldProblem, formulaRefs, fromText, groupLevels, isStored, normalizeVa
 import { eq, sql } from "drizzle-orm";
 import { conflict, invalid, notFound } from "../../core/errors";
 import { db } from "../../db/client";
-import { regField, regRecord, regTable, regView } from "../../db/schema";
-import { getCurrentUser, requireAdmin } from "../auth/auth.service";
+import { regField, regRecord, regTable, regView } from "../../db/schema/registry";
+import { getCurrentUser, requireAdmin } from "../../platform/auth/auth.service";
 import { loadRegistry } from "./registry.data";
 import { registryWrite, saveRecords } from "./registry.write";
 import { fieldOut, getTable, managed, viewOut } from "./schema.service";

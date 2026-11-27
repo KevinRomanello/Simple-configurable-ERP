@@ -65,7 +65,7 @@ Ruolo, aree e stato "attivo" si **rileggono dal database a ogni richiesta** (una
 
 ## 3. Come si protegge l'API
 
-- Un controllo comune (`addAuthHook`, in `modules/auth/auth.routes.ts`) gira prima di ogni rotta: tutto `/api/*` richiede un token valido di un utente attivo, tranne `/api/health` e `/api/auth/{config,login,callback,dev-login,logout}`. Altrimenti: **401**. I moduli e le viste pubbliche delle anagrafiche (`/api/registry/public/*`) sono aperti a tutti: chi è entrato è riconosciuto lo stesso (un modulo per i membri lo vuole), gli altri vanno avanti come nessuno; il servizio decide (anagrafiche.md, §8). Quello che vi si manda conta in un limite di richieste a parte, stretto (20 al minuto per indirizzo).
+- Un controllo comune (`addAuthHook`, in `platform/auth/auth.routes.ts`) gira prima di ogni rotta: tutto `/api/*` richiede un token valido di un utente attivo, tranne `/api/health` e `/api/auth/{config,login,callback,dev-login,logout}`. Altrimenti: **401**. I moduli e le viste pubbliche delle anagrafiche (`/api/registry/public/*`) sono aperti a tutti: chi è entrato è riconosciuto lo stesso (un modulo per i membri lo vuole), gli altri vanno avanti come nessuno; il servizio decide (anagrafiche.md, §8). Quello che vi si manda conta in un limite di richieste a parte, stretto (20 al minuto per indirizzo).
 - **`getCurrentUser()` resta senza argomenti**: l'utente della richiesta viene messo in un contesto asincrono di Node (`AsyncLocalStorage`, `auth.context.ts`) dal controllo comune, e la funzione lo legge da lì. I servizi non sono cambiati.
 - **I permessi si applicano nel server**, nei servizi, prima di ogni scrittura. L'interfaccia nasconde i comandi a chi non può usarli, ma è una comodità: i test provano che il server rifiuta (**403**) anche se qualcuno chiama l'API a mano.
 - **CSRF** (un altro sito che manda richieste a nome tuo): `SameSite=Lax` blocca i cookie nelle richieste cross-site di scrittura; in più, una richiesta che modifica dati con intestazione `Origin` è accettata solo se l'`Origin` è l'indirizzo pubblico (`PUBLIC_URL`) o l'host a cui è stata indirizzata la richiesta. *Si confronta con `PUBLIC_URL` e non solo con `Host` perché un proxy davanti all'API (quello di sviluppo di Vite, nginx…) riscrive `Host`: è un problema reale incontrato provando l'app nel browser, ora coperto da un test.* Le richieste senza `Origin` (curl, script) passano: senza un browser un altro sito non può usare i tuoi cookie.
@@ -106,7 +106,7 @@ Google accetta come URI di reindirizzamento solo indirizzi HTTPS con un nome di 
 
 ## 6. Ruoli
 
-Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modificare (`user_area`: utente, area).
+Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modificare (`user_area`: utente, area) e può avere delle **spunte** (`user_flag`: utente, spunta). **Le spunte le dichiarano i moduli** (dal 26 novembre 2026, [moduli-architettura.md](moduli-architettura.md), §8.5): oggi **Treasury** la dichiara il registro di cassa (`treasury.contract.ts`) e **Sponsors** il budget (`budget.contract.ts`); ognuna dice per quali ruoli vale (oggi solo `pm`). La pagina Users mostra le spunte che i moduli dichiarano (`GET /api/flags`), `PATCH /api/users/:id` accetta `flags`, **l'elenco intero** che si vuole (una spunta che nessuno dichiara è un errore 400, e così una spunta per un ruolo che non può averla), e chi cambia ruolo perde le spunte che il nuovo ruolo non può avere. **Anche le regole dei permessi si dichiarano** (`permissionRules` e `can(utente, chiave)` in `platform.public.ts`: un permesso vale se una delle regole dichiarate lo concede). Dal passo G4 `canManageCash` (admin, o pm con Treasury) la dichiara il registro di cassa (`treasury.contract.ts`), e il ponte tesoreria×budget aggiunge a `canChangeInflows` il pm con Treasury (`treasury-budget.contract.ts`); dal passo G6 admin e pm con Sponsors li concede il budget (`budget.contract.ts`), che dichiara anche `canManageFunds` (admin e pm con Sponsors; `canEditShared` di `/api/me` è lo stesso permesso) e `canManageSuppliers` (admin e pm). Dal passo G5 `canManageInventory` (admin e pm) la dichiara l'inventario (`inventory.contract.ts`); le categorie di Settings, che servono anche al budget, hanno la loro regola nel nucleo (`canKeepCategories`, admin e pm). Con un modulo spento (G8) le sue regole valgono lo stesso: gli interruttori nascondono, non tolgono permessi (con la tesoreria spenta il BANK di CASH FLOW lo scrive a mano chi teneva i soldi). Le spunte di un modulo spento non si vedono in Users e restano salvate, tranne quando la persona passa a un ruolo che non può averle: allora si tolgono anche quelle ([moduli.md](moduli.md), §2). Nello storico una spunta data o tolta è una riga di `user_flag`, chiamata «user 7, box treasury».
 
 | Azione | `admin` | `pm` («User») | `pm` con **Treasury** | `pm` con **Sponsors** | `viewer` |
 | --- | --- | --- | --- | --- | --- |
@@ -124,7 +124,7 @@ Il ruolo è in `app_user.role`. Il `pm` è legato alle **aree** che può modific
 | Impostazioni (pagina Settings, [impostazioni.md](impostazioni.md)) | sì, tutta | categorie, unità, posti e Item types (non il calcolo, le aliquote IVA e le stagioni) | come il pm, più le liste del registro | come il pm | no |
 | Storico delle modifiche | sì | **sì** (tutto) | **sì** | **sì** | no |
 
-`canWrite(utente, area)` (in `auth.service.ts`): `admin` → sì; `pm` → sì solo se l'area è tra le sue; `viewer` → no. Gli sponsor e i loro contratti (CASH FROM) usano `canManageFunds`: `admin`, e il `pm` con la spunta `sponsors` (`app_user.sponsors`; su un altro ruolo non conta). I soldi del team (registro, inflow, BANK) usano `canManageCash`: `admin`, e il `pm` con la spunta `treasury` (`app_user.treasury`; su un altro ruolo non conta). I fornitori usano `canManageSuppliers` (chiunque non sia `viewer`) e lo storico `canViewHistory` (idem); la pagina Settings `canManageSettings` (solo `admin`).
+`canWrite(utente, area)` (in `auth.service.ts`): `admin` → sì; `pm` → sì solo se l'area è tra le sue; `viewer` → no. Gli sponsor e i loro contratti (CASH FROM) usano `canManageFunds`: `admin`, e il `pm` con la spunta `sponsors` (una riga di `user_flag`; su un altro ruolo non conta). I soldi del team (registro, inflow, BANK) usano `canManageCash`: `admin`, e il `pm` con la spunta `treasury` (una riga di `user_flag`; su un altro ruolo non conta). I fornitori usano `canManageSuppliers` (chiunque non sia `viewer`, dichiarato dal budget) e lo storico `canViewHistory` (idem); l'inventario e le sue liste `canManageInventory` (idem, dichiarato dall'inventario), le categorie `canKeepCategories` (idem); il resto della pagina Settings `canManageSettings` (solo `admin`).
 
 In una stagione **in sola lettura** nessuno, admin compreso, cambia il budget (voci, progetti, fondi, contratti, ingressi, BANK): il server risponde `409` e il sito nasconde i comandi. L'admin la riapre da Settings ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)).
 
@@ -132,7 +132,7 @@ Un `pm` senza aree assegnate non modifica nessuna area, ma può gestire i fornit
 
 ## 7. Utenti
 
-- Tabella `app_user`: email (unica, senza distinzione di maiuscole), nome, ruolo, attivo, data di creazione. **Non c'è "ultimo accesso"**: ogni scrittura è nello storico, e un campo che cambia a ogni login lo riempirebbe di rumore.
+- Tabella `app_user`: email (unica, senza distinzione di maiuscole), nome, ruolo, attivo, data di creazione. Le spunte sono righe di `user_flag` (utente, spunta; unica per coppia; con lo storico), dalla migrazione `0040`: prima erano due colonne di `app_user`, copiate e tolte dalla migrazione. **Non c'è "ultimo accesso"**: ogni scrittura è nello storico, e un campo che cambia a ogni login lo riempirebbe di rumore.
 - **Primo accesso = `viewer`**, creato in automatico. Un'email in `ADMIN_EMAILS` nasce `admin` (e se esiste già con un altro ruolo viene promossa al login).
 - Chi lascia il team si **disattiva** (non si cancella), per non rompere lo storico.
 - Pagina **Users** (solo admin): ruolo, aree (visibili per i `pm`) e casella "Active", con salvataggio immediato.
@@ -194,16 +194,16 @@ Le migrazioni *creano* le tabelle (e le cambiano nel tempo); il caricamento del 
 | File | Cosa prova |
 | --- | --- |
 | `core/auth-config.test.ts` | la configurazione: segreto corto, indirizzo, regole di produzione, modalità proxy |
-| `modules/auth/proxy.test.ts`, `proxy-login.routes.test.ts` | l'accesso dietro il proxy (§12) |
-| `modules/auth/google.test.ts` | la verifica vera del token con chiavi e "token endpoint" finti: valido, destinatario sbagliato, scaduto, emittente o firma sbagliati, email non verificata, dominio sbagliato o assente, rifiuto di Google, parametri e PKCE |
-| `modules/auth/auth.routes.test.ts` | 401 senza cookie, token falsi/scaduti/di tipo sbagliato, persona disattivata bloccata subito, ruolo letto dal database, CSRF (anche con `Host` riscritto da un proxy), `/me`, tutto il giro del login (primo accesso viewer, admin da `ADMIN_EMAILS`, errori), accesso di sviluppo, uscita |
-| `modules/auth/roles.test.ts` | la matrice dei ruoli su tutte le scritture (viewer, pm della propria area e di un'altra, pm senza aree, admin) |
-| `modules/users/users.routes.test.ts` | elenco, cambio di ruolo/aree/attivo, effetto immediato, ultimo admin, input sbagliato |
-| `modules/audit/audit.routes.test.ts` | cosa viene registrato (insert/update/delete, cascata, rollback, nessun attore), permessi di lettura, filtri, paginazione |
-| `modules/auth/auth.routes.test.ts` (login) | anche le parole di `login_error`: mai testo libero |
+| `platform/auth/proxy.test.ts`, `proxy-login.routes.test.ts` | l'accesso dietro il proxy (§12) |
+| `platform/auth/google.test.ts` | la verifica vera del token con chiavi e "token endpoint" finti: valido, destinatario sbagliato, scaduto, emittente o firma sbagliati, email non verificata, dominio sbagliato o assente, rifiuto di Google, parametri e PKCE |
+| `platform/auth/auth.routes.test.ts` | 401 senza cookie, token falsi/scaduti/di tipo sbagliato, persona disattivata bloccata subito, ruolo letto dal database, CSRF (anche con `Host` riscritto da un proxy), `/me`, tutto il giro del login (primo accesso viewer, admin da `ADMIN_EMAILS`, errori), accesso di sviluppo, uscita |
+| `platform/auth/roles.test.ts` | la matrice dei ruoli su tutte le scritture (viewer, pm della propria area e di un'altra, pm senza aree, admin) |
+| `platform/users/users.routes.test.ts` | elenco, cambio di ruolo/aree/attivo, effetto immediato, ultimo admin, input sbagliato |
+| `platform/audit/audit.routes.test.ts` | cosa viene registrato (insert/update/delete, cascata, rollback, nessun attore), permessi di lettura, filtri, paginazione |
+| `platform/auth/auth.routes.test.ts` (login) | anche le parole di `login_error`: mai testo libero |
 | `src/db/app-role.test.ts` | l'utente dell'API: non è superutente, legge e scrive i dati, **non può** scrivere `audit_log`, cambiare la struttura, spegnere il trigger, vedere le migrazioni; `ensureAppRole` ripetibile e con nomi/password qualunque |
 | `src/security.test.ts` | SQL injection (nessun `sql.raw`, solo modelli `sql` in `execute()`/`query()`, 8 payload in tutti i campi di testo, richieste ostili su id e query string, campi extra ignorati), intestazioni di sicurezza, limite di richieste (per indirizzo, accesso più severo, salute esclusa, `X-Forwarded-For` finto) |
-| `apps/web/src/lib/permissions.test.ts`, `loginProblem.test.ts` | la regola "chi può modificare quest'area" e le parole di errore dell'accesso |
+| `apps/web/src/platform/permissions.test.ts`, `loginProblem.test.ts` | la regola "chi può modificare quest'area" e le parole di errore dell'accesso |
 
 ## 12. Accesso dietro il proxy dell'organizzazione (`X-Email`)
 
@@ -264,8 +264,8 @@ Le anagrafiche hanno indirizzi che il proxy di IT lascia passare **senza** il su
 
 ### Prove
 
-- `modules/auth/proxy.test.ts` (3): la mail dall'header (maiuscole, spazi, due indirizzi, malformata, troppo lunga) e il nome dalla mail.
-- `modules/auth/proxy-login.routes.test.ts` (14): 401 senza header o con header non valido; il cookie non vale; persona nuova `viewer` con il suo nome; stessa persona con maiuscole diverse; `ADMIN_EMAILS`; il nome esistente resta; **dieci richieste insieme di una persona nuova fanno un solo account** (con le connessioni già aperte; senza la protezione il test fallisce con dei 409); disattivata 403; il pm scrive nella sua area e non in un'altra; la persona nuova legge e non scrive; lo storico registra chi; la scrittura da un altro sito è rifiutata; Google e accesso di sviluppo spenti; il nome dell'header è quello configurato.
+- `platform/auth/proxy.test.ts` (3): la mail dall'header (maiuscole, spazi, due indirizzi, malformata, troppo lunga) e il nome dalla mail.
+- `platform/auth/proxy-login.routes.test.ts` (14): 401 senza header o con header non valido; il cookie non vale; persona nuova `viewer` con il suo nome; stessa persona con maiuscole diverse; `ADMIN_EMAILS`; il nome esistente resta; **dieci richieste insieme di una persona nuova fanno un solo account** (con le connessioni già aperte; senza la protezione il test fallisce con dei 409); disattivata 403; il pm scrive nella sua area e non in un'altra; la persona nuova legge e non scrive; lo storico registra chi; la scrittura da un altro sito è rifiutata; Google e accesso di sviluppo spenti; il nome dell'header è quello configurato.
 - `core/auth-config.test.ts` (6 nuovi): la modalità proxy non vuole segreto né Google, il nome dell'header minuscolo, nessun secondo ingresso, nome non valido, in produzione https.
 - **Nel browser, con un finto proxy** (uno script fuori dal repository che sostituisce `X-Email`, come fa quello vero): entra da solo come admin, nessun Sign out, tutte le 22 pagine, una scrittura e una cancellazione (l'`Origin` passa il controllo con `PUBLIC_URL` dietro il proxy), la pagina Users con le persone entrate, un account disattivato (messaggio), una richiesta senza header (pagina «Try again»). Con `curl`: un indirizzo non ammesso riceve 403 con il suo indirizzo, uno ammesso passa, l'header doppio è 401.
 

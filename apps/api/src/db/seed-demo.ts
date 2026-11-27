@@ -3,9 +3,10 @@ import { and, asc, eq, inArray, like, max, sql } from "drizzle-orm";
 import { fromScaled } from "../core/money";
 import { placeholderPng, type Shape } from "./demo-image";
 import { ownerDb, ownerPool } from "./owner";
-import {
-  area, category, componentPart, inventoryItem, itemDatasheet, itemDatasheetFile, itemImage, itemParamValue, itemType, itemTypeParam, project, stockMovement,
-} from "./schema";
+import { project } from "./schema/budget";
+import { componentPart, inventoryItem, itemDatasheet, itemDatasheetFile, itemImage, itemParamValue, itemType, itemTypeParam, stockMovement } from "./schema/inventory";
+import { movementProject } from "./schema/inventory-budget";
+import { area, category } from "./schema/platform";
 
 // Made-up inventory, only to have something to look at and try. Nothing here is real: names,
 // prices and places are invented. Every item has a code starting with DEMO-, which is how
@@ -346,6 +347,10 @@ async function main() {
       if (!firstProject.has(row.code)) firstProject.set(row.code, row.id);
     }
     const projectOf = (areaCode?: string) => (areaCode ? (firstProject.get(areaCode) ?? null) : null);
+    // the project a movement was for is a row of the bridge between the inventory and the budget
+    const forProject = async (movementId: number, projectId: number | null) => {
+      if (projectId !== null) await tx.insert(movementProject).values({ movementId, projectId });
+    };
     const areaIds = new Map((await tx.select().from(area)).map((a) => [a.code, a.id]));
     const types = await ensureTypes(tx, areaIds);
     const e4 = (euros: number) => Math.round(euros * 10_000);
@@ -392,16 +397,18 @@ async function main() {
       for (const r of d.receipts) {
         const net = e4(r.net);
         const gross = roundDiv(net * 12_200, 10_000); // 22 % VAT
-        await tx.insert(stockMovement).values({
+        const [receipt] = await tx.insert(stockMovement).values({
           itemId, kind: "receipt", occurredOn: r.on, quantity: fromScaled(milli(r.qty), 3), location: r.at, spot: r.spot ?? "",
-          unitNet: fromScaled(net, 4), unitGross: fromScaled(gross, 4), unitTeam: fromScaled(r.free ? 0 : gross, 4), projectId: projectOf(r.for),
+          unitNet: fromScaled(net, 4), unitGross: fromScaled(gross, 4), unitTeam: fromScaled(r.free ? 0 : gross, 4),
           note: r.free ? "Donated by a sponsor" : null,
-        });
+        }).returning({ id: stockMovement.id });
+        await forProject(receipt!.id, projectOf(r.for));
       }
       for (const u of d.uses ?? []) {
-        await tx.insert(stockMovement).values({
-          itemId, kind: "use", occurredOn: u.on, quantity: fromScaled(milli(u.qty), 3), location: u.at, spot: u.spot ?? "", projectId: projectOf(u.for), note: u.note ?? null,
-        });
+        const [use] = await tx.insert(stockMovement).values({
+          itemId, kind: "use", occurredOn: u.on, quantity: fromScaled(milli(u.qty), 3), location: u.at, spot: u.spot ?? "", note: u.note ?? null,
+        }).returning({ id: stockMovement.id });
+        await forProject(use!.id, projectOf(u.for));
       }
     }
 

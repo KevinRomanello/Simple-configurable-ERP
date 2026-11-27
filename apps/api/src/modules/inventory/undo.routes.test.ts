@@ -20,7 +20,7 @@ const detail = async (itemId: number) => (await api.get(`/api/inventory/items/${
 /** How many are at a place (0 when nothing is recorded there). */
 const at = async (itemId: number, location = "s1-r1") =>
   ((await detail(itemId)).stock as { location: string; quantityMilli: number }[]).filter((s) => s.location === location).reduce((sum, s) => sum + s.quantityMilli, 0) / 1000;
-const projectOf = async () => (await api.post("/api/projects", { areaCode: "sw", name: "Pedals" })).body.id as number;
+const projectOf = async () => (await api.post("/api/budget/projects", { areaCode: "sw", name: "Pedals" })).body.id as number;
 const history = async (id: number) => (await api.get(`/api/audit?table=stock_movement&rowId=${id}`)).body.entries as { action: string }[];
 
 describe("undoing a movement", () => {
@@ -54,25 +54,25 @@ describe("undoing a movement", () => {
   });
 
   it("takes back the arrival of a purchase of the budget: the purchase waits for its goods again", async () => {
-    const project = (await api.post("/api/projects", { areaCode: "sw", name: "Brakes" })).body;
-    const line = (await api.post(`/api/projects/${project.id}/lines`, { item: "Pressure sensor", category: "Components" })).body;
-    await api.patch(`/api/lines/${line.id}`, {
+    const project = (await api.post("/api/budget/projects", { areaCode: "sw", name: "Brakes" })).body;
+    const line = (await api.post(`/api/budget/projects/${project.id}/lines`, { item: "Pressure sensor", category: "Components" })).body;
+    await api.patch(`/api/budget/lines/${line.id}`, {
       version: 1,
       figures: { actual: { quantity: 10, unitNetCost: "5", sponsorType: "none", vatRate: 22, purchaseDate: "2026-10-01" } },
     });
-    const arrival = async () => (await api.get("/api/areas/sw/sheet")).body.projects[0].lines[0].arrival;
-    const arrivalDate = async () => (await api.get("/api/areas/sw/sheet")).body.projects[0].lines[0].actual.arrivalDate;
-    const received = await api.post("/api/inventory/receive", {
-      lineId: line.id, newItem: { name: "Pressure sensor" }, quantity: "10", receivedOn: "2026-10-03", location: "s1-r1", spot: "",
+    const arrival = async () => (await api.get("/api/budget/areas/sw/sheet")).body.projects[0].lines[0].arrival;
+    const arrivalDate = async () => (await api.get("/api/budget/areas/sw/sheet")).body.projects[0].lines[0].actual.arrivalDate;
+    const received = await api.post(`/api/inventory-budget/pending/${line.id}/receive`, {
+      newItem: { name: "Pressure sensor" }, quantity: "10", receivedOn: "2026-10-03", location: "s1-r1", spot: "",
     });
     expect(await arrival()).toMatchObject({ receivedMilli: 10_000, status: "received" });
     expect(await arrivalDate()).toBe("2026-10-03");
-    expect((await api.get("/api/inventory/pending")).body).toEqual([]);
+    expect((await api.get("/api/inventory-budget/pending")).body).toEqual([]);
 
     expect((await undo(received.body.movement.id)).status).toBe(204);
     expect(await arrival()).toEqual({ boughtMilli: 10_000, receivedMilli: 0, status: "ordered" });
     expect(await arrivalDate()).toBeNull(); // not arrived any more: no date
-    expect((await api.get("/api/inventory/pending")).body).toHaveLength(1);
+    expect((await api.get("/api/inventory-budget/pending")).body).toHaveLength(1);
   });
 
   it("takes back a move, a count and a disposal", async () => {

@@ -41,11 +41,11 @@ Un controllo a fondo di tutta l'app, fatto **senza modificare il codice**: cosa 
 
 **Perché.** Tutte le aree usano la stessa pagina (`AreaPage`): cambiando area React non la ricrea, quindi lo stato «modulo aperto» di `PageHeader` resta. Succederebbe a qualunque pagina con il pulsante giallo che serve più indirizzi.
 
-**Soluzione proposta.** Nel modello `PageHeader` (`apps/web/src/components/ui/PageHeader.tsx`): il modulo si chiude quando cambia l'indirizzo della pagina (`useLocation`). Una riga, e vale per tutte le pagine presenti e future.
+**Soluzione proposta.** Nel modello `PageHeader` (`apps/web/src/core/ui/PageHeader.tsx`): il modulo si chiude quando cambia l'indirizzo della pagina (`useLocation`). Una riga, e vale per tutte le pagine presenti e future.
 
 **Prova.** Nel giro del browser ([collaudo.md](collaudo.md)): aprire il modulo, cambiare area, il modulo è chiuso.
 
-**Fatto (26 ottobre 2026).** Più in grande di quanto proposto: invece di chiudere il modulo dentro `PageHeader`, il `Shell` (`apps/web/src/components/Shell.tsx`) dà alla pagina una **chiave uguale all'indirizzo** (`<Outlet key={pathname} />`): cambiando indirizzo, React butta la pagina vecchia e ne crea una nuova. Vale per **ogni** cosa che le pagine tengono in memoria, non solo per quel modulo: la stessa pagina serve tutte le aree, tutti gli articoli, tutti i componenti, le due fasi del Gantt, e senza la chiave anche il modulo «aggiungi parte» di un componente sarebbe rimasto aperto passando a un altro componente. Cambiare solo i filtri dell'indirizzo (`?basis=…`) non ricrea la pagina. Provato nel browser: modulo aperto in MT + DMT, passo a SW, il modulo è chiuso e il pulsante dice di nuovo «New project»; tutte le 22 pagine del menù, un articolo e un componente si aprono senza errori in console, e Download elenca ancora tabelle e grafici della pagina.
+**Fatto (26 ottobre 2026).** Più in grande di quanto proposto: invece di chiudere il modulo dentro `PageHeader`, il `Shell` (`apps/web/src/platform/Shell.tsx`) dà alla pagina una **chiave uguale all'indirizzo** (`<Outlet key={pathname} />`): cambiando indirizzo, React butta la pagina vecchia e ne crea una nuova. Vale per **ogni** cosa che le pagine tengono in memoria, non solo per quel modulo: la stessa pagina serve tutte le aree, tutti gli articoli, tutti i componenti, le due fasi del Gantt, e senza la chiave anche il modulo «aggiungi parte» di un componente sarebbe rimasto aperto passando a un altro componente. Cambiare solo i filtri dell'indirizzo (`?basis=…`) non ricrea la pagina. Provato nel browser: modulo aperto in MT + DMT, passo a SW, il modulo è chiuso e il pulsante dice di nuovo «New project»; tutte le 22 pagine del menù, un articolo e un componente si aprono senza errori in console, e Download elenca ancora tabelle e grafici della pagina.
 
 ### P2. «Oggi» per l'API è in UTC
 
@@ -54,7 +54,7 @@ Un controllo a fondo di tutta l'app, fatto **senza modificare il codice**: cosa 
 - i **giorni di attesa** in PENDING (`pendingLines(lines, today())`);
 - il prezzo **«di oggi»** di articoli, componenti e statistiche quando non si sceglie un giorno.
 
-Il sito invece usa già l'ora locale (`apps/web/src/lib/today.ts`).
+Il sito invece usa già l'ora locale (`apps/web/src/core/today.ts`).
 
 **Soluzione proposta.** `today()` scrive la data **nell'ora locale**, come fa il sito, e il contenitore dell'API (in `docker-compose.yml` e in produzione) ha `TZ=Europe/Rome`. Il fuso è una scelta della squadra: va nel [registro degli hardcode](hardcoded-registry.md) se un giorno dovrà essere un'impostazione.
 
@@ -103,7 +103,7 @@ Oggi l'inventario è piccolo e non si nota; con qualche anno di arrivi e preliev
 
 **Cosa succede.** Aprendo MT + DMT (7 progetti, 7 griglie) il browser resta bloccato per circa **0,3 secondi** (due blocchi da 235 e 74 ms, misurati con i «long task» del browser). Il titolo compare subito, ma la pagina non risponde finché le griglie non sono pronte. Dopo **ogni modifica** di una cella i dati si ricaricano e tutte le griglie dell'area riadattano tutte le colonne. Il costo cresce con il numero di progetti.
 
-**Perché.** Ogni griglia disegna tutte le colonne (`suppressColumnVirtualisation`, necessario per misurarle) e le misura tutte a ogni aggiornamento dei dati (`onRowDataUpdated → autoSizeAllColumns`, in `apps/web/src/pages/AreaPage.tsx`).
+**Perché.** Ogni griglia disegna tutte le colonne (`suppressColumnVirtualisation`, necessario per misurarle) e le misura tutte a ogni aggiornamento dei dati (`onRowDataUpdated → autoSizeAllColumns`, in `apps/web/src/modules/budget/AreaPage.tsx`).
 
 **Soluzione proposta.**
 
@@ -112,7 +112,7 @@ Oggi l'inventario è piccolo e non si nota; con qualche anno di arrivi e preliev
 
 **Prova.** La misura dei «long task» prima e dopo, riportata qui; il giro nel browser (le colonne restano della larghezza giusta, anche quando compare ALSO FROM).
 
-**Fatto (26 ottobre 2026), ma la causa era un'altra.** Prima di toccare l'adattamento delle colonne l'ho misurato: una sola modifica (quantità di una riga di MT + DMT) bloccava il browser per **578 ms** (tre blocchi da 325, 163 e 90 ms). Contando le chiamate: le colonne **non** venivano ricostruite e l'adattamento girava **una volta sola** (la griglia modificata). Togliendolo i blocchi scendevano a 379 ms: quindi non era la causa principale. Il costo vero era un altro: a ogni rendering della pagina ogni progetto passava alla sua griglia **oggetti nuovi** (`defaultColDef` scritto dentro il JSX, la riga del subtotale rifatta ogni volta), e AG Grid, vedendoli cambiati, **riapplicava le colonne a tutte le 7 griglie**, anche a quelle dei progetti che non erano cambiati. La correzione (`apps/web/src/pages/AreaPage.tsx`): `DEFAULT_COL_DEF` è una costante e la riga del subtotale è calcolata solo quando il progetto cambia (`useMemo`). L'adattamento delle colonne è rimasto com'era (le colonne seguono il contenuto dopo ogni modifica).
+**Fatto (26 ottobre 2026), ma la causa era un'altra.** Prima di toccare l'adattamento delle colonne l'ho misurato: una sola modifica (quantità di una riga di MT + DMT) bloccava il browser per **578 ms** (tre blocchi da 325, 163 e 90 ms). Contando le chiamate: le colonne **non** venivano ricostruite e l'adattamento girava **una volta sola** (la griglia modificata). Togliendolo i blocchi scendevano a 379 ms: quindi non era la causa principale. Il costo vero era un altro: a ogni rendering della pagina ogni progetto passava alla sua griglia **oggetti nuovi** (`defaultColDef` scritto dentro il JSX, la riga del subtotale rifatta ogni volta), e AG Grid, vedendoli cambiati, **riapplicava le colonne a tutte le 7 griglie**, anche a quelle dei progetti che non erano cambiati. La correzione (`apps/web/src/modules/budget/AreaPage.tsx`): `DEFAULT_COL_DEF` è una costante e la riga del subtotale è calcolata solo quando il progetto cambia (`useMemo`). L'adattamento delle colonne è rimasto com'era (le colonne seguono il contenuto dopo ogni modifica).
 
 | Misura nel browser (MT + DMT, 7 griglie) | Prima | Dopo |
 | --- | --- | --- |
@@ -143,13 +143,13 @@ L'apertura resta uguale, ed è la parte che il documento chiamava «seconda moss
 
 **Cosa succede.** `GET /api/settings` conta l'uso di ogni voce con una o due query per voce: circa 40 query (3,6 ms oggi). Il numero cresce con le voci.
 
-**Soluzione proposta.** Cinque query raggruppate (`group by` per categoria, aliquota, unità, posto) in `apps/api/src/modules/settings/settings.service.ts`.
+**Soluzione proposta.** Cinque query raggruppate (`group by` per categoria, aliquota, unità, posto) in `apps/api/src/platform/settings/settings.service.ts`.
 
 **Prova.** I test della pagina Settings che ci sono già (USED BY).
 
 ### P9. CASH FLOW calcola le righe quattro volte
 
-**Cosa succede.** `GET /api/views/cashflow` calcola tutte le righe del budget quattro volte: per ognuna delle due fasi, una volta per il riepilogo e una per i saldi dei fondi. A 8.000 righe sono 42 ms: non è un problema, ma è lavoro inutile.
+**Cosa succede.** `GET /api/budget/views/cashflow` calcola tutte le righe del budget quattro volte: per ognuna delle due fasi, una volta per il riepilogo e una per i saldi dei fondi. A 8.000 righe sono 42 ms: non è un problema, ma è lavoro inutile.
 
 **Soluzione proposta.** Calcolare le righe una volta per richiesta e passarle (oppure ricordare il risultato per la stessa fotografia dei dati). Bassa priorità.
 
@@ -165,7 +165,7 @@ L'apertura resta uguale, ed è la parte che il documento chiamava «seconda moss
 
 ### P11. Due import inutilizzati, nessun linter nel progetto
 
-**Cosa succede.** `SortAccessors` in `apps/web/src/pages/GanttPage.tsx` e `AREA_SHEETS` in `tools/import-xlsx/src/reconcile.ts` sono importati e non usati. Il progetto non ha un linter: ci sono due commenti `eslint-disable` per uno strumento che non gira mai.
+**Cosa succede.** `SortAccessors` in `apps/web/src/modules/budget/GanttPage.tsx` e `AREA_SHEETS` in `tools/import-xlsx/src/reconcile.ts` sono importati e non usati. Il progetto non ha un linter: ci sono due commenti `eslint-disable` per uno strumento che non gira mai.
 
 **Soluzione proposta.** Togliere i due import. Facoltativo: aggiungere ESLint con le regole degli hook di React al progetto e alla CI. Oggi non trova errori, ma ferma in anticipo gli sbagli sugli hook, che il controllo dei tipi non vede. È una dipendenza in più, quindi da decidere (regola 3).
 

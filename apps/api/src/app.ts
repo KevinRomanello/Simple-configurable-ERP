@@ -1,28 +1,34 @@
 import cookie from "@fastify/cookie";
-import Fastify from "fastify";
+import Fastify, { type FastifyPluginAsync } from "fastify";
 import { ZodError } from "zod";
 import { loadAuthConfig, type AuthConfig } from "./core/auth-config";
 import { env } from "./core/env";
 import { AppError, badValueMessage, postgresCode, retryMessage } from "./core/errors";
 import { addSecurity, DEFAULT_RATE_LIMITS, type RateLimits } from "./core/security";
-import { addModuleGate, appModulesRoutes } from "./modules/appmodules/appmodules.routes";
-import { addAuthHook, authRoutes } from "./modules/auth/auth.routes";
-import { createGoogleClient, type GoogleClient } from "./modules/auth/google";
-import { auditRoutes } from "./modules/audit/audit.routes";
+// what the modules and the bridges answer to the core and to each other: every contract, read once (wiring.ts)
+import "./wiring";
+import { addModuleGate, appModulesRoutes } from "./platform/appmodules/appmodules.routes";
+import { addAuthHook, authRoutes } from "./platform/auth/auth.routes";
+import { createGoogleClient, type GoogleClient } from "./platform/auth/google";
+import { areasRoutes } from "./platform/areas/areas.routes";
+import { auditRoutes } from "./platform/audit/audit.routes";
 import { budgetRoutes } from "./modules/budget/budget.routes";
-import { cashRoutes } from "./modules/cash/cash.routes";
-import { cashflowRoutes } from "./modules/cashflow/cashflow.routes";
-import { fundsRoutes } from "./modules/funds/funds.routes";
-import { healthRoutes } from "./modules/health/health.routes";
+import { budgetLookupsRoutes } from "./modules/budget/lookups.routes";
+import { cashRoutes } from "./modules/treasury/cash.routes";
+import { cashflowRoutes } from "./modules/budget/cashflow.routes";
+import { fundsRoutes } from "./modules/budget/funds.routes";
+import { healthRoutes } from "./platform/health/health.routes";
 import { inventoryRoutes } from "./modules/inventory/inventory.routes";
-import { lookupsRoutes } from "./modules/lookups/lookups.routes";
-import { addSeasonHook, seasonsRoutes } from "./modules/seasons/seasons.routes";
-import { suppliersRoutes } from "./modules/suppliers/suppliers.routes";
-import { usersRoutes } from "./modules/users/users.routes";
-import { viewsRoutes } from "./modules/views/views.routes";
-import { settingsRoutes } from "./modules/settings/settings.routes";
+import { lookupsRoutes } from "./platform/lookups/lookups.routes";
+import { addSeasonHook, seasonsRoutes } from "./platform/seasons/seasons.routes";
+import { suppliersRoutes } from "./modules/budget/suppliers.routes";
+import { usersRoutes } from "./platform/users/users.routes";
+import { viewsRoutes } from "./modules/budget/views.routes";
+import { settingsRoutes } from "./platform/settings/settings.routes";
 import { registryRoutes } from "./modules/registry/registry.routes";
-import { rolesyncRoutes } from "./modules/rolesync/rolesync.routes";
+import { rolesyncRoutes } from "./bridges/registry-access/rolesync.routes";
+import { treasuryBudgetRoutes } from "./bridges/treasury-budget/treasury-budget.routes";
+import { inventoryBudgetRoutes } from "./bridges/inventory-budget/inventory-budget.routes";
 
 export interface AppOptions {
   /** Defaults to the values of the environment. */
@@ -83,16 +89,20 @@ export function buildApp(options: AppOptions = {}) {
       await api.register(auditRoutes);
       await api.register(lookupsRoutes);
       await api.register(seasonsRoutes);
-      await api.register(budgetRoutes);
-      await api.register(fundsRoutes);
-      await api.register(suppliersRoutes);
-      await api.register(inventoryRoutes);
-      await api.register(cashflowRoutes);
-      await api.register(cashRoutes);
-      await api.register(viewsRoutes);
+      await api.register(areasRoutes);
       await api.register(settingsRoutes);
-      await api.register(registryRoutes);
-      await api.register(rolesyncRoutes, { adminEmails: config.adminEmails });
+      // a module and a bridge answer under their own name and nowhere else (/api/budget/…, /api/treasury-budget/…): the prefix is its key,
+      // given here, so a route file never writes it and the gate of the switches turns off all of it (docs/moduli-architettura.md, §8.2)
+      const owned: [key: string, routes: FastifyPluginAsync[]][] = [
+        ["budget", [budgetRoutes, budgetLookupsRoutes, fundsRoutes, suppliersRoutes, cashflowRoutes, viewsRoutes]],
+        ["treasury", [cashRoutes]],
+        ["inventory", [inventoryRoutes]],
+        ["registry", [registryRoutes]],
+        ["treasury-budget", [treasuryBudgetRoutes]],
+        ["inventory-budget", [inventoryBudgetRoutes]],
+        ["registry-access", [(registryAccess) => rolesyncRoutes(registryAccess, { adminEmails: config.adminEmails })]],
+      ];
+      for (const [key, routes] of owned) for (const part of routes) await api.register(part, { prefix: `/${key}` });
       await api.register(appModulesRoutes);
     },
     { prefix: "/api" },

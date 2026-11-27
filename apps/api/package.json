@@ -6,6 +6,7 @@
     "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
     "start": "tsx --env-file-if-exists=../../.env src/main.ts",
     "test": "vitest run",
+    "bench": "BENCH=1 vitest run test/perf",
     "typecheck": "tsc -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=../../.env src/db/migrate.ts",
@@ -35,11 +36,12 @@
     "zod": "^4.6.7"
   },
   "exports": {
-    "./lookups": "./src/modules/lookups/lookups.service.ts",
-    "./seasons": "./src/modules/seasons/seasons.service.ts",
+    "./lookups": "./src/modules/budget/lookups.service.ts",
+    "./seasons": "./src/platform/seasons/seasons.service.ts",
     "./db": "./src/db/client.ts",
     "./schema": "./src/db/schema.ts",
     "./money": "./src/core/money.ts",
-    "./snapshot": "./src/snapshot.ts"
+    "./snapshot": "./src/snapshot.ts",
+    "./statement": "./src/modules/treasury/statement.service.ts"
   }
 }

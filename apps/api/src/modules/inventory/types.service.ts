@@ -2,8 +2,9 @@ import { and, asc, count, eq, inArray, max, sql } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { area, category, inventoryItem, itemParamValue, itemType, itemTypeParam } from "../../db/schema";
-import { canManageInventory, getCurrentUser } from "../auth/auth.service";
+import { inventoryItem, itemParamValue, itemType, itemTypeParam } from "../../db/schema/inventory";
+import { area, category } from "../../db/schema/platform";
+import { canManageInventory, getCurrentUser } from "../../platform/auth/auth.service";
 import { paramNumber, type CreateParamInput, type ParamFilter, type UpdateParamInput } from "./inventory.schema";
 
 // The types of the inventory (Resistor, Screw…) and their parameters, kept on the Settings page by

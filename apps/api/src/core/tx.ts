@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "../db/client";
-import type { User } from "../modules/auth/auth.service";
+import type { User } from "../platform/auth/auth.service";
 
 /** The transaction handle passed to write functions. */
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

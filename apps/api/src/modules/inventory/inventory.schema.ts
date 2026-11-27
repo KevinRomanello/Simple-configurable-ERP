@@ -1,7 +1,7 @@
 import { PRICE_BASES, PRICE_METHODS } from "@erp/calc";
 import { z } from "zod";
 import { decimal, id, isoDate, LIMITS, longText, lookupCode, optionalText, shortText } from "../../core/validation";
-import { PARAM_KINDS } from "../../db/schema";
+import { PARAM_KINDS } from "../../db/schema/inventory";
 
 // Input shapes of the inventory endpoints. Quantities are decimals with up to three decimals,
 // prices with up to four; the services turn them into thousandths and ten-thousandths.
@@ -204,9 +204,27 @@ export const receiveInput = z
     note: longText.optional(),
   })
   .refine((v) => (v.itemId === undefined) !== (v.newItem === undefined), "Give either an existing item or a new one")
-  .refine((v) => (v.lineId === undefined) !== (v.unitNet === undefined), "Give either a budget line or a price")
-  .refine((v) => v.lineId === undefined || (v.vatRate === undefined && !v.free), "The price of a budget line comes from the budget")
-  .refine((v) => v.lineId === undefined || v.carSeasonId === undefined, "An arrival of the budget is for the car of its line");
+  // a purchase of the budget arrives through the bridge to the budget, which prices it: POST /api/inventory-budget/pending/:lineId/receive
+  .refine((v) => v.lineId === undefined, "A purchase of the budget arrives from PENDING (POST /api/inventory-budget/pending/:lineId/receive)")
+  .refine((v) => v.unitNet !== undefined, "Give the price");
+
+/**
+ * Goods that arrive for a purchase somebody else prices (the bridge to the budget: a line of the budget gives the prices, the project and the car).
+ * Only the item, how many, when and where: anything else is refused.
+ */
+export const receiptOfPurchaseInput = z
+  .object({
+    itemId: id.optional(),
+    newItem: createItemInput.optional(),
+    quantity,
+    receivedOn: isoDate,
+    location: lookupCode,
+    spot,
+    note: longText.optional(),
+  })
+  .strict()
+  .refine((v) => (v.itemId === undefined) !== (v.newItem === undefined), "Give either an existing item or a new one");
+export type ReceiptOfPurchaseInput = z.infer<typeof receiptOfPurchaseInput>;
 
 /** The other things that happen to goods on the shelf. */
 export const movementInput = z
@@ -236,8 +254,8 @@ export const movementInput = z
  */
 export const buildInput = z.object({
   componentId: id,
-  /** The project the pieces are made for: the parts taken from the shelf are used for it. */
-  projectId: id,
+  /** The project the pieces are made for: the parts taken from the shelf are used for it. None while the budget is off (there are no projects). */
+  projectId: id.optional(),
   quantity,
   builtOn: isoDate,
   /** The parts that are taken from one place only: part id -> code of the place. The others come from wherever they are. */

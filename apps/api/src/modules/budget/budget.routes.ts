@@ -5,14 +5,13 @@ import {
   createLineInput, createProjectInput, updateLineInput, updateProjectInput,
 } from "./budget.schema";
 import {
-  createLine, createProject, deleteLine, deleteProject, getAreaSheet, listAreas, updateLine,
+  createLine, createProject, deleteLine, deleteProject, getAreaSheet, updateLine,
   updateProject,
 } from "./budget.service";
 
 const idParam = z.object({ id });
 
 export async function budgetRoutes(app: FastifyInstance) {
-  app.get("/areas", () => listAreas());
   app.get("/areas/:code/sheet", (request) => {
     const { code } = z.object({ code: lookupCode }).parse(request.params);
     return getAreaSheet(code);

@@ -1,14 +1,15 @@
 import { deflateSync } from "node:zlib";
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import { runWrite } from "../core/tx";
-import { userStorage } from "../modules/auth/auth.context";
+import { userStorage } from "../platform/auth/auth.context";
 import { addComment, resolveComment } from "../modules/registry/comments.service";
 import { createRecords, listNames, updateRecords, uploadFile } from "../modules/registry/records.service";
 import { createField, createTable, createView, getTable, setRegistrySettings, updateField, updateTable } from "../modules/registry/schema.service";
 import { createWebhook } from "../modules/registry/webhooks.service";
-import { loadUser } from "../modules/users/users.service";
+import { loadUser } from "../platform/users/users.service";
 import { db, pool } from "./client";
-import { appUser, regTable } from "./schema";
+import { appUser } from "./schema/platform";
+import { regTable } from "./schema/registry";
 
 // A made-up registry shaped like the team's (docs/anagrafiche.md, §1.1), only to look at and try: areas,
 // projects and workgroups, roles, people from the application to the exit (with their pictures, comments and colours

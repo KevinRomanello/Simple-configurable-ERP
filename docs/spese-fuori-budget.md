@@ -18,12 +18,12 @@ Nasce dalla richiesta 3 della tesoreria (11 novembre 2026): un movimento del reg
 
 I valori di partenza li mette la migrazione `0024` sulle Voci che il registro ha già (per nome); li cambia chi gestisce i soldi del team da Settings, e l'area si aggiorna subito.
 
-**Quando un movimento conta come «fuori budget»** (`outsideEntries` in `outside-budget.service.ts`): tutte e cinque le condizioni insieme.
+**Quando un movimento conta come «fuori budget»** (`outsideEntries` in `bridges/treasury-budget/outside-budget.service.ts`): tutte e cinque le condizioni insieme.
 
 1. la sua Voce è *Outside the budget*;
 2. la data è dentro la **stagione** scelta nel menù (settembre–agosto);
 3. **non è collegato a una riga del budget**: se lo è conta la riga, e non si somma due volte (se si toglie il collegamento, torna in ADMINISTRATION);
-4. **non ha ricevuto un inflow** (`team_inflow.cash_entry_id`) e **non ha la spunta Sponsorship**: sono già inflow di CASH FLOW;
+4. **non ha ricevuto un inflow** (`inflow_receipt`) e **non ha la spunta Sponsorship**: sono già inflow di CASH FLOW;
 5. conta in qualsiasi conto (Cassa, Banca, Paypal): sono soldi veri del team.
 
 Un movimento senza Voce, o di una Voce *On a project* non collegata, **non conta da nessuna parte**: i totali del budget non si gonfiano per sbaglio, e il pagamento resta in «Payments to tie to a line» (TO PAY), che ora elenca **solo** i pagamenti senza Voce o di Voci *On a project* (le altre non sono da collegare).
@@ -37,7 +37,7 @@ Il calcolo è **puro** (`outsideBudget` in `packages/calc/src/outside.ts`) e lo 
 - **Nessun fondo paga la riga**: i soldi sono già usciti dalla cassa, quindi **CASH FLOW e la tabella del Team's fund non cambiano**.
 - **Già arrivata** (una ricevuta per tutta la quantità): non è mai in PENDING dell'inventario; e non è in TO PAY (non c'è niente da pagare).
 - **Un mese in cui su una Voce è entrato più di quanto è uscito** (le quote associative; un rimborso più grande della spesa) **non è una riga**: è una voce di **«Money in»**, con il nome della Voce, di tipo «outside the budget».
-- **Gli id sono negativi** e le righe non esistono nel database: nessuno può scriverci (il server risponde `400`/`404` su `PATCH`/`DELETE` e `403` se si prova ad aggiungere un progetto, anche l'admin); i suoi progetti **non si offrono** nelle scelte del progetto dell'inventario (`GET /api/inventory/projects`). Non è nel menù, e l'indirizzo `/budget/administration` dà «Area not found» (l'API la dà ancora, `GET /api/areas/administration/sheet`, ed è come la leggono le prove).
+- **Gli id sono negativi** e le righe non esistono nel database: nessuno può scriverci (il server risponde `400`/`404` su `PATCH`/`DELETE` e `403` se si prova ad aggiungere un progetto, anche l'admin); i suoi progetti **non si offrono** nelle scelte del progetto dell'inventario (`GET /api/inventory-budget/projects`). Non è nel menù, e l'indirizzo `/budget/administration` dà «Area not found» (l'API la dà ancora, `GET /api/budget/areas/administration/sheet`, ed è come la leggono le prove).
 
 ## 4. Cosa si vede nelle viste
 
@@ -56,7 +56,7 @@ Il calcolo è **puro** (`outsideBudget` in `packages/calc/src/outside.ts`) e lo 
 
 - `cash_category.scope` (`project` / `outside` / `ignore`, di partenza `project`, con un controllo sui valori) e `area.derived` (booleano, falso di partenza), migrazione **`0024_outside_budget.sql`**. L'area è una riga di `area` messa da `db:seed` (`seedBase`: codice `administration`, nome `ADMINISTRATION`, ultima per posizione); le righe e i progetti **non** sono nel database.
 - **Hardcode** (regola 4): la categoria delle righe, `getDerivedAreaCategory` («Administration», una categoria di Settings): riga 10 di [hardcoded-registry.md](hardcoded-registry.md). Le sezioni vengono da `getStatementLayout` (riga 9).
-- Calcolo: `packages/calc/src/outside.ts` (`outsideBudget`, `CASH_SCOPES`), `sectionsOfVoci` in `statement.ts`, la riga «register» in `moneyIn.ts`, `AreaInput.derived` e `Snapshot.registerIncome` in `snapshot.ts`. API: `apps/api/src/modules/cash/outside-budget.service.ts`, `snapshot.ts`, il filtro di `listToLink` in `cash-links.service.ts`, la guardia di `createProject` in `budget.service.ts`. Sito: la colonna COUNTS in `CashListsPanel.tsx`, `TotalPage.tsx`, e gli elenchi di aree che la escludono: il menù (`Shell.tsx`), `AreaPage.tsx` (l'indirizzo dà «Area not found»), `UsersPage.tsx`, `ItemTypesPanel.tsx` e `lib/inventory.ts`.
+- Calcolo: `packages/calc/src/outside.ts` (`outsideBudget`, `CASH_SCOPES`), `sectionsOfVoci` in `statement.ts`, la riga «register» in `moneyIn.ts`, `AreaInput.derived` e `Snapshot.registerIncome` in `snapshot.ts`. API: `apps/api/src/bridges/treasury-budget/outside-budget.service.ts` (lo snapshot lo chiede alla porta `outsideBudgetOf`), il filtro di `listToLink` in `payments.service.ts` dello stesso ponte, la guardia di `createProject` in `budget.service.ts`. Sito: la colonna COUNTS in `CashListsPanel.tsx`, `TotalPage.tsx`, e gli elenchi di aree che la escludono: il menù (`Shell.tsx`), `AreaPage.tsx` (l'indirizzo dà «Area not found»), `UsersPage.tsx`, `ItemTypesPanel.tsx` e `modules/inventory/inventory.ts`.
 
 ## 6. Da sapere
 

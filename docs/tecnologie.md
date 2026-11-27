@@ -95,7 +95,7 @@ Le idee da portarsi a casa:
 - **Chiave primaria** (`id`): identifica una riga. Da noi è un contatore automatico (`GENERATED ALWAYS AS IDENTITY`).
 - **Chiave esterna**: `budget_line.project_id` punta a `project.id`. Il database *rifiuta* una voce con un progetto che non esiste, e rifiuta di cancellare un progetto che ha voci (a meno di `ON DELETE CASCADE`, che usiamo apposta per cancellare le voci insieme al progetto).
 - **Vincoli**: `NOT NULL`, `UNIQUE`, `CHECK (quantity >= 0)`. Sono regole che il database fa rispettare *sempre*, anche se un giorno scrivessimo male il codice dell'API.
-- **Indici univoci speciali** (in `schema.ts`):
+- **Indici univoci speciali** (nei file di `db/schema/`):
   - `UNIQUE (season_id, lower(name))`: i nomi dei fondi sono unici *senza distinzione di maiuscole*.
   - `UNIQUE (season_id) WHERE kind = 'team'`: un indice *parziale*; garantisce che ci sia **un solo** "Team's fund" per stagione.
 - **Indici sulle chiavi esterne**: PostgreSQL non li crea da solo. Ogni colonna che punta a un'altra tabella ha un indice (o è la prima colonna di un vincolo univoco), altrimenti i controlli «è usato?» (un fornitore, un fondo, un progetto) e le cancellazioni a cascata leggono tutta la tabella. Chi aggiunge una chiave esterna in `schema.ts` aggiunge anche `index("tabella_colonna").on(t.colonna)`; la query che trova quelle senza indice è in [controllo-bug-e-prestazioni.md](controllo-bug-e-prestazioni.md) (§4) e deve dare zero righe.
@@ -119,7 +119,7 @@ select name, kind from fund;         -- i fondi
 
 **Trappole.** Le colonne `numeric` arrivano a JavaScript come *stringhe* ("1220.00"): è voluto, per non perdere esattezza; la conversione è in un solo file (`apps/api/src/core/money.ts`).
 
-**Dove guardare:** `apps/api/src/db/schema.ts` (le tabelle), `apps/api/drizzle/0000_*.sql` (lo stesso in SQL).
+**Dove guardare:** `apps/api/src/db/schema/` (le tabelle, un file per proprietario), `apps/api/drizzle/0000_*.sql` (lo stesso in SQL).
 
 ---
 
@@ -207,7 +207,7 @@ Nel progetto i test sono di tre tipi, dal più piccolo al più grande:
 
 **Il problema.** Il sito deve poter chiedere "dammi i dati di quest'area" o "salva questa modifica". Serve un programma che resti in ascolto di richieste HTTP e risponda.
 
-**Come funziona.** Una richiesta HTTP ha un **metodo** (GET legge, POST crea, PATCH modifica, PUT sostituisce, DELETE cancella), un **percorso** (`/api/areas/hw/sheet`) e a volte un **corpo** JSON. Fastify associa ogni (metodo, percorso) a una funzione:
+**Come funziona.** Una richiesta HTTP ha un **metodo** (GET legge, POST crea, PATCH modifica, PUT sostituisce, DELETE cancella), un **percorso** (`/api/budget/areas/hw/sheet`) e a volte un **corpo** JSON. Fastify associa ogni (metodo, percorso) a una funzione:
 
 ```ts
 export async function healthRoutes(app: FastifyInstance) {
@@ -301,7 +301,7 @@ const [existing] = await tx
 
 **Come funziona.** Una **migrazione** è un file SQL che porta il database da uno stato al successivo.
 
-1. Modifichi `schema.ts`.
+1. Modifichi il file dello schema del proprietario (`db/schema/<proprietario>.ts`).
 2. `pnpm db:generate` (drizzle-kit): confronta lo schema con l'ultima "fotografia" salvata in `apps/api/drizzle/meta/` e **scrive un nuovo file SQL** (`0001_….sql`) con solo la differenza.
 3. `pnpm db:migrate`: esegue i file non ancora applicati e annota ognuno nella tabella `drizzle.__drizzle_migrations` del database. Per questo si può rilanciare: salta ciò che è già fatto.
 
@@ -311,7 +311,7 @@ Questi file SQL **si committano**: sono la storia della struttura.
 
 È il **driver**: la libreria che apre la connessione TCP a Postgres e spedisce l'SQL. Gestisce un **pool** di connessioni riusate (in `db/client.ts`: `new pg.Pool(...)`), così ogni richiesta non ne apre una nuova.
 
-**Dove guardare:** `apps/api/src/db/schema.ts`, `client.ts`, `migrate.ts`, `apps/api/drizzle.config.ts`, `apps/api/drizzle/`.
+**Dove guardare:** `apps/api/src/db/schema/` (e `schema.ts`, che le riunisce per il client), `client.ts`, `migrate.ts`, `apps/api/drizzle.config.ts`, `apps/api/drizzle/`.
 
 ---
 
@@ -407,7 +407,9 @@ export default defineConfig({
 
 Dentro `AreaPage` si legge con `const { code } = useParams()`. `NavLink` nel menu sa quando è la pagina attiva (la voce gialla). `Shell` contiene il menu e un `<Outlet/>` dove entra la pagina corrente.
 
-**Dove guardare:** `apps/web/src/App.tsx`, `components/Shell.tsx`.
+Dal passo G7 le `Route` non sono scritte a mano una per una: ogni modulo elenca le sue pagine nel suo manifesto (`modules/<modulo>/index.tsx`, [moduli-architettura.md](moduli-architettura.md), §7.2) e `App.tsx` le monta tutte; il menù di `Shell` si costruisce dagli stessi manifesti.
+
+**Dove guardare:** `apps/web/src/App.tsx`, `apps/web/src/manifests.ts`, `modules/*/index.tsx`, `platform/Shell.tsx`.
 
 ---
 
@@ -426,7 +428,7 @@ const sheet = useQuery({ queryKey: ["sheet", code], queryFn: () => api.sheet(cod
 - `invalidateQueries()` dice "questi dati potrebbero essere vecchi": quelli attualmente visibili vengono **richiesti di nuovo**.
 - `staleTime: 5s` e `refetchOnWindowFocus`: tornando sulla scheda del browser i dati si rinfrescano.
 
-**Il nostro schema per ogni scrittura** (`lib/useAction.ts`):
+**Il nostro schema per ogni scrittura** (`core/useAction.ts`):
 
 ```ts
 try { await work(); return true; }
@@ -436,7 +438,7 @@ finally { await queryClient.invalidateQueries(); }                   // in OGNI 
 
 La conseguenza è importante: **lo schermo mostra sempre ciò che il server ha davvero**. Se una modifica viene rifiutata, la cella torna al valore vero. Non c'è un secondo stato da tenere allineato.
 
-**Dove guardare:** `apps/web/src/lib/useAction.ts`, `apps/web/src/pages/AreaPage.tsx`.
+**Dove guardare:** `apps/web/src/core/useAction.ts`, `apps/web/src/modules/budget/AreaPage.tsx`.
 
 ---
 
@@ -468,7 +470,7 @@ function editableCell(commit, toPatch) {
 }
 ```
 
-Il `valueSetter` non scrive nella riga: chiama `commit`, che spedisce `PATCH /api/lines/:id`. Poi `useAction` ricarica tutto e le righe arrivano nuove dal server. In questo modo i calcoli (IVA, totali) non possono divergere dal motore.
+Il `valueSetter` non scrive nella riga: chiama `commit`, che spedisce `PATCH /api/budget/lines/:id`. Poi `useAction` ricarica tutto e le righe arrivano nuove dal server. In questo modo i calcoli (IVA, totali) non possono divergere dal motore.
 
 - **Tema**: `themeQuartz.withParams({...})` accetta variabili CSS, quindi la griglia usa i token Figma e cambia insieme a chiaro/scuro (`theme/grid.ts`).
 - **Una griglia per progetto**: AG Grid Community non ha il raggruppamento di righe (è nella versione a pagamento, Enterprise), quindi ogni progetto ha la sua griglia con i suoi subtotali. L'incolla di più righe da Google Sheets nella versione Community non è garantita: è da verificare.
@@ -482,7 +484,7 @@ Anche le **barre di scorrimento** sono un caso: AG Grid imposta di suo `color-sc
 
 Un'altra trappola, solo su Mac: le barre "a comparsa" (larghezza zero) AG Grid le disegna in posizione assoluta, **sopra** la riga dei subtotali, quindi con una sola riga di dati la coprivano. `components.css` riserva sotto i subtotali una fascia di 16 px per la barra e la porta in fondo alla griglia (le regole valgono solo quando AG Grid usa la barra "apple", cioè dove serve; altrove la barra normale occupa già il suo spazio).
 
-**Dove guardare:** `apps/web/src/pages/areaColumns.tsx`, `AreaPage.tsx`, `theme/grid.ts`.
+**Dove guardare:** `apps/web/src/modules/budget/areaColumns.tsx`, `AreaPage.tsx`, `theme/grid.ts`.
 
 ---
 
@@ -506,7 +508,7 @@ Un'altra trappola, solo su Mac: le barre "a comparsa" (larghezza zero) AG Grid l
 
 Abbiamo **un solo** componente (`BarsChart`) usato da tutte le viste. Converte i centesimi in euro per l'asse, usa come colori le variabili `--utility-1…6` del design system, e `stacked` impila le serie (spese per area) invece di affiancarle. Disegna SVG, quindi è nitido a ogni dimensione.
 
-**Dove guardare:** `apps/web/src/components/BarsChart.tsx`.
+**Dove guardare:** `apps/web/src/core/BarsChart.tsx`.
 
 ---
 
@@ -520,9 +522,9 @@ Abbiamo **un solo** componente (`BarsChart`) usato da tutte le viste. Converte i
 - **ExcelJS** scrive un file `.xlsx`: un foglio per tabella, con **numeri e date veri** (non testo), formati euro/percentuale/data, celle unite, intestazione bloccata e il grafico come immagine.
 - Le tre librerie sono grosse, quindi si caricano **solo al momento di scaricare** (`import()` dinamico): chi non scarica non le scarica.
 
-Tutto parte da una descrizione comune della tabella (`lib/export/table.ts`), così PDF ed Excel dicono la stessa cosa. Il funzionamento intero è in [download.md](download.md).
+Tutto parte da una descrizione comune della tabella (`core/export/table.ts`), così PDF ed Excel dicono la stessa cosa. Il funzionamento intero è in [download.md](download.md).
 
-**Dove guardare:** `apps/web/src/lib/export/`, `components/DownloadMenu.tsx`, `components/ExportBlocks.tsx`.
+**Dove guardare:** `apps/web/src/core/export/`, `core/DownloadMenu.tsx`, `core/ExportBlocks.tsx`.
 
 ---
 
@@ -535,7 +537,7 @@ Tutto parte da una descrizione comune della tabella (`lib/export/table.ts`), cos
 - `JsBarcode` disegna un codice a barre in un SVG, negli stessi 11 formati di NocoDB (CODE128, EAN13, EAN8, EAN5, EAN2, UPC, CODE39, ITF14, MSI, pharmacode, codabar).
 - Tutte e due sono MIT, senza dipendenze, e si caricano solo quando un codice è nella pagina.
 
-**Dove guardare:** `apps/web/src/components/registry/Codes.tsx`.
+**Dove guardare:** `apps/web/src/modules/registry/Codes.tsx`.
 
 ---
 
@@ -544,7 +546,7 @@ Tutto parte da una descrizione comune della tabella (`lib/export/table.ts`), cos
 - **Font Awesome Free (set "solid")**: le stesse icone del design Figma, con gli stessi nomi (`faTrash`, `faPen`, `faCircleInfo`). Si importa **solo** l'icona che serve (`import { faTrash } from "@fortawesome/free-solid-svg-icons"`), quindi nel sito finiscono solo quelle usate; si disegna con `<FontAwesomeIcon icon={faTrash} />`.
 - **Fira Code** (`@fontsource-variable/fira-code`): il font dell'interfaccia secondo Figma. Il pacchetto lo porta **dentro il progetto**: nessuna richiesta a Google, funziona offline. È un font *variabile*: il peso è un asse continuo (300–700), quindi esiste anche il peso 450 "Retina" del design.
 
-**Dove guardare:** `apps/web/src/theme/base.css` (import del font), `components/Button.tsx` (icone).
+**Dove guardare:** `apps/web/src/theme/base.css` (import del font), `core/Button.tsx` (icone).
 
 ---
 
@@ -608,10 +610,10 @@ function normalise(value: CellValue | undefined): Plain {
 
 | Pezzo | Libreria o strumento | Dove |
 | --- | --- | --- |
-| firma e verifica dei JWT, chiavi pubbliche di Google | `jose` (v6) | `modules/auth/tokens.ts`, `google.ts` |
-| lettura e scrittura dei cookie | `@fastify/cookie` | `modules/auth/auth.routes.ts` |
+| firma e verifica dei JWT, chiavi pubbliche di Google | `jose` (v6) | `platform/auth/tokens.ts`, `google.ts` |
+| lettura e scrittura dei cookie | `@fastify/cookie` | `platform/auth/auth.routes.ts` |
 | validazione delle variabili d'ambiente | Zod | `core/auth-config.ts` |
-| l'utente della richiesta | `AsyncLocalStorage` | `modules/auth/auth.context.ts` |
+| l'utente della richiesta | `AsyncLocalStorage` | `platform/auth/auth.context.ts` |
 | lo storico | funzione e trigger SQL in una migrazione scritta a mano | `apps/api/drizzle/0002_audit_triggers.sql` |
 | intestazioni di sicurezza, niente cache | `@fastify/helmet` | `core/security.ts` |
 | limite di richieste per indirizzo | `@fastify/rate-limit` | `core/security.ts` |
@@ -632,7 +634,7 @@ Non abbiamo usato una libreria di login completa (Passport, Auth.js, un servizio
 - **I permessi si danno dopo le migrazioni** (`pnpm db:roles`): una tabella nuova, creata da una migrazione, riceve i permessi base dell'utente dell'API grazie ai privilegi predefiniti, ma le eccezioni (come `audit_log`) vanno ricordate in `db/app-role.ts`.
 - **Una migrazione "personalizzata"** (drizzle-kit `generate --custom`) non è generata dallo schema: i trigger vanno scritti a mano e committati come le altre.
 
-**Dove guardare:** [accesso-e-storico.md](accesso-e-storico.md) (il disegno completo), `apps/api/src/modules/auth/` e i test `google.test.ts`, `auth.routes.test.ts`, `roles.test.ts`, `audit.routes.test.ts`.
+**Dove guardare:** [accesso-e-storico.md](accesso-e-storico.md) (il disegno completo), `apps/api/src/platform/auth/` e i test `google.test.ts`, `auth.routes.test.ts`, `roles.test.ts`, `audit.routes.test.ts`.
 
 ---
 

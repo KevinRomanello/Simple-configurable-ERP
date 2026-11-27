@@ -1,47 +1,59 @@
 # Moduli: accendere e spegnere parti dell'ERP
 
-**Stato: fatto (23 novembre 2026).** Per ora c'è un modulo che si può spegnere, **Registry** (le anagrafiche); l'elenco si allunga con una riga (sotto, «Come si aggiunge un modulo»).
+**Stato: fatto (27 novembre 2026, fine della fase G).** L'ERP è un **nucleo** sempre acceso, quattro **moduli** che un admin può spegnere (budget, tesoreria, inventario, anagrafiche) e tre **ponti** che si accendono da soli quando sono accesi i loro moduli. Il perché e il come, passo per passo, sono in [moduli-architettura.md](moduli-architettura.md) (ADR-2); qui c'è ciò che serve per usarli e per aggiungerne uno.
 
-**In progetto (26 novembre 2026)**: spegnere anche budget, tesoreria e inventario. Non basta aggiungere righe a questo elenco, perché oggi quei moduli leggono le tabelle gli uni degli altri. Il design è in [moduli-architettura.md](moduli-architettura.md) (ADR-2): nucleo, moduli, ponti e «API come funzioni». Quando sarà fatto, questo documento va riscritto.
+## 1. Le parti
 
-## 1. Cosa fa
+| Parte | Cosa tiene | Indirizzi |
+| --- | --- | --- |
+| **nucleo** (`platform`) | login, utenti e spunte, aree, stagioni, liste comuni (categorie, aliquote IVA), Settings › App, History, token dei servizi | `/api/me`, `/api/users`, `/api/areas`, `/api/seasons`, `/api/settings`… |
+| **budget** | le righe delle aree, sponsor e fondi (CASH FROM), fornitori (BOUGHT FROM), CASH FLOW, Gantt, TOTAL, analisi | `/api/budget/…` |
+| **tesoreria** | il registro di cassa (Cassa, Banca, Paypal), il suo import, il rendiconto | `/api/treasury/…` |
+| **inventario** | i pezzi e dove sono, i movimenti, i componenti con la distinta, le statistiche | `/api/inventory/…` |
+| **anagrafiche** (Registry) | le tabelle del team, i moduli pubblici, webhook e chiavi per n8n | `/api/registry/…` |
+| ponte **tesoreria×budget** | TO PAY, gli inflow ricevuti nel registro, i pagamenti legati alle righe, l'area ADMINISTRATION, la Voce di partenza per categoria | `/api/treasury-budget/…` |
+| ponte **inventario×budget** | PENDING, gli arrivi delle righe del budget, ARRIVED, i progetti nell'inventario | `/api/inventory-budget/…` |
+| ponte **anagrafiche×accesso** | i ruoli dell'ERP presi dal registro | `/api/registry-access/…` |
 
-In **Settings › App › Modules** ogni modulo ha un interruttore **On / Off**. Un modulo **spento**:
+## 2. Spegnere un modulo
 
-- **non compare da nessuna parte nel sito:** niente gruppo nel menù laterale, le sue pagine (`/registry…`) riportano alla prima pagina, e in Settings **la scheda Registry non c'è** (un indirizzo `/settings/registry` porta alla prima scheda). Le **chiavi e gli account dei servizi** valgono per tutto l'ERP e non sono del registro: stanno in **Settings › App**, e restano anche a modulo spento;
-- **non risponde più alle API:** ogni suo indirizzo dà **404** con «The Registry module is turned off» (codice `module-off`), anche i moduli pubblici (`/api/registry/public/…`, che nel sito mostrano quella frase), i link personali, i webhook che partono dalle sue scritture, e le chiavi dei servizi (`/ext/…` arriva agli stessi indirizzi) quando puntano al modulo; le chiavi continuano a funzionare per il resto dell'ERP;
-- **non tocca niente di quello che tiene:** i dati, i moduli, i webhook e i ruoli restano dove sono e **tornano com'erano** riaccendendolo.
+In **Settings › App › Modules** (solo admin) ogni modulo ha un interruttore **On / Off**, con la sua descrizione e cosa si spegne con lui («Turning it off also hides …»: i ponti che ne hanno bisogno). Un modulo **spento**:
 
-Lo spegnimento va nello storico come ogni altra modifica (tabella `app_module`, «module registry»).
+- **non compare nel sito:** niente gruppo nel menù, le sue pagine portano alla prima pagina, la sua scheda di Settings non c'è, e i suoi pezzi nelle pagine degli altri spariscono (con l'inventario spento il budget non mostra ARRIVED; con il budget spento l'inventario non chiede il progetto…: l'elenco completo è nel §4.4 e nella sezione «G8» di [moduli-architettura.md](moduli-architettura.md));
+- **non risponde alle API:** ogni suo indirizzo, e quello dei ponti che ne hanno bisogno, dà **404** con «The Budget module is turned off» (codice `module-off`), anche i moduli pubblici e le chiavi dei servizi quando puntano lì;
+- **non viene più interrogato:** domande, eventi e porte del nucleo e degli altri moduli lo saltano, e i numeri degli altri cambiano di conseguenza (con la tesoreria spenta CASH FLOW conta il BANK e gli inflow scritti a mano, e non c'è ADMINISTRATION; con l'inventario spento nessuna riga del budget risulta arrivata). Gli eventi che tengono in ordine i dati (una categoria rinominata, una stagione nuova) arrivano comunque, così riaccendendo i dati sono giusti; e così i **controlli che proteggono i dati**: una categoria o un'aliquota usata dalle righe del budget spento non si cancella, un movimento del registro che ha pagato righe non cambia verso né scende sotto quanto ha pagato con il budget spento, e un inflow ricevuto lo cancella solo la tesoreria anche con la tesoreria spenta ([moduli-architettura.md](moduli-architettura.md), §8.7);
+- **non perde niente:** le tabelle restano, le migrazioni girano sempre, e riaccendendolo **torna tutto com'era**.
 
-**Con il Registry spento il collegamento dei ruoli si ferma:** gli account restano come sono e la pagina Users torna modificabile a mano (`rolesync` non dice più quali account sono gestiti). Riaccendendo, il collegamento riparte da sé alla prima modifica del registro.
+Lo spegnimento va nello storico come ogni altra modifica (tabella `app_module`). Un ponte non ha interruttore. Tutti sanno cosa è acceso (`GET /api/me`: `modules` e `bridges`), perché il menù e le pagine ne dipendono.
 
-**Solo un admin vede e cambia questa opzione:** il riquadro Modules non c'è per gli altri e le API rispondono 403 (anche a leggere l'elenco); tutti, invece, sanno cosa è acceso (`/api/me`), perché menù e pagine ne dipendono.
+**Cosa non cambia:**
+- **i permessi:** un modulo spento non si vede, ma chi poteva fare una cosa la può ancora fare (con la tesoreria spenta il BANK di CASH FLOW si scrive a mano, da chi teneva i soldi). Le **spunte** di Users sono solo quelle dei moduli accesi, e quelle dei moduli spenti restano salvate, salvo che la persona cambi ruolo in uno che non può averle: allora si tolgono anche quelle;
+- **le liste del nucleo:** categorie, stagioni e aliquote IVA stanno nella sezione di Settings di un modulo; spento quel modulo passano in Settings › App ([impostazioni.md](impostazioni.md));
+- **la pagina iniziale** è la prima pagina del primo modulo acceso, nell'ordine budget → inventario → tesoreria → anagrafiche; con tutto spento, Settings (`homeOf`, [hardcoded-registry.md](hardcoded-registry.md), riga 16).
 
-## 2. Com'è fatto
+## 3. Com'è fatto
 
 | Pezzo | Dove | Cosa fa |
 | --- | --- | --- |
-| elenco dei moduli | `listModuleDefs` in `apps/api/src/modules/appmodules/appmodules.service.ts` | per ogni modulo: chiave, nome, descrizione, **indirizzi API** (`/api/registry`, `/api/role-sync`). Valore fisso nel corpo della funzione, con `// HARDCODED:` ([hardcoded-registry.md](hardcoded-registry.md)) |
-| stato | tabella `app_module` (chiave, acceso), migrazione `0039_app_module.sql` | **una riga solo per chi è stato spento o riacceso**: un modulo senza riga è acceso. Nello storico |
-| il controllo | `addModuleGate` (`appmodules.routes.ts`), una riga in `app.ts` | prima delle rotte: un indirizzo di un modulo spento risponde 404. Solo se l'indirizzo è di un modulo legge lo stato (una lettura di una riga) |
-| leggere e cambiare | `GET /api/modules` e `PATCH /api/modules/:key` `{ enabled }` | solo admin (403 agli altri; 404 a un modulo che non c'è) |
-| chi lo sa | `GET /api/me` → `modules: { registry: true }` | lo leggono menù, pagine e impostazioni (`moduleOn` in `lib/modules.ts`, `IfModule` per le pagine, `settingsSections` per le schede di Settings) |
-| il ponte dei ruoli | `rolesync.service.ts` | con il Registry spento non dichiara gestito nessun account |
+| chi c'è | il contratto di ogni modulo (`moduleInfo`: chiave, nome, descrizione, posto) e di ogni ponte (`bridgeInfo`: chiave, moduli di cui ha bisogno, cosa si spegne con lui) | `listModuleDefs` e `listBridges` (`apps/api/src/platform/appmodules/appmodules.service.ts`) leggono le dichiarazioni |
+| stato | tabella `app_module` (chiave, acceso) | **una riga solo per chi è stato spento o riacceso**: un modulo senza riga è acceso |
+| il cancello | `addModuleGate` (`appmodules.routes.ts`), in `app.ts` prima delle rotte | legge gli interruttori una volta per richiesta e tiene chi è acceso per tutta la richiesta (`currentActive()`, `appmodules.context.ts`); un indirizzo `/api/<chiave>/…` di un modulo spento, o di un ponte con un modulo spento, risponde 404 |
+| leggere e cambiare | `GET /api/modules` e `PATCH /api/modules/:key` `{ enabled }` | solo admin (403 agli altri; 404 a un modulo che non c'è e a un ponte) |
+| il sito | un **manifesto** per parte (`apps/web/src/modules/<chiave>/index.tsx`, `bridges/<a>-<b>/index.tsx`, `platform/index.tsx`), l'elenco in `apps/web/src/manifests.ts` | pagine, menù, sezioni di Settings e pezzi nelle pagine degli altri vengono dai manifesti di ciò che è acceso ([moduli-architettura.md](moduli-architettura.md), §7) |
 
-**I moduli non sanno di poter essere spenti.** `appmodules` conosce solo gli **indirizzi** (testi), non importa nessun modulo; i moduli non importano `appmodules`. Chi lo usa: `app.ts` (il controllo), il sign-in (`/api/me`) e il ponte `rolesync` (una sola domanda: il Registry è acceso?). Lo controlla `apps/api/src/architecture.test.ts`.
+**I moduli non sanno di poter essere spenti.** Il nucleo legge solo le dichiarazioni e non importa nessun modulo; i moduli chiedono `currentActive()` al nucleo e parlano fra loro solo con i contratti (`*.public.ts`, porte, domande, eventi) e, nel sito, con i `public.ts` e i punti di aggancio. Lo controllano le prove di architettura del server (`apps/api/src/architecture.test.ts`) e del sito (`apps/web/src/architecture.test.ts`), tutte e due senza eccezioni.
 
-## 3. Come si aggiunge un modulo
+## 4. Come si aggiunge un modulo
 
-1. Una voce in `listModuleDefs` (chiave, nome, descrizione, prefissi delle sue rotte API) e una riga in [hardcoded-registry.md](hardcoded-registry.md) se cambia.
-2. Nel sito, il suo gruppo del menù (`Shell.tsx`) dentro `moduleOn(me, "chiave")`, le sue pagine dentro `<IfModule name="chiave">` (`App.tsx`), e quel che mostra in Settings.
-3. Se qualcosa di un altro modulo dipende da lui (come i ruoli dal Registry), quel ponte chiede `isModuleOn("chiave")`.
-4. Prove: lo stato spento dà 404 sui suoi indirizzi e li ridà riaccesi (`appmodules.routes.test.ts`).
+1. **Nel server:** la cartella `apps/api/src/modules/<chiave>/` con i suoi servizi e le sue rotte, scritte **senza** il prefisso e registrate in `app.ts` nell'elenco `owned` sotto la sua chiave (`/api/<chiave>`); il suo `<chiave>.contract.ts` con `moduleInfo` (e le sue spunte, i suoi permessi, i nomi per lo storico), letto in `wiring.ts` (l'unico posto: lo controlla la prova di architettura); il suo `<chiave>.public.ts` con ciò che gli altri possono usare; le sue tabelle in `db/schema/<chiave>.ts`. Una riga in `architecture.map.ts` (chi possiede la cartella e lo schema).
+2. **Nel sito:** la cartella `apps/web/src/modules/<chiave>/` con `index.tsx` (il manifesto: pagine, gruppi e voci del menù, sezioni di Settings, prima pagina), `api.ts`, `types.ts`, e se serve `slots.ts` e `public.ts`; una riga in `MANIFESTS` (`manifests.ts`) e, se ha una prima pagina, nell'ordine di `homeOf` (`platform/home.tsx`).
+3. **Se ha bisogno di un altro modulo,** quel che serve a tutti e due va in un **ponte**: nel server `apps/api/src/bridges/<a>-<b>/` con il suo contratto (`bridgeInfo` con `needs`, e le porte che riempie); nel sito `apps/web/src/bridges/<a>-<b>/index.tsx` con `needs` e i `fills` dei punti di aggancio dei due moduli.
+4. **Prove:** le sue letture nella prova delle combinazioni (`combinations.routes.test.ts`: senza, la prova non passa) e le sue voci nei manifesti (`manifests.test.ts` prova da sé tutte le combinazioni). Un ponte nuovo va anche in `BRIDGES` di `architecture.map.ts`, che deve dire gli stessi moduli del suo `bridgeInfo` e del suo manifesto nel sito (la prova di architettura li confronta); `routes.test.ts` controlla che il modulo o il ponte risponda solo sotto il suo nome.
 
-Non serve nessuna migrazione.
+Non serve nessuna migrazione per gli interruttori.
 
-## 4. Lasciato fuori
+## 5. Lasciato fuori
 
-- Gli altri moduli (budget, inventario, cassa): si aggiungono con i passi sopra quando serve.
-- Permessi per modulo (chi vede cosa): restano quelli dei ruoli.
-- Spegnere solo una parte di un modulo (per esempio solo i moduli pubblici).
+- Spegnere solo una parte di un modulo (per esempio solo i moduli pubblici del registro).
+- La pagina iniziale scelta da ognuno (sopra la regola automatica: [moduli-domande.md](moduli-domande.md), domanda 5).
+- Caricare il codice di un modulo solo quando è acceso: spento vuol dire nascosto e fermo, non scaricato.

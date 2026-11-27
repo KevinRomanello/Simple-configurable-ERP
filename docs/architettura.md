@@ -35,33 +35,59 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   │   ├── test/             # database di test ricreato a ogni esecuzione
 │   │   └── src/
 │   │       ├── main.ts           # avvio Fastify, registra i moduli
-│   │       ├── db/               # schema.ts, client.ts (utente dell'API), owner.ts (proprietario), migrate.ts, roles.ts + app-role.ts, seed-base.ts, seed.ts
-│   │       ├── core/             # tx.ts (runWrite), errors.ts, money.ts (numeric ↔ centesimi), auth-config.ts, security.ts (intestazioni, limite di richieste)
-│   │       ├── snapshot.ts       # loadSnapshot(): dal DB al formato di calc
-│   │       └── modules/
-│   │           ├── auth/         # login Google, JWT, controllo delle richieste, ruoli e permessi
-│   │           ├── users/        # utenti, ruoli, aree dei pm
-│   │           ├── audit/        # lettura dello storico delle modifiche
-│   │           ├── lookups/      # categorie, aliquote, unità, posti, impostazioni (dal database); regole IVA (HARDCODED)
-│   │           ├── settings/     # la pagina Settings: le scritture dell'admin su quegli elenchi (impostazioni.md)
-│   │           ├── seasons/      # stagioni e macchine; la stagione scelta nel menù (header X-Season)
-│   │           ├── budget/       # aree, progetti, righe
-│   │           ├── funds/        # fondi e contratti
-│   │           ├── suppliers/
-│   │           ├── inventory/    # articoli, arrivi, movimenti, componenti (distinte), statistiche, immagini
-│   │           ├── cashflow/     # ingressi del team e BANK (il BANK viene dal registro, se può)
-│   │           ├── cash/         # il registro di cassa del fondo del team, le sue liste e l'import dell'Excel
-│   │           ├── registry/     # le anagrafiche: tabelle, campi, viste, record, file, moduli, webhook (anagrafiche.md)
-│   │           ├── rolesync/     # i ruoli dell'ERP calcolati dalle anagrafiche (anagrafiche.md, §9)
-│   │           └── views/        # una funzione per vista (Gantt, Total, analisi…)
-│   └── web/src/
+│   │       ├── app.ts            # il cablaggio: il nucleo senza prefisso, ogni modulo e ponte sotto la sua chiave (/api/<chiave>, elenco `owned`)
+│   │       ├── wiring.ts         # legge ogni <nome>.contract.ts, una volta e nell'ordine giusto: l'unico posto (la prova di architettura lo controlla)
+│   │       ├── snapshot.ts       # per gli strumenti fuori dal server (@erp/api/snapshot): lo snapshot con tutti i contratti letti
+│   │       ├── db/               # schema/ (le tabelle: un file per proprietario) e schema.ts (le riunisce per il client), client.ts (utente dell'API), owner.ts (proprietario), migrate.ts, roles.ts + app-role.ts, seed-base.ts, seed.ts
+│   │       ├── core/             # tx.ts (runWrite), errors.ts, money.ts (numeric ↔ centesimi), auth-config.ts, security.ts (intestazioni, limite di richieste),
+│   │       │                     #   contracts.ts (eventi, domande, porte e dichiarazioni fra i proprietari del server: moduli-architettura.md, §5), usage.ts (conta chi usa un elenco, in una query)
+│   │       ├── architecture.map.ts   # chi possiede ogni cartella e ogni tabella, e le eccezioni di oggi (le prove di architettura lo leggono)
+│   │       ├── platform/         # il nucleo, sempre acceso (moduli-architettura.md, §4.1); platform.public.ts è ciò che i moduli ne usano: le domande («chi usa questo?»), gli eventi (categoria rinominata, stagione nuova) e i nomi dello storico
+│   │       │   ├── auth/         # login Google, JWT, controllo delle richieste, ruoli e permessi
+│   │       │   ├── users/        # utenti, ruoli, aree dei pm
+│   │       │   ├── areas/        # l'elenco delle aree (GET /api/areas)
+│   │       │   ├── audit/        # lettura dello storico delle modifiche
+│   │       │   ├── lookups/      # le liste comuni: categorie e aliquote IVA (dal database), «editing on a phone»; quelle dei moduli sono nei moduli
+│   │       │   ├── settings/     # la parte del nucleo della pagina Settings: categorie, aliquote, «editing on a phone» (impostazioni.md)
+│   │       │   ├── seasons/      # stagioni e macchine; la stagione scelta nel menù (header X-Season)
+│   │       │   ├── appmodules/   # gli interruttori dei moduli (moduli.md)
+│   │       │   └── health/
+│   │       ├── bridges/
+│   │       │   ├── registry-access/  # il ponte: i ruoli dell'ERP calcolati dalle anagrafiche (anagrafiche.md, §9); risponde sotto /api/registry-access
+│   │       │   ├── treasury-budget/  # il ponte: ciò che ha bisogno del registro e del budget insieme (TO PAY, righe pagate, inflow ricevuti, area ADMINISTRATION, Voci di partenza, cancellazione scelta); risponde sotto /api/treasury-budget
+│   │       │   └── inventory-budget/ # il ponte: ciò che ha bisogno dell'inventario e del budget insieme (PENDING, l'arrivo per una riga, ARRIVED, il progetto di un movimento e di «Make new», le statistiche per progetto e area)
+│   │       └── modules/          # ognuno ha un <nome>.contract.ts (budget, inventory, treasury, registry): ciò che risponde al nucleo e ascolta da lui, letto in wiring.ts
+│   │           ├── budget/       # il budget, in una cartella sola dal passo G6: progetti, righe e il foglio di un'area (budget.*), fondi e contratti (funds.*),
+│   │           │                 #   fornitori (suppliers.*), una funzione per vista (views.*: Gantt, Total, analisi…), ingressi del team e BANK (cashflow.*:
+│   │           │                 #   il BANK lo chiede al registro con una porta, `budget.ports.ts`), snapshot.ts (loadSnapshot(): dal DB al formato di calc),
+│   │           │                 #   le sue liste e gli interruttori del calcolo (lookups.*); budget.public.ts è ciò che i ponti ne usano
+│   │           ├── inventory/    # articoli, arrivi fuori budget, movimenti, componenti (distinte), statistiche, immagini, unità, posti e campi per categoria; inventory.public.ts è ciò che il ponte ne usa
+│   │           ├── treasury/     # il registro di cassa del fondo del team, le sue liste e l'import dell'Excel (era `cash`), sotto /api/treasury; treasury.public.ts è ciò che gli altri ne usano
+│   │           └── registry/     # le anagrafiche: tabelle, campi, viste, record, file, moduli, webhook (anagrafiche.md)
+│   └── web/src/              # diviso per proprietario come il server dal passo G7 (moduli-architettura.md, §7)
+│       ├── App.tsx, main.tsx, manifests.ts # il cablaggio: l'elenco dei manifesti e le pagine che ne vengono; l'unico che può usare tutto
+│       ├── architecture.test.ts # le regole del sito: chi può importare chi (moduli-architettura.md, §7.3)
 │       ├── theme/            # tokens.css (token Figma), base.css (tipografia), components.css, grid.ts
-│       ├── api/              # client.ts (una funzione per endpoint), types.ts
-│       ├── lib/              # format.ts (soldi, date), useAction.ts (scritture + ricarica), auth.tsx (chi è dentro), permissions.ts,
-│       │                     # export/ (tabelle e grafici → PDF ed Excel nel browser, vedi download.md)
-│       ├── components/       # ui/ (i modelli: PageHeader, Panel, FormPanel, Field, DataTable, Card…), Shell, Button, Chips, BarsChart,
-│       │                     # Notice, DownloadMenu, ExportBlocks, SortTh, MonthlyInflows (vedi stile-interfaccia.md)
-│       └── pages/            # una pagina per foglio del vecchio file, più Login, Users, History
+│       ├── core/             # la cornice, non conosce nessun modulo: api.ts (request(), errori, upload), calcTypes.ts (i tipi del motore),
+│       │                     # slots.tsx (i punti di aggancio: defineSlot, useSlot, Slot, RowActionFill), session.ts (ciò che il core
+│       │                     # sa di chi è dentro: l'id per le bozze e cosa fare a sessione scaduta, lo dà la piattaforma), dragOrder.ts,
+│       │                     # ui/ (i modelli: PageHeader, Panel, FormPanel, Field, DataTable, Table, RowAction…), export/ (tabelle e grafici →
+│       │                     # PDF ed Excel, vedi download.md), Button, Chips, SearchSelect, Picture, BarsChart, LineChart, DownloadMenu,
+│       │                     # format.ts (soldi, date), useAction.ts (scritture + ricarica), bozze (useDraft, drafts), sort, screen, theme…
+│       ├── platform/         # il nucleo: api.ts e types.ts del nucleo, auth.tsx (chi è dentro), permissions.ts, season.ts, modules.ts,
+│       │                     # manifest.tsx (com'è fatto un manifesto), index.tsx (il suo), Shell (il menù, dai manifesti),
+│       │                     # SeasonSwitcher, Login, Users, History, Settings (le schede dai manifesti; App, stagioni, IVA, token)
+│       ├── modules/          # ognuno con index.tsx (il manifesto: pagine, menù, sezione di Settings), public.ts (l'elenco di ciò che
+│       │                     # presta agli altri: punti di aggancio, tipi, qualche componente), slots.ts (i suoi punti di aggancio),
+│       │                     # api.ts (le chiamate ai suoi indirizzi) e types.ts, le sue pagine, componenti e lib
+│       │   ├── budget/       # le pagine delle aree, CASH FROM, BOUGHT FROM, CASH FLOW, Gantt, TOTAL, analisi, il form delle righe
+│       │   ├── treasury/     # CASH REGISTER, FINANCIAL STATEMENT, l'import dell'Excel, le liste del registro
+│       │   ├── inventory/    # INVENTORY, il pezzo, i componenti, le statistiche, i tipi, i form di movimenti, produzione e arrivi
+│       │   └── registry/     # le anagrafiche e il modulo pubblico (FormPage)
+│       └── bridges/          # ognuno con il suo index.tsx: acceso solo con tutti e due i suoi moduli
+│           ├── treasury-budget/  # TO PAY, PayForm, PayLines, ReceiveInflow, DeleteInflow, CategoryVoci; rowActions.tsx (cosa mette
+│           │                     # nelle righe di CASH FLOW e del registro)
+│           └── inventory-budget/ # PENDING e la pillola ARRIVED
 ├── packages/calc/src/        # funzioni pure + test
 ├── packages/registry/src/    # il motore puro delle anagrafiche: valori, formule, filtri, permessi, moduli, CSV
 └── tools/import-xlsx/        # legge l'xlsx reale: riconciliazione col foglio e caricamento nel DB (usa fonti/)
@@ -100,7 +126,7 @@ flowchart LR
 Cosa oggi è fisso e domani non lo sarà? Le categorie, le aliquote IVA, le regole delle scadenze, la soglia di scostamento, la stagione corrente (le ultime tre non lo sono più). Ognuna ha già la sua funzione di servizio e la sua route; **il valore è scritto nel corpo della funzione** e nessun altro file lo conosce:
 
 ```ts
-// apps/api/src/modules/lookups/lookups.service.ts
+// apps/api/src/platform/lookups/lookups.service.ts (oggi le liste comuni del nucleo; quelle del budget sono in modules/budget/lookups.service.ts)
 export async function listCategories(): Promise<string[]> {
   // HARDCODED: diventa la tabella `category`, modificabile dall'admin
   return ["Components", "Manufacturing", "Consumable", "Asset", "Logistic", "Administration", "Software"];
@@ -132,7 +158,7 @@ Soldi in `numeric` nel database e in interi nel codice: importi in centesimi, qu
 | `line_fund`     | id, figures_id, position, fund_id                                                                                                    | I fondi che pagano una riga in una fase, in ordine (da 1 a 4). Vedi [sponsor-e-fondi.md](sponsor-e-fondi.md)                |
 | `fund`          | id, season_id, name, kind (`team`/`external`), type (`fund`/`gift`/`gift_vat`), vat_rate, group_name | "Team's fund" è un fondo `team`, seed, non eliminabile, senza parametri da sponsor. Uno sponsor è un fondo `external` con le sue regole (aliquota, gruppo, cosa dà, dove vanno i soldi, se copre l'IVA). Una sola casella `pays_vat` (Q5 chiusa) |
 | `fund_contract` | id, fund_id, phase, amount, inflow_date                                                                                               | I soldi di uno sponsor: **una riga per sponsor e fase** (unica). `inflow_date` può mancare                              |
-| `team_inflow`   | id, season_id, phase, source_name, amount, inflow_date, sponsorship, cash_entry_id | Le tabelle CASH FLOW. `sponsorship` (di base vera): solo gli inflow di sponsorizzazione pagano l'11% di IVA. `cash_entry_id` (unico): l'entrata del registro che ha ricevuto un inflow atteso |
+| `team_inflow`   | id, season_id, phase, source_name, amount, inflow_date, sponsorship | Le tabelle CASH FLOW. `sponsorship` (di base vera): solo gli inflow di sponsorizzazione pagano l'11% di IVA. `cash_entry_id` (unico): l'entrata del registro che ha ricevuto un inflow atteso |
 | `bank_snapshot` | id, season_id (unico), amount, as_of_date                                                                                             | Il BANK, valido per le due fasi                                                                                            |
 | `cash_entry`    | id, entry_on, description, category_id, method_id, account (`cash`/`bank`/`paypal`), amount (con segno), invoice_checked, sponsorship | Il registro di cassa del fondo del team: un movimento su un conto. I progressivi non si salvano |
 | `cash_entry_line` | id, entry_id, line_id, amount (sopra zero; unico per coppia) | Quanto un'uscita del registro ha pagato di una riga del budget (la quota del fondo del team, ACTUAL) |
@@ -146,7 +172,8 @@ Soldi in `numeric` nel database e in interi nel codice: importi in centesimi, qu
 | `item_type`, `item_type_param`, `item_param_value` | id, name, parent_id (il tipo sopra), area_id, hazards, category_id (la categoria del budget) · id, type_id, name, kind (`number`/`list`/`text`/`yesno`), unit, prefixes, choices (text[]), position · id, item_id, param_id, number (numeric), text, flag | i tipi dell'inventario, i loro parametri e ciò che è scritto per ogni articolo (una sola colonna per valore) ([inventario.md](inventario.md), §19 e §20: i tipi sono un albero e un tipo ha i parametri dei padri) |
 | `item_image`    | item_id, mime, full, thumb (bytea)                                                                                                    | l'immagine nel database; non nello storico                                                                                 |
 | `item_datasheet`, `item_datasheet_file` | id, item_id, name, size_bytes, uploaded_by, uploaded_at · datasheet_id, data (bytea) | le schede dati in PDF: i dati *sulla* scheda e, a parte, i byte (letti solo quando si apre la scheda); i byte non vanno nello storico ([inventario.md](inventario.md), §15) |
-| `stock_movement` | id, item_id, kind (`receipt`/`use`/`transfer`/`adjustment`/`disposal`/`build`), occurred_on, quantity, location, spot, to_location, to_spot, unit_net/gross/team, project_id, budget_line_id, built_by, car_season_id, note | il registro di tutto ciò che cambia lo scaffale; la giacenza è la somma, mai salvata. `car_season_id`: un arrivo fuori budget per la macchina di un'altra stagione |
+| `stock_movement` | id, item_id, kind (`receipt`/`use`/`transfer`/`adjustment`/`disposal`/`build`), occurred_on, quantity, location, spot, to_location, to_spot, unit_net/gross/team, built_by, car_season_id, note | il registro di tutto ciò che cambia lo scaffale; la giacenza è la somma, mai salvata. `car_season_id`: un arrivo fuori budget per la macchina di un'altra stagione |
+| `receipt_line`, `movement_project`, `item_make_project` | id, movement_id (unico), line_id · id, movement_id (unico), project_id · id, item_id (unico), project_id | i legami dell'inventario con il budget, tabelle del ponte inventario×budget (dal 27 novembre 2026; prima colonne di `stock_movement` e `inventory_item`): l'acquisto che un arrivo completa, il progetto di un movimento, il progetto di «Make new» |
 | `component_part` | id, component_id, part_id, quantity, note                                                                                            | la distinta dei materiali di un componente (anche sottoassiemi); mai un anello                                              |
 | `audit_log`     | id, at, actor_id (senza chiave esterna), table_name, row_id, action, before, after (jsonb)                                            | Scritta dai trigger; attore nullo = seed, importer, creazione account                                                      |
 | `reg_table`, `reg_field`, `reg_view`, `reg_record`, `reg_link`, `reg_file`, `reg_comment`, `reg_webhook`, `reg_webhook_log`, `reg_settings` | le anagrafiche: tabelle, campi, viste e moduli, record (valori in `data` JSONB per id del campo), collegamenti, file, commenti, webhook e loro chiamate, tabella delle persone | [anagrafiche.md](anagrafiche.md), §3; diagramma in [schema-database.md](schema-database.md), §6bis |
@@ -176,7 +203,7 @@ Se un valore supera la validazione e il database lo rifiuta lo stesso (numero fu
 
 - **Dati**: ogni pagina legge con TanStack Query (`['sheet', area]`, `['gantt', fase]`…) e non calcola nulla: i numeri arrivano dall'API.
 - **Scritture**: ogni modifica passa da `useAction()`, che esegue la chiamata, mostra in un angolo un eventuale rifiuto del server (validazione, conflitto di versione, elemento in uso) e **in ogni caso ricarica tutto**: la schermata mostra sempre ciò che il server ha davvero.
-- **Pagina di un'area**: un AG Grid per progetto; la riga dei subtotali è una riga fissata in fondo; le celle non scrivono nei dati della griglia ma chiamano `PATCH /lines/:id` con la `version` letta (`pages/areaColumns.tsx` dice quale colonna manda cosa). Il triangolo arancione segnala una riga "incompleta" (tipo di sponsor o aliquota mancanti).
+- **Pagina di un'area**: un AG Grid per progetto; la riga dei subtotali è una riga fissata in fondo; le celle non scrivono nei dati della griglia ma chiamano `PATCH /lines/:id` con la `version` letta (`modules/budget/areaColumns.tsx` dice quale colonna manda cosa). Il triangolo arancione segnala una riga "incompleta" (tipo di sponsor o aliquota mancanti).
 - **Altre pagine**: tabelle semplici con "chip" per scegliere il blocco (ALL ITEMS o una categoria) e grafici a colonne (`BarsChart`) dove li aveva il foglio.
 - **Tipi**: le risposte del motore usano i tipi di `@erp/calc` (solo tipi: nessun codice del motore finisce nel browser).
 
@@ -214,29 +241,31 @@ Prefisso `/api`. Tutto richiede un utente che ha fatto il login, tranne `/health
 | `GET /auth/config`, `/auth/login`, `/auth/callback`, `/auth/dev-login`, `POST /auth/logout` | `authRoutes` (auth)                                                                                | pubblici; dev-login esiste solo con `DEV_LOGIN_EMAIL`              |
 | `GET /me`                                                                                           | `getCurrentUser`, `permissionsOf` (auth)                                                         | chi sei, ruolo, aree, cosa puoi fare                                 |
 | `GET /users`, `PATCH /users/:id`                                                                  | `listUsers`, `updateUser` (users)                                                                | solo admin: ruolo, attivo, aree                                      |
-| `GET/POST/PATCH/DELETE /inventory/items…`, `/inventory/pending`, `/inventory/receive`, `/inventory/movements`, `/inventory/components…`, `/inventory/stats`, `/inventory/types…`, `/inventory/params/:id` | `modules/inventory` | tutto l'inventario: [inventario.md](inventario.md#11-permessi-api-schermate) |
+| `GET/POST/PATCH/DELETE /inventory/items…`, `/inventory/receive` (fuori budget), `/inventory/movements`, `/inventory/components…`, `/inventory/stats`, `/inventory/types…`, `/inventory/params/:id` | `modules/inventory` | tutto l'inventario: [inventario.md](inventario.md#11-permessi-api-schermate) |
+| `GET /inventory-budget/pending`, `POST /inventory-budget/pending/:lineId/receive`, `GET /inventory-budget/projects` | `bridges/inventory-budget` | PENDING, l'arrivo per una riga del budget (prezzi, progetto e macchina della riga), i progetti per i moduli dell'inventario (prima `/inventory/pending`, `/inventory/projects` e `/inventory/receive` con `lineId`; [inventario.md](inventario.md)) |
 | `GET /audit?table=&rowId=&actorId=&before=&limit=`                                                  | `listHistory` (audit)                                                                              | admin e pm: storico, più recente prima, paginato                    |
-| `GET /lookups/categories`, `/priorities`, `/vat-rates`, `/vat-rules`, `/settings`           | `listCategories`, `listPriorities`, `listVatRates`, `getVatRules`, `getSettings` (lookups) | HARDCODED (le priorità sono fisse)                                  |
+| `GET /lookups/categories`, `/lookups/vat-rates` (nucleo); `GET /budget/lookups/priorities`, `/budget/lookups/vat-rules`, `/budget/lookups/sponsor-rates`, `/budget/lookups/settings`, `PATCH /budget/settings/calculation` (budget)           | `listCategories`, `listPriorities`, `listVatRates`, `getVatRules`, `getSettings` (lookups) | HARDCODED (le priorità sono fisse)                                  |
 | `GET /seasons`, `GET /seasons/current`, `POST /seasons`, `PATCH /seasons/:id`                       | `listSeasons`, `getCurrentSeason`, `createSeason`, `updateSeason` (seasons)                        | le stagioni con la loro macchina; scritture solo admin ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md)) |
-| `GET /areas`                                                                                        | `listAreas` (budget)                                                                               | dal DB                                                               |
-| `GET /areas/:code/sheet`                                                                            | `getAreaSheet` (budget)                                                                            | righe + subtotali + IVA del team                                     |
-| `POST /projects`, `PATCH /projects/:id`, `DELETE /projects/:id`                                 | `createProject`… (budget)                                                                         | "Add New Project"                                                    |
-| `POST /projects/:id/lines`, `PATCH /lines/:id`, `DELETE /lines/:id`                             | `createLine`… (budget)                                                                            | `PATCH` con `version`, accetta anche `figures.estimate/actual` |
-| `GET/POST /funds`, `PATCH/DELETE /funds/:id`                                                      | `listFunds`, `createFund`, `updateFund`, `deleteFund` (funds)                                    | gli sponsor e le loro regole ([sponsor-e-fondi.md](sponsor-e-fondi.md)) |
-| `PUT/DELETE /funds/:id/contracts/:phase`                                                                  | `setContract`, `clearContract` (funds)                                                                          | i soldi di uno sponsor: un valore e una data per fase                                                  |
-| `GET/POST/DELETE /suppliers`                                                                        | `listSuppliers`… (suppliers)                                                                      | BOUGHT FROM                                                          |
-| `GET/POST/DELETE /inflows`                                                                          | `listInflows`… (cashflow)                                                                         | CASH FLOW, per fase                                                  |
-| `GET/PUT /bank`                                                                                     | `getBank`, `setBank` (cashflow)                                                                  | `getBank` legge dal registro (Cassa + Banca) se può, altrimenti il BANK scritto a mano; `source` lo dice |
-| `GET /cash/register`, `POST/PATCH/DELETE /cash/entries…`, `PUT /cash/openings`, `/cash/categories…`, `/cash/methods…`, `POST /cash/import/preview`, `POST /cash/import`, `GET /cash/to-pay`, `POST /cash/to-pay/pay`, `GET /cash/to-link`, `GET/PUT /cash/category-defaults…`, `GET /cash/statement` | `modules/cash` | il registro di cassa e il rendiconto (FINANCIAL STATEMENT, `statement.service.ts`, il calcolo è `packages/calc/src/statement.ts`): solo `admin` e i `pm` con la spunta Treasury; con i collegamenti alle righe del budget (`PUT /cash/entries/:id/lines`, `GET /cash/payable-lines`) ([registro-di-cassa.md](registro-di-cassa.md)) |                                                                      |
-| `GET /views/funds-summary?phase=`                                                                   | `getFundsSummary` (views)                                                                          | riepilogo + mensile                                                  |
-| `GET /views/cashflow`                                                                               | `getCashFlowView`                                                                                  | stima e consuntivo                                                   |
-| `GET /views/gantt?phase=`                                                                           | `getGantt`                                                                                         |                                                                      |
-| `GET /views/totals?season=`, `/views/totals/year?year=`, `/views/totals/car?car=` | `getTotals`, `getYearTotals`, `getCarTotals` | le tre pagine TOTAL: scelgono da sé stagione, anno o macchina; con i progetti di ogni area e le entrate ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md), §3bis) |
-| `GET /views/analysis/funds`, `/analysis/suppliers`                                                | `getFundAnalysis`, `getSupplierAnalysis`                                                         |                                                                      |
-| `GET /views/items?categories=&priority=&sort=`                                                      | `getItemsView`                                                                                     | CATEGORY ANALYSES                                                    |
-| `GET /views/vat-report?area=`                                                                       | `getVatReport`                                                                                     |                                                                      |
+| `GET /areas`                                                                                        | `listAreas` (nucleo)                                                                               | dal DB                                                               |
+| `GET /budget/areas/:code/sheet`                                                                            | `getAreaSheet` (budget)                                                                            | righe + subtotali + IVA del team                                     |
+| `POST /budget/projects`, `PATCH /budget/projects/:id`, `DELETE /budget/projects/:id`                                 | `createProject`… (budget)                                                                         | "Add New Project"                                                    |
+| `POST /budget/projects/:id/lines`, `PATCH /budget/lines/:id`, `DELETE /budget/lines/:id`                             | `createLine`… (budget)                                                                            | `PATCH` con `version`, accetta anche `figures.estimate/actual` |
+| `GET/POST /budget/funds`, `PATCH/DELETE /budget/funds/:id`                                                      | `listFunds`, `createFund`, `updateFund`, `deleteFund` (funds)                                    | gli sponsor e le loro regole ([sponsor-e-fondi.md](sponsor-e-fondi.md)) |
+| `PUT/DELETE /budget/funds/:id/contracts/:phase`                                                                  | `setContract`, `clearContract` (funds)                                                                          | i soldi di uno sponsor: un valore e una data per fase                                                  |
+| `GET/POST/DELETE /budget/suppliers`                                                                        | `listSuppliers`… (suppliers)                                                                      | BOUGHT FROM                                                          |
+| `GET/POST/DELETE /budget/inflows`                                                                          | `listInflows`… (cashflow)                                                                         | CASH FLOW, per fase                                                  |
+| `GET/PUT /budget/bank`                                                                                     | `getBank`, `setBank` (cashflow)                                                                  | `getBank` legge dal registro (Cassa + Banca) se può, altrimenti il BANK scritto a mano; `source` lo dice |
+| `GET /treasury/register`, `POST/PATCH/DELETE /treasury/entries…`, `PUT /treasury/openings`, `/treasury/categories…`, `/treasury/methods…`, `POST /treasury/import/preview`, `POST /treasury/import`, `GET /treasury/statement` | `modules/treasury` | il registro di cassa e il rendiconto (FINANCIAL STATEMENT, `statement.service.ts`, il calcolo è `packages/calc/src/statement.ts`): solo `admin` e i `pm` con la spunta Treasury ([registro-di-cassa.md](registro-di-cassa.md)) |
+| `GET /treasury-budget/to-pay`, `POST /treasury-budget/to-pay/pay`, `GET /treasury-budget/to-link`, `GET /treasury-budget/payable-lines`, `PUT /treasury-budget/entries/:id/lines`, `GET/PUT /treasury-budget/category-voci…`, `GET /treasury-budget/inflows/receivable`, `POST/DELETE /treasury-budget/inflows/:id/receive`, `GET /treasury-budget/inflows/related`, `POST /treasury-budget/inflows/delete` | `bridges/treasury-budget` | ciò che lega il registro al budget: TO PAY, le righe pagate, gli inflow ricevuti, la cancellazione scelta, la Voce di partenza di ogni categoria ([registro-di-cassa.md](registro-di-cassa.md)) |                                                                      |
+| `GET /budget/views/funds-summary?phase=`                                                                   | `getFundsSummary` (views)                                                                          | riepilogo + mensile                                                  |
+| `GET /budget/views/cashflow`                                                                               | `getCashFlowView`                                                                                  | stima e consuntivo                                                   |
+| `GET /budget/views/gantt?phase=`                                                                           | `getGantt`                                                                                         |                                                                      |
+| `GET /budget/views/totals?season=`, `/budget/views/totals/year?year=`, `/budget/views/totals/car?car=` | `getTotals`, `getYearTotals`, `getCarTotals` | le tre pagine TOTAL: scelgono da sé stagione, anno o macchina; con i progetti di ogni area e le entrate ([stagioni-anni-fiscali-e-macchine.md](stagioni-anni-fiscali-e-macchine.md), §3bis) |
+| `GET /budget/views/analysis/funds`, `/analysis/suppliers`                                                | `getFundAnalysis`, `getSupplierAnalysis`                                                         |                                                                      |
+| `GET /budget/views/items?categories=&priority=&sort=`                                                      | `getItemsView`                                                                                     | CATEGORY ANALYSES                                                    |
+| `GET /budget/views/vat-report?area=`                                                                       | `getVatReport`                                                                                     |                                                                      |
 | `/registry/*` | `modules/registry` | le anagrafiche: tabelle, campi, viste, record, collegamenti, file, storico, CSV, webhook, moduli e viste pubbliche (`/registry/public/*`, aperti anche senza accesso). Elenco completo in [anagrafiche.md](anagrafiche.md), §10 |
-| `GET/PUT /role-sync`, `POST /role-sync/preview` | `modules/rolesync` | i ruoli dell'ERP dalle anagrafiche (admin) |
+| `GET/PUT /registry-access/role-sync`, `POST /registry-access/role-sync/preview` | `bridges/registry-access` | i ruoli dell'ERP dalle anagrafiche (admin) |
 | `GET/POST/DELETE /tokens`, `POST /users` | `api-tokens.service`, `createUser` | le chiavi dei servizi (`Authorization: Bearer`) e gli account aggiunti a mano (admin) |
 
 Gli stessi endpoint `/views/*` sono la fonte per le analisi esterne (script Python con `requests` + pandas): una sola logica, nessuna copia in SQL.
@@ -275,14 +304,14 @@ Prerequisiti sul computer: Node 24 o più recente, Docker, pnpm. Se `pnpm` non c
 | Voglio…                                        | Si fa così                                                                                                                                                                   |
 | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | trasformare un hardcode in funzionalità        | trova la riga in [hardcoded-registry.md](hardcoded-registry.md); cambia il corpo della funzione; aggiungi tabella, migrazione e route di scrittura; togli la riga dal registro |
-| aggiungere un campo a una riga                  | `schema.ts` → migrazione → Zod nel modulo → tipo in `calc` → colonna nella griglia                                                                                    |
+| aggiungere un campo a una riga                  | `db/schema/budget.ts` → migrazione → Zod nel modulo → tipo in `calc` → colonna nella griglia                                                                                    |
 | aggiungere un'analisi                           | funzione pura in `calc` + `GET /views/<nome>` in `views` (+ pagina, se serve)                                                                                           |
-| un permesso nuovo o un ruolo                    | `canWrite()` e le funzioni vicine in `modules/auth/auth.service.ts`; i test in `roles.test.ts`                                                                          |
+| un permesso nuovo o un ruolo                    | `canWrite()` e le funzioni vicine in `platform/auth/auth.service.ts`; i test in `roles.test.ts`                                                                          |
 | tracciare una tabella nello storico             | una migrazione con `create trigger … execute function audit_row()` (vedi `0002_audit_triggers.sql`)                                                                      |
 | tabelle `calc_*` e viste SQL per gli analisti | dentro `runWrite()`: rigenera con `calc` dopo la scrittura                                                                                                                |
 | inventario                                      | nuovo modulo `inventory` con `inventory_unit` e `inventory_movement`; `budget_line_id` facoltativo; non tocca il resto                                                |
 | un'anagrafica nuova (fornitori, sponsor, rimborsi…) | nessun codice: una tabella del REGISTRY dal sito, con i suoi campi, moduli e regole ([anagrafiche.md](anagrafiche.md)) |
-| un tipo di campo delle anagrafiche | `packages/registry/src/values.ts` (validazione), `compute.ts` se è calcolato, l'editor in `apps/web/src/components/registry/Values.tsx` |
+| un tipo di campo delle anagrafiche | `packages/registry/src/values.ts` (validazione), `compute.ts` se è calcolato, l'editor in `apps/web/src/modules/registry/Values.tsx` |
 
 ## Differenze dal piano originale
 

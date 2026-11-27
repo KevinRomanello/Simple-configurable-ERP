@@ -41,7 +41,7 @@ L'IVA di una riga dipende da chi la paga, come per il prezzo netto ([sponsor-e-f
 
 ## 5. API
 
-`PATCH /api/lines/:id` e `POST /api/projects/:id/lines`, nelle `figures` di una fase:
+`PATCH /api/budget/lines/:id` e `POST /api/budget/projects/:id/lines`, nelle `figures` di una fase:
 
 - `unitGrossCost` (decimale, al massimo 4 decimali) **oppure** `unitNetCost`: tutti e due insieme, `400`. Il prezzo scritto sostituisce l'altro: scrivere il netto su una riga con il lordo la riporta al netto, e viceversa.
 - Con un prezzo con IVA: se manca l'**aliquota** si mette quella di partenza (`getDefaultVatRate`, 22%: un hardcode nella funzione-API, riga 8 di [hardcoded-registry.md](hardcoded-registry.md)) e se manca il tipo di sponsor «nessuno»; con uno sponsor parziale `400` («type the net price»). L'aliquota messa si vede e si cambia come ogni altra.

@@ -62,13 +62,13 @@ La pagina **CALENDAR YEARS**, fatta prima nello stesso giorno, è diventata YEAR
 
 ## 3. Come funziona dentro
 
-- **Il browser** manda la stagione scelta in ogni richiesta, nell'header `X-Season: <id>` (`apps/web/src/lib/seasonChoice.ts` e `api/client.ts`). Cambiando stagione si ricaricano tutti i dati tranne chi è collegato (`useChooseSeason` in `lib/season.ts`). Le pagine si rimontano, così un modulo lasciato aperto non scrive nella stagione nuova (la chiave dell'`Outlet` in `Shell.tsx`).
+- **Il browser** manda la stagione scelta in ogni richiesta, nell'header `X-Season: <id>` (`apps/web/src/core/seasonChoice.ts` e `core/api.ts`). Cambiando stagione si ricaricano tutti i dati tranne chi è collegato (`useChooseSeason` in `platform/season.ts`). Le pagine si rimontano, così un modulo lasciato aperto non scrive nella stagione nuova (la chiave dell'`Outlet` in `Shell.tsx`).
 - **L'API** legge l'header in un hook (`addSeasonHook` in `seasons.routes.ts`) e lo mette in un `AsyncLocalStorage`, come già fa con l'utente.
   - `getCurrentSeason()` lo legge: è cambiato **solo il corpo** di quella funzione (regola 4), e tutti i servizi che la chiamavano funzionano su ogni stagione senza altre modifiche.
   - Senza header vale la stagione di oggi. Un header che non è un numero dà 400; una stagione che non esiste dà 404 (il browser che ne ricorda una sparita torna da solo a quella di oggi).
 - **La sola lettura** la controlla `assertSeasonOpen` in ogni scrittura di budget (`budget.service.ts`, `funds.service.ts`, `cashflow.service.ts`), sulla stagione della riga toccata, non su quella dell'header.
 - **Le statistiche dell'inventario.** Il motore (`stats` in `packages/calc/src/inventory.ts`) riceve il periodo della stagione e, per By car, la macchina di ogni arrivo. Quest'ultima la calcola l'API con una sola query: macchina scelta sull'arrivo, altrimenti quella della riga, altrimenti la stagione della riga, altrimenti la stagione della data (`receiptCars` in `stats.service.ts`).
-- **Le pagine TOTAL.** `GET /api/views/totals?season=`, `/totals/year?year=` e `/totals/car?car=` calcolano le righe di ogni stagione con il proprio snapshot (ognuna con i suoi fondi), le filtrano (`linesOfYear` in `packages/calc/src/years.ts`; per la macchina, nell'API) e le passano a `totalsOfLines` (`totals.ts`), lo stesso calcolo del TOTAL di sempre, che ora dà anche i progetti di ogni area. Le entrate le calcola `moneyIn` (`moneyIn.ts`).
+- **Le pagine TOTAL.** `GET /api/budget/views/totals?season=`, `/totals/year?year=` e `/totals/car?car=` calcolano le righe di ogni stagione con il proprio snapshot (ognuna con i suoi fondi), le filtrano (`linesOfYear` in `packages/calc/src/years.ts`; per la macchina, nell'API) e le passano a `totalsOfLines` (`totals.ts`), lo stesso calcolo del TOTAL di sempre, che ora dà anche i progetti di ogni area. Le entrate le calcola `moneyIn` (`moneyIn.ts`).
 - **Il report IVA per area** parte dai trimestri della stagione mostrata (dal 3° trimestre del primo anno al 4° del secondo; prima era fisso sul 2026-27).
 
 ## 4. API
@@ -79,10 +79,10 @@ La pagina **CALENDAR YEARS**, fatta prima nello stesso giorno, è diventata YEAR
 | `GET` | `/api/seasons/current` | la stagione su cui lavora la richiesta (quella dell'header, o quella di oggi) |
 | `POST` | `/api/seasons` | admin: `{ startYear, car }`. Crea la stagione che parte a settembre di `startYear`, a partire dalla più recente. 409 se esiste già |
 | `PATCH` | `/api/seasons/:id` | admin: `{ car?, readOnly? }` |
-| `GET` | `/api/views/totals?season=` | SEASON TOTAL: il TOTAL di una stagione (senza `season`, quella del menù), con i progetti di ogni area e `moneyIn` |
-| `GET` | `/api/views/totals/year?year=2026` | YEAR TOTAL: le fasi di ogni stagione con data in quell'anno, `moneyIn` di quell'anno e `undated` (le fasi senza data) |
-| `GET` | `/api/views/totals/car?car=EG-26` | CAR TOTAL: le righe di ogni stagione per quella macchina (il nome, senza badare alle maiuscole); `moneyIn` è `null` |
-| `PATCH` | `/api/lines/:id`, `POST /api/projects/:id/lines` | accettano `carSeasonId` (l'id della stagione di cui è la macchina; `null` = quella della propria stagione). Una macchina che non esiste dà 409 |
+| `GET` | `/api/budget/views/totals?season=` | SEASON TOTAL: il TOTAL di una stagione (senza `season`, quella del menù), con i progetti di ogni area e `moneyIn` |
+| `GET` | `/api/budget/views/totals/year?year=2026` | YEAR TOTAL: le fasi di ogni stagione con data in quell'anno, `moneyIn` di quell'anno e `undated` (le fasi senza data) |
+| `GET` | `/api/budget/views/totals/car?car=EG-26` | CAR TOTAL: le righe di ogni stagione per quella macchina (il nome, senza badare alle maiuscole); `moneyIn` è `null` |
+| `PATCH` | `/api/budget/lines/:id`, `POST /api/budget/projects/:id/lines` | accettano `carSeasonId` (l'id della stagione di cui è la macchina; `null` = quella della propria stagione). Una macchina che non esiste dà 409 |
 | `POST` | `/api/inventory/receive` | accetta `carSeasonId` solo per gli arrivi fuori budget (con `lineId` dà 400) |
 | `GET` | `/api/inventory/stats?by=car` | il taglio per macchina; ogni risposta dice anche `season` (nome e date) |
 
@@ -111,7 +111,7 @@ Da questo lavoro `--replace` **non cancella più i fornitori**: sono di tutte le
 
 ## 8. Prove
 
-- `apps/api/src/modules/seasons/seasons.routes.test.ts` (12 test):
+- `apps/api/src/platform/seasons/seasons.routes.test.ts` (12 test):
   - elenco e stagione di oggi (anche con una stagione futura e una passata);
   - nuova stagione copiata dalla più recente, senza righe né soldi, con la vecchia intatta; doppione 409, pm 403, valori non validi 400;
   - l'header cambia letture e scritture; header non valido 400, stagione inesistente 404;
@@ -121,8 +121,8 @@ Da questo lavoro `--replace` **non cancella più i fornitori**: sono di tutte le
   - anno solare su due stagioni, con le voci senza data;
   - statistiche per macchina e per stagione; macchina rifiutata su un arrivo dal budget.
 - `packages/calc/src/years.test.ts` (3), `moneyIn.test.ts` (2), `totals.test.ts` (2 nuovi) e `inventory.test.ts` (3 nuovi): fasi in anni diversi, voci senza data, entrate di una stagione e di un anno (sponsor uguale in due stagioni, niente BANK, niente senza data), progetti con lo stesso nome uniti, `totalsOfLines` uguale a `totals` per una stagione, periodo della stagione con lo scaffale intero, By car, due stagioni con la stessa macchina.
-- `apps/web/src/lib/totals.test.ts` (6): le scelte delle tre pagine (stagioni, macchine una per nome, anni da prima a ultima stagione), righe per area e per progetto, confronto con le righe che ha uno solo dei due, entrate confrontate.
-- `apps/web/src/lib/lineEdit.test.ts` e `newLine.test.ts`: la macchina nel modulo di modifica e in quello nuovo.
+- `apps/web/src/modules/budget/totals.test.ts` (6): le scelte delle tre pagine (stagioni, macchine una per nome, anni da prima a ultima stagione), righe per area e per progetto, confronto con le righe che ha uno solo dei due, entrate confrontate.
+- `apps/web/src/modules/budget/lineEdit.test.ts` e `newLine.test.ts`: la macchina nel modulo di modifica e in quello nuovo.
 - **Mutazioni:** togliendo il filtro del periodo falliscono 3 test del motore; spegnendo il controllo di sola lettura fallisce quello dell'API.
 - **Browser**, 6/11/2026, su computer (1440 px) e telefono (375 px), tema scuro:
   - stagione 2025-2026 creata da Settings, con i progetti copiati;

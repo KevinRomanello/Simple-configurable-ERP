@@ -1,4 +1,4 @@
-import { CASH_CATEGORIES, CASH_METHODS } from "../src/modules/cash/defaults";
+import { CASH_CATEGORIES, CASH_METHODS } from "../src/modules/treasury/defaults";
 import { eq, sql } from "drizzle-orm";
 import pg from "pg";
 import type { FastifyInstance } from "fastify";
@@ -6,12 +6,13 @@ import { buildApp } from "../src/app";
 import { loadAuthConfig } from "../src/core/auth-config";
 import type { RateLimits } from "../src/core/security";
 import { db, pool } from "../src/db/client";
-import { appUser, area, fund, userArea } from "../src/db/schema";
-import type { User } from "../src/modules/auth/auth.service";
-import { SESSION_COOKIE } from "../src/modules/auth/auth.routes";
-import type { GoogleClient } from "../src/modules/auth/google";
-import { signSessionToken } from "../src/modules/auth/tokens";
-import { LOOKUP_DEFAULTS } from "../src/modules/lookups/defaults";
+import { fund } from "../src/db/schema/budget";
+import { appUser, area, userArea, userFlag } from "../src/db/schema/platform";
+import type { User } from "../src/platform/auth/auth.service";
+import { SESSION_COOKIE } from "../src/platform/auth/auth.routes";
+import type { GoogleClient } from "../src/platform/auth/google";
+import { signSessionToken } from "../src/platform/auth/tokens";
+import { LOOKUP_DEFAULTS } from "../src/platform/lookups/defaults";
 import { testOwnerUrl } from "./db-urls";
 
 export interface Reply {
@@ -45,8 +46,12 @@ export async function createUser(person: Person): Promise<User & { active: boole
   const email = person.email.toLowerCase();
   const [existing] = await db.select().from(appUser).where(sql`lower(${appUser.email}) = ${email}`);
   const [row] = existing
-    ? await db.update(appUser).set({ role: person.role, treasury: person.treasury ?? false, sponsors: person.sponsors ?? false, active: true }).where(eq(appUser.id, existing.id)).returning()
-    : await db.insert(appUser).values({ email, name: email.split("@")[0]!, role: person.role, treasury: person.treasury ?? false, sponsors: person.sponsors ?? false }).returning();
+    ? await db.update(appUser).set({ role: person.role, active: true }).where(eq(appUser.id, existing.id)).returning()
+    : await db.insert(appUser).values({ email, name: email.split("@")[0]!, role: person.role }).returning();
+
+  await db.delete(userFlag).where(eq(userFlag.userId, row!.id));
+  const flags = [person.treasury ? "treasury" : null, person.sponsors ? "sponsors" : null].filter((flag): flag is string => flag !== null);
+  if (flags.length > 0) await db.insert(userFlag).values(flags.map((flag) => ({ userId: row!.id, flag })));
 
   await db.delete(userArea).where(eq(userArea.userId, row!.id));
   const areaIds: number[] = [];
@@ -55,7 +60,7 @@ export async function createUser(person: Person): Promise<User & { active: boole
     await db.insert(userArea).values({ userId: row!.id, areaId: found!.id });
     areaIds.push(found!.id);
   }
-  return { id: row!.id, email, name: row!.name, role: row!.role, treasury: row!.treasury, sponsors: row!.sponsors, areaIds, active: true };
+  return { id: row!.id, email, name: row!.name, role: row!.role, flags, areaIds, active: true };
 }
 
 /** The Cookie header of a signed-in user. */
@@ -195,9 +200,9 @@ type Client = Pick<ReturnType<typeof testApp>, "get" | "post" | "put">;
 
 /** The id of the sponsor called `name` (any case): created as a virtual fund of 22% if it is new. */
 export async function sponsorId(api: Client, name: string, extra: object = {}): Promise<number> {
-  const existing = (await api.get("/api/funds")).body.find((f: { name: string }) => f.name.toLowerCase() === name.toLowerCase());
+  const existing = (await api.get("/api/budget/funds")).body.find((f: { name: string }) => f.name.toLowerCase() === name.toLowerCase());
   if (existing) return existing.id;
-  const created = await api.post("/api/funds", { name, vatRate: 22, ...extra });
+  const created = await api.post("/api/budget/funds", { name, vatRate: 22, ...extra });
   if (created.status !== 201) throw new Error(`Could not create the sponsor "${name}": ${JSON.stringify(created.body)}`);
   return created.body.id;
 }
@@ -208,5 +213,5 @@ export async function addContract(
   body: { fundName: string; phase?: "estimate" | "actual"; amount?: string; inflowDate?: string | null },
 ) {
   const { fundName, phase = "estimate", ...rest } = body;
-  return api.put(`/api/funds/${await sponsorId(api, fundName)}/contracts/${phase}`, { amount: "1000", ...rest });
+  return api.put(`/api/budget/funds/${await sponsorId(api, fundName)}/contracts/${phase}`, { amount: "1000", ...rest });
 }

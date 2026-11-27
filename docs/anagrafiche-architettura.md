@@ -112,7 +112,7 @@ Controprova: togliendo `lockTable` la prova fallisce (la seconda non aspetta e s
 - nessuno importa `rolesync`, tranne `app.ts`;
 - budget, cassa, inventario e gli altri non sanno niente del registro.
 
-Nel sito, `apps/web/src/lib/architecture.test.ts` verifica che le pagine usino del motore **solo i tipi**: i valori li calcola il server. Provato al contrario: con un import vietato messo apposta, le prove indicano il file e l'import.
+Nel sito, `apps/web/src/architecture.test.ts` verifica che le pagine usino del motore **solo i tipi**: i valori li calcola il server. Provato al contrario: con un import vietato messo apposta, le prove indicano il file e l'import.
 
 ### D5. Permessi, moduli e indirizzi pubblici dentro le stesse regole
 

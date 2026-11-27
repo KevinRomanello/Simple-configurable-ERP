@@ -107,7 +107,7 @@ La Voce del registro per un pagamento (serve al rendiconto, §3) si propone dall
 In fondo alla stessa pagina: le **uscite del registro che non pagano nessuna riga** e la cui Voce è «di progetto» (§4.1). Servono per i pagamenti già fatti a mano o importati dal foglio: da ognuna, **Link** apre il pannello delle righe che già c'è. Chiude il cerchio: budget → da pagare → registro → collegato.
 
 ### 2.7 API
-`GET /api/cash/to-pay` (con `?allSeasons=1`) · `POST /api/cash/to-pay/pay` con `{ lines: [{ lineId, amount }], on, account, methodId, categoryId, description }` · `GET /api/cash/to-link`. Il calcolo `payableLines` in `packages/calc` come `pendingLines`; la scrittura in `cash-links.service`. Stagione in sola lettura: `409`.
+`GET /api/cash/to-pay` (con `?allSeasons=1`) · `POST /api/cash/to-pay/pay` con `{ lines: [{ lineId, amount }], on, account, methodId, categoryId, description }` · `GET /api/cash/to-link`. Il calcolo `payableLines` in `packages/calc` come `pendingLines`; la scrittura in `payments.service` del ponte `treasury-budget` (prima `cash-links.service`). Stagione in sola lettura: `409`.
 
 ### 2.8 Casi limite
 Riga senza data d'acquisto (compare con «no date», senza stato); riga senza fondo (niente da pagare); prezzo cambiato dopo un pagamento: se i pagamenti superano il dovuto la riga è **«overpaid»** in rosso, senza bloccare; riga cancellata: i collegamenti spariscono con lei.

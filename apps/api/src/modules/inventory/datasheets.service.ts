@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { invalid, notFound } from "../../core/errors";
 import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
-import { inventoryItem, itemDatasheet, itemDatasheetFile } from "../../db/schema";
+import { inventoryItem, itemDatasheet, itemDatasheetFile } from "../../db/schema/inventory";
 import { DATASHEET_LIMITS } from "./inventory.schema";
 import { assertCanManageInventory } from "./items.service";
 

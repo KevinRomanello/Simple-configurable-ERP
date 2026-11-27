@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { db as Db } from "./client";
-import { area, fund, season } from "./schema";
+import { fund } from "./schema/budget";
+import { area, season } from "./schema/platform";
 
 // Reference data every installation needs. Idempotent: running it twice changes nothing.
 const AREAS = [

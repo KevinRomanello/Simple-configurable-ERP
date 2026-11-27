@@ -1,8 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { forbidden, notFound } from "../../core/errors";
 import { db } from "../../db/client";
-import { appUser, regComment, regRecord } from "../../db/schema";
-import { getCurrentUser } from "../auth/auth.service";
+import { appUser } from "../../db/schema/platform";
+import { regComment, regRecord } from "../../db/schema/registry";
+import { getCurrentUser } from "../../platform/auth/auth.service";
 import { needRecord, needTable } from "./registry.access";
 import { open } from "./records.service";
 import { queueWebhooks, registryWrite } from "./registry.write";

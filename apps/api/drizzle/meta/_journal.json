@@ -281,6 +281,27 @@
       "when": 1795441684979,
       "tag": "0039_app_module",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1795726563161,
+      "tag": "0040_user_flag",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1795766512360,
+      "tag": "0041_inflow_receipt_category_voce",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1795779124815,
+      "tag": "0042_inventory_budget_links",
+      "breakpoints": true
     }
   ]
 }

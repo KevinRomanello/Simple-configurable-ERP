@@ -1,0 +1,146 @@
+import { addDays, type Figures, type Phase, type Snapshot } from "@erp/calc";
+import { asc, eq } from "drizzle-orm";
+import { contracts } from "../../core/contracts";
+import { toCents, toScaled } from "../../core/money";
+import { db } from "../../db/client";
+import { budgetLine, fund, fundContract, lineFigures, lineFund, project, supplier } from "../../db/schema/budget";
+import { area } from "../../db/schema/platform";
+import { linePayments, lineReceipts, outsideBudgetOf } from "./budget.ports";
+import { bankOf, loadInflows } from "./cashflow.service";
+import { loadLookups } from "./lookups.service";
+import { currentActive } from "../../platform/platform.public";
+import { getCurrentSeason } from "../../platform/seasons/seasons.service";
+
+type FigureRow = typeof lineFigures.$inferSelect;
+
+function figuresOf(row: FigureRow, fundIds: number[]): Figures {
+  return {
+    quantityMilli: toScaled(row.quantity, 3),
+    unitCostE4: toScaled(row.unitNetCost, 4),
+    unitGrossE4: row.unitGrossCost === null ? null : toScaled(row.unitGrossCost, 4),
+    sponsorType: row.sponsorType,
+    sponsorValueCents: row.sponsorValue === null ? null : toCents(row.sponsorValue),
+    vatRate: row.vatRate === null ? null : Number(row.vatRate),
+    fundIds,
+    supplierId: row.supplierId,
+    purchaseDate: row.purchaseDate,
+    arrivalDate: row.arrivalDate,
+  };
+}
+
+/**
+ * Everything the calculation engine needs, read from the database of a season (the one chosen in
+ * the menu, unless another is given). One read-only transaction, so a write that commits halfway
+ * cannot produce a snapshot where the tables disagree with each other.
+ */
+export async function loadSnapshot(chosen?: { id: number; startsOn: string; endsOn: string }): Promise<Snapshot> {
+  const season = chosen ?? (await getCurrentSeason());
+  const lookups = await loadLookups();
+
+  return db.transaction(
+    async (tx) => {
+      const inSeason = eq(project.seasonId, season.id);
+      const areas = await tx.select().from(area).orderBy(asc(area.position));
+      const projects = await tx.select().from(project).where(inSeason);
+      const lines = await tx
+        .select({ line: budgetLine })
+        .from(budgetLine)
+        .innerJoin(project, eq(budgetLine.projectId, project.id))
+        .where(inSeason);
+      const figures = await tx
+        .select({ figures: lineFigures })
+        .from(lineFigures)
+        .innerJoin(budgetLine, eq(lineFigures.lineId, budgetLine.id))
+        .innerJoin(project, eq(budgetLine.projectId, project.id))
+        .where(inSeason);
+      const lineFunds = await tx
+        .select({ figuresId: lineFund.figuresId, fundId: lineFund.fundId })
+        .from(lineFund)
+        .innerJoin(lineFigures, eq(lineFund.figuresId, lineFigures.id))
+        .innerJoin(budgetLine, eq(lineFigures.lineId, budgetLine.id))
+        .innerJoin(project, eq(budgetLine.projectId, project.id))
+        .where(inSeason)
+        .orderBy(asc(lineFund.position));
+      const funds = await tx.select().from(fund).where(eq(fund.seasonId, season.id));
+      const fundContracts = await tx
+        .select({ contract: fundContract })
+        .from(fundContract)
+        .innerJoin(fund, eq(fundContract.fundId, fund.id))
+        .where(eq(fund.seasonId, season.id));
+      const suppliers = await tx.select().from(supplier);
+      const bank = await bankOf(tx, season);
+      const inflows = await loadInflows(tx, season, bank);
+      // what the register paid of the lines (nothing, without the bridge to the treasury): always read (the budget and TO PAY say it); it
+      // changes the forecast only when the BANK is the register's (the payments are in it), which `lateFrom` below says
+      const payments = await contracts.ask(linePayments, currentActive(), tx, { lineIds: lines.map(({ line }) => line.id) });
+      // what arrived of each line, from the inventory (nothing, without the bridge to the inventory)
+      const arrived = await contracts.ask(lineReceipts, currentActive(), tx, {});
+
+      // what the register says is outside the budget, as the lines of the derived area (none when the area is not there)
+      const areaInputs = areas.map((a) => ({ id: a.id, code: a.code, name: a.name, position: a.position, derived: a.derived }));
+      const derived = areaInputs.find((a) => a.derived);
+      const outside = derived ? await contracts.ask(outsideBudgetOf, currentActive(), tx, { season, area: derived }) : null;
+
+      const fundIdsByFigures = new Map<number, number[]>();
+      for (const { figuresId, fundId } of lineFunds) {
+        fundIdsByFigures.set(figuresId, [...(fundIdsByFigures.get(figuresId) ?? []), fundId]);
+      }
+
+      const figuresByLine = new Map<number, Record<Phase, Figures | null>>();
+      for (const { figures: row } of figures) {
+        const entry = figuresByLine.get(row.lineId) ?? { estimate: null, actual: null };
+        entry[row.phase] = figuresOf(row, fundIdsByFigures.get(row.id) ?? []);
+        figuresByLine.set(row.lineId, entry);
+      }
+
+      return {
+        // a BANK that comes from the register is exact to the day, so everything is compared with it by day
+        // (the two settings of the old sheet are for a BANK written by hand)
+        lookups: bank?.source === "register" ? { ...lookups, settings: { ...lookups.settings, bankCompare: { summary: "day", timeline: "day" } } } : lookups,
+        // the derived area is there only while the register says what is in it: with the treasury off there is no ADMINISTRATION
+        areas: outside ? areaInputs : areaInputs.filter((a) => !a.derived),
+        projects: [
+          ...projects.map((p) => ({ id: p.id, areaId: p.areaId, name: p.name, ownerName: p.ownerName, position: p.position })),
+          ...(outside?.projects ?? []),
+        ],
+        lines: [...lines.map(({ line }) => ({
+          id: line.id,
+          projectId: line.projectId,
+          position: line.position,
+          item: line.item,
+          brand: line.brand,
+          model: line.model,
+          category: line.category,
+          priority: line.priority,
+          note: line.note,
+          version: line.version,
+          carSeasonId: line.carSeasonId,
+          figures: figuresByLine.get(line.id) ?? { estimate: null, actual: null },
+        })), ...(outside?.lines ?? [])],
+        funds: funds.map((f) => ({
+          id: f.id,
+          name: f.name,
+          kind: f.kind,
+          type: f.type,
+          vatRate: f.vatRate === null ? null : Number(f.vatRate),
+          group: f.groupName,
+          unlimited: f.unlimited,
+        })),
+        contracts: fundContracts.map(({ contract: c }) => ({
+          id: c.id, fundId: c.fundId, phase: c.phase, amountCents: toCents(c.amount), inflowDate: c.inflowDate,
+        })),
+        inflows: inflows.map((i) => ({
+          id: i.id, phase: i.phase, sourceName: i.sourceName, amountCents: i.countedCents, inflowDate: i.countedOn,
+          sponsorship: i.sponsorship,
+        })),
+        suppliers: suppliers.map((s) => ({ id: s.id, name: s.name })),
+        receipts: [...arrived, ...(outside?.receipts ?? [])],
+        registerIncome: outside?.income ?? [],
+        bank: bank ? { amountCents: bank.amountCents, asOfDate: bank.asOfDate } : null,
+        payments,
+        ...(bank?.source === "register" && bank.asOfDate ? { lateFrom: addDays(bank.asOfDate, 1) } : {}),
+      };
+    },
+    { isolationLevel: "repeatable read", accessMode: "read only" },
+  );
+}

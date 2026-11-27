@@ -5,7 +5,8 @@ import { and, eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { ADMIN, createUser, resetData, testApp } from "../../../test/helpers";
 import { db } from "../../db/client";
-import { auditLog, regRecord } from "../../db/schema";
+import { auditLog } from "../../db/schema/platform";
+import { regRecord } from "../../db/schema/registry";
 
 const api = testApp();
 afterAll(() => api.close());
@@ -463,9 +464,9 @@ describe("the roles of the ERP from the registry", () => {
     const areaTag = t.people.fields.find((f: any) => f.name === "Area Tag");
 
     // without the group of who may enter it does not start
-    expect((await api.put("/api/role-sync", { enabled: true })).status).toBe(400);
+    expect((await api.put("/api/registry-access/role-sync", { enabled: true })).status).toBe(400);
     const choices = { activeViewId: members.id, adminViewId: tl.id, pmViewId: ct.id, pmAreasFieldId: areaTag.id, treasuryViewId: tr.id };
-    const preview = ok(await api.post("/api/role-sync/preview", choices));
+    const preview = ok(await api.post("/api/registry-access/role-sync/preview", choices));
     expect(preview.warnings).toEqual([]);
     const anna = preview.changes.find((c: any) => c.email === "anna@team.test");
     // (Anna may have an account from another test: made or changed, she becomes a User of SW)
@@ -476,7 +477,7 @@ describe("the roles of the ERP from the registry", () => {
     const sara = preview.changes.find((c: any) => c.email === "sara@team.test");
     expect(sara === undefined || (sara.create === false && sara.changes.active.to === false)).toBe(true);
 
-    const applied = ok(await api.put("/api/role-sync", { ...choices, enabled: true }));
+    const applied = ok(await api.put("/api/registry-access/role-sync", { ...choices, enabled: true }));
     expect(applied.applied).toBe(preview.changes.length);
     const users = ok(await api.get("/api/users"));
     const annaUser = users.find((u: any) => u.email === "anna@team.test");

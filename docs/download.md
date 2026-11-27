@@ -22,22 +22,22 @@ Il nome del file è il titolo della pagina e il giorno: `mt-dmt-2026-10-23.pdf`,
 flowchart LR
   P["Pagina: TableBox, ChartFigure,<br/>griglia del budget"] -->|si registrano| R["ExportProvider<br/>(elenco dei blocchi)"]
   R --> M["DownloadMenu<br/>(intestazione)"]
-  M -->|"raccoglie"| T["Table / Chart<br/>(lib/export/table.ts, chart.ts)"]
+  M -->|"raccoglie"| T["Table / Chart<br/>(core/export/table.ts, chart.ts)"]
   T --> F1["makePdf (jsPDF + autoTable)"]
   T --> F2["makeXlsx (ExcelJS)"]
 ```
 
 - **Un blocco** è una parte della pagina che si può scaricare. Si dichiara in un solo modo, scelto per il tipo di parte:
-  - `TableBox` (`components/ExportBlocks.tsx`) al posto del vecchio `<div className="table-wrap">`: legge la tabella HTML così com'è (`tableFromDom`); scrive anche il contenuto delle caselle e delle tendine, non solo il testo;
+  - `TableBox` (`core/ExportBlocks.tsx`) al posto del vecchio `<div className="table-wrap">`: legge la tabella HTML così com'è (`tableFromDom`); scrive anche il contenuto delle caselle e delle tendine, non solo il testo;
   - `ChartFigure` (stesso file), già dentro `BarsChart` e `LineChart`: quindi **ogni grafico nuovo si scarica senza fare niente**;
   - la griglia del budget (AG Grid) si registra con `useExportBlock` in `AreaPage.tsx` e si legge dall'API della griglia (`tableFromGrid`: colonne come sono mostrate, gruppi EXPECTED/ACTUAL, riga dei subtotali).
 - I blocchi si registrano quando compaiono e si tolgono quando spariscono (si cambia blocco o si apre un altro progetto: l'elenco segue la pagina). L'ordine dell'elenco è quello dello schermo.
-- `DownloadMenu` (`components/DownloadMenu.tsx`) sta nell'intestazione di ogni pagina; senza blocchi non si vede.
+- `DownloadMenu` (`core/DownloadMenu.tsx`) sta nell'intestazione di ogni pagina; senza blocchi non si vede.
 - **Le librerie si caricano solo quando si scarica** (`import()` dinamico): `jspdf` + `jspdf-autotable` per il PDF, `exceljs` per l'Excel. Chi non scarica non le scarica.
 
 ### Il modello comune
 
-`lib/export/table.ts` descrive una tabella come righe di celle (`Cell`: testo, valore vero, formato, unioni, allineamento, grassetto, riempimento). Il PDF e l'Excel si fanno dalla stessa descrizione, quindi non possono dire cose diverse. Il testo diventa valore vero con `typedValue`: `1.220,00 €`, `22%`, `7,5`, `14/10/26` e `2026-10-14` (le date sono sempre UTC, senza fuso). Un numero senza unità in una colonna **non numerica** resta testo (un codice `0042` mantiene gli zeri).
+`core/export/table.ts` descrive una tabella come righe di celle (`Cell`: testo, valore vero, formato, unioni, allineamento, grassetto, riempimento). Il PDF e l'Excel si fanno dalla stessa descrizione, quindi non possono dire cose diverse. Il testo diventa valore vero con `typedValue`: `1.220,00 €`, `22%`, `7,5`, `14/10/26` e `2026-10-14` (le date sono sempre UTC, senza fuso). Un numero senza unità in una colonna **non numerica** resta testo (un codice `0042` mantiene gli zeri).
 
 Le colonne senza niente dentro (i pulsanti di cancellazione) si tolgono (`dropEmptyColumns`).
 
@@ -58,10 +58,10 @@ Recharts disegna un SVG. `chart.ts` lo clona, ci scrive dentro gli stili calcola
 - **Un nuovo grafico**: si usa `BarsChart` o `LineChart`; non serve altro.
 - **Una nuova pagina**: si mette `<DownloadMenu />` in fondo all'intestazione (`<header className="page-header">`), dentro lo stesso `<div className="actions">` degli altri comandi della pagina.
 - **Un altro formato per tutte le pagine** (un altro file fatto dalle tabelle della pagina): si scrive una funzione `makeXxx(title, blocks): Promise<Blob>` accanto a `pdf.ts` e `xlsx.ts` e la si aggiunge alla scelta in `DownloadMenu`.
-- **Un formato di una pagina sola** (23 novembre 2026): un file che solo quella pagina sa fare, come il CSV di **tutti** i record di una vista delle anagrafiche. La pagina lo aggiunge allo **stesso** pannello con `useProvideExportFormats([{ id, label, run }])` (`components/ExportBlocks.tsx`): compare accanto a PDF ed Excel, e scegliendolo l'elenco di cosa va nel file si spegne (il file lo fa tutto la pagina) e il pulsante dice «Download <nome>». Non si fa mai un pulsante a parte. La pagina di una tabella delle anagrafiche dà così **CSV**, **JSON**, **Calendar (.ics)** (se la vista ha una data) ed **Excel, to import again** (intestazioni nella prima riga e nient'altro, per l'import), oltre a PDF ed Excel dei record sullo schermo.
+- **Un formato di una pagina sola** (23 novembre 2026): un file che solo quella pagina sa fare, come il CSV di **tutti** i record di una vista delle anagrafiche. La pagina lo aggiunge allo **stesso** pannello con `useProvideExportFormats([{ id, label, run }])` (`core/ExportBlocks.tsx`): compare accanto a PDF ed Excel, e scegliendolo l'elenco di cosa va nel file si spegne (il file lo fa tutto la pagina) e il pulsante dice «Download <nome>». Non si fa mai un pulsante a parte. La pagina di una tabella delle anagrafiche dà così **CSV**, **JSON**, **Calendar (.ics)** (se la vista ha una data) ed **Excel, to import again** (intestazioni nella prima riga e nient'altro, per l'import), oltre a PDF ed Excel dei record sullo schermo.
 - **Una tabella di lavoro** (i campi di una tabella delle anagrafiche) non va nell'elenco: `DataTable` con `listed={false}` (o `TableBox listed={false}`).
 
 ## 5. Prove
 
-- Test (`apps/web/src/lib/export/*.test.ts`): `typedValue` (soldi, percentuali, date, date inesistenti, numeri nudi), `place` (unioni), `dropEmptyColumns`, `sheetName` (caratteri vietati, 31 caratteri, nomi uguali) e `fileBase`.
+- Test (`apps/web/src/core/export/*.test.ts`): `typedValue` (soldi, percentuali, date, date inesistenti, numeri nudi), `place` (unioni), `dropEmptyColumns`, `sheetName` (caratteri vietati, 31 caratteri, nomi uguali) e `fileBase`.
 - Giro nel browser: PDF ed Excel di una pagina con la griglia (le 27 colonne), di una con grafico e tabella (TOTAL) e di ogni voce del menù; i file si riaprono (il PDF con `pdftoppm`, l'Excel con ExcelJS) e si controllano numeri, date, unioni e fondo bianco del grafico. Vedi [collaudo.md](collaudo.md).

@@ -12,7 +12,7 @@ Sette richieste dell'utente:
 | D | **TO PAY** visibile a chi tiene il budget, e gli **ordini** (più righe comprate in un solo ordine) | medio-grande |
 | E | **Non perdere quello che si sta scrivendo** quando si cambia pagina (bozze) | medio — **fatta** (26 novembre 2026, in due passi: E1 la base e i form più usati, E2 tutti gli altri) |
 | F | **Ctrl+Z** (annulla) e Ctrl+Shift+Z (rifai) | grande |
-| G | **I moduli**: budget, tesoreria, inventario e anagrafiche spegnibili, che si parlano solo con «API come funzioni». Design a parte: [moduli-architettura.md](moduli-architettura.md) (ADR-2) | molto grande, a passi |
+| G | **I moduli**: budget, tesoreria, inventario e anagrafiche spegnibili, che si parlano solo con «API come funzioni». Design a parte: [moduli-architettura.md](moduli-architettura.md) (ADR-2) | molto grande, a passi — **fatta**: G0–G8 (26–27 novembre 2026) |
 
 **Ordine consigliato: A → B → C → E → G → D → F.**
 - **Prima le fasi che toccano solo il sito o poco più** (A, B, C, E).
@@ -54,7 +54,7 @@ Le cose da verificare durante il lavoro sono segnate con ⚠️; le risposte all
 
 ## 1. Fase A — «ACTUAL same as EXPECTED» nel form «Add item»: **fatta** (26 novembre 2026)
 
-Ciò che descriveva è passato nei documenti stabili: come funziona la spunta nel form, i fondi validi in tutte e due le fasi e cosa non fa in [stile-interfaccia.md](stile-interfaccia.md) (paragrafo «Lo stesso vale per ogni inserimento dentro la pagina»); le prove e il giro nel browser in [collaudo.md](collaudo.md). Il codice è in `lib/newLine.ts` (`sameActual`, `lineBody`, `withSameActual`, `fundsOfBoth`) e `pages/NewLine.tsx`.
+Ciò che descriveva è passato nei documenti stabili: come funziona la spunta nel form, i fondi validi in tutte e due le fasi e cosa non fa in [stile-interfaccia.md](stile-interfaccia.md) (paragrafo «Lo stesso vale per ogni inserimento dentro la pagina»); le prove e il giro nel browser in [collaudo.md](collaudo.md). Il codice è in `modules/budget/lineDraft.ts` (`sameActual`, `lineBody`, `withSameActual`, `fundsOfBoth`) e `modules/budget/NewLine.tsx`.
 
 ---
 
@@ -144,26 +144,26 @@ Ciò che descriveva è passato nei documenti stabili: come funziona il pannello 
 ### 4.4 API
 
 **Gli indirizzi dopo la fase G** (ordine consigliato). Ogni indirizzo del ponte è sotto `/api/treasury-budget/` ([moduli-architettura.md](moduli-architettura.md) §8.2):
-- `/api/cash/to-pay` diventa `/api/treasury-budget/to-pay`;
-- `/api/cash/payable-lines` diventa `/api/treasury-budget/payable-lines`;
+- `/api/treasury-budget/to-pay` (era `/api/cash/to-pay`: spostato nel passo G4);
+- `/api/treasury-budget/payable-lines` (era `/api/cash/payable-lines`);
 - gli ordini nascono come `/api/treasury-budget/orders`.
 
-Qui sotto i nomi di oggi, per ritrovare il codice.
+Qui sotto gli indirizzi di oggi (dal passo G4 sono già sotto `/api/treasury-budget/`).
 
 - **Permessi**: due voci nuove, mandate al sito in `/me`.
   - `canSeeToPay` = admin o pm;
   - `canGroupOrders` = admin o pm.
 
   Dopo la fase G le dichiara il ponte tesoreria×budget, invece di scriverle in `permissionsOf` (`auth.service.ts`). `canManageCash` continua a dire chi paga.
-- **`GET /api/cash/to-pay`** (`listToPay` in `cash-links.service.ts`):
+- **`GET /api/treasury-budget/to-pay`** (`listToPay` in `payments.service.ts`, già nel ponte `bridges/treasury-budget/` dalla tappa 3 di G4):
   - si apre a `canSeeToPay`;
   - ogni riga porta `orderId`, `orderName` e `canGroup` (se la persona può mettere o togliere quella riga);
   - la risposta porta anche gli ordini (`id`, nome, stagione, `canChange`);
   - `lastMethodId` solo a chi paga, `null` agli altri.
 
   Il raggruppamento in righe d'ordine lo fa il sito. `packages/calc` (`toPayLines`) non cambia: l'ordine si aggiunge dopo il calcolo, nel servizio, dalla tabella.
-- **`GET /api/cash/payable-lines`** (per `PayLines`, solo tesoreria): ogni riga con `orderId` e `orderName`.
-- **`GET /api/cash/to-link`** e **`POST /api/cash/to-pay/pay`**: invariati (tesoreria).
+- **`GET /api/treasury-budget/payable-lines`** (per `PayLines`, solo tesoreria): ogni riga con `orderId` e `orderName`.
+- **`GET /api/treasury-budget/to-link`** e **`POST /api/treasury-budget/to-pay/pay`**: invariati (tesoreria).
 - **Ordini**: nel ponte tesoreria×budget (`bridges/treasury-budget/orders.service.ts`), che usa `budget.public.ts` per le righe e i loro permessi. Senza la fase G, nel modulo `budget`.
   - `POST /api/treasury-budget/orders` `{ name, lineIds }`, almeno due righe → l'ordine creato. Le righe che erano in un altro ordine si spostano.
   - `PATCH /api/treasury-budget/orders/:id` `{ name?, addLineIds?, removeLineIds? }`.
@@ -174,19 +174,19 @@ Qui sotto i nomi di oggi, per ritrovare il codice.
 
 ### 4.5 Sito
 
-- **Menù** (`components/Shell.tsx`):
-  - TO PAY si vede con `canSeeToPay`;
-  - il gruppo «Treasury» si mostra a chi vede almeno una delle sue pagine. Per un pm senza la spunta Treasury contiene solo TO PAY;
-  - `GROUP_PATHS` resta com'è.
-- **`pages/ToPayPage.tsx`**:
+- **Menù** (i manifesti: `modules/treasury/index.tsx` e `bridges/treasury-budget/index.tsx`):
+  - TO PAY si vede con `canSeeToPay` (il `shown` della sua voce);
+  - il gruppo «Treasury» si mostra a chi vede almeno una delle sue pagine (il suo `useShown`). Per un pm senza la spunta Treasury contiene solo TO PAY;
+  - gli indirizzi che aprono il gruppo restano quelli di oggi.
+- **`bridges/treasury-budget/ToPayPage.tsx`**:
   - la pagina si apre con `canSeeToPay`;
   - righe d'ordine e righe dentro;
   - le caselle di spunta servono a raggruppare (pm) e a pagare (tesoreria);
   - «Group as one order» e «Pay the N ticked» compaiono secondo i permessi;
   - `ToLink` solo con `canManageCash`;
   - la descrizione in cima cambia per chi non paga: «… you can group lines bought in one order; the treasury pays them».
-- **`components/PayLines.tsx`**: gruppi per ordine e «Rest» dell'ordine.
-- **`components/PayForm.tsx`**: titolo e descrizione per un ordine.
+- **`bridges/treasury-budget/PayLines.tsx`**: gruppi per ordine e «Rest» dell'ordine.
+- **`bridges/treasury-budget/PayForm.tsx`**: titolo e descrizione per un ordine.
 - **«Add to order…»** in `ToPayPage.tsx`, con la scelta fra gli ordini della stagione.
 
 ### 4.6 Prove
@@ -204,7 +204,7 @@ Qui sotto i nomi di oggi, per ritrovare il codice.
   - `orderId` e `orderName` in TO PAY e in `payable-lines`;
   - `lastMethodId` nascosto a chi non paga;
   - lo storico ha l'ordine.
-- **Sito**: una funzione pura che raggruppa le righe di TO PAY in ordini (somme, stato, fornitore comune o «several», ordinamento) con il suo test, per esempio `lib/toPayOrders.ts`.
+- **Sito**: una funzione pura che raggruppa le righe di TO PAY in ordini (somme, stato, fornitore comune o «several», ordinamento) con il suo test, per esempio `bridges/treasury-budget/toPayOrders.ts`.
 - **Browser**:
   - un pm senza spunte vede TO PAY senza Pay, raggruppa due righe sue e non quelle di un'altra area;
   - la tesoreria paga un ordine intero;
@@ -222,7 +222,7 @@ Qui sotto i nomi di oggi, per ritrovare il codice.
 
 La fase si fa in due passi (decisione dell'utente, 26 novembre 2026).
 
-**E1 — fatta (26 novembre 2026).** La base comune (`lib/drafts.ts`, `lib/useDraft.ts` con `useDraft` e `useRemembered`, `lib/draftGuard.tsx`, `components/DraftNote.tsx`; `RowAction`, `AddSection` e `PageHeader` che chiedono prima di chiudere; `dropAllDrafts` al logout) e questi form: new item (`new-line:<progetto>`), modifica di una riga sul telefono (`line-edit:<riga>`, base `version`), Pay, Link to budget lines, Receive / More arrived / Add goods, Use-move-count, Mark as received, New inflow, Set BANK, il movimento del registro (nuovo e modifica). «Cosa è aperto» è ricordato su TO PAY (il pannello Pay e il collegamento ai pagamenti), PENDING, CASH REGISTER, CASH FLOW (i due lati), pagina del pezzo (posto e «Add goods»), schede del telefono. La prova di architettura c'è, con l'elenco delle eccezioni. Documentato in [stile-interfaccia.md](stile-interfaccia.md), punto 33.
+**E1 — fatta (26 novembre 2026).** La base comune (`core/drafts.ts`, `core/useDraft.ts` con `useDraft` e `useRemembered`, `core/draftGuard.tsx`, `core/DraftNote.tsx`; `RowAction`, `AddSection` e `PageHeader` che chiedono prima di chiudere; `dropAllDrafts` al logout) e questi form: new item (`new-line:<progetto>`), modifica di una riga sul telefono (`line-edit:<riga>`, base `version`), Pay, Link to budget lines, Receive / More arrived / Add goods, Use-move-count, Mark as received, New inflow, Set BANK, il movimento del registro (nuovo e modifica). «Cosa è aperto» è ricordato su TO PAY (il pannello Pay e il collegamento ai pagamenti), PENDING, CASH REGISTER, CASH FLOW (i due lati), pagina del pezzo (posto e «Add goods»), schede del telefono. La prova di architettura c'è, con l'elenco delle eccezioni. Documentato in [stile-interfaccia.md](stile-interfaccia.md), punto 33.
 
 **E2 — fatta (26 novembre 2026).** Tutti gli altri form: «New project» (`new-project:<area>`), «New sponsor» (`new-sponsor`), «New supplier», «New season», le liste delle impostazioni (`quick-add:<lista>`, `new-place`), il pannello Calculation (`settings:calculation`), Item types (`new-type:<padre o root>`, `new-param:<tipo>`), «Edit» di un pezzo (`item-edit:<pezzo>`), «New component», «Add a part», «Make new» (`build:<componente>`), i due form dei token (`new-token`, `new-service-account`) e, nelle anagrafiche, «New table», il record (`registry:record:<tabella>:<record o new>`, solo i campi cambiati), il campo, la vista nuova e le impostazioni della vista, le regole di accesso, il webhook, il modulo (form builder) e le impostazioni della tabella. La prova di architettura **non ha più l'elenco dei form da fare**: restano solo le tre eccezioni (la cornice `FormPanel`, la scelta di un file in `Datasheets`, il modulo pubblico `FormPage`). «Cosa è aperto» è ricordato anche per Item types, il record aperto di una tabella e il pannello delle impostazioni di una tabella (`useRemembered` con un elenco di chiavi o l'inizio di chiavi con `*`, `hasDraft`).
 
@@ -250,7 +250,7 @@ La fase si fa in due passi (decisione dell'utente, 26 novembre 2026).
 
 ### 5.2 La base comune
 
-- **`lib/drafts.ts`**:
+- **`core/drafts.ts`**:
   - legge, scrive e cancella in `localStorage`, con la chiave `erp.draft:<userId>:<chiave del form>` e il valore `{ value, at, base }`;
   - le bozze più vecchie di un giorno si buttano alla lettura;
   - `dropAllDrafts()` le cancella tutte;
@@ -263,7 +263,7 @@ La fase si fa in due passi (decisione dell'utente, 26 novembre 2026).
 - **Lo stesso hook tiene anche «cosa è aperto»**: quale popup, con quale riga (`useDraft("cash-register:dialog", null)`). Così tornando si riapre il popup giusto, e dentro il form ritrova la sua bozza.
 - **`AddSection` e il pulsante giallo di `PageHeader`**: una proprietà `draftKey`. Partono aperti se esiste la bozza di quel form, e la loro «Close» si comporta come Cancel.
 - **`FormPanel`**: una proprietà per la riga della bozza (componente `DraftNote`: «kept from», «Discard», e l'avviso «changed after you started» con «Start again…»), e Cancel che chiede conferma quando `dirty`. I form che non usano `FormPanel` mostrano `DraftNote` da soli.
-- **Logout**: dove si esce (`forgetUser` in `lib/auth.tsx` e il pulsante di uscita) si chiama `dropAllDrafts()`. Si svuota anche la lista di Ctrl+Z della fase F.
+- **Logout**: dove si esce (`forgetUser` in `platform/auth.tsx` e il pulsante di uscita) si chiama `dropAllDrafts()`. Si svuota anche la lista di Ctrl+Z della fase F.
 - **Mai nella bozza**: file scelti, password, il token mostrato una volta, il segreto di un webhook.
 
 ### 5.3 I form e le loro chiavi
@@ -272,53 +272,53 @@ Le chiavi sono proposte: l'importante è che siano stabili e contengano ciò che
 
 | Form | File | Chiave | Base (per le modifiche) |
 | --- | --- | --- | --- |
-| «New item in <progetto>» | `pages/NewLine.tsx` | `new-line:<projectId>` | — |
-| Modifica di una riga (telefono) | `pages/LineCards.tsx` (`EditLine`) | `line-edit:<lineId>` | `version` della riga |
-| «New project» | `pages/AreaPage.tsx` | `new-project:<area>` | — |
-| «New sponsor» | `pages/FundsPage.tsx` | `new-sponsor` | — |
-| «New inflow» | `pages/CashFlowPage.tsx` | `new-inflow` | — |
-| «Set BANK» | `pages/CashFlowPage.tsx` | `bank` | il BANK salvato |
-| «Mark as received» | `components/ReceiveInflow.tsx` | `receive-inflow:<inflowId>` | — |
-| «New movement» / «Change movement» (registro) | `pages/CashRegisterPage.tsx` | `cash-movement:new` / `cash-movement:<id>` | il movimento |
-| «Link to budget lines» | `components/PayLines.tsx` | `pay-lines:<entryId>` | le righe già legate |
-| «Pay…» | `components/PayForm.tsx` | `pay:<id delle righe, in ordine>` | — |
-| «Group as one order» (fase D) | `pages/ToPayPage.tsx` | `order:new` | — |
-| Cancellare un inflow (fase C) | `components/DeleteInflow.tsx` | non serve (solo spunte, si rifà in un attimo) | — |
-| «New supplier» | `pages/SuppliersPage.tsx` | `new-supplier` | — |
-| «New season» | `pages/SeasonsPanel.tsx` | `new-season` | — |
-| «New place» e le altre liste delle impostazioni | `pages/SettingsPage.tsx`, `components/QuickAdd.tsx` | `new-place`, `quick-add:<lista>` | — |
-| «New type» / sotto-tipo | `pages/ItemTypesPanel.tsx` (`NewType`) | `new-type:<parentId o root>` | — |
-| «Add parameter» | `pages/ItemTypesPanel.tsx` (`NewParam`) | `new-param:<typeId>` | — |
-| «Edit» di un pezzo | `pages/ItemPage.tsx` | `item-edit:<itemId>` | i valori del pezzo (`draftOf`) |
-| «Use, move, count…» | `components/MovementForm.tsx` | `stock:<itemId>:<posto>` | — |
-| «Receive» / «More arrived» | `components/ReceiveForm.tsx` | `receive:line:<lineId>` / `receive:item:<itemId>` | — |
-| Nuovo pezzo (pulsante giallo di INVENTORY) | `pages/InventoryPage.tsx` | `new-item` | — |
-| «New component» | `pages/ComponentsPage.tsx` | `new-component` | — |
-| «Add a part» | `pages/ComponentPage.tsx` | `new-part:<componentId>` | — |
-| «Make new» | `components/BuildForm.tsx` | `build:<componentId>` | — |
-| «New token» / «New account for a service» | `pages/TokensPanel.tsx` | `new-token`, `new-service-account` | — (mai il token mostrato) |
-| «New table» (anagrafiche) | `pages/registry/RegistryHome.tsx` | `registry:new-table` | — |
-| Campo nuovo o modificato | `pages/registry/ManagePanels.tsx` (`FieldForm`) | `registry:field:<tableId>:<fieldId o new>` | il campo |
-| «New view» | `pages/registry/ManagePanels.tsx` | `registry:new-view:<tableId>` | — (mai la password) |
-| Webhook | `pages/registry/ManagePanels.tsx` (`WebhookForm`) | `registry:webhook:<tableId>:<id o new>` | il webhook (mai il segreto) |
-| Modulo (form builder) | `pages/registry/FormBuilder.tsx` (`FormEditor`) | `registry:form:<tableId>:<viewId o new>` | il modulo |
-| Record | `pages/registry/RecordPanel.tsx` | `registry:record:<tableId>:<recordId o new>` | `version` del record |
+| «New item in <progetto>» | `modules/budget/NewLine.tsx` | `new-line:<projectId>` | — |
+| Modifica di una riga (telefono) | `modules/budget/LineCards.tsx` (`EditLine`) | `line-edit:<lineId>` | `version` della riga |
+| «New project» | `modules/budget/AreaPage.tsx` | `new-project:<area>` | — |
+| «New sponsor» | `modules/budget/FundsPage.tsx` | `new-sponsor` | — |
+| «New inflow» | `modules/budget/CashFlowPage.tsx` | `new-inflow` | — |
+| «Set BANK» | `modules/budget/CashFlowPage.tsx` | `bank` | il BANK salvato |
+| «Mark as received» | `bridges/treasury-budget/ReceiveInflow.tsx` | `receive-inflow:<inflowId>` | — |
+| «New movement» / «Change movement» (registro) | `modules/treasury/CashRegisterPage.tsx` | `cash-movement:new` / `cash-movement:<id>` | il movimento |
+| «Link to budget lines» | `bridges/treasury-budget/PayLines.tsx` | `pay-lines:<entryId>` | le righe già legate |
+| «Pay…» | `bridges/treasury-budget/PayForm.tsx` | `pay:<id delle righe, in ordine>` | — |
+| «Group as one order» (fase D) | `bridges/treasury-budget/ToPayPage.tsx` | `order:new` | — |
+| Cancellare un inflow (fase C) | `bridges/treasury-budget/DeleteInflow.tsx` | non serve (solo spunte, si rifà in un attimo) | — |
+| «New supplier» | `modules/budget/SuppliersPage.tsx` | `new-supplier` | — |
+| «New season» | `platform/SeasonsPanel.tsx` | `new-season` | — |
+| «New place» e le altre liste delle impostazioni | `modules/inventory/InventorySettings.tsx`, `core/QuickAdd.tsx` | `new-place`, `quick-add:<lista>` | — |
+| «New type» / sotto-tipo | `modules/inventory/ItemTypesPanel.tsx` (`NewType`) | `new-type:<parentId o root>` | — |
+| «Add parameter» | `modules/inventory/ItemTypesPanel.tsx` (`NewParam`) | `new-param:<typeId>` | — |
+| «Edit» di un pezzo | `modules/inventory/ItemPage.tsx` | `item-edit:<itemId>` | i valori del pezzo (`draftOf`) |
+| «Use, move, count…» | `modules/inventory/MovementForm.tsx` | `stock:<itemId>:<posto>` | — |
+| «Receive» / «More arrived» | `modules/inventory/ReceiveForm.tsx` | `receive:line:<lineId>` / `receive:item:<itemId>` | — |
+| Nuovo pezzo (pulsante giallo di INVENTORY) | `modules/inventory/InventoryPage.tsx` | `new-item` | — |
+| «New component» | `modules/inventory/ComponentsPage.tsx` | `new-component` | — |
+| «Add a part» | `modules/inventory/ComponentPage.tsx` | `new-part:<componentId>` | — |
+| «Make new» | `modules/inventory/BuildForm.tsx` | `build:<componentId>` | — |
+| «New token» / «New account for a service» | `platform/TokensPanel.tsx` | `new-token`, `new-service-account` | — (mai il token mostrato) |
+| «New table» (anagrafiche) | `modules/registry/RegistryHome.tsx` | `registry:new-table` | — |
+| Campo nuovo o modificato | `modules/registry/ManagePanels.tsx` (`FieldForm`) | `registry:field:<tableId>:<fieldId o new>` | il campo |
+| «New view» | `modules/registry/ManagePanels.tsx` | `registry:new-view:<tableId>` | — (mai la password) |
+| Webhook | `modules/registry/ManagePanels.tsx` (`WebhookForm`) | `registry:webhook:<tableId>:<id o new>` | il webhook (mai il segreto) |
+| Modulo (form builder) | `modules/registry/FormBuilder.tsx` (`FormEditor`) | `registry:form:<tableId>:<viewId o new>` | il modulo |
+| Record | `modules/registry/RecordPanel.tsx` | `registry:record:<tableId>:<recordId o new>` | `version` del record |
 
 **Esclusi, con il motivo scritto nell'elenco delle eccezioni della prova:**
-- «Add a data sheet» (`components/Datasheets.tsx`): il file non si può tenere;
-- «Import from Excel» (`components/CashImport.tsx`): un file;
-- i moduli pubblici `/forms/…` (`pages/FormPage.tsx`): fuori dal sito, persone senza account;
+- «Add a data sheet» (`modules/inventory/Datasheets.tsx`): il file non si può tenere;
+- «Import from Excel» (`modules/treasury/CashImport.tsx`): un file;
+- i moduli pubblici `/forms/…` (`modules/registry/FormPage.tsx`): fuori dal sito, persone senza account;
 - la pagina di login.
 
 **Stato «cosa è aperto»** da tenere con lo stesso hook: CASH REGISTER, TO PAY, CASH FLOW, PENDING, pagina di un pezzo, Item types, impostazioni di una tabella delle anagrafiche, il record aperto di una tabella delle anagrafiche.
 
 ### 5.4 La prova che lo fa rispettare
 
-In `lib/architecture.test.ts`: ogni file che contiene `<FormPanel` o `<form` deve usare `useDraft`. Le eccezioni sono nell'elenco, ognuna con il motivo. È come le prove di oggi su `<table` → `Table` e `<img` → `Picture`.
+In `architecture.test.ts`: ogni file che contiene `<FormPanel` o `<form` deve usare `useDraft`. Le eccezioni sono nell'elenco, ognuna con il motivo. È come le prove di oggi su `<table` → `Table` e `<img` → `Picture`.
 
 ### 5.5 Prove
 
-- **`lib/drafts.test.ts`**:
+- **`core/drafts.test.ts`**:
   - scrivere, leggere, scadenza dopo un giorno;
   - utente diverso → niente;
   - uguale al valore iniziale → niente bozza;
@@ -381,7 +381,7 @@ In `lib/architecture.test.ts`: ogni file che contiene `<FormPanel` o `<form` dev
   - prende un numero da `change_seq`;
   - lo mette in `app.change_id` (insieme a `app.actor_id`, nella stessa istruzione);
   - lo aggiunge alla lista della richiesta in corso.
-- **La lista della richiesta** è un `AsyncLocalStorage`, come `userStorage` in `modules/auth/auth.context.ts`.
+- **La lista della richiesta** è un `AsyncLocalStorage`, come `userStorage` in `platform/auth/auth.context.ts`.
   - Si apre in un hook `onRequest` per i metodi che scrivono.
   - Un hook `onSend` mette l'intestazione **`X-Change-Ids: 123`** (più numeri separati da virgola se la richiesta ha fatto più transazioni).
   - Le richieste GET non ce l'hanno.
@@ -420,7 +420,7 @@ Il modulo nuovo è `apps/api/src/modules/changes/`. Passi, tutti dentro **una** 
 7. **La colonna `version`** (`budget_line`, `reg_record`) non torna indietro: diventa quella attuale **+1**, così una griglia aperta altrove si accorge del cambio. Il resto torna esattamente com'era.
 8. **Controllare che non si sia toccato altro**: le righe dello storico dell'annullamento (`change_id` nuovo) devono riguardare esattamente le stesse coppie (tabella, id). Se una cancellazione ha trascinato a cascata righe arrivate dopo (un pagamento legato alla riga creata), qui compaiono → 409 «"<nome>" is now used by …», e la transazione torna indietro.
 9. **I seguiti dei moduli** (§6.6), dentro la transazione e dopo il commit.
-10. **Rispondere** con le frasi. Si fanno con `labelOf` e `changesOf` di `modules/audit/audit.service.ts`, da esportare (un solo modo di nominare le cose).
+10. **Rispondere** con le frasi. Si fanno con `labelOf` e `changesOf` di `platform/audit/audit.service.ts`, da esportare (un solo modo di nominare le cose).
 
 **Perché «al contrario» basta, anche con le cascate.**
 - In Postgres i trigger AFTER della stessa tabella scattano in ordine di nome.
@@ -459,18 +459,18 @@ Le tabelle senza storico (`item_image`, `item_datasheet_file`, `reg_file`, `reg_
 
 ### 6.7 Sito
 
-**`lib/undo.ts`: la lista**
+**`core/undo.ts`: la lista**
 - In `sessionStorage`, per scheda; chiave con l'id dell'utente.
 - Per ogni **pagina** (`location.pathname`) due pile: annullabili e da rifare. Ogni voce: `{ ids, at }`.
 - Al massimo 100 voci per pagina; le voci più vecchie di un giorno si buttano.
 - Si svuota al logout (insieme alle bozze, fase E). Una modifica nuova svuota la pila «da rifare» di quella pagina.
 
-**`api/client.ts`, `request()`**
+**`core/api.ts`, `request()`**
 - Dopo una risposta riuscita a una richiesta che scrive, legge `X-Change-Ids` e aggiunge la voce alla pagina corrente.
 - È un punto solo per tutto il sito, quindi funziona su ogni pagina senza toccarle.
 - La chiamata di annullamento usa una funzione sua, che mette il numero nella pila giusta invece che in quella normale.
 
-**`useUndoKeys()`**, montato una volta in `components/Shell.tsx` (come `ignorePasswordManagers`):
+**`useUndoKeys()`**, montato una volta in `platform/Shell.tsx` (come `ignorePasswordManagers`):
 - ascolta `keydown` sulla finestra;
 - **ignora** il tasto se l'evento è già gestito, o se il bersaglio è `input`, `textarea`, `select`, `[contenteditable]`, o è dentro un editor di cella di AG Grid (`.ag-cell-inline-editing`, `.ag-popup-editor`);
 - altrimenti Ctrl/⌘+Z annulla, Ctrl/⌘+Shift+Z o Ctrl+Y rifà;
@@ -510,7 +510,7 @@ Le tabelle senza storico (`item_image`, `item_datasheet_file`, `reg_file`, `reg_
 - anagrafiche: un record annullato fa girare i ruoli calcolati;
 - prova di architettura: ogni tabella dello storico ha una regola.
 
-**Sito**: `lib/undo.test.ts` (pile per pagina, rifare svuotato da una modifica nuova, scadenza, logout, massimo 100) e il filtro dei tasti come funzione pura (caselle, editor della griglia, ⌘ su Mac, Ctrl su Windows).
+**Sito**: `core/undo.test.ts` (pile per pagina, rifare svuotato da una modifica nuova, scadenza, logout, massimo 100) e il filtro dei tasti come funzione pura (caselle, editor della griglia, ⌘ su Mac, Ctrl su Windows).
 
 **Browser**:
 - cambiare una cella del budget, cliccare fuori, Ctrl+Z: torna; Ctrl+Shift+Z: rifatto;
@@ -541,7 +541,7 @@ Le tabelle senza storico (`item_image`, `item_datasheet_file`, `reg_file`, `reg_
 | Fase | Endpoint |
 | --- | --- |
 | A | nessuno (il form manda le due fasi, come se fossero scritte a mano) |
-| C | `GET /api/inflows/related`, `POST /api/inflows/delete`. Nel passo G4 la parte del registro va sotto `/api/treasury-budget/` |
+| C | `GET /api/treasury-budget/inflows/related`, `POST /api/treasury-budget/inflows/delete` (erano sotto `/api/budget/inflows/`: spostati nel passo G4) |
 | D (dopo G) | `GET /api/treasury-budget/to-pay` aperto a chi tiene il budget (con gli ordini), `GET /api/treasury-budget/payable-lines` (con gli ordini), `POST/PATCH/DELETE /api/treasury-budget/orders`, `/me` con `canSeeToPay` e `canGroupOrders` |
 | G | tutti gli indirizzi di budget, tesoreria, inventario e ponti sotto il loro nome: tabella in [moduli-architettura.md](moduli-architettura.md) §8.2 |
 | F | `POST /api/changes/undo`, intestazione `X-Change-Ids` su ogni scrittura |
@@ -550,10 +550,10 @@ Le tabelle senza storico (`item_image`, `item_datasheet_file`, `reg_file`, `reg_
 
 | Valore | Dove (funzione) | Cosa diventerà |
 | --- | --- | --- |
-| Una bozza dura 24 ore | `draftRules()` in `lib/drafts.ts` | un'impostazione |
+| Una bozza dura 24 ore | `draftRules()` in `core/drafts.ts` | un'impostazione |
 | Si annulla per 24 ore | la funzione delle regole di `changes` (per esempio `undoLimits()`) | un'impostazione |
 | Al massimo 5.000 righe in un annullamento | la stessa funzione | un'impostazione |
-| Al massimo 100 voci da annullare per pagina | `lib/undo.ts` (una funzione, non una costante sparsa) | un'impostazione |
+| Al massimo 100 voci da annullare per pagina | `core/undo.ts` (una funzione, non una costante sparsa) | un'impostazione |
 
 ### Prove di architettura nuove
 

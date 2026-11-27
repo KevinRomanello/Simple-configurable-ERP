@@ -8,10 +8,11 @@ import { fromScaled, toScaled } from "../../core/money";
 import { today } from "../../core/today";
 import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
-import { area, componentPart, inventoryItem } from "../../db/schema";
+import { componentPart, inventoryItem } from "../../db/schema/inventory";
+import { area } from "../../db/schema/platform";
 import { loadInventory, partInput } from "./inventory.data";
 import type { ComponentsQuery, PriceQuery } from "./inventory.schema";
-import { assertCanManageInventory } from "./items.service";
+import { assertCanManageInventory, makeProjectsOf, withMakeProject } from "./items.service";
 import { subtreeIds } from "./types.service";
 
 /** Whether going down the bills of materials from `from` reaches `target`. */
@@ -69,6 +70,7 @@ export interface ComponentRow {
 export async function listComponents(query: ComponentsQuery): Promise<ComponentRow[]> {
   const data = await loadInventory();
   const rows = new Map((await db.select().from(inventoryItem).where(eq(inventoryItem.origin, "made"))).map((r) => [r.id, r]));
+  const makeProjects = query.project === undefined ? null : await makeProjectsOf(db);
   const needle = query.search?.toLowerCase();
   const ofTypes = query.type ? new Set(await subtreeIds(db, query.type)) : null;
   // an unknown area code finds nothing
@@ -84,7 +86,7 @@ export async function listComponents(query: ComponentsQuery): Promise<ComponentR
       if (!r) return false;
       if (areaId !== null && r.areaId !== areaId) return false;
       if (ofTypes && (r.typeId === null || !ofTypes.has(r.typeId))) return false;
-      if (query.project !== undefined && r.makeProjectId !== query.project) return false;
+      if (makeProjects && makeProjects.get(r.id) !== query.project) return false;
       return needle ? [r.name, r.brand, r.model, r.code, r.purpose].some((v) => v?.toLowerCase().includes(needle)) : true;
     })
     .map((i) => {
@@ -160,7 +162,7 @@ export async function getPlan(componentId: number, query: { quantity: string; fr
 }
 
 export interface ComponentDetail {
-  item: typeof inventoryItem.$inferSelect;
+  item: typeof inventoryItem.$inferSelect & { makeProjectId: number | null };
   bom: Bom;
   /** The cost at the end of each month, from the first purchase of any of its materials. */
   series: CostPoint[];
@@ -195,7 +197,7 @@ export async function getComponent(componentId: number, query: PriceQuery): Prom
   const most = maxMakeable(componentId, data, shelf);
   const names = new Map(data.items.map((i) => [i.id, i.name]));
   return {
-    item, bom: bom(componentId, ctx, query.method, on), series: costSeries(componentId, ctx, query.method, days), notes, available,
+    item: await withMakeProject(db, item), bom: bom(componentId, ctx, query.method, on), series: costSeries(componentId, ctx, query.method, days), notes, available,
     canMakeMilli: most.maxMilli,
     limitedBy: most.limitedBy.map((id) => names.get(id) ?? `#${id}`),
   };

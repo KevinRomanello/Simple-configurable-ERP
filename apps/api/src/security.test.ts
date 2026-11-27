@@ -71,21 +71,21 @@ const tablesLeft = async () => {
 describe("attacking the API", () => {
   it("keeps hostile text as plain text in every field where a name can be typed", async () => {
     for (const text of PAYLOADS) {
-      const supplier = await api.post("/api/suppliers", { name: text });
+      const supplier = await api.post("/api/budget/suppliers", { name: text });
       expect(supplier.status).toBe(201);
       expect(supplier.body.name).toBe(text);
 
-      const project = (await api.post("/api/projects", { areaCode: "sw", name: text, ownerName: text })).body;
+      const project = (await api.post("/api/budget/projects", { areaCode: "sw", name: text, ownerName: text })).body;
       expect(project.name).toBe(text);
-      expect((await api.post(`/api/projects/${project.id}/lines`, { item: text, note: text })).status).toBe(201);
-      const sponsor = await api.post("/api/funds", { name: text, vatRate: 22, group: text });
+      expect((await api.post(`/api/budget/projects/${project.id}/lines`, { item: text, note: text })).status).toBe(201);
+      const sponsor = await api.post("/api/budget/funds", { name: text, vatRate: 22, group: text });
       expect(sponsor.status).toBe(201);
       expect(sponsor.body.name).toBe(text);
-      expect((await api.put(`/api/funds/${sponsor.body.id}/contracts/estimate`, { amount: "1" })).status).toBe(200);
-      expect((await api.post("/api/inflows", { phase: "actual", sourceName: text, amount: "1" })).status).toBe(201);
+      expect((await api.put(`/api/budget/funds/${sponsor.body.id}/contracts/estimate`, { amount: "1" })).status).toBe(200);
+      expect((await api.post("/api/budget/inflows", { phase: "actual", sourceName: text, amount: "1" })).status).toBe(201);
     }
     expect(await tablesLeft()).toBe(8);
-    const names = (await api.get("/api/suppliers")).body.map((s: { name: string }) => s.name);
+    const names = (await api.get("/api/budget/suppliers")).body.map((s: { name: string }) => s.name);
     for (const text of PAYLOADS) expect(names).toContain(text);
   });
 
@@ -93,19 +93,19 @@ describe("attacking the API", () => {
     const bad = encodeURIComponent("1; drop table project; --");
     const quote = encodeURIComponent("' or 1=1 --");
     const answers = [
-      await api.get(`/api/funds?phase=${encodeURIComponent("estimate'; select 1;--")}`),
-      await api.patch(`/api/lines/${bad}`, { version: 1 }),
-      await api.del(`/api/projects/${bad}`),
-      await api.get(`/api/areas/${quote}/sheet`),
-      await api.get(`/api/views/vat-report?area=${quote}`),
-      await api.get(`/api/views/items?categories=${quote}&priority=${encodeURIComponent("High'; --")}`),
-      await api.get(`/api/views/items?sort=${encodeURIComponent("1; drop table fund")}`),
+      await api.get(`/api/budget/funds?phase=${encodeURIComponent("estimate'; select 1;--")}`),
+      await api.patch(`/api/budget/lines/${bad}`, { version: 1 }),
+      await api.del(`/api/budget/projects/${bad}`),
+      await api.get(`/api/budget/areas/${quote}/sheet`),
+      await api.get(`/api/budget/views/vat-report?area=${quote}`),
+      await api.get(`/api/budget/views/items?categories=${quote}&priority=${encodeURIComponent("High'; --")}`),
+      await api.get(`/api/budget/views/items?sort=${encodeURIComponent("1; drop table fund")}`),
       await api.get(`/api/audit?table=${quote}`),
       await api.get(`/api/audit?rowId=${bad}&limit=${bad}`),
-      await api.post("/api/inflows", { phase: "actual", sourceName: "x", amount: "10; drop table fund" }),
-      await api.post("/api/inflows", { phase: "estimate'; --", sourceName: "x", amount: "1" }),
-      await api.put("/api/funds/1/contracts/estimate", { amount: "1", inflowDate: "2026-01-01'; --" }),
-      await api.put("/api/bank", { amount: "1", asOfDate: "' or 1=1" }),
+      await api.post("/api/budget/inflows", { phase: "actual", sourceName: "x", amount: "10; drop table fund" }),
+      await api.post("/api/budget/inflows", { phase: "estimate'; --", sourceName: "x", amount: "1" }),
+      await api.put("/api/budget/funds/1/contracts/estimate", { amount: "1", inflowDate: "2026-01-01'; --" }),
+      await api.put("/api/budget/bank", { amount: "1", asOfDate: "' or 1=1" }),
       await api.patch("/api/users/1", { role: "admin'; --" }),
       await api.patch("/api/users/1", { areaIds: ["1; drop table app_user"] }),
       await api.anonymous().get(`/api/auth/callback?code=${encodeURIComponent("'; drop table app_user; --")}&state=${quote}`),
@@ -115,9 +115,9 @@ describe("attacking the API", () => {
   });
 
   it("ignores fields that are not part of the input (no mass assignment)", async () => {
-    const project = (await api.post("/api/projects", { areaCode: "sw", name: "P" })).body;
-    const line = (await api.post(`/api/projects/${project.id}/lines`, { item: "A" })).body;
-    const changed = await api.patch(`/api/lines/${line.id}`, { version: 1, item: "B", projectId: 999, id: 12345 });
+    const project = (await api.post("/api/budget/projects", { areaCode: "sw", name: "P" })).body;
+    const line = (await api.post(`/api/budget/projects/${project.id}/lines`, { item: "A" })).body;
+    const changed = await api.patch(`/api/budget/lines/${line.id}`, { version: 1, item: "B", projectId: 999, id: 12345 });
     expect(changed.status).toBe(200);
     expect(changed.body).toMatchObject({ id: line.id, projectId: project.id, item: "B" });
   });

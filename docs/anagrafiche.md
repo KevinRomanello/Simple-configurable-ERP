@@ -67,7 +67,7 @@ In breve qui sotto. L'elenco completo, voce per voce e con il piano di NocoDB ch
 ## 2. Principi
 
 1. **Un modulo, non un altro programma.** Le anagrafiche stanno nello stesso server e nello stesso database dell'ERP: niente servizi in più da installare, stesso login, stesso storico, stessi backup.
-2. **Moduli legati ma indipendenti.** Il registro non conosce budget, fondi o inventario, e loro non conoscono il registro. Si parlano solo tramite le funzioni pubbliche di un modulo (le sue «API» in senso stretto: `registry.public.ts`) e, da fuori, tramite l'HTTP. Il ponte con i ruoli dell'ERP è un modulo a parte (`rolesync`), che usa le funzioni pubbliche del registro e quelle degli utenti. Questi confini li fanno rispettare delle prove (`apps/api/src/architecture.test.ts`, `apps/web/src/lib/architecture.test.ts`; anagrafiche-architettura.md, D4).
+2. **Moduli legati ma indipendenti.** Il registro non conosce budget, fondi o inventario, e loro non conoscono il registro. Si parlano solo tramite le funzioni pubbliche di un modulo (le sue «API» in senso stretto: `registry.public.ts`) e, da fuori, tramite l'HTTP. Il ponte con i ruoli dell'ERP è un modulo a parte (`rolesync`), che usa le funzioni pubbliche del registro e quelle degli utenti. Questi confini li fanno rispettare delle prove (`apps/api/src/architecture.test.ts`, `apps/web/src/architecture.test.ts`; anagrafiche-architettura.md, D4).
 3. **Struttura fissa, dati liberi.** Le tabelle create dalle persone **non** sono tabelle vere del database. Sono righe di poche tabelle fisse (`reg_table`, `reg_field`, `reg_record`…), e i valori di un record stanno in una colonna JSONB. Così:
    - l'utente del database dell'API resta **senza diritti sulla struttura**, come oggi (accesso-e-storico.md, §8.2);
    - lo **storico** funziona da solo con il trigger che c'è già;
@@ -395,7 +395,7 @@ Si manda con `Authorization: Bearer <token>`. Vale per tutta l'API dell'ERP, non
 | `POST /forms/:id/links` | un link personale per un modulo (§8.4) |
 | `GET/POST /public/forms/:slug` · `GET/POST /forms/by-slug/:slug` | il modulo da compilare e il suo invio (con il link personale: `?t=`); il primo per chiunque, il secondo per chi è entrato (§8.3) |
 | `GET /public/views/:slug` · `…/export.csv` · `…/files/:id` | una vista pubblica in sola lettura (il sito), il suo CSV se lo permette; la password nell'intestazione `X-View-Password` |
-| `GET/PUT /api/role-sync` · `POST /api/role-sync/preview` | i ruoli dell'ERP dal registro (§9) |
+| `GET/PUT /api/registry-access/role-sync` · `POST /api/registry-access/role-sync/preview` | i ruoli dell'ERP dal registro (§9) |
 | `GET/POST/PATCH/DELETE /api/tokens` · `POST /api/users` | i token (admin; `PATCH` cambia il nome); un utente aggiunto a mano, per esempio l'account di un servizio |
 
 ### 10.3 Forma dei record
@@ -483,7 +483,7 @@ Non c'è un disegno su Figma per queste pagine: usano i token e i componenti che
 - **Fuso orario**: date e ore delle formule e dei filtri sono in UTC; un giorno (`date`) è un giorno, senza ora.
 - **La mappa**:
   - **si muove e si zooma solo dopo un clic**: finché non la clicchi la pagina scorre come sempre (rotella e dito), e passandoci sopra compare un velo grigio che dice «Click the map to move and zoom it» (lascia passare il clic). Cliccata, la rotella e il pizzico del trackpad sono suoi e la pagina sta ferma; torna libera quando il mouse esce dalla mappa, si clicca altrove o si preme Esc. I pulsanti + e − e i punti funzionano sempre;
-  - **lo zoom è continuo**: ogni movimento della rotella ingrandisce un poco (450 punti sono un livello; una tacca di mouse ne fa circa un quinto) e la mappa ci arriva con dolcezza; il punto sotto il puntatore resta fermo. Le mattonelle sono quelle del livello più vicino, stirate fino al livello giusto (`lib/mapZoom.ts`: `POINTS_PER_LEVEL`, `PINCH_WEIGHT`, `EASE` sono i tre valori da regolare a occhio); mentre arrivano quelle del livello nuovo restano sotto quelle di prima, e non c'è mai un vuoto;
+  - **lo zoom è continuo**: ogni movimento della rotella ingrandisce un poco (450 punti sono un livello; una tacca di mouse ne fa circa un quinto) e la mappa ci arriva con dolcezza; il punto sotto il puntatore resta fermo. Le mattonelle sono quelle del livello più vicino, stirate fino al livello giusto (`modules/registry/mapZoom.ts`: `POINTS_PER_LEVEL`, `PINCH_WEIGHT`, `EASE` sono i tre valori da regolare a occhio); mentre arrivano quelle del livello nuovo restano sotto quelle di prima, e non c'è mai un vuoto;
   - le mattonelle le scarica il server dell'ERP da OpenStreetMap (`tileAddress` in `tiles.service.ts`, nel registro dei valori fissi) e le tiene in memoria per una settimana, al massimo 2.000;
   - in produzione il server deve poter uscire in HTTPS verso `tile.openstreetmap.org`, altrimenti la mappa mostra i punti senza lo sfondo;
   - per molti utenti o un uso pesante, la politica di OpenStreetMap chiede un server di mattonelle proprio: si cambia solo `tileAddress`.
@@ -498,7 +498,7 @@ L'elenco completo, voce per voce rispetto a NocoDB, è in [anagrafiche-nocodb.md
 | Cosa | Come si aggiunge |
 | --- | --- |
 | I gruppi di punti vicini nella mappa, il clic destro per un record nuovo | in `MapView` (`Boards.tsx`): raggruppare i punti a meno di qualche pixel, e un menù sul clic destro |
-| Giorni festivi, margini e modalità di pianificazione del gantt | in `planMove` (`apps/web/src/lib/registry.ts`), che sposta i successori |
+| Giorni festivi, margini e modalità di pianificazione del gantt | in `planMove` (`apps/web/src/modules/registry/registry.ts`), che sposta i successori |
 | Annulla e ripeti nella griglia | le ultime modifiche tenute nel sito, rimandando i valori di prima |
 | Un'altra vista | un tipo in `VIEW_TYPES` (`packages/registry/src/types.ts`) e nel vincolo di `reg_view`, un componente in `Boards.tsx`: l'interrogazione è la stessa |
 | Un tipo di campo nuovo | un caso in `packages/registry/src/values.ts` (validazione, testo, confronto) e uno nell'editor del sito |
@@ -547,18 +547,18 @@ Poi lo stesso comando con `--apply`.
 | Parte | File |
 | --- | --- |
 | Il motore puro | `packages/registry/src/`:<br>• `types.ts` tipi;<br>• `values.ts` valori e valori predefiniti;<br>• `formula.ts` formule, con `datetime.ts` (formati, settimane, giorni lavorativi) e `hash.ts` (MD5, SHA);<br>• `template.ts` il corpo dei webhook;<br>• `compute.ts` calcolo dei record e bozze;<br>• `filter.ts` e `where.ts` filtri;<br>• `query.ts` interrogazioni;<br>• `access.ts` permessi;<br>• `form.ts` invii dei moduli;<br>• `checks.ts` controlli sui campi;<br>• `csv.ts` |
-| Il database | `apps/api/src/db/schema.ts` (in fondo) e le migrazioni `apps/api/drizzle/0033_registry.sql`, `0034`, `0035`, `0036_registry_more.sql`, `0037_registry_map.sql` |
+| Il database | `apps/api/src/db/schema/registry.ts` e le migrazioni `apps/api/drizzle/0033_registry.sql`, `0034`, `0035`, `0036_registry_more.sql`, `0037_registry_map.sql` |
 | L'API del registro | `apps/api/src/modules/registry/`:<br>• `registry.data.ts` carica;<br>• `registry.write.ts` scrive, con i webhook e gli ascoltatori;<br>• `registry.access.ts` chi guarda;<br>• `schema.service.ts` tabelle, campi, viste, impostazioni;<br>• `webhooks.service.ts` webhook;<br>• `records.service.ts` record, file, storico, import CSV, conteggi, collegati, upsert, modifiche in blocco, copie di record;<br>• `exports.service.ts` CSV, JSON, iCalendar;<br>• `comments.service.ts` commenti;<br>• `copies.service.ts` copie di viste, campi, tabelle, e tabelle da un CSV;<br>• `forms.service.ts` moduli, link personali, viste pubbliche;<br>• `registry.public.ts` ciò che gli altri moduli possono usare;<br>• `registry.routes.ts` e `registry.schema.ts` |
-| I ruoli dell'ERP | `apps/api/src/modules/rolesync/` |
-| I token | `apps/api/src/modules/auth/api-tokens.service.ts`; il controllo in `auth.routes.ts` (`Authorization: Bearer`) |
-| Il sito | • `apps/web/src/api/registry.ts`;<br>• `lib/registry.ts`;<br>• `components/registry/Values.tsx`;<br>• `pages/registry/` (`RegistryHome`, `TablePage`, `RecordPanel`, `ViewTools`, `ManagePanels`, `FormBuilder`, `RegistrySettings`);<br>• `pages/FormPage.tsx` (fuori dal menù, anche senza accesso) |
+| I ruoli dell'ERP | `apps/api/src/bridges/registry-access/` (il ponte: `rolesync.service.ts`, `rolesync.routes.ts`) |
+| I token | `apps/api/src/platform/auth/api-tokens.service.ts`; il controllo in `auth.routes.ts` (`Authorization: Bearer`) |
+| Il sito | • `apps/web/src/modules/registry/api.ts`;<br>• `modules/registry/registry.ts`;<br>• `modules/registry/Values.tsx`;<br>• `modules/registry/` (`RegistryHome`, `TablePage`, `RecordPanel`, `ViewTools`, `ManagePanels`, `FormBuilder`, `RegistrySettings`);<br>• `modules/registry/FormPage.tsx` (fuori dal menù, anche senza accesso) |
 | Commenti, riepiloghi, OpenAPI | `comments.service.ts`, `packages/registry/src/query.ts` (`aggregate`, `recordColor`), `openapi.service.ts` |
-| Excel nel sito | `apps/web/src/lib/registrySheet.ts` (con exceljs, già usato dal registro di cassa) |
+| Excel nel sito | `apps/web/src/modules/registry/registrySheet.ts` (con exceljs, già usato dal registro di cassa) |
 | Il proxy | `Caddyfile`: `/ext/*` e `/api/registry/public/*` senza l'intestazione della mail |
-| Mappa, QR e codici a barre | `apps/api/src/modules/registry/tiles.service.ts`; nel sito `MapView` in `Boards.tsx` e `components/registry/Codes.tsx` (qrcode-generator e JsBarcode, caricate solo quando servono) |
-| Timeline che si trascina e gantt | `Timeline` in `Boards.tsx`; `planMove` in `apps/web/src/lib/registry.ts` (i successori) |
+| Mappa, QR e codici a barre | `apps/api/src/modules/registry/tiles.service.ts`; nel sito `MapView` in `Boards.tsx` e `modules/registry/Codes.tsx` (qrcode-generator e JsBarcode, caricate solo quando servono) |
+| Timeline che si trascina e gantt | `Timeline` in `Boards.tsx`; `planMove` in `apps/web/src/modules/registry/registry.ts` (i successori) |
 | L'import da NocoDB | `apps/api/src/modules/registry/nocodb.ts`, lo script `apps/api/src/db/import-nocodb.ts` |
-| Galleria, kanban, calendario, timeline (e il trascinamento) | `apps/web/src/pages/registry/Boards.tsx`; migrazione `0035_registry_calendar.sql` (i tipi ammessi di una vista) |
+| Galleria, kanban, calendario, timeline (e il trascinamento) | `apps/web/src/modules/registry/Boards.tsx`; migrazione `0035_registry_calendar.sql` (i tipi ammessi di una vista) |
 | I dati dimostrativi | `apps/api/src/db/seed-registry.ts` |
 
 ## 15. Provarlo
@@ -588,7 +588,7 @@ Lo crea come il primo admin, passando dai servizi, quindi è nello storico. Si t
 - **proxy** (`proxy-login.routes.test.ts`): un `X-Email` dell'admin sugli indirizzi pubblici non fa entrare nessuno;
 - **valori unici** (`parity.routes.test.ts`): dieci richieste insieme con la stessa mail danno un record; una seconda transazione aspetta la prima e trova il doppione (togliendo il blocco della tabella, fallisce);
 - **architettura** (`architecture.test.ts` nell'API e nel sito): i confini dei moduli (anagrafiche-architettura.md, D4);
-- **sito** (`lib/registry.test.ts`): valori come testo (anche durate, ore, coordinate), condizioni per tipo, indirizzo di una lista (anche i livelli dei gruppi), campi di una vista, e lo spostamento delle barre del gantt (successori spinti a catena, un giro di collegamenti che si ferma, mai una fine prima dell'inizio).
+- **sito** (`modules/registry/registry.test.ts`): valori come testo (anche durate, ore, coordinate), condizioni per tipo, indirizzo di una lista (anche i livelli dei gruppi), campi di una vista, e lo spostamento delle barre del gantt (successori spinti a catena, un giro di collegamenti che si ferma, mai una fine prima dell'inizio).
 
 **Nel browser** (21 novembre 2026, registro dimostrativo):
 - **REGISTRY:** il menù e le sezioni.
