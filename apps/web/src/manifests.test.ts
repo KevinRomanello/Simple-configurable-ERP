@@ -56,6 +56,14 @@ describe("the menu and the pages, from the manifests", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
+  it("lets a bridge fill only the slots of its own modules, and a module none of the others' (docs/moduli-architettura.md, §7.4)", () => {
+    const wrong = MANIFESTS.flatMap((m) => (m.fills ?? []).map((f) => ({ by: m.key, owner: f.slot.split(".")[0]! })))
+      .filter(({ by, owner }) => !(MANIFESTS.find((m) => m.key === by)?.needs ?? [by]).includes(owner))
+      .map(({ by, owner }) => `${by} → ${owner}`);
+    expect(wrong).toEqual([]);
+    expect(MANIFESTS.flatMap((m) => m.fills ?? []).length).toBeGreaterThan(0);
+  });
+
   it("turns a bridge on only while both of its modules are on, and never turns the platform off", () => {
     const keysOn = (modules: Record<string, boolean>) => on(person("admin", ALL, modules)).map((m) => m.key);
     expect(keysOn({})).toEqual(["platform", "budget", "treasury", "inventory", "registry", "treasury-budget", "inventory-budget"]);

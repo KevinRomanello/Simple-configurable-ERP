@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CalcLine, PhaseCalc } from "../../core/calcTypes";
-import { decimalText, editDraft, linePatch } from "./lineEdit";
+import { editDraft, linePatch } from "./lineEdit";
 
 const lookups = {
   fundByName: new Map([
@@ -29,16 +29,6 @@ const bought = phase(
   { quantityMilli: 4000, unitCostE4: 124_000, vatRate: 22, fundIds: [1], supplierId: 7, purchaseDate: "2026-10-01" },
   { fund: "Team's fund", supplier: "RS Components" },
 );
-
-describe("decimalText", () => {
-  it("writes the exact number, without trailing zeros", () => {
-    expect(decimalText(4500, 3)).toBe("4.5");
-    expect(decimalText(45, 4)).toBe("0.0045");
-    expect(decimalText(124_000, 4)).toBe("12.4");
-    expect(decimalText(3000, 3)).toBe("3");
-    expect(decimalText(0, 3)).toBe("0");
-  });
-});
 
 describe("editDraft", () => {
   it("starts from the line as it is; a phase with nothing typed is empty", () => {

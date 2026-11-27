@@ -4,7 +4,7 @@ import { Fragment } from "react";
 import { inventoryApi } from "../../modules/inventory/api";
 import { inventoryBudgetApi } from "./api";
 import type { PendingRow } from "./types";
-import { ArrivalPill } from "./ArrivalPill";
+import { ArrivalPill } from "../../modules/budget/public";
 import { Button } from "../../core/Button";
 import { ReceiveForm } from "../../modules/inventory/ReceiveForm";
 import { useMe } from "../../platform/auth";
@@ -101,7 +101,7 @@ export function PendingPage() {
                       context={[["Project", row.projectName], ["Bought from", row.supplierName ?? "—"], ["Bought", `${quantity(row.boughtMilli)} · arrived ${quantity(row.receivedMilli)}`], ["Per unit", `${moneyE4(row.prices.net)} net`]]}
                       onClose={() => setOpen(null)}
                     >
-                      <ReceiveForm line={row} items={items.data} lookups={lookups} onDone={() => setOpen(null)} onCancel={() => setOpen(null)} />
+                      <ReceiveForm line={row} send={(body) => inventoryBudgetApi.receiveLine(row.lineId, body)} items={items.data} lookups={lookups} onDone={() => setOpen(null)} onCancel={() => setOpen(null)} />
                     </RowAction>
                   )}
                 </Fragment>

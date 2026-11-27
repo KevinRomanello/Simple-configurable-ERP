@@ -83,3 +83,10 @@ export function month(key: string): string {
 
 /** "2026-10-15" (a bank date) shown as a month, as the old sheet did. */
 export const monthOfDate = (iso: string | null) => (iso ? month(iso.slice(0, 7)) : "");
+
+/** "4.5" from 4500 thousandths, "0.0045" from 45 ten-thousandths: the exact number, as it is typed. */
+export function decimalText(scaled: number, digits: number): string {
+  const text = String(Math.abs(scaled)).padStart(digits + 1, "0");
+  const fraction = text.slice(-digits).replace(/0+$/, "");
+  return `${scaled < 0 ? "-" : ""}${text.slice(0, -digits)}${fraction ? `.${fraction}` : ""}`;
+}

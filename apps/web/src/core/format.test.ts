@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { date, dateTime, fileSize, money, moneyE4, quantity, moneyFromDecimal, moneyShort, month, monthOfDate, ratio } from "./format";
+import { date, dateTime, decimalText, fileSize, money, moneyE4, quantity, moneyFromDecimal, moneyShort, month, monthOfDate, ratio } from "./format";
 
 const plain = (text: string) => text.replace(/ /g, " ");
 
@@ -74,5 +74,15 @@ describe("fileSize", () => {
     expect(fileSize(999)).toBe("999 B");
     expect(fileSize(48_200)).toBe("48 KB");
     expect(fileSize(2_450_000)).toBe("2.5 MB");
+  });
+});
+
+describe("decimalText", () => {
+  it("writes the exact number, without trailing zeros", () => {
+    expect(decimalText(4500, 3)).toBe("4.5");
+    expect(decimalText(45, 4)).toBe("0.0045");
+    expect(decimalText(124_000, 4)).toBe("12.4");
+    expect(decimalText(3000, 3)).toBe("3");
+    expect(decimalText(0, 3)).toBe("0");
   });
 });

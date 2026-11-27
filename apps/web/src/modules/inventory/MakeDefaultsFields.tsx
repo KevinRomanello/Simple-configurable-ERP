@@ -1,8 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
-import { inventoryBudgetApi } from "../../bridges/inventory-budget/api";
 import type { MakeDefaults, InventoryLookups } from "./inventory";
 import { SearchSelect } from "../../core/SearchSelect";
 import { Field } from "../../core/ui";
+import { useProjects } from "./projects";
 
 /**
  * What «Make new» starts from, set once when the thing is created (and changed on the item): the project the pieces are
@@ -18,7 +17,7 @@ export function MakeDefaultsFields({ value, onChange, lookups, idPrefix = "make"
   required?: boolean;
 }) {
   const none = required ? "Choose…" : "(choose each time)";
-  const projects = useQuery({ queryKey: ["inventory-projects"], queryFn: inventoryBudgetApi.inventoryProjects });
+  const projects = useProjects();
   const places = lookups.locations.map((l) => <option key={l.code} value={l.code}>{l.label}</option>);
 
   return (

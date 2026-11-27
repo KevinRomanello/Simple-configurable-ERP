@@ -1,5 +1,5 @@
 // The shapes of the answers of inventory (split from api/types.ts in G7: docs/moduli-architettura.md, §7.1).
-import type { Bom, CostPoint, ItemOrigin, MakePlan, PlanLine, PriceBasis, PriceMethod, PricePoint, StatsRow, Take } from "@erp/calc";
+import type { Bom, CostPoint, ItemOrigin, MakePlan, PendingLine, PlanLine, PriceBasis, PriceMethod, PricePoint, StatsRow, Take } from "@erp/calc";
 
 // --- inventory -----------------------------------------------------------------------------------
 
@@ -235,4 +235,20 @@ export interface InventoryLists {
   uncategorizedFields: ItemField[];
   units: { id: number; name: string; usedBy: number }[];
   locations: { id: number; code: string; room: string; shelf: string; level: string; label: string; usedBy: number }[];
+}
+
+// --- what the inventory takes from the budget, through the bridge (public.ts) ----------------------------------
+
+/** A project of the budget a movement, an arrival or a build can be for. */
+export interface ProjectRef {
+  id: number;
+  name: string;
+  areaCode: string;
+  areaName: string;
+}
+
+/** A purchase of the budget whose goods arrive (PENDING): what the form of an arrival starts from. */
+export interface PurchaseToReceive extends PendingLine {
+  receivedItemId: number | null;
+  suggestedItemId: number | null;
 }

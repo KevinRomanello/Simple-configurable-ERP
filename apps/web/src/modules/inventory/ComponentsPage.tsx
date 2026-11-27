@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { inventoryApi } from "./api";
-import { inventoryBudgetApi } from "../../bridges/inventory-budget/api";
 import type { ComponentRow, ItemDraft } from "./types";
 import { AreaTypeFields, useAreaTypeFilter } from "./AreaTypeFilter";
 import { DraftNote } from "../../core/DraftNote";
@@ -17,6 +16,7 @@ import { draftBody, emptyDraft, emptyMakeDefaults, makeDefaultsBody, paramErrors
 import { usePrice } from "./price";
 import { useAction } from "../../core/useAction";
 import { useDraft } from "../../core/useDraft";
+import { useProjects } from "./projects";
 
 const COLUMNS: Column<ComponentRow>[] = [
   {
@@ -62,7 +62,7 @@ export function ComponentsPage() {
   const [search, setSearch] = useState("");
   const [projectId, setProjectId] = useState("");
   const areaType = useAreaTypeFilter(lookups);
-  const projects = useQuery({ queryKey: ["inventory-projects"], queryFn: inventoryBudgetApi.inventoryProjects });
+  const projects = useProjects();
   const filters = { search: search.trim() || undefined, area: areaType.areaCode || undefined, type: areaType.type ? String(areaType.type.id) : undefined, project: projectId || undefined };
   const components = useQuery({ queryKey: ["inventory-components", price, filters], queryFn: () => inventoryApi.components(price, filters) });
   const filtered = Object.values(filters).some((v) => v !== undefined);

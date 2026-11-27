@@ -1,8 +1,6 @@
 import { faCheck } from "@fortawesome/free-solid-svg-icons";
-import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { inventoryApi, type MovementBody } from "./api";
-import { inventoryBudgetApi } from "../../bridges/inventory-budget/api";
 import type { InventoryItem, StockPlace } from "./types";
 import { quantity as showQuantity } from "../../core/format";
 import type { InventoryLookups } from "./inventory";
@@ -13,6 +11,7 @@ import { fieldSetter, useDraft } from "../../core/useDraft";
 import { DraftNote } from "../../core/DraftNote";
 import { Button } from "../../core/Button";
 import { Field, FormActions } from "../../core/ui";
+import { useProjects } from "./projects";
 
 const KINDS = [
   { value: "use", label: "Use" },
@@ -46,7 +45,7 @@ export function MovementForm({
   kind?: MovementBody["kind"];
 }) {
   const act = useAction();
-  const projects = useQuery({ queryKey: ["inventory-projects"], queryFn: inventoryBudgetApi.inventoryProjects });
+  const projects = useProjects();
   const [initial] = useState<MovementDraft>(() => ({
     kind: firstKind,
     amount: "",

@@ -2,7 +2,7 @@ import { faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useId, useState, type FormEvent } from "react";
 import { budgetApi } from "./api";
 import type { AreaSheet, CalcLine, Phase, PhaseCalc } from "../../core/calcTypes";
-import { ArrivalPill } from "../../bridges/inventory-budget/ArrivalPill";
+import { ArrivalPill } from "./ArrivalPill";
 import { Button, IconButton } from "../../core/Button";
 import { DraftNote } from "../../core/DraftNote";
 import { Field, FormActions, Panel, RowAction } from "../../core/ui";
@@ -12,7 +12,7 @@ import type { PhaseDraft } from "./lineDraft";
 import { useAction } from "../../core/useAction";
 import { useDraft, useRemembered } from "../../core/useDraft";
 import { carSeasonOf, type GridLookups } from "./areaColumns";
-import { missingMake, missingMakeText } from "../inventory/missingMake";
+import { missingMake, missingMakeText } from "./missingMake";
 import { BrandModelFields, CarField, PhaseFields } from "./NewLine";
 
 // A project of the budget on a phone, where the grid does not fit: one card per line with what

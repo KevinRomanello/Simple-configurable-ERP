@@ -5,11 +5,11 @@ import type { FiguresPatch, LinePatch } from "./api";
 import type { CalcLine, Phase, PhaseCalc } from "../../core/calcTypes";
 import type { Fund } from "./types";
 import type { Season } from "../../platform/types";
-import { ArrivalPill, arrivalTitle } from "../../bridges/inventory-budget/ArrivalPill";
+import { ArrivalPill, arrivalTitle } from "./ArrivalPill";
 import { SearchSelectEditor } from "../../core/SearchSelect";
 import { date, money, quantity } from "../../core/format";
 import { carLabel } from "../../platform/season";
-import { missingMake, missingMakeText } from "../inventory/missingMake";
+import { missingMake, missingMakeText } from "./missingMake";
 import { gridCompare } from "../../core/sort";
 import { columnHelp } from "./columnHelp";
 

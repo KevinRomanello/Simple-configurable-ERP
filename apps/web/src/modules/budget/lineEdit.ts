@@ -1,5 +1,6 @@
 import type { FiguresPatch, LinePatch } from "./api";
 import type { CalcLine, Phase } from "../../core/calcTypes";
+import { decimalText } from "../../core/format";
 import { choosesOwnRate, EMPTY_PHASE, type LineLookups, type PhaseDraft } from "./lineDraft";
 
 // Changing a budget line from a form (on a phone, where the grid does not fit): the form starts from
@@ -17,13 +18,6 @@ export interface EditDraft {
   car: string;
   estimate: PhaseDraft;
   actual: PhaseDraft;
-}
-
-/** "4.5" from 4500 thousandths, "0.0045" from 45 ten-thousandths: the exact number, as it is typed. */
-export function decimalText(scaled: number, digits: number): string {
-  const text = String(Math.abs(scaled)).padStart(digits + 1, "0");
-  const fraction = text.slice(-digits).replace(/0+$/, "");
-  return `${scaled < 0 ? "-" : ""}${text.slice(0, -digits)}${fraction ? `.${fraction}` : ""}`;
 }
 
 /** Paid by more than one fund (CASH FROM and ALSO FROM): the form shows them but does not change them. */

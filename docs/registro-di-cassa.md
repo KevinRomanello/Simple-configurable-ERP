@@ -194,8 +194,8 @@ La pagina **FINANCIAL STATEMENT** (gruppo **Treasury**, solo `canManageCash`) è
 | BANK dal registro | `bankOf` in `apps/api/src/modules/budget/cashflow.service.ts` (la porta `registerBank`, a cui risponde il ponte), usato da `getBank` e da `loadSnapshot` |
 | permessi | `canManageCash` e `canManageFunds` in `apps/api/src/platform/auth/auth.service.ts` |
 | lettura del foglio | `apps/web/src/modules/treasury/cashSheet.ts` |
-| pagina, import, liste | `apps/web/src/modules/treasury/CashRegisterPage.tsx`, `modules/treasury/CashImport.tsx`, `modules/treasury/CashListsPanel.tsx` |
-| inflow ricevuti e righe pagate | `apps/web/src/bridges/treasury-budget/ReceiveInflow.tsx` (usato da `modules/budget/CashFlowPage.tsx`), `bridges/treasury-budget/PayLines.tsx` (usato dal registro) |
+| pagina, import, liste | `apps/web/src/modules/treasury/CashRegisterPage.tsx`, `modules/treasury/CashImport.tsx`, `modules/treasury/CashListsPanel.tsx`; la Voce di partenza per categoria è del ponte (`bridges/treasury-budget/CategoryVoci.tsx`), nel punto di aggancio `treasury.settings.panels` |
+| inflow ricevuti e righe pagate | `apps/web/src/bridges/treasury-budget/ReceiveInflow.tsx` e `DeleteInflow.tsx` (in CASH FLOW dal punto di aggancio `budget.cashflow.inflowActions`), `bridges/treasury-budget/PayLines.tsx` (nel registro da `treasury.register.rowActions`); le azioni sono in `bridges/treasury-budget/rowActions.tsx` ([moduli-architettura.md](moduli-architettura.md), §7.4) |
 
 | Metodo | Percorso | Cosa |
 | --- | --- | --- |

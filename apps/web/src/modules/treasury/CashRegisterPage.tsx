@@ -1,4 +1,4 @@
-import { faFileExcel, faLink, faPen, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faFileExcel, faPen, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
 import { treasuryApi } from "./api";
@@ -6,7 +6,8 @@ import type { CashAccount, CashEntryBody, CashEntryRow, CashListItem, CashRegist
 import { Button, IconButton } from "../../core/Button";
 import { CashImport } from "./CashImport";
 import { Chips } from "../../core/Chips";
-import { PayLines } from "../../bridges/treasury-budget/PayLines";
+import { useSlot } from "../../core/slots";
+import { registerRowActions } from "./public";
 import { CommitInput } from "../../core/CommitInput";
 import { EditCell } from "../../core/EditCell";
 import { TableBox } from "../../core/ExportBlocks";
@@ -14,8 +15,7 @@ import { SearchSelect } from "../../core/SearchSelect";
 import { Cards, Field, FormPanel, Loading, Message, MoneyCard, PageHeader, RowAction, Table } from "../../core/ui";
 import { SortTh } from "../../core/SortTh";
 import { useMe } from "../../platform/auth";
-import { date, money } from "../../core/format";
-import { decimalText } from "../budget/lineEdit";
+import { date, decimalText, money } from "../../core/format";
 import { nameIn, registerSort } from "./registerSort";
 import { useSort } from "../../core/sort";
 import { todayIso } from "../../core/today";
@@ -207,9 +207,13 @@ export function CashRegisterPage() {
   const [text, setText] = useState("");
   const [toCheck, setToCheck] = useState(false);
   const [importing, setImporting] = useState(false);
-  // the movement being changed as a whole, or the one whose budget lines are being chosen: one popup at a time
+  // the actions the others add to a movement (the bridge to the budget: «Link to budget lines»)
+  const actions = useSlot(registerRowActions);
+  // the movement being changed as a whole, or the one an action of the others is open for: one popup at a time
   // (remembered with its form: coming back to the page the panel is open with what was written)
-  const [panel, setPanel] = useRemembered<{ kind: "edit" | "link"; id: number } | null>("cash-register:panel", null, (p) => (p === null ? null : p.kind === "edit" ? `cash-movement:${p.id}` : `pay-lines:${p.id}`));
+  const [panel, setPanel] = useRemembered<{ kind: string; id: number } | null>("cash-register:panel", null, (p) =>
+    p === null ? null : p.kind === "edit" ? `cash-movement:${p.id}` : (actions.find((a) => a.key === p.kind)?.draftKey?.(p.id) ?? null),
+  );
   const sort = useSort(registerSort(categories.data ?? [], methods.data ?? []));
 
   if (!canManageCash) return <Message>Only the treasury and the admins can see the register.</Message>;
@@ -231,14 +235,20 @@ export function CashRegisterPage() {
   const rowAction = (e: CashEntryRow) => {
     const context: [string, string][] = [["Date", date(e.on)], ["Account", ACCOUNTS.find((a) => a.value === e.account)?.label ?? ""], [e.cents < 0 ? "Paid" : "Received", money(Math.abs(e.cents))]];
     const close = () => setPanel(null);
-    return panel?.kind === "edit" ? (
-      <RowAction colSpan={17} eyebrow="Change movement" title={e.description || "this movement"} context={context} onClose={close}>
-        <MovementForm key={e.id} entry={e} categories={voci} methods={methods.data!} onClose={close} />
-      </RowAction>
-    ) : (
-      <RowAction colSpan={17} eyebrow="Link to budget lines" title={e.description || "this payment"} context={context} onClose={close}>
-        <PayLines entry={e} onClose={close} />
-      </RowAction>
+    if (panel?.kind === "edit") {
+      return (
+        <RowAction colSpan={17} eyebrow="Change movement" title={e.description || "this movement"} context={context} onClose={close}>
+          <MovementForm key={e.id} entry={e} categories={voci} methods={methods.data!} onClose={close} />
+        </RowAction>
+      );
+    }
+    const action = actions.find((a) => a.key === panel?.kind);
+    return (
+      action && (
+        <RowAction colSpan={17} eyebrow={action.eyebrow} title={action.title?.(e) ?? (e.description || "this movement")} context={action.context?.(e) ?? context} onClose={close}>
+          <action.Form row={e} onClose={close} />
+        </RowAction>
+      )
     );
   };
   const remove = (e: CashEntryRow) => {
@@ -370,7 +380,9 @@ export function CashRegisterPage() {
                   ))}
                   <td className="num sum">{money(e.total)}</td>
                   <td className="num">
-                    {e.cents < 0 && <IconButton icon={faLink} label="Link to budget lines" onClick={() => setPanel({ kind: "link", id: e.id })} />}
+                    {actions.map((a) => (
+                      <a.Buttons key={a.key} row={e} open={() => setPanel({ kind: a.key, id: e.id })} />
+                    ))}
                     <IconButton icon={faPen} label="Change the whole movement" onClick={() => setPanel({ kind: "edit", id: e.id })} />
                     <IconButton icon={faTrash} label="Delete movement" danger onClick={() => remove(e)} />
                   </td>

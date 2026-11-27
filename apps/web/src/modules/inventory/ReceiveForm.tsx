@@ -1,10 +1,8 @@
 import { faCheck } from "@fortawesome/free-solid-svg-icons";
-import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { inventoryApi, type ReceiveBody } from "./api";
-import { inventoryBudgetApi } from "../../bridges/inventory-budget/api";
-import type { ItemDraft, ItemRow } from "./types";
-import type { PendingRow } from "../../bridges/inventory-budget/types";
+import type { ItemDraft, ItemRow, PurchaseToReceive } from "./types";
+import { useProjects } from "./projects";
 import { moneyE4, quantity as showQuantity } from "../../core/format";
 import { draftBody, emptyDraft, itemLabel, paramErrors, type InventoryLookups } from "./inventory";
 import { carLabel, useSeasons } from "../../platform/season";
@@ -39,9 +37,11 @@ interface ReceiveDraft {
 }
 
 export function ReceiveForm({
-  line, items, presetItemId, lookups, onDone, onCancel,
+  line, send, items, presetItemId, lookups, onDone, onCancel,
 }: {
-  line?: PendingRow;
+  line?: PurchaseToReceive;
+  /** Where the arrival of `line` goes: the bridge to the budget gives its own address. Without a line, to the inventory. */
+  send?: (body: ReceiveBody) => Promise<unknown>;
   items: ItemRow[];
   /** Start with this item chosen (more goods of an item that is already open on the screen). */
   presetItemId?: number;
@@ -50,7 +50,7 @@ export function ReceiveForm({
   onCancel?: () => void;
 }) {
   const act = useAction();
-  const projects = useQuery({ queryKey: ["inventory-projects"], queryFn: inventoryBudgetApi.inventoryProjects, enabled: line === undefined });
+  const projects = useProjects(line === undefined);
   const knownItem = line ? (line.receivedItemId ?? line.suggestedItemId) : (presetItemId ?? null);
   // a purchase of the budget belongs to an area: the new item starts in it
   const lineArea = lookups.areas.find((a) => a.code === line?.areaCode);
@@ -99,15 +99,14 @@ export function ReceiveForm({
     const body: ReceiveBody = { quantity: amount, receivedOn, location, spot: spot.trim() };
     if (mode === "existing") body.itemId = Number(itemId);
     else body.newItem = draftBody(draft, lookups);
-    if (line) body.lineId = line.lineId;
-    else {
+    if (!line) {
       body.unitNet = unitNet;
       body.vatRate = vatRate;
       body.free = free;
       if (projectId) body.projectId = Number(projectId);
       if (car) body.carSeasonId = Number(car);
     }
-    if (await act(() => inventoryApi.receive(body))) {
+    if (await act(() => (line && send ? send(body) : inventoryApi.receive(body)))) {
       saved.discard();
       onDone();
     }

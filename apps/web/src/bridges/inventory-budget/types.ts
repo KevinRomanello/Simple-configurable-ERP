@@ -5,9 +5,3 @@ export interface PendingRow extends PendingLine {
   receivedItemId: number | null;
   suggestedItemId: number | null;
 }
-export interface ProjectRef {
-  id: number;
-  name: string;
-  areaCode: string;
-  areaName: string;
-}

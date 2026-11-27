@@ -74,7 +74,6 @@ export interface BuildBody {
 export const datasheetUrl = (id: number) => `/api/inventory/datasheets/${id}`;
 
 export interface ReceiveBody {
-  lineId?: number;
   itemId?: number;
   newItem?: ItemBody;
   quantity: string;
@@ -132,8 +131,8 @@ export const inventoryApi = {
   setImage: (id: number, body: { mime: string; full: string; thumb: string }) => put<void>(`/inventory/items/${id}/image`, body),
   removeImage: (id: number) => del(`/inventory/items/${id}/image`),
   /** Goods that arrive: for a purchase of the budget through the bridge to the budget (its line prices them), else priced by hand. */
-  receive: ({ lineId, ...body }: ReceiveBody) =>
-    post<{ item: InventoryItem }>(lineId === undefined ? "/inventory/receive" : `/inventory-budget/pending/${lineId}/receive`, body),
+  /** Goods from outside the budget (those of a purchase of the budget arrive through the bridge: `send` of `ReceiveForm`). */
+  receive: (body: ReceiveBody) => post<{ item: InventoryItem }>("/inventory/receive", body),
   addMovement: (body: MovementBody) => post("/inventory/movements", body),
   build: (body: BuildBody) => post("/inventory/builds", body),
   undoMovement: (id: number) => del(`/inventory/movements/${id}`),

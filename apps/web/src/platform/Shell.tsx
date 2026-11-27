@@ -12,6 +12,7 @@ import { useChosenSeasonId, useSeason } from "./season";
 import { SCREEN, useMaxWidth } from "../core/screen";
 import { IconButton } from "../core/Button";
 import { ExportProvider } from "../core/ExportBlocks";
+import { FillsProvider } from "../core/slots";
 import { SeasonStrip, SeasonSwitcher } from "./SeasonSwitcher";
 
 const CLOSED_GROUPS_KEY = "erp.menu-closed";
@@ -128,6 +129,7 @@ export function Shell() {
   const manifests = useManifests();
   const menuGroups = manifests.flatMap((manifest) => manifest.menuGroups ?? []).sort(byOrder);
   const entries = manifests.flatMap((manifest) => manifest.menu ?? []);
+  const fills = manifests.flatMap((manifest) => manifest.fills ?? []);
   const queryClient = useQueryClient();
   // behind the organisation's login there is nothing to sign out of here
   const signInOptions = useQuery({ queryKey: ["sign-in-options"], queryFn: platformApi.signInOptions });
@@ -205,9 +207,12 @@ export function Shell() {
         {/* the TOTAL pages do not follow the season of the menu: no strip there */}
         {!pathname.startsWith("/total/") && <SeasonStrip />}
         <ExportProvider>
-          {/* one page per address and per season: the areas, items and components share a page, and without
-              the key a form left open on one would still be open (and write) on the next, or in another season */}
-          <Outlet key={`${chosenSeason ?? "today"}:${pathname}`} />
+          {/* what the parts that are on put in the pages of the others (the slots) */}
+          <FillsProvider value={fills}>
+            {/* one page per address and per season: the areas, items and components share a page, and without
+                the key a form left open on one would still be open (and write) on the next, or in another season */}
+            <Outlet key={`${chosenSeason ?? "today"}:${pathname}`} />
+          </FillsProvider>
         </ExportProvider>
       </main>
     </div>

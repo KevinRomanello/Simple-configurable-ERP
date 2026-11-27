@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { inventoryApi } from "./api";
-import { inventoryBudgetApi } from "../../bridges/inventory-budget/api";
 import type { InventoryItem, PlanLineView, PlanView } from "./types";
 import { quantity as showQuantity } from "../../core/format";
 import { makeDefaultsOf, missingText, takesText, type InventoryLookups, type MakeDefaults } from "./inventory";
@@ -13,6 +12,7 @@ import { Button } from "../../core/Button";
 import { DraftNote } from "../../core/DraftNote";
 import { MakeDefaultsFields } from "./MakeDefaultsFields";
 import { Column, DataTable, Field, FormPanel } from "../../core/ui";
+import { useProjects } from "./projects";
 
 /** What the plan says about one part: there is enough, some are short, or some have to be made first. */
 function Status({ line }: { line: PlanLineView }) {
@@ -61,7 +61,7 @@ interface BuildDraft {
  */
 export function BuildForm({ item, lookups, onDone }: { item: InventoryItem; lookups: InventoryLookups; onDone: () => void }) {
   const act = useAction();
-  const projects = useQuery({ queryKey: ["inventory-projects"], queryFn: inventoryBudgetApi.inventoryProjects });
+  const projects = useProjects();
   const firstPlace = lookups.locations[0]?.code ?? "";
   // what the item was created with; a place it has none for starts on the first one
   const [initial] = useState<BuildDraft>(() => {

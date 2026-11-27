@@ -5,6 +5,7 @@ import type { IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { createContext, useContext, type ComponentType, type ReactNode } from "react";
 import { NavLink } from "react-router";
+import type { Fill } from "../core/slots";
 import { useMe } from "./auth";
 import { moduleOn } from "./modules";
 import type { Me } from "./types";
@@ -60,6 +61,8 @@ export interface Manifest {
   menuGroups?: MenuGroup[];
   menu?: MenuEntry[];
   settings?: SettingsSection[];
+  /** What it puts in the slots of the pages of others (docs/moduli-architettura.md, §7.4): a bridge fills those of its two modules. */
+  fills?: Fill[];
 }
 
 /** Whether a manifest is on for this site: all the modules it needs are on. */

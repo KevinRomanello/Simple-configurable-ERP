@@ -66,20 +66,23 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │       ├── architecture.test.ts # le regole del sito: chi può importare chi (moduli-architettura.md, §7.3)
 │       ├── theme/            # tokens.css (token Figma), base.css (tipografia), components.css, grid.ts
 │       ├── core/             # la cornice, non conosce nessun modulo: api.ts (request(), errori, upload), calcTypes.ts (i tipi del motore),
+│       │                     # slots.tsx (i punti di aggancio: defineSlot, useSlot, Slot, RowActionFill),
 │       │                     # ui/ (i modelli: PageHeader, Panel, FormPanel, Field, DataTable, Table, RowAction…), export/ (tabelle e grafici →
 │       │                     # PDF ed Excel, vedi download.md), Button, Chips, SearchSelect, Picture, BarsChart, LineChart, DownloadMenu,
 │       │                     # format.ts (soldi, date), useAction.ts (scritture + ricarica), bozze (useDraft, drafts), sort, screen, theme…
 │       ├── platform/         # il nucleo: api.ts e types.ts del nucleo, auth.tsx (chi è dentro), permissions.ts, season.ts, modules.ts,
 │       │                     # manifest.tsx (com'è fatto un manifesto), index.tsx (il suo), Shell (il menù, dai manifesti),
 │       │                     # SeasonSwitcher, Login, Users, History, Settings (le schede dai manifesti; App, stagioni, IVA, token)
-│       ├── modules/          # ognuno con index.tsx (il manifesto: pagine, menù, sezione di Settings), api.ts (le chiamate ai suoi
-│       │                     # indirizzi) e types.ts, le sue pagine, componenti e lib
+│       ├── modules/          # ognuno con index.tsx (il manifesto: pagine, menù, sezione di Settings), public.ts (ciò che gli altri
+│       │                     # ne usano: i punti di aggancio e i tipi), api.ts (le chiamate ai suoi indirizzi) e types.ts, le sue pagine,
+│       │                     # componenti e lib
 │       │   ├── budget/       # le pagine delle aree, CASH FROM, BOUGHT FROM, CASH FLOW, Gantt, TOTAL, analisi, il form delle righe
 │       │   ├── treasury/     # CASH REGISTER, FINANCIAL STATEMENT, l'import dell'Excel, le liste del registro
 │       │   ├── inventory/    # INVENTORY, il pezzo, i componenti, le statistiche, i tipi, i form di movimenti, produzione e arrivi
 │       │   └── registry/     # le anagrafiche e il modulo pubblico (FormPage)
 │       └── bridges/          # ognuno con il suo index.tsx: acceso solo con tutti e due i suoi moduli
-│           ├── treasury-budget/  # TO PAY, PayForm, PayLines, ReceiveInflow, DeleteInflow
+│           ├── treasury-budget/  # TO PAY, PayForm, PayLines, ReceiveInflow, DeleteInflow, CategoryVoci; rowActions.tsx (cosa mette
+│           │                     # nelle righe di CASH FLOW e del registro)
 │           └── inventory-budget/ # PENDING e la pillola ARRIVED
 ├── packages/calc/src/        # funzioni pure + test
 ├── packages/registry/src/    # il motore puro delle anagrafiche: valori, formule, filtri, permessi, moduli, CSV

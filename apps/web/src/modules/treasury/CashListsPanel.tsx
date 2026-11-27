@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { treasuryApi } from "./api";
-import { treasuryBudgetApi } from "../../bridges/treasury-budget/api";
 import type { CashListItem } from "./types";
 import type { CashScope } from "../../core/calcTypes";
-import type { CategoryDefault } from "../../bridges/treasury-budget/types";
 import { CommitInput } from "../../core/CommitInput";
 import { DeleteButton } from "../../core/ListButtons";
 import { QuickAdd, usedBy } from "../../core/QuickAdd";
 import { DataTable, Panel, type Column } from "../../core/ui";
 import { useAction } from "../../core/useAction";
+import { Slot } from "../../core/slots";
+import { registerSettings } from "./public";
 
 // Settings: the two lists of the register of the team's money, kept by the treasury and the admins.
 // Not designed in Figma: the lists of Settings. docs/registro-di-cassa.md
@@ -77,41 +77,13 @@ function Methods() {
   );
 }
 
-/** For each category of the budget, the Voce a payment for one of its lines starts from (TO PAY); the treasury changes it when paying. */
-function CategoryVoci() {
-  const act = useAction();
-  const defaults = useQuery({ queryKey: ["category-defaults"], queryFn: treasuryBudgetApi.categoryDefaults });
-  const voci = useQuery({ queryKey: ["cash-categories"], queryFn: treasuryApi.cashCategories });
-  const columns: Column<CategoryDefault>[] = [
-    { key: "category", header: "BUDGET CATEGORY", cell: (c) => c.name },
-    {
-      key: "voce",
-      header: "VOCE OF THE PAYMENT",
-      cell: (c) => (
-        <select className="input small" aria-label={`Voce for ${c.name}`} value={c.voceId ?? ""} onChange={(e) => act(() => treasuryBudgetApi.setCategoryDefault(c.categoryId, e.target.value === "" ? null : Number(e.target.value)))}>
-          <option value="">— (chosen when paying)</option>
-          {(voci.data ?? []).map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-        </select>
-      ),
-    },
-  ];
-  return (
-    <Panel title="Register: Voce of a payment, by budget category">
-      <p className="muted">
-        When a line of the budget is paid from TO PAY, the payment starts from the Voce of the category of the line (Asset → 1.1 Attrezzature, for example).
-        It can always be changed in the form of the payment.
-      </p>
-      <DataTable title="Voce by budget category" columns={columns} rows={defaults.data} rowKey={(c) => c.categoryId} empty="No categories" />
-    </Panel>
-  );
-}
-
 export function CashListsPanel() {
   return (
     <>
       <Voci />
       <Methods />
-      <CategoryVoci />
+      {/* what the others keep about the register here: the Voce of a payment by budget category (the bridge to the budget) */}
+      <Slot slot={registerSettings} props={{}} />
     </>
   );
 }

@@ -365,6 +365,8 @@ Elenco di partenza, preso dalle pagine di oggi:
 
 Ogni punto di aggancio ha un tipo (le proprietà che riceve) e una prova che lo verifica (§12).
 
+**Com'è andata (G7, tappa 3).** Sono diventati punti di aggancio solo quelli dove il sito importava un ponte: `budget.cashflow.inflowActions` (che comprende anche `deleteTargets`), `treasury.register.rowActions`, `treasury.settings.voci` (con il nome `treasury.settings.panels`) e `inventory.movement.purpose` (con il nome `inventory.purpose.projects`). Gli altri non servono, perché quei dati arrivano già nella risposta del proprietario, riempiti sul server dalle porte del ponte (passi G4 e G5): ARRIVED e lo stato d'arrivo (`line.arrival`, che il budget disegna da sé), «Paid …» e «received the inflow …» del registro, «from the budget» del pezzo, i tagli per progetto delle statistiche, la spiegazione delle entrate del registro in CASH FLOW. Il dettaglio è nella sezione «G7» del §11.
+
 ---
 
 ## 8. Accendere e spegnere
@@ -615,6 +617,17 @@ Cinque tappe: le cartelle con il client e i tipi divisi (1), i manifesti (2), i 
 - **Restano per G8:** `/me.bridges` (per ora il sito accende un ponte quando sono accesi i suoi moduli) e la pagina iniziale, che resta `/budget/mt-dmt`.
 - **Le regole del sito** sanno che `modules/budget` da solo è il manifesto (`index.tsx`) e che il cablaggio è `App.tsx`, `main.tsx` e `manifests.ts` (con la sua prova). Le eccezioni scendono da 44 a 35: le 9 della piattaforma che disegnava le pagine dei moduli (Settings e il menù) non ci sono più.
 - **Prove nuove:** `manifests.test.ts` legge i manifesti veri: le sezioni di Settings per ruolo e con il Registry spento (le stesse di prima), l'ordine dei gruppi del menù, ogni voce in un gruppo che esiste, indirizzi e chiavi unici, i ponti accesi solo con i loro due moduli. `settingsSections.test.ts` prova la funzione con manifesti inventati.
+- **Tappa 3, i punti di aggancio:** il meccanismo è in `core/slots.tsx`: `defineSlot<T>(nome)` fa un punto di aggancio che prende un `T`, `fill(punto, valore)` è ciò che un manifesto ci mette (`fills`), `useSlot(punto)` dà ciò che ci hanno messo i manifesti accesi (nessuno: una lista vuota) e `<Slot>` disegna i componenti che lo riempiono. Il menù della piattaforma passa alle pagine i `fills` dei manifesti accesi. Il proprietario della pagina definisce il punto nel suo `public.ts` (nuovo, in `modules/budget`, `treasury`, `inventory`): così il ponte lo importa senza toccare i file privati del modulo.
+  - **`budget.cashflow.inflowActions`** e **`treasury.register.rowActions`** prendono una `RowActionFill` (in `core/slots.tsx`): i pulsanti su una riga e il modulo che aprono sotto la riga (`RowAction`), con il titolo, il contesto e la bozza che lo tiene aperto. La pagina tiene quale azione è aperta, una alla volta, come faceva il registro. Il ponte tesoreria×budget le riempie in `bridges/treasury-budget/rowActions.tsx`: «Mark as received» / «Not received» e «Delete inflow» in CASH FLOW, «Link to budget lines» nel registro.
+  - **`treasury.settings.panels`**: i riquadri in più di Settings › Register, dopo le liste del registro. Il ponte ci mette la Voce di partenza per categoria (`bridges/treasury-budget/CategoryVoci.tsx`, che prima stava nel registro).
+  - **`inventory.purpose.projects`**: come si chiedono i progetti a cui può andare un movimento, un arrivo o una produzione. Il ponte inventario×budget ci mette la sua chiamata (`GET /api/inventory-budget/projects`); i cinque moduli dell'inventario la usano con `useProjects()` (`modules/inventory/projects.ts`). Senza il ponte la lista è vuota.
+  - **Cambia di poco una cosa sola:** in CASH FLOW prima si potevano aprire insieme «Mark as received» e «Delete» (due stati separati); ora è una sola azione aperta alla volta, come nel registro. L'azione aperta si ricorda con il nome `cash-flow:<fase>:open` (prima `…:receiving`): chi aveva un incasso aperto lo ritrova chiuso una volta.
+  - **Non sono punti di aggancio** (vedi il §7.4): ARRIVED e lo stato d'arrivo, perché `line.arrival` è un dato del budget (lo riempie sul server la porta del passo G5). La pillola (`ArrivalPill`) passa dal ponte al budget, e PENDING la prende dal `public.ts` del budget. Con l'inventario spento quella colonna resta vuota: se nasconderla lo decide G8.
+  - **Spostati al loro proprietario:** `missingMake` (marca e modello mancanti di una riga) dall'inventario al budget, che è l'unico a usarlo; `decimalText` da `budget/lineEdit.ts` a `core/format.ts` (è un formato di numeri, lo usano anche il registro e il ponte).
+  - **L'arrivo di una riga del budget:** `ReceiveForm` (inventario) descrive l'acquisto con un suo tipo (`PurchaseToReceive`) e manda l'arrivo dove gli dice chi lo apre (`send`). PENDING (il ponte) gli passa il proprio indirizzo (`inventoryBudgetApi.receiveLine`), e `inventoryApi.receive` resta solo per gli arrivi fuori budget. Prima l'inventario conosceva l'indirizzo del ponte.
+  - **Restano per G8:** senza il ponte tesoreria×budget in CASH FLOW non c'è modo di cancellare un inflow (la cancellazione è tutta del ponte, perché è il suo indirizzo che lista anche il registro). Il budget da solo avrà bisogno della sua.
+  - **Le regole del sito:** le eccezioni scendono da 35 a 17. Restano le 4 del core e le 13 dei ponti che usano file privati dei moduli (la tappa 4), compresa una nuova: `CategoryVoci` legge le Voci dal registro.
+  - **Prova nuova** in `manifests.test.ts`: un ponte riempie solo i punti di aggancio dei suoi due moduli, un modulo solo i suoi.
 
 **I documenti da aggiornare alla fine**:
 - [architettura.md](architettura.md) (struttura del repository e livelli);
@@ -645,7 +658,7 @@ Estendono `apps/api/src/architecture.test.ts`.
 
 ### Prove di architettura (sito)
 
-Le regole del §7.3, nello stesso stile di quelle del server, in `apps/web/src/architecture.test.ts` (da G7, tappa 1): il proprietario di ogni file è la sua cartella, e la lista `SITE_EXCEPTIONS` dice dove il codice non obbedisce ancora; può solo scendere.
+Le regole del §7.3, nello stesso stile di quelle del server, in `apps/web/src/architecture.test.ts` (da G7, tappa 1): il proprietario di ogni file è la sua cartella, e la lista `SITE_EXCEPTIONS` dice dove il codice non obbedisce ancora; può solo scendere. I manifesti e i punti di aggancio si provano in `manifests.test.ts` (tappe 2 e 3): sezioni di Settings per ruolo, gruppi del menù, indirizzi, ponti accesi, e chi riempie quali punti di aggancio.
 
 ### Le combinazioni
 
