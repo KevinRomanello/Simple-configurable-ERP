@@ -1,33 +1,11 @@
 import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
-import { isUnauthorized } from "./api/client";
-import { IfModule } from "./components/IfModule";
-import { NoticeProvider } from "./components/Notice";
-import { Shell } from "./components/Shell";
-import { AuthGate, forgetUser } from "./lib/auth";
-import { AnalysisPage } from "./pages/AnalysisPage";
-import { AreaPage } from "./pages/AreaPage";
-import { CashFlowPage } from "./pages/CashFlowPage";
-import { CashRegisterPage } from "./pages/CashRegisterPage";
-import { FundsPage } from "./pages/FundsPage";
-import { ComponentPage } from "./pages/ComponentPage";
-import { ComponentsPage } from "./pages/ComponentsPage";
-import { GanttPage } from "./pages/GanttPage";
-import { HistoryPage } from "./pages/HistoryPage";
-import { InventoryPage } from "./pages/InventoryPage";
-import { InventoryStatsPage } from "./pages/InventoryStatsPage";
-import { ItemPage } from "./pages/ItemPage";
-import { ItemsPage } from "./pages/ItemsPage";
-import { PendingPage } from "./pages/PendingPage";
-import { StatementPage } from "./pages/StatementPage";
-import { ToPayPage } from "./pages/ToPayPage";
-import { SuppliersPage } from "./pages/SuppliersPage";
-import { TotalPage } from "./pages/TotalPage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { UsersPage } from "./pages/UsersPage";
-import { FormPage } from "./pages/FormPage";
-import { RegistryHome } from "./pages/registry/RegistryHome";
-import { TablePage } from "./pages/registry/TablePage";
+import { isUnauthorized } from "./core/api";
+import { NoticeProvider } from "./core/Notice";
+import { MANIFESTS } from "./manifests";
+import { AuthGate, forgetUser, useMe } from "./platform/auth";
+import { manifestOn, ManifestsProvider } from "./platform/manifest";
+import { Shell } from "./platform/Shell";
 
 const queryClient = new QueryClient({
   // Any screen whose data is refused with 401 (session expired or revoked) ends on the sign-in page.
@@ -39,50 +17,36 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <NoticeProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* a form of the registry stands alone, and opens without signing in when it is public */}
-            <Route path="forms/:slug" element={<FormPage />} />
-            <Route path="*" element={<AuthGate><SignedIn /></AuthGate>} />
-          </Routes>
-        </BrowserRouter>
+        <ManifestsProvider value={MANIFESTS}>
+          <BrowserRouter>
+            <Routes>
+              {MANIFESTS.flatMap((manifest) => manifest.openRoutes ?? []).map((route) => (
+                <Route key={route.path} path={route.path} element={route.element} />
+              ))}
+              <Route path="*" element={<AuthGate><SignedIn /></AuthGate>} />
+            </Routes>
+          </BrowserRouter>
+        </ManifestsProvider>
       </NoticeProvider>
     </QueryClientProvider>
   );
 }
 
-/** The site of whoever is signed in: the menu and its pages. */
+/**
+ * The site of whoever is signed in: the menu and the pages of every module and bridge. The pages of one that is off (Settings › App ›
+ * Modules) lead to the first page.
+ */
 function SignedIn() {
+  const me = useMe();
   return (
     <Routes>
       <Route element={<Shell />}>
         <Route index element={<Navigate to="/budget/mt-dmt" replace />} />
-        <Route path="budget/:code" element={<AreaPage />} />
-        <Route path="cash-from" element={<FundsPage />} />
-        <Route path="bought-from" element={<SuppliersPage />} />
-        <Route path="cash-flow" element={<CashFlowPage />} />
-        <Route path="register" element={<CashRegisterPage />} />
-        <Route path="to-pay" element={<ToPayPage />} />
-        <Route path="statement" element={<StatementPage />} />
-        <Route path="gantt/:phase" element={<GanttPage />} />
-        <Route path="total" element={<Navigate to="/total/season" replace />} />
-        <Route path="total/season" element={<TotalPage kind="season" />} />
-        <Route path="total/year" element={<TotalPage kind="year" />} />
-        <Route path="total/car" element={<TotalPage kind="car" />} />
-        <Route path="analysis/funds" element={<AnalysisPage kind="funds" />} />
-        <Route path="analysis/suppliers" element={<AnalysisPage kind="suppliers" />} />
-        <Route path="analysis/items" element={<ItemsPage />} />
-        <Route path="inventory" element={<InventoryPage />} />
-        <Route path="inventory/items/:id" element={<ItemPage />} />
-        <Route path="inventory/pending" element={<PendingPage />} />
-        <Route path="inventory/components" element={<ComponentsPage />} />
-        <Route path="inventory/components/:id" element={<ComponentPage />} />
-        <Route path="inventory/stats" element={<InventoryStatsPage />} />
-        <Route path="users" element={<UsersPage />} />
-        <Route path="settings/:section?" element={<SettingsPage />} />
-        <Route path="history" element={<HistoryPage />} />
-        <Route path="registry" element={<IfModule name="registry"><RegistryHome /></IfModule>} />
-        <Route path="registry/:table" element={<IfModule name="registry"><TablePage /></IfModule>} />
+        {MANIFESTS.flatMap((manifest) =>
+          (manifest.routes ?? []).map((route) => (
+            <Route key={route.path} path={route.path} element={manifestOn(manifest, me) ? route.element : <Navigate to="/" replace />} />
+          )),
+        )}
         <Route path="*" element={<p className="empty">This page does not exist.</p>} />
       </Route>
     </Routes>

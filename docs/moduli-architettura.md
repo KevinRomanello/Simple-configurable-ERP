@@ -71,7 +71,7 @@ Le chiavi esterne che puntano al nucleo (`season`, `area`, `app_user`, `category
   - la pagina di un pezzo dice «from the budget»;
   - i form dell'inventario chiedono il progetto (`inventoryProjects`);
   - il registro ha «Link to budget lines».
-- **Settings è già divisa per modulo** (`lib/settingsSections.ts`: Budget, Inventory, Register, Registry, App). Users ha le spunte Treasury e Sponsors.
+- **Settings è già divisa per modulo** (`platform/settingsSections.ts`: Budget, Inventory, Register, Registry, App). Users ha le spunte Treasury e Sponsors.
 
 ### 2.5 Cosa c'è già di buono
 
@@ -316,7 +316,7 @@ apps/web/src/
     registry-access/  la parte «ruoli dell'ERP» di Settings › Registry
 ```
 
-**Il client e i tipi si dividono.** `api/client.ts` e `api/types.ts` si dividono per proprietario. `request()` resta nel `core`; i tipi condivisi (utente, stagione, area) vanno in `platform`.
+**Il client e i tipi si dividono** (fatto in G7, tappa 1). `api/client.ts` e `api/types.ts` si dividono per proprietario. `request()` resta nel `core`; i tipi condivisi (utente, stagione, area) vanno in `platform`.
 
 ### 7.2 Il manifesto di un modulo (`index.tsx`)
 
@@ -328,12 +328,12 @@ Ogni modulo e ogni ponte dichiara in un solo oggetto:
 - le **spunte** che mostra in Users (dichiarate dal server, §8.5);
 - le **parti che mette nelle pagine degli altri** (§7.4).
 
-`App.tsx`, `Shell.tsx`, la pagina Settings e la pagina Users si costruiscono **dai manifesti dei moduli accesi**. Il server lo dice in `/me.modules`, e `/me.bridges` dice quali ponti sono accesi. Spento un modulo:
+`App.tsx`, `Shell.tsx`, la pagina Settings e la pagina Users si costruiscono **dai manifesti dei moduli accesi** (fatto in G7, tappa 2; Users lo era già: le spunte vengono dal server). Il server lo dice in `/me.modules`, e `/me.bridges` dice quali ponti sono accesi (G8; fino ad allora il sito accende un ponte quando sono accesi i suoi due moduli). Spento un modulo:
 - le sue pagine non esistono («This page does not exist», oppure la pagina iniziale);
 - il suo gruppo del menù non c'è;
 - le sue parti nelle pagine degli altri non compaiono.
 
-`IfModule` non serve più.
+`IfModule` non serve più (tolto in G7, tappa 2).
 
 ### 7.3 Le regole del sito
 
@@ -523,7 +523,7 @@ Ogni passo lascia l'app funzionante, con tutte le prove verdi e i documenti aggi
 ### G3: il primo ponte (27 novembre 2026)
 
 - **`modules/rolesync` è `apps/api/src/bridges/registry-access/`** (i file sono gli stessi: `rolesync.service.ts`, `rolesync.routes.ts`). Le anagrafiche erano già un modulo in regola e restano dov'erano.
-- **Risponde sotto il nome del ponte:** `/api/registry-access/role-sync` (e `/preview`) al posto di `/api/role-sync`, registrato in `app.ts` con il suo prefisso (`register(rotte, { prefix: "/registry-access" })`). Nessun redirect dal vecchio indirizzo (§8.2). L'interruttore dei moduli lo conosce: con il Registry spento anche `/api/registry-access/…` dà 404. Il sito (`api/registry.ts`) usa il nuovo indirizzo.
+- **Risponde sotto il nome del ponte:** `/api/registry-access/role-sync` (e `/preview`) al posto di `/api/role-sync`, registrato in `app.ts` con il suo prefisso (`register(rotte, { prefix: "/registry-access" })`). Nessun redirect dal vecchio indirizzo (§8.2). L'interruttore dei moduli lo conosce: con il Registry spento anche `/api/registry-access/…` dà 404. Il sito (`modules/registry/api.ts`) usa il nuovo indirizzo.
 - **Le regole di architettura** leggono la cartella `bridges/` (una cartella di ponti ha il nome di un ponte che esiste, e il suo proprietario è quel ponte). Cercando un modo per provarle ho visto che **non vedevano un `import "x"` senza `from`**, cioè un file caricato per quello che fa: ora lo vedono, e una prova a mano (un file di un modulo che importa il ponte e un altro modulo) fa fallire tre prove come deve.
 
 ### G4: la tesoreria e il suo ponte (27 novembre 2026)
@@ -579,6 +579,43 @@ Quattro tappe: una cartella sola (1), i permessi del budget (2), gli indirizzi s
 - **Tappa 4, la chiusura:** prova nel browser sul database di sviluppo (solo letture): la pagina di un'area, CASH FROM, BOUGHT FROM, CASH FLOW, i due Gantt, i tre TOTAL, le tre analisi e Settings › Budget (gli interruttori dal budget), tutte da `/api/budget/…` e senza errori. **La riconciliazione con il foglio vero passa intera** (`reconcile`, sul computer: 520/520 righe, 336/336 celle di TOTAL, Gantt, analisi, IVA: «All checks match»), ed è anche la prova che gli export nuovi (`@erp/api/lookups`, `@erp/api/snapshot`) funzionano. Benchmark: risposte identiche; la baseline intera non è rinnovata perché il computer era occupato ([prestazioni.md](prestazioni.md)).
 - **Cosa resta per G7–G8:** il sito diviso per modulo con i punti di aggancio (G7); gli interruttori di budget, tesoreria e inventario e `/me.bridges` (G8).
 
+### G7: il sito diviso per modulo (27 novembre 2026)
+
+Cinque tappe: le cartelle con il client e i tipi divisi (1), i manifesti (2), i punti di aggancio (3), le regole del sito strette (4), la chiusura nel browser (5). L'aspetto del sito non cambia: ogni tappa confronta l'impronta delle pagine prima e dopo.
+
+- **Tappa 1, le cartelle:** i 172 file del sito sono passati da `components/`, `pages/`, `lib/` e `api/` alle cartelle del §7.1, spostati da uno script che ricalcola gli import (nessuna riga cambiata oltre agli import e ai nomi qui sotto):
+  - `core/`: i componenti comuni (`Button`, `SearchSelect`, `Picture`, i grafici…), `core/ui` (Table, FormPanel, RowAction…), `core/export`, le lib generiche (formati, ordinamento, bozze, schermo, tema…) e `core/api.ts`; `theme/` resta dov'è ed è del core;
+  - `platform/`: login, menù (`Shell.tsx`), scelta della stagione, Users, History, Settings, stagioni, token, permessi e moduli accesi;
+  - `modules/budget|treasury|inventory|registry/` e `bridges/treasury-budget|inventory-budget/`: pagine, componenti e lib di ciascuno, in una cartella piatta;
+  - fuori restano solo `App.tsx`, `main.tsx` e la prova di architettura.
+- **Il client e i tipi divisi:** `api/client.ts` e `api/types.ts` non ci sono più. `core/api.ts` tiene `request()`, `ApiError`, `upload` e `get/post/patch/put/del`; ogni proprietario ha il suo `api.ts` (`platformApi`, `budgetApi`, `treasuryApi`, `inventoryApi`, `treasuryBudgetApi`, `inventoryBudgetApi`; il registry aveva già il suo) e il suo `types.ts`. Una chiamata sta nel file del proprietario del suo indirizzo (`/api/budget/…` → `budgetApi`). I tipi del motore che il sito usa li riesporta `core/calcTypes.ts`.
+- **Tre file rinominati:** nella stessa cartella due nomi che differiscono solo per la maiuscola si confondono (il disco del Mac non distingue `NewLine.ts` da `newLine.ts`). `lib/newLine.ts` è diventato `modules/budget/lineDraft.ts`, `lib/typeTree.ts` `modules/inventory/typeBranches.ts`, `lib/deleteInflow.ts` `bridges/treasury-budget/inflowVoices.ts`, con i loro test.
+- **`Shell.tsx` sta in `platform/`**, non in `core/` come diceva il §7.1: usa il login e la stagione, e il core non conosce nessuno.
+- **Le regole del sito** (§7.3) sono in `apps/web/src/architecture.test.ts`. Ogni file appartiene al proprietario della sua cartella. Un modulo usa i suoi file, il core, la piattaforma e il `public.ts` degli altri moduli; un ponte i `public.ts` dei suoi due moduli; un ponte lo importa solo `App.tsx`. Dove il codice di oggi non obbedisce ancora c'è la lista `SITE_EXCEPTIONS` (44 righe, solo a scendere), divisa per la tappa che le toglie:
+  - la piattaforma che disegna le pagine dei moduli (Settings, il menù): i manifesti, tappa 2;
+  - un modulo che disegna un pezzo di un ponte o di un altro modulo: gli slot, tappa 3;
+  - un ponte che usa i file privati dei suoi moduli, e il core che usa il login (`useAction`, `useDraft`, `draftGuard`) o un file del budget (`useDragOrder`): tappa 4.
+- **Visto scrivendo:** dopo i nomi nuovi Vite e la cartella condivisa del contenitore ricordavano i file vecchi (`./NewLine` portava ancora a `newLine.ts`). Il contenitore `web` va riavviato dopo questa tappa (`docker compose restart web`).
+- **Tappa 2, i manifesti:** ogni modulo e ogni ponte ha il suo `index.tsx` con un oggetto `Manifest` (il tipo è in `platform/manifest.tsx`):
+  - `key` e `needs`, i moduli di cui ha bisogno: un ponte è acceso solo con tutti e due i suoi;
+  - `routes`, le pagine; il registry anche `openRoutes`, i moduli pubblici fuori dal login;
+  - `menuGroups`, i gruppi del menù: titolo, posto, gli indirizzi che lo aprono da solo, e chi lo vede (`useShown`, un hook: il Registry chiede al server);
+  - `menu`, le voci: in un gruppo suo o di un altro, con il posto e chi le vede (`shown`);
+  - `settings`, le sezioni di Settings: chiave, nome, posto, chi può usarle e il componente.
+
+  Anche la piattaforma ha il suo (`platform/index.tsx`: Users, Settings, History, il gruppo Admin e la sezione App).
+- **L'unico elenco** è `apps/web/src/manifests.ts` (`MANIFESTS`), del cablaggio come `App.tsx`. `App.tsx` lo passa alla piattaforma con un contesto React (`ManifestsProvider`) e `useManifests()` dà quelli accesi secondo `/api/me` (`modules`): così `platform/` non importa nessun modulo.
+- **`App.tsx`** monta le pagine di tutti i manifesti; quelle di un modulo spento portano alla prima pagina, come faceva `IfModule`, che non c'è più.
+- **`Shell.tsx`** disegna i gruppi dei manifesti accesi, in ordine, ciascuno con le sue voci. Le voci dei ponti stanno nei gruppi dei moduli: TO PAY in Treasury, PENDING in Inventory. TO PAY porta anche l'indirizzo che apre il suo gruppo (`paths` della voce), perché gli indirizzi del gruppo sono della tesoreria.
+- **Settings:** `SettingsPage.tsx` tiene l'intestazione e le schede; ogni sezione viene dal suo modulo e carica da sé i suoi dati (mentre carica, l'intestazione e le schede si vedono già):
+  - Budget: `modules/budget/BudgetSettings.tsx`, con le stagioni (`platform/SeasonsPanel.tsx`) e le aliquote IVA (`platform/VatRatesPanel.tsx`), che sono del nucleo;
+  - Inventory: `modules/inventory/InventorySettings.tsx`, con Categories (le categorie sono del nucleo, ma il riquadro ha i campi dei pezzi);
+  - Register: `CashListsPanel`; Registry: `RegistrySettings`; App: `platform/AppSettings.tsx`.
+- **Users non cambia:** le spunte le dichiarano già i moduli sul server (`/api/flags`, dal passo G1).
+- **Restano per G8:** `/me.bridges` (per ora il sito accende un ponte quando sono accesi i suoi moduli) e la pagina iniziale, che resta `/budget/mt-dmt`.
+- **Le regole del sito** sanno che `modules/budget` da solo è il manifesto (`index.tsx`) e che il cablaggio è `App.tsx`, `main.tsx` e `manifests.ts` (con la sua prova). Le eccezioni scendono da 44 a 35: le 9 della piattaforma che disegnava le pagine dei moduli (Settings e il menù) non ci sono più.
+- **Prove nuove:** `manifests.test.ts` legge i manifesti veri: le sezioni di Settings per ruolo e con il Registry spento (le stesse di prima), l'ordine dei gruppi del menù, ogni voce in un gruppo che esiste, indirizzi e chiavi unici, i ponti accesi solo con i loro due moduli. `settingsSections.test.ts` prova la funzione con manifesti inventati.
+
 **I documenti da aggiornare alla fine**:
 - [architettura.md](architettura.md) (struttura del repository e livelli);
 - [moduli.md](moduli.md) (riscritto: tutti i moduli, come se ne aggiunge uno);
@@ -608,7 +645,7 @@ Estendono `apps/api/src/architecture.test.ts`.
 
 ### Prove di architettura (sito)
 
-Le regole del §7.3, nello stesso stile di `lib/architecture.test.ts`.
+Le regole del §7.3, nello stesso stile di quelle del server, in `apps/web/src/architecture.test.ts` (da G7, tappa 1): il proprietario di ogni file è la sua cartella, e la lista `SITE_EXCEPTIONS` dice dove il codice non obbedisce ancora; può solo scendere.
 
 ### Le combinazioni
 

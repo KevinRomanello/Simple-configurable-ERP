@@ -62,7 +62,7 @@ La pagina **CALENDAR YEARS**, fatta prima nello stesso giorno, è diventata YEAR
 
 ## 3. Come funziona dentro
 
-- **Il browser** manda la stagione scelta in ogni richiesta, nell'header `X-Season: <id>` (`apps/web/src/lib/seasonChoice.ts` e `api/client.ts`). Cambiando stagione si ricaricano tutti i dati tranne chi è collegato (`useChooseSeason` in `lib/season.ts`). Le pagine si rimontano, così un modulo lasciato aperto non scrive nella stagione nuova (la chiave dell'`Outlet` in `Shell.tsx`).
+- **Il browser** manda la stagione scelta in ogni richiesta, nell'header `X-Season: <id>` (`apps/web/src/core/seasonChoice.ts` e `core/api.ts`). Cambiando stagione si ricaricano tutti i dati tranne chi è collegato (`useChooseSeason` in `platform/season.ts`). Le pagine si rimontano, così un modulo lasciato aperto non scrive nella stagione nuova (la chiave dell'`Outlet` in `Shell.tsx`).
 - **L'API** legge l'header in un hook (`addSeasonHook` in `seasons.routes.ts`) e lo mette in un `AsyncLocalStorage`, come già fa con l'utente.
   - `getCurrentSeason()` lo legge: è cambiato **solo il corpo** di quella funzione (regola 4), e tutti i servizi che la chiamavano funzionano su ogni stagione senza altre modifiche.
   - Senza header vale la stagione di oggi. Un header che non è un numero dà 400; una stagione che non esiste dà 404 (il browser che ne ricorda una sparita torna da solo a quella di oggi).
@@ -121,8 +121,8 @@ Da questo lavoro `--replace` **non cancella più i fornitori**: sono di tutte le
   - anno solare su due stagioni, con le voci senza data;
   - statistiche per macchina e per stagione; macchina rifiutata su un arrivo dal budget.
 - `packages/calc/src/years.test.ts` (3), `moneyIn.test.ts` (2), `totals.test.ts` (2 nuovi) e `inventory.test.ts` (3 nuovi): fasi in anni diversi, voci senza data, entrate di una stagione e di un anno (sponsor uguale in due stagioni, niente BANK, niente senza data), progetti con lo stesso nome uniti, `totalsOfLines` uguale a `totals` per una stagione, periodo della stagione con lo scaffale intero, By car, due stagioni con la stessa macchina.
-- `apps/web/src/lib/totals.test.ts` (6): le scelte delle tre pagine (stagioni, macchine una per nome, anni da prima a ultima stagione), righe per area e per progetto, confronto con le righe che ha uno solo dei due, entrate confrontate.
-- `apps/web/src/lib/lineEdit.test.ts` e `newLine.test.ts`: la macchina nel modulo di modifica e in quello nuovo.
+- `apps/web/src/modules/budget/totals.test.ts` (6): le scelte delle tre pagine (stagioni, macchine una per nome, anni da prima a ultima stagione), righe per area e per progetto, confronto con le righe che ha uno solo dei due, entrate confrontate.
+- `apps/web/src/modules/budget/lineEdit.test.ts` e `newLine.test.ts`: la macchina nel modulo di modifica e in quello nuovo.
 - **Mutazioni:** togliendo il filtro del periodo falliscono 3 test del motore; spegnendo il controllo di sola lettura fallisce quello dell'API.
 - **Browser**, 6/11/2026, su computer (1440 px) e telefono (375 px), tema scuro:
   - stagione 2025-2026 creata da Settings, con i progetti copiati;

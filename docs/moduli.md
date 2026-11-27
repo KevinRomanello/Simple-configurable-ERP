@@ -26,7 +26,7 @@ Lo spegnimento va nello storico come ogni altra modifica (tabella `app_module`, 
 | stato | tabella `app_module` (chiave, acceso), migrazione `0039_app_module.sql` | **una riga solo per chi è stato spento o riacceso**: un modulo senza riga è acceso. Nello storico |
 | il controllo | `addModuleGate` (`appmodules.routes.ts`), una riga in `app.ts` | prima delle rotte: un indirizzo di un modulo spento risponde 404. Solo se l'indirizzo è di un modulo legge lo stato (una lettura di una riga) |
 | leggere e cambiare | `GET /api/modules` e `PATCH /api/modules/:key` `{ enabled }` | solo admin (403 agli altri; 404 a un modulo che non c'è) |
-| chi lo sa | `GET /api/me` → `modules: { registry: true }` | lo leggono menù, pagine e impostazioni (`moduleOn` in `lib/modules.ts`, `IfModule` per le pagine, `settingsSections` per le schede di Settings) |
+| chi lo sa | `GET /api/me` → `modules: { registry: true }` | lo leggono menù, pagine e impostazioni (`moduleOn` in `platform/modules.ts`; dal passo G7 il sito usa solo i manifesti dei moduli accesi, `useManifests` in `platform/manifest.tsx`: menù, pagine e schede di Settings vengono da lì) |
 | il ponte dei ruoli | `rolesync.service.ts` | con il Registry spento non dichiara gestito nessun account |
 
 **I moduli non sanno di poter essere spenti.** `appmodules` conosce solo gli **indirizzi** (testi), non importa nessun modulo; i moduli non importano `appmodules`. Chi lo usa: `app.ts` (il controllo), il sign-in (`/api/me`) e il ponte `rolesync` (una sola domanda: il Registry è acceso?). Lo controlla `apps/api/src/architecture.test.ts`.
@@ -34,7 +34,7 @@ Lo spegnimento va nello storico come ogni altra modifica (tabella `app_module`, 
 ## 3. Come si aggiunge un modulo
 
 1. Una voce in `listModuleDefs` (chiave, nome, descrizione, prefissi delle sue rotte API) e una riga in [hardcoded-registry.md](hardcoded-registry.md) se cambia.
-2. Nel sito, il suo gruppo del menù (`Shell.tsx`) dentro `moduleOn(me, "chiave")`, le sue pagine dentro `<IfModule name="chiave">` (`App.tsx`), e quel che mostra in Settings.
+2. Nel sito, il suo **manifesto** (`modules/<chiave>/index.tsx`: pagine, gruppi e voci del menù, sezioni di Settings; [moduli-architettura.md](moduli-architettura.md), §7.2) e una riga nell'elenco `MANIFESTS` (`apps/web/src/manifests.ts`). Spento, le sue pagine portano alla prima pagina e il resto sparisce da solo.
 3. Se qualcosa di un altro modulo dipende da lui (come i ruoli dal Registry), quel ponte chiede `isModuleOn("chiave")`.
 4. Prove: lo stato spento dà 404 sui suoi indirizzi e li ridà riaccesi (`appmodules.routes.test.ts`).
 

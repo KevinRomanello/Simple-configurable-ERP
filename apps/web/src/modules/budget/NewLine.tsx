@@ -1,0 +1,205 @@
+import { useId, useState } from "react";
+import { budgetApi } from "./api";
+import type { Fund } from "./types";
+import type { Phase } from "../../core/calcTypes";
+import { Chips } from "../../core/Chips";
+import { SearchSelect } from "../../core/SearchSelect";
+import { Field, FormPanel } from "../../core/ui";
+import { choosesOwnRate, fundsOfBoth, isSameActual, lineBody, newLineDraft, PHASES_OF, withSameActual, type FillIn, type LineDraft, type PhaseDraft } from "./lineDraft";
+import { carLabel } from "../../platform/season";
+import { todayIso } from "../../core/today";
+import { useAction } from "../../core/useAction";
+import { useDraft } from "../../core/useDraft";
+import { DraftNote } from "../../core/DraftNote";
+import type { GridLookups } from "./areaColumns";
+
+const PHASE_TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
+const FILL_IN: { value: FillIn; label: string }[] = [
+  { value: "estimate", label: "EXPECTED" },
+  { value: "actual", label: "ACTUAL" },
+  { value: "both", label: "EXPECTED and ACTUAL" },
+];
+
+const names = (values: string[]) => [{ value: "", label: "" }, ...values.map((v) => ({ value: v, label: v }))];
+
+/**
+ * The boxes of one phase of a line: what the grid has under EXPECTED or ACTUAL. `fixedFunds`: the
+ * line is paid by several funds, which the form shows and does not change (the grid does).
+ * `title` and `funds` are for the one block of ACTUAL same as EXPECTED: it is for both phases, so it is named so and
+ * offers only the funds that can pay in both.
+ */
+export function PhaseFields({ idPrefix, phase, draft, lookups, onChange, fixedFunds, title, funds }: {
+  idPrefix: string;
+  phase: Phase;
+  draft: PhaseDraft;
+  lookups: GridLookups;
+  onChange: (change: Partial<PhaseDraft>) => void;
+  fixedFunds?: string;
+  title?: string;
+  funds?: Fund[];
+}) {
+  const id = (name: string) => `${idPrefix}-${phase}-${name}`;
+  return (
+    <div className="subsection">
+      <h3>{title ?? PHASE_TITLE[phase]}</h3>
+      <div className="form-grid">
+        <Field label="Quantity" htmlFor={id("quantity")}>
+          <input id={id("quantity")} className="input small" type="number" min="0" step="0.001" value={draft.quantity} onChange={(e) => onChange({ quantity: e.target.value })} />
+        </Field>
+        <Field label={draft.priceMode === "gross" ? "Unit cost with VAT" : "Net unit cost"} htmlFor={id("cost")}>
+          <div className="inline-form">
+            <input id={id("cost")} className="input small" type="number" min="0" step="0.0001" value={draft.unitCost} onChange={(e) => onChange({ unitCost: e.target.value })} />
+            {/* switching keeps the same price, said the other way (a new line has nothing to convert: the number stays) */}
+            <select
+              aria-label="Price without or with VAT"
+              className="input small"
+              value={draft.priceMode}
+              onChange={(e) => onChange({ priceMode: e.target.value as "net" | "gross", unitCost: draft.otherCost || draft.unitCost, otherCost: draft.otherCost ? draft.unitCost : "" })}
+            >
+              <option value="net">without VAT</option>
+              <option value="gross">with VAT</option>
+            </select>
+          </div>
+        </Field>
+        <Field label="Cash from" htmlFor={id("fund")}>
+          {fixedFunds !== undefined ? (
+            <>
+              <input id={id("fund")} className="input small" value={fixedFunds} readOnly />
+              <span className="hint">Several funds pay it: change them in the grid, on a computer or a tablet</span>
+            </>
+          ) : (
+            <SearchSelect id={id("fund")} value={draft.fund} onChange={(fund) => onChange({ fund })} choices={names((funds ?? lookups.funds[phase]).map((f) => f.name))} />
+          )}
+        </Field>
+        <Field label="Bought from" htmlFor={id("supplier")}>
+          <SearchSelect id={id("supplier")} value={draft.supplier} onChange={(supplier) => onChange({ supplier })} choices={names(lookups.supplierNames)} />
+        </Field>
+        {fixedFunds === undefined && choosesOwnRate(draft.fund, lookups) && (
+          <Field label="VAT %" htmlFor={id("vat")}>
+            <select id={id("vat")} className="input small" value={draft.vatRate} onChange={(e) => onChange({ vatRate: e.target.value })}>
+              <option value="">Choose…</option>
+              {lookups.vatRates.map((r) => <option key={r} value={r}>{r}%</option>)}
+            </select>
+          </Field>
+        )}
+        <Field label="Purchase date (today if empty)" htmlFor={id("purchase")}>
+          <input id={id("purchase")} className="input small" type="date" value={draft.purchaseDate} onChange={(e) => onChange({ purchaseDate: e.target.value })} />
+        </Field>
+        {phase === "estimate" && (
+          <Field label="Arrival date (optional)" htmlFor={id("arrival")}>
+            <input id={id("arrival")} className="input small" type="date" value={draft.arrivalDate} onChange={(e) => onChange({ arrivalDate: e.target.value })} />
+          </Field>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Which car the line is for: the car of the season, or (bought for an older car, say) the car of
+ * another season. The money still comes from this season's budget.
+ */
+export function CarField({ id, value, lookups, onChange }: { id: string; value: string; lookups: GridLookups; onChange: (car: string) => void }) {
+  const own = lookups.cars.find((s) => s.id === lookups.seasonId);
+  return (
+    <Field label="Car" htmlFor={id}>
+      <select id={id} className="input small" value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{own ? `${own.car} (this season)` : "This season's"}</option>
+        {lookups.cars.filter((s) => s.id !== lookups.seasonId).map((s) => <option key={s.id} value={s.id}>{carLabel(s)}</option>)}
+      </select>
+    </Field>
+  );
+}
+
+/** The make and the model of what is bought, two free boxes beside the item. */
+export function BrandModelFields({ idPrefix, brand, model, onChange }: {
+  idPrefix: string;
+  brand: string;
+  model: string;
+  onChange: (patch: { brand?: string; model?: string }) => void;
+}) {
+  return (
+    <>
+      <Field label="Brand" htmlFor={`${idPrefix}-brand`}>
+        <input id={`${idPrefix}-brand`} className="input small" maxLength={200} value={brand} onChange={(e) => onChange({ brand: e.target.value })} />
+      </Field>
+      <Field label="Model" htmlFor={`${idPrefix}-model`}>
+        <input id={`${idPrefix}-model`} className="input small" maxLength={200} value={model} onChange={(e) => onChange({ model: e.target.value })} />
+      </Field>
+    </>
+  );
+}
+
+/** The form of a new line of a project, opened from the yellow «Add item» under its grid: only the name is needed. */
+export function NewLine({ project, lookups, onDone }: { project: { id: number; name: string }; lookups: GridLookups; onDone: () => void }) {
+  const act = useAction();
+  const idPrefix = useId();
+  const [today] = useState(() => todayIso());
+  // what is written is kept while it is typed, so that going to another page does not lose it (docs/stile-interfaccia.md)
+  const [initial] = useState(() => newLineDraft(today));
+  const [draft, setDraft, saved] = useDraft<LineDraft>(`new-line:${project.id}`, initial);
+  const change = (patch: Partial<LineDraft>) => setDraft((d) => ({ ...d, ...patch }));
+  const changePhase = (phase: Phase) => (patch: Partial<PhaseDraft>) => setDraft((d) => ({ ...d, [phase]: { ...d[phase], ...patch } }));
+
+  const bothFunds = fundsOfBoth(lookups);
+  const same = isSameActual(draft);
+
+  const submit = async () => {
+    if (await act(() => budgetApi.createLine(project.id, lineBody(draft, lookups, today)))) {
+      saved.discard();
+      onDone();
+    }
+  };
+
+  return (
+    <FormPanel
+      title={`New item in ${project.name}`}
+      description="Choose what to fill in: EXPECTED, ACTUAL or both. Only the name is needed; what is left empty can be typed in the grid later. A sponsor that gives goods chosen in CASH FROM becomes the BOUGHT FROM too."
+      submitLabel="Add item"
+      canSubmit={draft.item.trim() !== ""}
+      onSubmit={submit}
+      onCancel={() => saved.leave(onDone)}
+      layout="stack"
+    >
+      <DraftNote draft={saved} />
+      <Field label="Fill in">
+        <Chips label="Fill in" value={draft.fillIn} onChange={(fillIn) => change({ fillIn })} options={FILL_IN} />
+      </Field>
+      {draft.fillIn === "both" && (
+        <div className="stack tight">
+          <label className="checkbox">
+            <input type="checkbox" checked={draft.sameActual} onChange={(e) => setDraft((d) => withSameActual(d, e.target.checked, bothFunds.map((f) => f.name)))} />
+            ACTUAL same as EXPECTED
+          </label>
+          <span className="hint">Both phases get the same figures: the line counts as bought (TO PAY, PENDING).</span>
+        </div>
+      )}
+      <div className="form-grid">
+        <Field label="Item" htmlFor={`${idPrefix}-item`}>
+          <input id={`${idPrefix}-item`} className="input small" autoFocus maxLength={500} value={draft.item} onChange={(e) => change({ item: e.target.value })} />
+        </Field>
+        <BrandModelFields idPrefix={idPrefix} brand={draft.brand} model={draft.model} onChange={change} />
+        <Field label="Category" htmlFor={`${idPrefix}-category`}>
+          <select id={`${idPrefix}-category`} className="input small" value={draft.category} onChange={(e) => change({ category: e.target.value })}>
+            <option value="">—</option>
+            {lookups.categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </Field>
+        <Field label="Priority" htmlFor={`${idPrefix}-priority`}>
+          <select id={`${idPrefix}-priority`} className="input small" value={draft.priority} onChange={(e) => change({ priority: e.target.value })}>
+            <option value="">—</option>
+            {lookups.priorities.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </Field>
+        <CarField id={`${idPrefix}-car`} value={draft.car} lookups={lookups} onChange={(car) => change({ car })} />
+      </div>
+      {same ? (
+        <PhaseFields idPrefix={idPrefix} phase="estimate" title="EXPECTED = ACTUAL" funds={bothFunds} draft={draft.estimate} lookups={lookups} onChange={changePhase("estimate")} />
+      ) : (
+        PHASES_OF[draft.fillIn].map((phase) => (
+          <PhaseFields key={phase} idPrefix={idPrefix} phase={phase} draft={draft[phase]} lookups={lookups} onChange={changePhase(phase)} />
+        ))
+      )}
+    </FormPanel>
+  );
+}

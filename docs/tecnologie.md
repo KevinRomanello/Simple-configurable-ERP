@@ -407,7 +407,9 @@ export default defineConfig({
 
 Dentro `AreaPage` si legge con `const { code } = useParams()`. `NavLink` nel menu sa quando è la pagina attiva (la voce gialla). `Shell` contiene il menu e un `<Outlet/>` dove entra la pagina corrente.
 
-**Dove guardare:** `apps/web/src/App.tsx`, `components/Shell.tsx`.
+Dal passo G7 le `Route` non sono scritte a mano una per una: ogni modulo elenca le sue pagine nel suo manifesto (`modules/<modulo>/index.tsx`, [moduli-architettura.md](moduli-architettura.md), §7.2) e `App.tsx` le monta tutte; il menù di `Shell` si costruisce dagli stessi manifesti.
+
+**Dove guardare:** `apps/web/src/App.tsx`, `apps/web/src/manifests.ts`, `modules/*/index.tsx`, `platform/Shell.tsx`.
 
 ---
 
@@ -426,7 +428,7 @@ const sheet = useQuery({ queryKey: ["sheet", code], queryFn: () => api.sheet(cod
 - `invalidateQueries()` dice "questi dati potrebbero essere vecchi": quelli attualmente visibili vengono **richiesti di nuovo**.
 - `staleTime: 5s` e `refetchOnWindowFocus`: tornando sulla scheda del browser i dati si rinfrescano.
 
-**Il nostro schema per ogni scrittura** (`lib/useAction.ts`):
+**Il nostro schema per ogni scrittura** (`core/useAction.ts`):
 
 ```ts
 try { await work(); return true; }
@@ -436,7 +438,7 @@ finally { await queryClient.invalidateQueries(); }                   // in OGNI 
 
 La conseguenza è importante: **lo schermo mostra sempre ciò che il server ha davvero**. Se una modifica viene rifiutata, la cella torna al valore vero. Non c'è un secondo stato da tenere allineato.
 
-**Dove guardare:** `apps/web/src/lib/useAction.ts`, `apps/web/src/pages/AreaPage.tsx`.
+**Dove guardare:** `apps/web/src/core/useAction.ts`, `apps/web/src/modules/budget/AreaPage.tsx`.
 
 ---
 
@@ -482,7 +484,7 @@ Anche le **barre di scorrimento** sono un caso: AG Grid imposta di suo `color-sc
 
 Un'altra trappola, solo su Mac: le barre "a comparsa" (larghezza zero) AG Grid le disegna in posizione assoluta, **sopra** la riga dei subtotali, quindi con una sola riga di dati la coprivano. `components.css` riserva sotto i subtotali una fascia di 16 px per la barra e la porta in fondo alla griglia (le regole valgono solo quando AG Grid usa la barra "apple", cioè dove serve; altrove la barra normale occupa già il suo spazio).
 
-**Dove guardare:** `apps/web/src/pages/areaColumns.tsx`, `AreaPage.tsx`, `theme/grid.ts`.
+**Dove guardare:** `apps/web/src/modules/budget/areaColumns.tsx`, `AreaPage.tsx`, `theme/grid.ts`.
 
 ---
 
@@ -506,7 +508,7 @@ Un'altra trappola, solo su Mac: le barre "a comparsa" (larghezza zero) AG Grid l
 
 Abbiamo **un solo** componente (`BarsChart`) usato da tutte le viste. Converte i centesimi in euro per l'asse, usa come colori le variabili `--utility-1…6` del design system, e `stacked` impila le serie (spese per area) invece di affiancarle. Disegna SVG, quindi è nitido a ogni dimensione.
 
-**Dove guardare:** `apps/web/src/components/BarsChart.tsx`.
+**Dove guardare:** `apps/web/src/core/BarsChart.tsx`.
 
 ---
 
@@ -520,9 +522,9 @@ Abbiamo **un solo** componente (`BarsChart`) usato da tutte le viste. Converte i
 - **ExcelJS** scrive un file `.xlsx`: un foglio per tabella, con **numeri e date veri** (non testo), formati euro/percentuale/data, celle unite, intestazione bloccata e il grafico come immagine.
 - Le tre librerie sono grosse, quindi si caricano **solo al momento di scaricare** (`import()` dinamico): chi non scarica non le scarica.
 
-Tutto parte da una descrizione comune della tabella (`lib/export/table.ts`), così PDF ed Excel dicono la stessa cosa. Il funzionamento intero è in [download.md](download.md).
+Tutto parte da una descrizione comune della tabella (`core/export/table.ts`), così PDF ed Excel dicono la stessa cosa. Il funzionamento intero è in [download.md](download.md).
 
-**Dove guardare:** `apps/web/src/lib/export/`, `components/DownloadMenu.tsx`, `components/ExportBlocks.tsx`.
+**Dove guardare:** `apps/web/src/core/export/`, `core/DownloadMenu.tsx`, `core/ExportBlocks.tsx`.
 
 ---
 
@@ -535,7 +537,7 @@ Tutto parte da una descrizione comune della tabella (`lib/export/table.ts`), cos
 - `JsBarcode` disegna un codice a barre in un SVG, negli stessi 11 formati di NocoDB (CODE128, EAN13, EAN8, EAN5, EAN2, UPC, CODE39, ITF14, MSI, pharmacode, codabar).
 - Tutte e due sono MIT, senza dipendenze, e si caricano solo quando un codice è nella pagina.
 
-**Dove guardare:** `apps/web/src/components/registry/Codes.tsx`.
+**Dove guardare:** `apps/web/src/modules/registry/Codes.tsx`.
 
 ---
 
@@ -544,7 +546,7 @@ Tutto parte da una descrizione comune della tabella (`lib/export/table.ts`), cos
 - **Font Awesome Free (set "solid")**: le stesse icone del design Figma, con gli stessi nomi (`faTrash`, `faPen`, `faCircleInfo`). Si importa **solo** l'icona che serve (`import { faTrash } from "@fortawesome/free-solid-svg-icons"`), quindi nel sito finiscono solo quelle usate; si disegna con `<FontAwesomeIcon icon={faTrash} />`.
 - **Fira Code** (`@fontsource-variable/fira-code`): il font dell'interfaccia secondo Figma. Il pacchetto lo porta **dentro il progetto**: nessuna richiesta a Google, funziona offline. È un font *variabile*: il peso è un asse continuo (300–700), quindi esiste anche il peso 450 "Retina" del design.
 
-**Dove guardare:** `apps/web/src/theme/base.css` (import del font), `components/Button.tsx` (icone).
+**Dove guardare:** `apps/web/src/theme/base.css` (import del font), `core/Button.tsx` (icone).
 
 ---
 

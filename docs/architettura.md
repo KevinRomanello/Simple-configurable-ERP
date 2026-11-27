@@ -61,14 +61,26 @@ Un monolite in Docker Compose: **Postgres** conserva i dati, un'**API** (Fastify
 │   │           ├── inventory/    # articoli, arrivi fuori budget, movimenti, componenti (distinte), statistiche, immagini, unità, posti e campi per categoria; inventory.public.ts è ciò che il ponte ne usa
 │   │           ├── treasury/     # il registro di cassa del fondo del team, le sue liste e l'import dell'Excel (era `cash`), sotto /api/treasury; treasury.public.ts è ciò che gli altri ne usano
 │   │           └── registry/     # le anagrafiche: tabelle, campi, viste, record, file, moduli, webhook (anagrafiche.md)
-│   └── web/src/
+│   └── web/src/              # diviso per proprietario come il server dal passo G7 (moduli-architettura.md, §7)
+│       ├── App.tsx, main.tsx, manifests.ts # il cablaggio: l'elenco dei manifesti e le pagine che ne vengono; l'unico che può usare tutto
+│       ├── architecture.test.ts # le regole del sito: chi può importare chi (moduli-architettura.md, §7.3)
 │       ├── theme/            # tokens.css (token Figma), base.css (tipografia), components.css, grid.ts
-│       ├── api/              # client.ts (una funzione per endpoint), types.ts
-│       ├── lib/              # format.ts (soldi, date), useAction.ts (scritture + ricarica), auth.tsx (chi è dentro), permissions.ts,
-│       │                     # export/ (tabelle e grafici → PDF ed Excel nel browser, vedi download.md)
-│       ├── components/       # ui/ (i modelli: PageHeader, Panel, FormPanel, Field, DataTable, Card…), Shell, Button, Chips, BarsChart,
-│       │                     # Notice, DownloadMenu, ExportBlocks, SortTh, MonthlyInflows (vedi stile-interfaccia.md)
-│       └── pages/            # una pagina per foglio del vecchio file, più Login, Users, History
+│       ├── core/             # la cornice, non conosce nessun modulo: api.ts (request(), errori, upload), calcTypes.ts (i tipi del motore),
+│       │                     # ui/ (i modelli: PageHeader, Panel, FormPanel, Field, DataTable, Table, RowAction…), export/ (tabelle e grafici →
+│       │                     # PDF ed Excel, vedi download.md), Button, Chips, SearchSelect, Picture, BarsChart, LineChart, DownloadMenu,
+│       │                     # format.ts (soldi, date), useAction.ts (scritture + ricarica), bozze (useDraft, drafts), sort, screen, theme…
+│       ├── platform/         # il nucleo: api.ts e types.ts del nucleo, auth.tsx (chi è dentro), permissions.ts, season.ts, modules.ts,
+│       │                     # manifest.tsx (com'è fatto un manifesto), index.tsx (il suo), Shell (il menù, dai manifesti),
+│       │                     # SeasonSwitcher, Login, Users, History, Settings (le schede dai manifesti; App, stagioni, IVA, token)
+│       ├── modules/          # ognuno con index.tsx (il manifesto: pagine, menù, sezione di Settings), api.ts (le chiamate ai suoi
+│       │                     # indirizzi) e types.ts, le sue pagine, componenti e lib
+│       │   ├── budget/       # le pagine delle aree, CASH FROM, BOUGHT FROM, CASH FLOW, Gantt, TOTAL, analisi, il form delle righe
+│       │   ├── treasury/     # CASH REGISTER, FINANCIAL STATEMENT, l'import dell'Excel, le liste del registro
+│       │   ├── inventory/    # INVENTORY, il pezzo, i componenti, le statistiche, i tipi, i form di movimenti, produzione e arrivi
+│       │   └── registry/     # le anagrafiche e il modulo pubblico (FormPage)
+│       └── bridges/          # ognuno con il suo index.tsx: acceso solo con tutti e due i suoi moduli
+│           ├── treasury-budget/  # TO PAY, PayForm, PayLines, ReceiveInflow, DeleteInflow
+│           └── inventory-budget/ # PENDING e la pillola ARRIVED
 ├── packages/calc/src/        # funzioni pure + test
 ├── packages/registry/src/    # il motore puro delle anagrafiche: valori, formule, filtri, permessi, moduli, CSV
 └── tools/import-xlsx/        # legge l'xlsx reale: riconciliazione col foglio e caricamento nel DB (usa fonti/)
@@ -184,7 +196,7 @@ Se un valore supera la validazione e il database lo rifiuta lo stesso (numero fu
 
 - **Dati**: ogni pagina legge con TanStack Query (`['sheet', area]`, `['gantt', fase]`…) e non calcola nulla: i numeri arrivano dall'API.
 - **Scritture**: ogni modifica passa da `useAction()`, che esegue la chiamata, mostra in un angolo un eventuale rifiuto del server (validazione, conflitto di versione, elemento in uso) e **in ogni caso ricarica tutto**: la schermata mostra sempre ciò che il server ha davvero.
-- **Pagina di un'area**: un AG Grid per progetto; la riga dei subtotali è una riga fissata in fondo; le celle non scrivono nei dati della griglia ma chiamano `PATCH /lines/:id` con la `version` letta (`pages/areaColumns.tsx` dice quale colonna manda cosa). Il triangolo arancione segnala una riga "incompleta" (tipo di sponsor o aliquota mancanti).
+- **Pagina di un'area**: un AG Grid per progetto; la riga dei subtotali è una riga fissata in fondo; le celle non scrivono nei dati della griglia ma chiamano `PATCH /lines/:id` con la `version` letta (`modules/budget/areaColumns.tsx` dice quale colonna manda cosa). Il triangolo arancione segnala una riga "incompleta" (tipo di sponsor o aliquota mancanti).
 - **Altre pagine**: tabelle semplici con "chip" per scegliere il blocco (ALL ITEMS o una categoria) e grafici a colonne (`BarsChart`) dove li aveva il foglio.
 - **Tipi**: le risposte del motore usano i tipi di `@erp/calc` (solo tipi: nessun codice del motore finisce nel browser).
 
@@ -292,7 +304,7 @@ Prerequisiti sul computer: Node 24 o più recente, Docker, pnpm. Se `pnpm` non c
 | tabelle `calc_*` e viste SQL per gli analisti | dentro `runWrite()`: rigenera con `calc` dopo la scrittura                                                                                                                |
 | inventario                                      | nuovo modulo `inventory` con `inventory_unit` e `inventory_movement`; `budget_line_id` facoltativo; non tocca il resto                                                |
 | un'anagrafica nuova (fornitori, sponsor, rimborsi…) | nessun codice: una tabella del REGISTRY dal sito, con i suoi campi, moduli e regole ([anagrafiche.md](anagrafiche.md)) |
-| un tipo di campo delle anagrafiche | `packages/registry/src/values.ts` (validazione), `compute.ts` se è calcolato, l'editor in `apps/web/src/components/registry/Values.tsx` |
+| un tipo di campo delle anagrafiche | `packages/registry/src/values.ts` (validazione), `compute.ts` se è calcolato, l'editor in `apps/web/src/modules/registry/Values.tsx` |
 
 ## Differenze dal piano originale
 
