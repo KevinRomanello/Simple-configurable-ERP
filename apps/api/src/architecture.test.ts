@@ -80,17 +80,17 @@ function whoOwns(rel: string): Who {
 /**
  * Whether a file of `from` may import a file of `to`. The wiring (`app.ts`) and the tools of the database (the seeds) may use anything,
  * and anybody may use the infrastructure and the core of the ERP. The core knows no module. A module knows nothing of another module,
- * and a bridge reaches only the `*.public` file of its own modules (and the schema files, for its tables to point at theirs). A table is
- * reached by importing the schema file of its owner, so the same rule keeps an owner to its own tables.
+ * and a bridge reaches only the `*.public` file of its own modules (and, in its schema file only, their schema files, for its tables to point at
+ * theirs). A table is reached by importing the schema file of its owner, so the same rule keeps an owner to its own tables.
  */
-function mayImport(from: Who, to: Who, target: string): boolean {
+function mayImport(from: Who, to: Who, target: string, file: string): boolean {
   if (from === "app" || from === "db" || from === "barrel" || from === to) return true;
   if (to === "barrel") return false;
   if (to === "core" || to === "db" || to === "platform") return true;
   if (from === "core" || from === "platform") return false;
   const modules = BRIDGES[from];
-  // a bridge also has its tables point at the tables of its modules
-  return modules !== undefined && modules.includes(to as Owner) && (target.endsWith(".public") || target.startsWith("db/schema/"));
+  // a bridge also has its tables point at the tables of its modules, but its services never reach them: they ask the module
+  return modules !== undefined && modules.includes(to as Owner) && (target.endsWith(".public") || (target.startsWith("db/schema/") && file.startsWith("db/schema/")));
 }
 
 const allFiles = sources("apps/api/src").map((f) => ({ ...f, rel: slash(relative(srcRoot, join(root, f.file))) }));
@@ -117,7 +117,7 @@ describe("who owns what, and who may use it", () => {
       f.imports
         .filter((spec) => spec.startsWith("."))
         .map((spec) => slash(relative(srcRoot, resolve(dirname(join(root, f.file)), spec))))
-        .filter((target) => !mayImport(f.who, whoOwns(target), target))
+        .filter((target) => !mayImport(f.who, whoOwns(target), target, f.rel))
         .map((target) => `${f.rel} → ${target}`),
     );
     expect({ new: found.filter((v) => !IMPORT_EXCEPTIONS.includes(v)).sort() }).toEqual({ new: [] });
@@ -133,7 +133,6 @@ describe("who owns what, and who may use it", () => {
         .filter((target) => bridges.has(whoOwns(target)) && whoOwns(target) !== f.who && !["app", "db", "barrel"].includes(f.who))
         .map((target) => `${f.rel} → ${target}`),
     );
-    // (the register still points at the table of its payments of lines, which is the bridge's: until G4)
     expect(found.filter((v) => !IMPORT_EXCEPTIONS.includes(v))).toEqual([]);
   });
 
@@ -152,8 +151,14 @@ describe("who owns what, and who may use it", () => {
 
 /** What each public file shows to the others. A name added or taken away fails the test above, so that it is a choice. */
 const PUBLIC_NAMES: Record<string, string[]> = {
+  "modules/budget/budget.public": [
+    "InflowFact", "InflowReceipt", "RegisterIncome", "assertCanChangeInflows", "bankOf", "computedLines", "deleteInflowsIn", "inflowDeleting", "inflowReceipts", "inflowsByIds", "inflowsOfSeason", "lineLabels", "linePayments", "outsideBudgetOf", "registerBank", "registerSponsorship", "seasonsOfLines",
+  ],
+  "modules/treasury/treasury.public": [
+    "CreateEntryInput", "DayRange", "EntryFact", "EntryLink", "OutsideFact", "assertCanManageCash", "assertListed", "deleteEntryIn", "entriesByIds", "entryChanging", "entryLinks", "insertEntry", "lastPaymentMethodId", "moneyInBetween", "outsideBetween", "paymentsBetween", "registerBalanceAt", "sponsorshipMoneyBetween",
+  ],
   "platform/platform.public": [
-    "AuditRow", "UsageKind", "UsageRow", "UsageSubject", "UserFlag", "auditLabels", "auditText", "currentActive", "declaredFlags", "lookupRenamed", "seasonCreated", "totalUse", "usageOf", "usedBy", "userFlags",
+    "AuditRow", "PermissionRule", "UsageKind", "UsageRow", "UsageSubject", "UserFlag", "auditLabels", "auditText", "can", "categoryCreated", "currentActive", "declaredFlags", "lookupRenamed", "permissionRules", "seasonCreated", "totalUse", "usageOf", "usedBy", "userFlags",
   ],
   "modules/registry/registry.public": ["PersonInRegistry", "RegistryListener", "RegistryUseCheck", "groupsOfRegistry", "onRegistryChange", "onRegistryUse", "peopleInViews"],
 };

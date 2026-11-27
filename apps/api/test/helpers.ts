@@ -1,4 +1,4 @@
-import { CASH_CATEGORIES, CASH_METHODS } from "../src/modules/cash/defaults";
+import { CASH_CATEGORIES, CASH_METHODS } from "../src/modules/treasury/defaults";
 import { eq, sql } from "drizzle-orm";
 import pg from "pg";
 import type { FastifyInstance } from "fastify";

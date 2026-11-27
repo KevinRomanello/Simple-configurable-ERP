@@ -27,8 +27,9 @@ const PAGES: { name: string; url: string }[] = [
   { name: "core: history of a table", url: "/api/audit?table=budget_line" },
   { name: "core: areas", url: "/api/areas" },
   { name: "core: categories", url: "/api/lookups/categories" },
-  { name: "core: units", url: "/api/lookups/units" },
-  { name: "core: places", url: "/api/lookups/locations" },
+  // the units and the places are the inventory's from G5 (the names stay, so that they are compared with the baseline)
+  { name: "core: units", url: "/api/inventory/units" },
+  { name: "core: places", url: "/api/inventory/locations" },
   { name: "core: settings of the calculation", url: "/api/lookups/settings" },
   { name: "budget: area sheet", url: "/api/areas/mt-dmt/sheet" },
   { name: "budget: funds", url: "/api/funds" },
@@ -41,15 +42,16 @@ const PAGES: { name: string; url: string }[] = [
   { name: "budget: analysis of the suppliers", url: "/api/views/analysis/suppliers" },
   { name: "budget: items view", url: "/api/views/items" },
   { name: "budget: inflows", url: "/api/inflows?phase=estimate" },
-  { name: "treasury: register", url: "/api/cash/register?year=2026" },
-  { name: "treasury: financial statement", url: "/api/cash/statement?year=2026" },
-  { name: "treasury×budget: TO PAY", url: "/api/cash/to-pay" },
-  { name: "treasury×budget: payments to tie", url: "/api/cash/to-link" },
-  { name: "treasury×budget: lines to pay", url: "/api/cash/payable-lines" },
+  { name: "treasury: register", url: "/api/treasury/register?year=2026" },
+  { name: "treasury: financial statement", url: "/api/treasury/statement?year=2026" },
+  { name: "treasury×budget: TO PAY", url: "/api/treasury-budget/to-pay" },
+  { name: "treasury×budget: payments to tie", url: "/api/treasury-budget/to-link" },
+  { name: "treasury×budget: lines to pay", url: "/api/treasury-budget/payable-lines" },
   { name: "inventory: items", url: "/api/inventory/items" },
   { name: "inventory×budget: PENDING", url: "/api/inventory/pending" },
   { name: "inventory: components", url: "/api/inventory/components" },
   { name: "inventory: statistics", url: "/api/inventory/stats" },
+  { name: "inventory: lists of Settings", url: "/api/inventory/lists" },
 ];
 
 interface Result {

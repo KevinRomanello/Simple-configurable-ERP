@@ -18,15 +18,15 @@ const inflow = async (body: object = {}) =>
   (await api.post("/api/inflows", { phase: "estimate", sourceName: "Acme", amount: "1000", inflowDate: "2026-12-01", ...body })).body;
 /** Marks the inflow as received with a new movement of the register (the amount, 800 unless said) and gives the movement's id. */
 async function receive(inflowId: number, amount = "800") {
-  expect((await api.post(`/api/inflows/${inflowId}/receive`, { on: "2026-12-05", account: "bank", amount })).status).toBe(204);
+  expect((await api.post(`/api/treasury-budget/inflows/${inflowId}/receive`, { on: "2026-12-05", account: "bank", amount })).status).toBe(204);
   const row = (await api.get("/api/inflows?phase=estimate")).body.find((i: { id: number }) => i.id === inflowId);
   return row.cashEntryId as number;
 }
 type Client = Pick<typeof api, "get" | "post">;
-const related = (query: string, as: Client = api) => as.get(`/api/inflows/related?${query}`);
-const remove = (body: { inflowIds?: number[]; cashEntryIds?: number[] }, as: Client = api) => as.post("/api/inflows/delete", { inflowIds: [], cashEntryIds: [], ...body });
+const related = (query: string, as: Client = api) => as.get(`/api/treasury-budget/inflows/related?${query}`);
+const remove = (body: { inflowIds?: number[]; cashEntryIds?: number[] }, as: Client = api) => as.post("/api/treasury-budget/inflows/delete", { inflowIds: [], cashEntryIds: [], ...body });
 const estimate = async () => (await api.get("/api/inflows?phase=estimate")).body as { id: number; cashEntryId: number | null }[];
-const entries = async () => ((await api.get("/api/cash/register?year=2026")).body.entries as { id: number }[]).map((e) => e.id);
+const entries = async () => ((await api.get("/api/treasury/register?year=2026")).body.entries as { id: number }[]).map((e) => e.id);
 
 describe("what is of the same company", () => {
   it("lists the expected inflows (the instalments too, whatever the capitals and the spaces), the actual ones and the movements tied to them", async () => {
@@ -36,7 +36,7 @@ describe("what is of the same company", () => {
     const actual = await inflow({ phase: "actual", amount: "300" });
     const entryId = await receive(first.id);
     // a movement of the register that says the same, but that nobody received, is not of this company
-    await api.post("/api/cash/entries", { on: "2026-12-06", description: "Acme", account: "bank", direction: "in", amount: "10" });
+    await api.post("/api/treasury/entries", { on: "2026-12-06", description: "Acme", account: "bank", direction: "in", amount: "10" });
 
     const list = (await related(`inflowId=${second.id}`)).body;
     expect(list.expected.map((v: { id: number }) => v.id).sort()).toEqual([first.id, second.id].sort());
@@ -51,7 +51,7 @@ describe("what is of the same company", () => {
   it("starts from a movement of the register too: the company of the inflow it received, or the movement alone", async () => {
     const gala = await inflow({ sourceName: "Gala" });
     const entryId = await receive(gala.id);
-    const alone = (await api.post("/api/cash/entries", { on: "2026-12-06", description: "Gift", account: "cash", direction: "in", amount: "10" })).body;
+    const alone = (await api.post("/api/treasury/entries", { on: "2026-12-06", description: "Gift", account: "cash", direction: "in", amount: "10" })).body;
 
     const fromEntry = (await related(`cashEntryId=${entryId}`)).body;
     expect(fromEntry.expected.map((v: { id: number }) => v.id)).toEqual([gala.id]);
@@ -66,7 +66,7 @@ describe("what is of the same company", () => {
     const actual = await inflow({ phase: "actual", amount: "300" });
     expect((await related(`inflowId=${actual.id}`)).body.actual[0].counted).toBe(true); // no register yet: it counts
     // the register is the BANK once it has a balance to start from
-    await api.put("/api/cash/openings", { year: 2026, account: "bank", amount: "1" });
+    await api.put("/api/treasury/openings", { year: 2026, account: "bank", amount: "1" });
     expect((await related(`inflowId=${actual.id}`)).body.actual[0].counted).toBe(false);
   });
 
@@ -125,7 +125,7 @@ describe("deleting where the person chooses", () => {
   });
 
   it("refuses money that went out, things of nobody and an empty request", async () => {
-    const out = (await api.post("/api/cash/entries", { on: "2026-12-06", description: "Bill", account: "bank", direction: "out", amount: "10" })).body;
+    const out = (await api.post("/api/treasury/entries", { on: "2026-12-06", description: "Bill", account: "bank", direction: "out", amount: "10" })).body;
     expect((await remove({ cashEntryIds: [out.id] })).status).toBe(409);
     expect((await remove({ inflowIds: [99999] })).status).toBe(404);
     expect((await remove({ cashEntryIds: [99999] })).status).toBe(404);

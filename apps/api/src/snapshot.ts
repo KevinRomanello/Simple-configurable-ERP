@@ -1,14 +1,16 @@
 import { addDays, type Figures, type Phase, type Snapshot } from "@erp/calc";
-import { and, asc, eq, isNotNull, max, sql } from "drizzle-orm";
+import { asc, eq, max, sql } from "drizzle-orm";
+import { contracts } from "./core/contracts";
 import { toCents, toScaled } from "./core/money";
 import { db } from "./db/client";
 import { budgetLine, fund, fundContract, lineFigures, lineFund, project, supplier } from "./db/schema/budget";
 import { stockMovement } from "./db/schema/inventory";
+import { receiptLine } from "./db/schema/inventory-budget";
 import { area } from "./db/schema/platform";
-import { loadPayments } from "./modules/cash/cash.service";
-import { loadOutsideBudget } from "./modules/cash/outside-budget.service";
-import { loadLookups } from "./platform/lookups/lookups.service";
+import { linePayments, outsideBudgetOf } from "./modules/budget/budget.ports";
 import { bankOf, loadInflows } from "./modules/cashflow/cashflow.service";
+import { loadLookups } from "./platform/lookups/lookups.service";
+import { currentActive } from "./platform/platform.public";
 import { getCurrentSeason } from "./platform/seasons/seasons.service";
 
 type FigureRow = typeof lineFigures.$inferSelect;
@@ -62,7 +64,7 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
         .where(inSeason)
         .orderBy(asc(lineFund.position));
       const funds = await tx.select().from(fund).where(eq(fund.seasonId, season.id));
-      const contracts = await tx
+      const fundContracts = await tx
         .select({ contract: fundContract })
         .from(fundContract)
         .innerJoin(fund, eq(fundContract.fundId, fund.id))
@@ -70,19 +72,20 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
       const suppliers = await tx.select().from(supplier);
       const bank = await bankOf(tx, season);
       const inflows = await loadInflows(tx, season, bank);
-      // what the register paid of the lines: always read (the budget and TO PAY say it); it changes the forecast
-      // only when the BANK is the register's (the payments are in it), which `lateFrom` below says
-      const payments = await loadPayments(tx, season.id);
+      // what the register paid of the lines (nothing, without the bridge to the treasury): always read (the budget and TO PAY say it); it
+      // changes the forecast only when the BANK is the register's (the payments are in it), which `lateFrom` below says
+      const payments = await contracts.ask(linePayments, currentActive(), tx, { lineIds: lines.map(({ line }) => line.id) });
       const arrived = await tx
-        .select({ lineId: stockMovement.budgetLineId, quantity: sql<string>`sum(${stockMovement.quantity})`, lastOn: max(stockMovement.occurredOn) })
-        .from(stockMovement)
-        .where(and(eq(stockMovement.kind, "receipt"), isNotNull(stockMovement.budgetLineId)))
-        .groupBy(stockMovement.budgetLineId);
+        .select({ lineId: receiptLine.lineId, quantity: sql<string>`sum(${stockMovement.quantity})`, lastOn: max(stockMovement.occurredOn) })
+        .from(receiptLine)
+        .innerJoin(stockMovement, eq(stockMovement.id, receiptLine.movementId))
+        .where(eq(stockMovement.kind, "receipt"))
+        .groupBy(receiptLine.lineId);
 
       // what the register says is outside the budget, as the lines of the derived area (none when the area is not there)
       const areaInputs = areas.map((a) => ({ id: a.id, code: a.code, name: a.name, position: a.position, derived: a.derived }));
       const derived = areaInputs.find((a) => a.derived);
-      const outside = derived ? await loadOutsideBudget(tx, season, derived) : null;
+      const outside = derived ? await contracts.ask(outsideBudgetOf, currentActive(), tx, { season, area: derived }) : null;
 
       const fundIdsByFigures = new Map<number, number[]>();
       for (const { figuresId, fundId } of lineFunds) {
@@ -128,7 +131,7 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
           group: f.groupName,
           unlimited: f.unlimited,
         })),
-        contracts: contracts.map(({ contract: c }) => ({
+        contracts: fundContracts.map(({ contract: c }) => ({
           id: c.id, fundId: c.fundId, phase: c.phase, amountCents: toCents(c.amount), inflowDate: c.inflowDate,
         })),
         inflows: inflows.map((i) => ({
@@ -136,7 +139,7 @@ export async function loadSnapshot(chosen?: { id: number; startsOn: string; ends
           sponsorship: i.sponsorship,
         })),
         suppliers: suppliers.map((s) => ({ id: s.id, name: s.name })),
-        receipts: [...arrived.map((r) => ({ lineId: r.lineId!, quantityMilli: toScaled(r.quantity, 3), lastOn: r.lastOn })), ...(outside?.receipts ?? [])],
+        receipts: [...arrived.map((r) => ({ lineId: r.lineId, quantityMilli: toScaled(r.quantity, 3), lastOn: r.lastOn })), ...(outside?.receipts ?? [])],
         registerIncome: outside?.income ?? [],
         bank: bank ? { amountCents: bank.amountCents, asOfDate: bank.asOfDate } : null,
         payments,

@@ -1,5 +1,5 @@
 import type {
-  Analysis, RelatedInflows, ApiTokenRow, AppModule, Area, AreaSheet, Bank, ApplyBody, CategoryDefault, ToLinkRow, ToPay, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, PlanView, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, CashScope, SponsorBody, Statement, StatsResult, Supplier, TotalsView, TypeParam, UserFlag, UserRow, VatReport,
+  Analysis, RelatedInflows, ApiTokenRow, AppModule, Area, AreaSheet, Bank, ApplyBody, CategoryDefault, ToLinkRow, ToPay, CashAccount, CashEntryBody, CashListItem, CashRegister, ImportBody, ImportPreview, ImportResult, InventoryLists, Calculation, CashFlowSummary, CategoryFields, PayableLine, Receivable, ComponentDetail, ComponentRow, PlanView, Fund, FundSummaryRow, FundType, Gantt, HistoryPage, Inflow, InventoryItem, ItemDetail, ItemField, ItemRow, ItemsView, ItemType, Location, Me, MonthlyInflow, NewContract, ParamKind, PendingRow, Phase, PriceBasis, PriceChoice, ProjectRef, Role, Season, SettingsView, SignInOptions, CashScope, SponsorBody, Statement, StatsResult, Supplier, TotalsView, TypeParam, UserFlag, UserRow, VatReport,
 } from "./types";
 import type { NewLineBody } from "../lib/newLine";
 import { chosenSeasonId } from "../lib/seasonChoice";
@@ -231,20 +231,11 @@ export const api = {
   // the Settings page (admin)
   settings: () => get<SettingsView>("/settings"),
   createCategory: (name: string) => post<{ id: number }>("/settings/categories", { name }),
-  updateCategory: (id: number, body: { name?: string; fields?: ItemField[] }) => patch<void>(`/settings/categories/${id}`, body),
+  updateCategory: (id: number, body: { name: string }) => patch<void>(`/settings/categories/${id}`, body),
   deleteCategory: (id: number) => del(`/settings/categories/${id}`),
   orderCategories: (ids: number[]) => put<void>("/settings/categories/order", { ids }),
-  setUncategorizedFields: (fields: ItemField[]) => put<void>("/settings/uncategorized-fields", { fields }),
   createVatRate: (rate: number) => post<{ id: number }>("/settings/vat-rates", { rate }),
   deleteVatRate: (id: number) => del(`/settings/vat-rates/${id}`),
-  createUnit: (name: string) => post<{ id: number }>("/settings/units", { name }),
-  renameUnit: (id: number, name: string) => patch<void>(`/settings/units/${id}`, { name }),
-  deleteUnit: (id: number) => del(`/settings/units/${id}`),
-  /** One place, or one for each level named (all or none). */
-  createLocation: (body: { room: string; shelf?: string; levels?: string[] }) => post<{ id: number; code: string; created: number }>("/settings/locations", body),
-  updateLocation: (id: number, body: { room?: string; shelf?: string; level?: string }) => patch<void>(`/settings/locations/${id}`, body),
-  deleteLocation: (id: number) => del(`/settings/locations/${id}`),
-  orderLocations: (ids: number[]) => put<void>("/settings/locations/order", { ids }),
   /** The admin's switch: whether the site can be changed from a phone. */
   updateSite: (body: { editOnPhone: boolean }) => patch<void>("/settings/site", body),
   /** The parts of the ERP that can be turned off, and turning one on or off (admins). */
@@ -258,9 +249,21 @@ export const api = {
     patch<void>("/settings/calculation", body),
 
   // inventory
-  locations: () => get<Location[]>("/lookups/locations"),
-  units: () => get<string[]>("/lookups/units"),
-  categoryFields: () => get<CategoryFields>("/lookups/category-fields"),
+  locations: () => get<Location[]>("/inventory/locations"),
+  units: () => get<string[]>("/inventory/units"),
+  categoryFields: () => get<CategoryFields>("/inventory/category-fields"),
+  // the inventory's lists on the Settings page (Settings › Inventory): the fields of each category, the units, the places
+  inventoryLists: () => get<InventoryLists>("/inventory/lists"),
+  setCategoryFields: (categoryId: number, fields: ItemField[]) => put<void>(`/inventory/category-fields/${categoryId}`, { fields }),
+  setUncategorizedFields: (fields: ItemField[]) => put<void>("/inventory/uncategorized-fields", { fields }),
+  createUnit: (name: string) => post<{ id: number }>("/inventory/units", { name }),
+  renameUnit: (id: number, name: string) => patch<void>(`/inventory/units/${id}`, { name }),
+  deleteUnit: (id: number) => del(`/inventory/units/${id}`),
+  /** One place, or one for each level named (all or none). */
+  createLocation: (body: { room: string; shelf?: string; levels?: string[] }) => post<{ id: number; code: string; created: number }>("/inventory/locations", body),
+  updateLocation: (id: number, body: { room?: string; shelf?: string; level?: string }) => patch<void>(`/inventory/locations/${id}`, body),
+  deleteLocation: (id: number) => del(`/inventory/locations/${id}`),
+  orderLocations: (ids: number[]) => put<void>("/inventory/locations/order", { ids }),
   inventoryProjects: () => get<ProjectRef[]>("/inventory/projects"),
   inventoryItems: (price: PriceChoice, filters: Record<string, string | undefined> = {}) =>
     get<ItemRow[]>(`/inventory/items?${priceQuery(price, filters)}`),
@@ -319,33 +322,33 @@ export const api = {
   fixedSponsorRates: () => get<Partial<Record<FundType, number>>>("/lookups/sponsor-rates"),
 
   // the register of the team's money (treasury and admins)
-  cashRegister: (year?: number) => get<CashRegister>(`/cash/register${year ? `?year=${year}` : ""}`),
-  createCashEntry: (body: CashEntryBody) => post("/cash/entries", body),
-  updateCashEntry: (id: number, body: Partial<CashEntryBody>) => patch(`/cash/entries/${id}`, body),
-  deleteCashEntry: (id: number) => del(`/cash/entries/${id}`),
-  payableLines: () => get<PayableLine[]>("/cash/payable-lines"),
+  cashRegister: (year?: number) => get<CashRegister>(`/treasury/register${year ? `?year=${year}` : ""}`),
+  createCashEntry: (body: CashEntryBody) => post("/treasury/entries", body),
+  updateCashEntry: (id: number, body: Partial<CashEntryBody>) => patch(`/treasury/entries/${id}`, body),
+  deleteCashEntry: (id: number) => del(`/treasury/entries/${id}`),
+  payableLines: () => get<PayableLine[]>("/treasury-budget/payable-lines"),
   /** FINANCIAL STATEMENT: the table of income and costs of a year, as the sheet of the treasury works it out. */
-  cashStatement: (year?: number) => get<Statement>(`/cash/statement${year ? `?year=${year}` : ""}`),
+  cashStatement: (year?: number) => get<Statement>(`/treasury/statement${year ? `?year=${year}` : ""}`),
   /** TO PAY: what the team still owes of the lines bought, the payment that pays them, and the payments that pay no line yet. */
-  toPay: (allSeasons: boolean) => get<ToPay>(`/cash/to-pay${allSeasons ? "?allSeasons=1" : ""}`),
-  payLines: (body: PayBody) => post<{ id: number }>("/cash/to-pay/pay", body),
-  toLink: () => get<ToLinkRow[]>("/cash/to-link"),
-  categoryDefaults: () => get<CategoryDefault[]>("/cash/category-defaults"),
-  setCategoryDefault: (categoryId: number, voceId: number | null) => put(`/cash/category-defaults/${categoryId}`, { voceId }),
-  setCashEntryLines: (id: number, lines: { lineId: number; amount: string }[]) => put(`/cash/entries/${id}/lines`, { lines }),
-  setCashOpening: (body: { year: number; account: CashAccount; amount: string | null }) => put("/cash/openings", body),
-  previewCashImport: (body: ImportBody) => post<ImportPreview>("/cash/import/preview", body),
-  applyCashImport: (body: ApplyBody) => post<ImportResult>("/cash/import", body),
-  cashCategories: () => get<CashListItem[]>("/cash/categories"),
-  createCashCategory: (body: { name: string; sponsorship?: boolean; scope?: CashScope }) => post("/cash/categories", body),
-  updateCashCategory: (id: number, body: { name?: string; sponsorship?: boolean; scope?: CashScope }) => patch(`/cash/categories/${id}`, body),
-  deleteCashCategory: (id: number) => del(`/cash/categories/${id}`),
-  orderCashCategories: (ids: number[]) => put("/cash/categories/order", { ids }),
-  cashMethods: () => get<CashListItem[]>("/cash/methods"),
-  createCashMethod: (name: string) => post("/cash/methods", { name }),
-  renameCashMethod: (id: number, name: string) => patch(`/cash/methods/${id}`, { name }),
-  deleteCashMethod: (id: number) => del(`/cash/methods/${id}`),
-  orderCashMethods: (ids: number[]) => put("/cash/methods/order", { ids }),
+  toPay: (allSeasons: boolean) => get<ToPay>(`/treasury-budget/to-pay${allSeasons ? "?allSeasons=1" : ""}`),
+  payLines: (body: PayBody) => post<{ id: number }>("/treasury-budget/to-pay/pay", body),
+  toLink: () => get<ToLinkRow[]>("/treasury-budget/to-link"),
+  categoryDefaults: () => get<CategoryDefault[]>("/treasury-budget/category-voci"),
+  setCategoryDefault: (categoryId: number, voceId: number | null) => put(`/treasury-budget/category-voci/${categoryId}`, { voceId }),
+  setCashEntryLines: (id: number, lines: { lineId: number; amount: string }[]) => put(`/treasury-budget/entries/${id}/lines`, { lines }),
+  setCashOpening: (body: { year: number; account: CashAccount; amount: string | null }) => put("/treasury/openings", body),
+  previewCashImport: (body: ImportBody) => post<ImportPreview>("/treasury/import/preview", body),
+  applyCashImport: (body: ApplyBody) => post<ImportResult>("/treasury/import", body),
+  cashCategories: () => get<CashListItem[]>("/treasury/categories"),
+  createCashCategory: (body: { name: string; sponsorship?: boolean; scope?: CashScope }) => post("/treasury/categories", body),
+  updateCashCategory: (id: number, body: { name?: string; sponsorship?: boolean; scope?: CashScope }) => patch(`/treasury/categories/${id}`, body),
+  deleteCashCategory: (id: number) => del(`/treasury/categories/${id}`),
+  orderCashCategories: (ids: number[]) => put("/treasury/categories/order", { ids }),
+  cashMethods: () => get<CashListItem[]>("/treasury/methods"),
+  createCashMethod: (name: string) => post("/treasury/methods", { name }),
+  renameCashMethod: (id: number, name: string) => patch(`/treasury/methods/${id}`, { name }),
+  deleteCashMethod: (id: number) => del(`/treasury/methods/${id}`),
+  orderCashMethods: (ids: number[]) => put("/treasury/methods/order", { ids }),
 
   // seasons
   seasons: () => get<Season[]>("/seasons"),
@@ -379,13 +382,13 @@ export const api = {
     post("/inflows", body),
   deleteInflow: (id: number) => del(`/inflows/${id}`),
   relatedInflows: (from: { inflowId: number } | { cashEntryId: number }) =>
-    get<RelatedInflows>(`/inflows/related?${"inflowId" in from ? `inflowId=${from.inflowId}` : `cashEntryId=${from.cashEntryId}`}`),
-  deleteInflows: (body: { inflowIds: number[]; cashEntryIds: number[] }) => post<void>("/inflows/delete", body),
-  receivable: () => get<Receivable[]>("/inflows/receivable"),
+    get<RelatedInflows>(`/treasury-budget/inflows/related?${"inflowId" in from ? `inflowId=${from.inflowId}` : `cashEntryId=${from.cashEntryId}`}`),
+  deleteInflows: (body: { inflowIds: number[]; cashEntryIds: number[] }) => post<void>("/treasury-budget/inflows/delete", body),
+  receivable: () => get<Receivable[]>("/treasury-budget/inflows/receivable"),
   /** An expected inflow arrived: a new movement of the register, or one that is already there. */
   receiveInflow: (id: number, body: { entryId: number } | { on: string; account: CashAccount; amount?: string; categoryId?: number | null; methodId?: number | null }) =>
-    post(`/inflows/${id}/receive`, body),
-  unreceiveInflow: (id: number) => del(`/inflows/${id}/receive`),
+    post(`/treasury-budget/inflows/${id}/receive`, body),
+  unreceiveInflow: (id: number) => del(`/treasury-budget/inflows/${id}/receive`),
   bank: () => get<Bank | null>("/bank"),
   setBank: (body: { amount: string; asOfDate?: string | null }) => put("/bank", body),
   clearBank: () => del("/bank"),

@@ -18,7 +18,6 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { bytea, id } from "./columns";
-import { budgetLine, project } from "./budget";
 import { appUser, area, category, season } from "./platform";
 
 export const movementKindEnum = pgEnum("movement_kind", MOVEMENT_KINDS);
@@ -106,11 +105,9 @@ export const inventoryItem = pgTable(
     storageNotes: text(),
     maintenanceNotes: text(),
     /**
-     * Only a made item: what «Make new» starts from, set when the item is made or later, so that making some asks for the
-     * quantity and little else. The project is one of a season (it is not offered when it is of another).
+     * Only a made item: the place (and exact spot) «Make new» puts the pieces made in, a code of the places, so that making some asks
+     * for the quantity and little else. The parts come from wherever they are. The project it starts from is `item_make_project`.
      */
-    makeProjectId: integer().references(() => project.id, { onDelete: "set null" }),
-    /** The place (and exact spot) the pieces made are put in: a code of the places. The parts come from wherever they are. */
     makeTo: text(),
     makeToSpot: text().notNull().default(""),
     /** What the item is: always asked (unlike the optional texts above), because the team filters on it. */
@@ -278,9 +275,6 @@ export const stockMovement = pgTable(
     unitNet: numeric({ precision: 14, scale: 4 }),
     unitGross: numeric({ precision: 14, scale: 4 }),
     unitTeam: numeric({ precision: 14, scale: 4 }),
-    projectId: integer().references(() => project.id, { onDelete: "set null" }),
-    /** The purchase this receipt completes. */
-    budgetLineId: integer().references(() => budgetLine.id, { onDelete: "set null" }),
     /** A use only: the build (a `build` movement) that took these parts. Undoing the build removes them too. */
     builtBy: integer().references((): AnyPgColumn => stockMovement.id, { onDelete: "cascade" }),
     /**
@@ -306,8 +300,6 @@ export const stockMovement = pgTable(
     check("stock_movement_built_by", sql`${t.builtBy} is null or ${t.kind} = 'use'`),
     index("stock_movement_built_by").on(t.builtBy),
     index("stock_movement_item").on(t.itemId),
-    index("stock_movement_line").on(t.budgetLineId),
-    index("stock_movement_project").on(t.projectId),
     index("stock_movement_car").on(t.carSeasonId),
   ],
 );

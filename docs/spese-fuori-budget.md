@@ -18,7 +18,7 @@ Nasce dalla richiesta 3 della tesoreria (11 novembre 2026): un movimento del reg
 
 I valori di partenza li mette la migrazione `0024` sulle Voci che il registro ha già (per nome); li cambia chi gestisce i soldi del team da Settings, e l'area si aggiorna subito.
 
-**Quando un movimento conta come «fuori budget»** (`outsideEntries` in `outside-budget.service.ts`): tutte e cinque le condizioni insieme.
+**Quando un movimento conta come «fuori budget»** (`outsideEntries` in `bridges/treasury-budget/outside-budget.service.ts`): tutte e cinque le condizioni insieme.
 
 1. la sua Voce è *Outside the budget*;
 2. la data è dentro la **stagione** scelta nel menù (settembre–agosto);
@@ -56,7 +56,7 @@ Il calcolo è **puro** (`outsideBudget` in `packages/calc/src/outside.ts`) e lo 
 
 - `cash_category.scope` (`project` / `outside` / `ignore`, di partenza `project`, con un controllo sui valori) e `area.derived` (booleano, falso di partenza), migrazione **`0024_outside_budget.sql`**. L'area è una riga di `area` messa da `db:seed` (`seedBase`: codice `administration`, nome `ADMINISTRATION`, ultima per posizione); le righe e i progetti **non** sono nel database.
 - **Hardcode** (regola 4): la categoria delle righe, `getDerivedAreaCategory` («Administration», una categoria di Settings): riga 10 di [hardcoded-registry.md](hardcoded-registry.md). Le sezioni vengono da `getStatementLayout` (riga 9).
-- Calcolo: `packages/calc/src/outside.ts` (`outsideBudget`, `CASH_SCOPES`), `sectionsOfVoci` in `statement.ts`, la riga «register» in `moneyIn.ts`, `AreaInput.derived` e `Snapshot.registerIncome` in `snapshot.ts`. API: `apps/api/src/modules/cash/outside-budget.service.ts`, `snapshot.ts`, il filtro di `listToLink` in `cash-links.service.ts`, la guardia di `createProject` in `budget.service.ts`. Sito: la colonna COUNTS in `CashListsPanel.tsx`, `TotalPage.tsx`, e gli elenchi di aree che la escludono: il menù (`Shell.tsx`), `AreaPage.tsx` (l'indirizzo dà «Area not found»), `UsersPage.tsx`, `ItemTypesPanel.tsx` e `lib/inventory.ts`.
+- Calcolo: `packages/calc/src/outside.ts` (`outsideBudget`, `CASH_SCOPES`), `sectionsOfVoci` in `statement.ts`, la riga «register» in `moneyIn.ts`, `AreaInput.derived` e `Snapshot.registerIncome` in `snapshot.ts`. API: `apps/api/src/bridges/treasury-budget/outside-budget.service.ts` (lo snapshot lo chiede alla porta `outsideBudgetOf`), il filtro di `listToLink` in `payments.service.ts` dello stesso ponte, la guardia di `createProject` in `budget.service.ts`. Sito: la colonna COUNTS in `CashListsPanel.tsx`, `TotalPage.tsx`, e gli elenchi di aree che la escludono: il menù (`Shell.tsx`), `AreaPage.tsx` (l'indirizzo dà «Area not found»), `UsersPage.tsx`, `ItemTypesPanel.tsx` e `lib/inventory.ts`.
 
 ## 6. Da sapere
 

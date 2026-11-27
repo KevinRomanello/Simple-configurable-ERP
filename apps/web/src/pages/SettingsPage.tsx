@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Navigate, NavLink, useParams } from "react-router";
 import { api } from "../api/client";
-import type { BankCompare, Calculation, ItemField, SettingsView } from "../api/types";
+import type { BankCompare, Calculation, InventoryLists, ItemField, SettingsView } from "../api/types";
 import { Button } from "../components/Button";
 import { Chips } from "../components/Chips";
 import { CommitInput } from "../components/CommitInput";
@@ -40,11 +40,14 @@ export function SettingsPage() {
   const allowed = settingsSections({ canManageSettings, canManageInventory, canManageCash }, me.modules);
   const asked = useParams().section;
   const section = currentSection(allowed, asked);
+  // the inventory's lists (the fields of a category, the units, the places) are the inventory's: they come from its own address
+  const lists = useQuery({ queryKey: ["inventory-lists"], queryFn: api.inventoryLists, enabled: canManageInventory && section === "inventory" });
 
   // an address that is not one of the person's sections goes to the first of them (a viewer has one only: no tabs, no redirect)
   if (allowed.length > 1 && asked !== section) return <Navigate to={`/settings/${section}`} replace />;
   const needsLists = section === "budget" || section === "inventory";
   if (needsLists && !view.data) return <Loading />;
+  if (section === "inventory" && !lists.data) return <Loading />;
 
   return (
     <>
@@ -72,12 +75,12 @@ export function SettingsPage() {
           <VatRatesPanel rates={view.data.vatRates} />
         </>
       )}
-      {section === "inventory" && view.data && (
+      {section === "inventory" && view.data && lists.data && (
         <>
-          <CategoriesPanel data={view.data} />
+          <CategoriesPanel categories={view.data.categories} lists={lists.data} />
           <ItemTypesPanel categories={view.data.categories} />
-          <UnitsPanel units={view.data.units} />
-          <LocationsPanel locations={view.data.locations} />
+          <UnitsPanel units={lists.data.units} />
+          <LocationsPanel locations={lists.data.locations} />
         </>
       )}
       {section === "register" && <CashListsPanel />}
@@ -285,9 +288,10 @@ function CalculationPanel({ calculation }: { calculation: Calculation }) {
 
 type CategoryRow = SettingsView["categories"][number];
 
-function CategoriesPanel({ data }: { data: SettingsView }) {
+function CategoriesPanel({ categories, lists }: { categories: SettingsView["categories"]; lists: InventoryLists }) {
   const act = useAction();
   const toggle = (fields: ItemField[], field: ItemField, on: boolean) => (on ? [...fields, field] : fields.filter((f) => f !== field));
+  const fieldsOf = (categoryId: number) => lists.categoryFields[categoryId] ?? [];
 
   const columns: Column<CategoryRow>[] = [
     { key: "name", header: "CATEGORY", cell: (c) => <CommitInput value={c.name} label={`Name of ${c.name}`} onCommit={(name) => name !== "" && act(() => api.updateCategory(c.id, { name }))} /> },
@@ -299,8 +303,8 @@ function CategoriesPanel({ data }: { data: SettingsView }) {
           <input
             type="checkbox"
             aria-label={`${c.name}: ${FIELD_LABELS[field]}`}
-            checked={c.fields.includes(field)}
-            onChange={(e) => act(() => api.updateCategory(c.id, { fields: toggle(c.fields, field, e.target.checked) }))}
+            checked={fieldsOf(c.id).includes(field)}
+            onChange={(e) => act(() => api.setCategoryFields(c.id, toggle(fieldsOf(c.id), field, e.target.checked)))}
           />
         ),
       }),
@@ -318,7 +322,7 @@ function CategoriesPanel({ data }: { data: SettingsView }) {
       <DataTable
         title="Categories"
         columns={columns}
-        rows={data.categories}
+        rows={categories}
         rowKey={(c) => c.id}
         empty="No categories"
         reorder={{ label: (c) => c.name, onOrder: (order) => act(() => api.orderCategories(order)) }}
@@ -331,8 +335,8 @@ function CategoriesPanel({ data }: { data: SettingsView }) {
                 <input
                   type="checkbox"
                   aria-label={`Items without a category: ${FIELD_LABELS[field]}`}
-                  checked={data.uncategorizedFields.includes(field)}
-                  onChange={(e) => act(() => api.setUncategorizedFields(toggle(data.uncategorizedFields, field, e.target.checked)))}
+                  checked={lists.uncategorizedFields.includes(field)}
+                  onChange={(e) => act(() => api.setUncategorizedFields(toggle(lists.uncategorizedFields, field, e.target.checked)))}
                 />
               </td>
             ))}
@@ -361,9 +365,9 @@ function VatRatesPanel({ rates }: { rates: SettingsView["vatRates"] }) {
   );
 }
 
-function UnitsPanel({ units }: { units: SettingsView["units"] }) {
+function UnitsPanel({ units }: { units: InventoryLists["units"] }) {
   const act = useAction();
-  const columns: Column<SettingsView["units"][number]>[] = [
+  const columns: Column<InventoryLists["units"][number]>[] = [
     { key: "name", header: "UNIT", sort: (u) => u.name, cell: (u) => <CommitInput value={u.name} label={`Name of ${u.name}`} onCommit={(name) => name !== "" && act(() => api.renameUnit(u.id, name))} /> },
     usedBy(),
     { key: "delete", header: "", num: true, cell: (u) => <DeleteButton label={u.name} usedBy={u.usedBy} onDelete={() => act(() => api.deleteUnit(u.id))} /> },
@@ -377,7 +381,7 @@ function UnitsPanel({ units }: { units: SettingsView["units"] }) {
   );
 }
 
-type LocationRow = SettingsView["locations"][number];
+type LocationRow = InventoryLists["locations"][number];
 
 /** The form of a new place: a room and, if it has them, a shelf and its levels (several levels, with a comma, are several places). */
 function NewPlace({ onDone }: { onDone: () => void }) {
@@ -415,7 +419,7 @@ function NewPlace({ onDone }: { onDone: () => void }) {
   );
 }
 
-function LocationsPanel({ locations }: { locations: SettingsView["locations"] }) {
+function LocationsPanel({ locations }: { locations: InventoryLists["locations"] }) {
   const act = useAction();
   const columns: Column<LocationRow>[] = [
     { key: "room", header: "ROOM", cell: (l) => <CommitInput wide value={l.room} label={`Room of ${l.code}`} onCommit={(text) => text !== "" && act(() => api.updateLocation(l.id, { room: text }))} /> },

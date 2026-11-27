@@ -1,12 +1,9 @@
 import { PRIORITIES, type BankCompareMode, type FundType, type Lookups, type Priority, type Quarter, type Settings, type StatementSpec, type VatRules } from "@erp/calc";
 import { asc } from "drizzle-orm";
 import { db } from "../../db/client";
-import { categoryField, location, unit } from "../../db/schema/inventory";
 import { category, setting, vatRate } from "../../db/schema/platform";
 import { getCurrentSeason } from "../seasons/seasons.service";
-import { ITEM_FIELDS, LOOKUP_DEFAULTS, type ItemField } from "./defaults";
-
-export { ITEM_FIELDS, type ItemField } from "./defaults";
+import { LOOKUP_DEFAULTS } from "./defaults";
 
 // The lists and switches that an admin sets on the Settings page (docs/impostazioni.md), plus the
 // fixed domain enums. What is still "hardcoded for now" lives INSIDE the function that will later
@@ -208,54 +205,4 @@ export async function loadLookups(): Promise<Lookups> {
     getSettings(),
   ]);
   return { categories, priorities, vatRates, vatRules, settings };
-}
-
-// --- inventory ---------------------------------------------------------------------------------
-
-export interface Location {
-  /** What is stored with a movement. */
-  code: string;
-  room: string;
-  /** Empty when the place is the room itself. */
-  shelf: string;
-  /** A level of the shelf; empty when the place is the shelf itself. */
-  level: string;
-  label: string;
-}
-
-/** "Room 1 / Shelf A / 2": the parts a place has, in order. */
-export const placeLabel = (place: { room: string; shelf: string; level: string }) =>
-  [place.room, place.shelf, place.level].filter((part) => part !== "").join(" / ");
-
-/** Where things can be kept, in their order. The precise spot inside a place ("red box") is free text. */
-export async function listLocations(): Promise<Location[]> {
-  const rows = await db.select().from(location).orderBy(asc(location.position), asc(location.id));
-  return rows.map((r) => ({ code: r.code, room: r.room, shelf: r.shelf, level: r.level, label: placeLabel(r) }));
-}
-
-/** How an item is counted. */
-export async function listUnits(): Promise<string[]> {
-  const rows = await db.select({ name: unit.name }).from(unit).orderBy(asc(unit.id));
-  return rows.map((r) => r.name);
-}
-
-export interface CategoryFields {
-  /** The fields of a category that is not listed (or of an item with no category). */
-  fallback: ItemField[];
-  byCategory: Record<string, ItemField[]>;
-}
-
-/** Which of the optional fields the form shows for each category. None of them is required. */
-export async function getCategoryFields(): Promise<CategoryFields> {
-  const [categories, rows] = await Promise.all([
-    db.select({ id: category.id, name: category.name }).from(category),
-    db.select().from(categoryField),
-  ]);
-  // always in the order of the form
-  const fieldsOf = (categoryId: number | null) =>
-    ITEM_FIELDS.filter((f) => rows.some((r) => r.categoryId === categoryId && r.field === f)) as ItemField[];
-  return {
-    fallback: fieldsOf(null),
-    byCategory: Object.fromEntries(categories.map((c) => [c.name, fieldsOf(c.id)])),
-  };
 }

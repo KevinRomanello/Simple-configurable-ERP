@@ -1,6 +1,6 @@
 # Com'è organizzato il database
 
-Le **47 tabelle** di PostgreSQL, disegnate (34 dell'ERP e le 13 delle anagrafiche, sezione 6bis). La fonte vera è la cartella [apps/api/src/db/schema/](../apps/api/src/db/schema) (un file per proprietario: `platform`, `budget`, `treasury`, `inventory`, `registry` e i ponti `treasury-budget` e `registry-access`) (e le migrazioni in `apps/api/drizzle/`): se cambia lo schema, questo documento va aggiornato nello stesso lavoro. Per le regole di business di ogni area si vedano i documenti indicati in ogni sezione; per l'elenco in tabella e la descrizione di ogni colonna, [architettura.md](architettura.md) (Modello dati).
+Le **50 tabelle** di PostgreSQL, disegnate (37 dell'ERP e le 13 delle anagrafiche, sezione 6bis). La fonte vera è la cartella [apps/api/src/db/schema/](../apps/api/src/db/schema) (un file per proprietario: `platform`, `budget`, `treasury`, `inventory`, `registry` e i ponti `treasury-budget`, `inventory-budget` e `registry-access`) (e le migrazioni in `apps/api/drizzle/`): se cambia lo schema, questo documento va aggiornato nello stesso lavoro. Per le regole di business di ogni area si vedano i documenti indicati in ogni sezione; per l'elenco in tabella e la descrizione di ogni colonna, [architettura.md](architettura.md) (Modello dati).
 
 **Come leggere i diagrammi.** Ogni riquadro è una tabella con le colonne che contano (chiave `PK`, chiave esterna `FK`); le altre sono nei file di `db/schema/`. Le linee sono le chiavi esterne con la loro cardinalità («zampa di gallina»):
 
@@ -31,7 +31,7 @@ flowchart LR
   bud -->|"line_fund.fund_id<br/>chi paga una voce"| fon
   reg -->|"cash_entry_line.line_id<br/>quale uscita ha pagato quale voce"| bud
   fon -->|"inflow_receipt<br/>quale entrata ha ricevuto un inflow"| reg
-  inv -->|"stock_movement: project_id,<br/>budget_line_id, car_season_id<br/>inventory_item e item_type: area_id"| bud
+  inv -->|"receipt_line, movement_project,<br/>item_make_project (del ponte)<br/>stock_movement: car_season_id<br/>inventory_item e item_type: area_id"| bud
   acc -->|"user_area.area_id"| bud
   inv -->|"item_datasheet.uploaded_by"| acc
   bud -.->|"per nome:<br/>category, aliquote"| set
@@ -45,7 +45,7 @@ In parole, i cinque ponti che contano:
 2. **Fondo → riga del budget** (`line_fund`): chi paga una riga in una fase.
 3. **Registro → riga del budget** (`cash_entry_line`): quale uscita ha pagato quale riga.
 4. **Registro → inflow** (`inflow_receipt`, tabella del ponte tesoreria×budget dal 27 novembre 2026; prima era la colonna `team_inflow.cash_entry_id`): quale entrata ha ricevuto un inflow atteso.
-5. **Inventario → budget** (`stock_movement`): un arrivo completa una riga e si attribuisce a un progetto.
+5. **Inventario → budget** (`receipt_line`, `movement_project`, `item_make_project`, tabelle del ponte inventario×budget dal 27 novembre 2026; prima erano le colonne `stock_movement.budget_line_id`, `stock_movement.project_id` e `inventory_item.make_project_id`): un arrivo completa una riga, un movimento si attribuisce a un progetto, un articolo fatto da noi parte da un progetto in «Make new».
 
 ## 2. Budget
 
@@ -282,7 +282,6 @@ erDiagram
     boolean flammable
     boolean toxic
     boolean carcinogenic
-    integer make_project_id FK "solo fatti da noi: progetto di Make new"
     text make_to "luogo dei pezzi"
     text make_to_spot "punto preciso"
   }
@@ -329,8 +328,6 @@ erDiagram
   stock_movement {
     integer id PK
     integer item_id FK
-    integer project_id FK
-    integer budget_line_id FK "l'acquisto che completa"
     integer car_season_id FK
     integer built_by FK "la produzione che le ha usate"
     movement_kind kind "receipt, use, transfer, adjustment, disposal, build"
@@ -338,6 +335,21 @@ erDiagram
     numeric quantity
     text location "per codice (sezione 7)"
     numeric unit_net "solo arrivi e produzioni"
+  }
+  receipt_line {
+    integer id PK
+    integer movement_id FK "unico: l'arrivo"
+    integer line_id FK "l'acquisto che completa"
+  }
+  movement_project {
+    integer id PK
+    integer movement_id FK "unico"
+    integer project_id FK
+  }
+  item_make_project {
+    integer id PK
+    integer item_id FK "unico: solo fatti da noi"
+    integer project_id FK "progetto di Make new"
   }
   component_part {
     integer id PK
@@ -374,9 +386,12 @@ erDiagram
   item_datasheet ||--|| item_datasheet_file : "il file"
   app_user |o--o{ item_datasheet : "caricata da"
   inventory_item ||--o{ stock_movement : "movimenti"
-  project |o--o{ inventory_item : "progetto di Make new (make_project_id)"
-  project |o--o{ stock_movement : "per quale progetto"
-  budget_line |o--o{ stock_movement : "completa l'acquisto"
+  inventory_item ||--o| item_make_project : "progetto di Make new"
+  project ||--o{ item_make_project : ""
+  stock_movement ||--o| movement_project : "per quale progetto"
+  project ||--o{ movement_project : ""
+  stock_movement ||--o| receipt_line : "completa l'acquisto"
+  budget_line ||--o{ receipt_line : ""
   season |o--o{ stock_movement : "macchina di un'altra stagione"
   stock_movement |o--o{ stock_movement : "built_by"
   inventory_item ||--o{ component_part : "component_id"
@@ -387,6 +402,7 @@ erDiagram
 - **Immagini e PDF** stanno in tabelle a parte (`item_image`, `item_datasheet_file`), così elencare gli articoli non legge mai i byte. Non sono nello storico perché sono binari.
 - `item_param_value`: **uno solo** fra `number`, `text`, `flag` è pieno (controllo del database). Un numero è salvato nell'unità del parametro, esatto (10 kΩ = 10000).
 - `stock_movement.built_by` punta a un'altra riga della stessa tabella: l'uso di una parte da parte di una **produzione**. Annullare la produzione cancella anche quelle righe (cascata).
+- **I legami con il budget sono tabelle del ponte inventario×budget** (`db/schema/inventory-budget.ts`, migrazione `0042`, 27 novembre 2026): `receipt_line` (l'acquisto che un arrivo completa: un arrivo al più una riga, una riga in più arrivi), `movement_project` (il progetto di un movimento: un arrivo, un uso, una produzione e le parti che ha preso) e `item_make_project` (il progetto da cui parte «Make new» per un articolo fatto da noi). Ognuna ha il suo `id` per lo storico, il legame è `unique` dalla parte del movimento o dell'articolo, e cancellare la riga o il progetto toglie il legame (`ON DELETE CASCADE`, come il `set null` delle colonne di prima): il movimento resta.
 - Tipi, parametri e valori sono quelli di Settings › Item types.
 
 ## 6. Accesso, impostazioni e storico
@@ -598,7 +614,7 @@ Oltre alle chiavi esterne, il database dice no a:
 
 ## 9. Cosa è nello storico
 
-I trigger `audit_row()` scrivono in `audit_log` ogni inserimento, modifica e cancellazione di **41 tabelle su 48**: tutto ciò che cambia soldi, budget, registro, liste, utenti, inventario e anagrafiche. **Non** ci sono: `audit_log` stessa, `area` (le aree non cambiano), i file binari `item_image`, `item_datasheet_file` e `reg_file` (la descrizione della scheda dati sì, `item_datasheet`; gli id dei file di un record sono nel suo `data`), `reg_webhook_log` (un registro delle chiamate) e `app_secret` (un segreto non va in una pagina). Le righe delle anagrafiche, dei token e di `role_sync` la pagina History le mostra solo agli admin (anagrafiche.md, §7.1).
+I trigger `audit_row()` scrivono in `audit_log` ogni inserimento, modifica e cancellazione di **44 tabelle su 51**: tutto ciò che cambia soldi, budget, registro, liste, utenti, inventario e anagrafiche. **Non** ci sono: `audit_log` stessa, `area` (le aree non cambiano), i file binari `item_image`, `item_datasheet_file` e `reg_file` (la descrizione della scheda dati sì, `item_datasheet`; gli id dei file di un record sono nel suo `data`), `reg_webhook_log` (un registro delle chiamate) e `app_secret` (un segreto non va in una pagina). Le righe delle anagrafiche, dei token e di `role_sync` la pagina History le mostra solo agli admin (anagrafiche.md, §7.1).
 
 ## 10. Tipi enumerati
 

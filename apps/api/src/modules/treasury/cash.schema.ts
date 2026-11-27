@@ -23,23 +23,6 @@ export const createEntryInput = z.object({
 });
 export type CreateEntryInput = z.infer<typeof createEntryInput>;
 
-/**
- * "Mark as received": the movement that received an expected inflow, either one already in the register
- * (`entryId`) or a new one made now (the day and the account; the amount is the inflow's unless typed).
- */
-export const receiveInput = z.union([
-  z.object({ entryId: id }),
-  z.object({
-    on: isoDate,
-    account,
-    amount: amount.optional(),
-    categoryId: id.nullable().default(null),
-    methodId: id.nullable().default(null),
-    description: text.optional(),
-  }),
-]);
-export type ReceiveInput = z.infer<typeof receiveInput>;
-
 export const updateEntryInput = z
   .object({
     on: isoDate,
@@ -65,26 +48,6 @@ export const openingInput = z.object({
     .pipe(z.string().max(20).regex(/^-?\d{1,12}(\.\d{1,2})?$/, "Expected a number with at most 2 decimals"))
     .nullable(),
 });
-
-/** The lines of the budget a payment paid, with how much of each (replaces the links of the season in the menu). */
-export const linesInput = z.object({
-  lines: z.array(z.object({ lineId: id, amount })).max(200),
-});
-
-/** TO PAY: pay lines of the budget with one new payment of the register (one amount for each line). */
-export const payInput = z.object({
-  on: isoDate,
-  account,
-  methodId: id.nullable().default(null),
-  categoryId: id.nullable().default(null),
-  description: text.optional(),
-  lines: z.array(z.object({ lineId: id, amount })).min(1).max(100),
-});
-export type PayInput = z.infer<typeof payInput>;
-export const toPayQuery = z.object({ allSeasons: z.enum(["1", "true"]).optional() });
-
-/** The Voce a payment for a line of a budget category starts from; null takes it away. */
-export const categoryDefaultInput = z.object({ voceId: id.nullable() });
 
 export const registerQuery = z.object({ year: z.coerce.number().int().min(2000).max(2100).optional() });
 

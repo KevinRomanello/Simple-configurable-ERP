@@ -4,9 +4,10 @@ import { today } from "../../core/today";
 import { db } from "../../db/client";
 import { budgetLine, project } from "../../db/schema/budget";
 import { stockMovement } from "../../db/schema/inventory";
+import { receiptLine } from "../../db/schema/inventory-budget";
 import { season } from "../../db/schema/platform";
 import { loadSnapshot } from "../../snapshot";
-import { listLocations } from "../../platform/lookups/lookups.service";
+import { listLocations } from "./lists.service";
 import { getCurrentSeason } from "../../platform/seasons/seasons.service";
 import { loadInventory } from "./inventory.data";
 
@@ -21,7 +22,8 @@ async function receiptCars(): Promise<Map<number, number | null>> {
       car: sql<number | null>`coalesce(${stockMovement.carSeasonId}, ${budgetLine.carSeasonId}, ${project.seasonId}, ${season.id})`,
     })
     .from(stockMovement)
-    .leftJoin(budgetLine, eq(budgetLine.id, stockMovement.budgetLineId))
+    .leftJoin(receiptLine, eq(receiptLine.movementId, stockMovement.id))
+    .leftJoin(budgetLine, eq(budgetLine.id, receiptLine.lineId))
     .leftJoin(project, eq(project.id, budgetLine.projectId))
     .leftJoin(season, sql`${stockMovement.occurredOn} between ${season.startsOn} and ${season.endsOn}`)
     .where(eq(stockMovement.kind, "receipt"));

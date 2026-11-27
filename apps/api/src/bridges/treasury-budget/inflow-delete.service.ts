@@ -1,14 +1,13 @@
-import { eq, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
-import { teamInflow } from "../../db/schema/budget";
-import { cashEntry } from "../../db/schema/treasury";
-import { cashEntryLine, inflowReceipt } from "../../db/schema/treasury-budget";
+import { inflowReceipt } from "../../db/schema/treasury-budget";
 import { canManageCash } from "../../platform/auth/auth.service";
-import { deleteEntryIn } from "../cash/cash.service";
 import { assertSeasonOpen, getCurrentSeason } from "../../platform/seasons/seasons.service";
-import { assertCanChangeInflows, bankOf } from "./cashflow.service";
+import { assertCanChangeInflows, bankOf, deleteInflowsIn, inflowsByIds, inflowsOfSeason } from "../../modules/budget/budget.public";
+import { deleteEntryIn, entriesByIds } from "../../modules/treasury/treasury.public";
+import { payingEntries } from "./links.service";
 
 // Deleting an inflow of CASH FLOW choosing where from (docs/registro-di-cassa.md, section 5.2): the same company is often in three
 // places, the inflow that was expected, the one that arrived and the movement of the register that received it, and they are
@@ -39,7 +38,7 @@ const same = (name: string) => name.trim().toLowerCase();
 
 /**
  * Everything of one company in the season, starting from the inflow or from the movement of the register that was pressed
- * (GET /api/inflows/related). Of the register only the movements tied to the expected inflows are there: its descriptions are free text.
+ * (GET /api/treasury-budget/inflows/related). Of the register only the movements tied to the expected inflows are there: its descriptions are free text.
  */
 export async function listRelated(input: { inflowId?: number; cashEntryId?: number }) {
   const actor = await assertCanChangeInflows();
@@ -48,12 +47,11 @@ export async function listRelated(input: { inflowId?: number; cashEntryId?: numb
   const fromRegister = (await bankOf(db, season))?.source === "register";
   const closed = season.readOnly;
 
-  const rows = await db
-    .select({ inflow: teamInflow, entry: cashEntry })
-    .from(teamInflow)
-    .leftJoin(inflowReceipt, eq(inflowReceipt.inflowId, teamInflow.id))
-    .leftJoin(cashEntry, eq(inflowReceipt.entryId, cashEntry.id))
-    .where(eq(teamInflow.seasonId, season.id));
+  // every inflow of the season with the movement of the register that received it (the table of receipts is small: it is read whole)
+  const inflows = await inflowsOfSeason(db, season.id);
+  const receiptOf = new Map((await db.select().from(inflowReceipt)).map((r) => [r.inflowId, r.entryId]));
+  const received = await entriesByIds(db, inflows.flatMap((i) => receiptOf.get(i.id) ?? []));
+  const rows = inflows.map((inflow) => ({ inflow, entry: received.find((e) => e.id === receiptOf.get(inflow.id)) ?? null }));
 
   let company: string | null;
   let pressedEntry: number | null = null;
@@ -62,7 +60,7 @@ export async function listRelated(input: { inflowId?: number; cashEntryId?: numb
     if (!pressed) throw notFound("Inflow");
     company = same(pressed.inflow.sourceName);
   } else {
-    const [entry] = await db.select().from(cashEntry).where(eq(cashEntry.id, input.cashEntryId!));
+    const [entry] = await entriesByIds(db, [input.cashEntryId!]);
     if (!entry) throw notFound("Movement");
     pressedEntry = entry.id;
     // the company is the one of the inflow that this movement received; a movement nobody received is alone
@@ -75,7 +73,7 @@ export async function listRelated(input: { inflowId?: number; cashEntryId?: numb
     const received = entry !== null;
     const why = closed ? `The season ${season.name} is read-only` : received && !treasury ? "Only the treasury can delete a received inflow" : null;
     return {
-      kind: "inflow", id: inflow.id, name: inflow.sourceName, amount: inflow.amount, date: inflow.inflowDate, received, receivedOn: entry?.entryOn ?? null,
+      kind: "inflow", id: inflow.id, name: inflow.sourceName, amount: inflow.amount, date: inflow.inflowDate, received, receivedOn: entry?.on ?? null,
       counted: inflow.phase === "estimate" || !fromRegister, pressed: inflow.id === input.inflowId, canDelete: why === null, why,
     };
   };
@@ -86,11 +84,11 @@ export async function listRelated(input: { inflowId?: number; cashEntryId?: numb
   const entryIds = [...new Set([...siblings.flatMap((r) => (r.entry === null ? [] : [r.entry.id])), ...(pressedEntry === null ? [] : [pressedEntry])])];
   let register: RelatedVoice[] = [];
   if (treasury && entryIds.length > 0) {
-    const entries = await db.select().from(cashEntry).where(inArray(cashEntry.id, entryIds));
-    const paying = await db.select({ entryId: cashEntryLine.entryId }).from(cashEntryLine).where(inArray(cashEntryLine.entryId, entryIds)).groupBy(cashEntryLine.entryId);
+    const entries = await entriesByIds(db, entryIds);
+    const paying = await payingEntries(db, entryIds);
     register = entries.map((e): RelatedVoice => {
-      const why = closed ? `The season ${season.name} is read-only` : paying.some((p) => p.entryId === e.id) ? "It pays budget lines: remove them in the register first" : null;
-      return { kind: "entry", id: e.id, name: e.description, amount: e.amount, date: e.entryOn, received: false, receivedOn: null, counted: true, pressed: e.id === pressedEntry, canDelete: why === null, why };
+      const why = closed ? `The season ${season.name} is read-only` : paying.has(e.id) ? "It pays budget lines: remove them in the register first" : null;
+      return { kind: "entry", id: e.id, name: e.description, amount: e.amount, date: e.on, received: false, receivedOn: null, counted: true, pressed: e.id === pressedEntry, canDelete: why === null, why };
     });
   }
   // whoever cannot see the register is told only that there are movements there, to explain why a received inflow stays
@@ -98,7 +96,7 @@ export async function listRelated(input: { inflowId?: number; cashEntryId?: numb
 }
 
 /**
- * Deletes inflows and movements of the register together (POST /api/inflows/delete): all or nothing. A movement that received an
+ * Deletes inflows and movements of the register together (POST /api/treasury-budget/inflows/delete): all or nothing. A movement that received an
  * inflow that stays makes it «not received» again (the key of the database does it).
  */
 export async function deleteInflows(input: { inflowIds: number[]; cashEntryIds: number[] }) {
@@ -111,7 +109,7 @@ export async function deleteInflows(input: { inflowIds: number[]; cashEntryIds: 
 
   await runWrite(actor, async (tx) => {
     await assertSeasonOpen(tx, season.id);
-    const inflows = inflowIds.length > 0 ? await tx.select().from(teamInflow).where(inArray(teamInflow.id, inflowIds)).for("update") : [];
+    const inflows = await inflowsByIds(tx, inflowIds, true);
     const received = new Set(inflowIds.length > 0 ? (await tx.select({ inflowId: inflowReceipt.inflowId }).from(inflowReceipt).where(inArray(inflowReceipt.inflowId, inflowIds))).map((r) => r.inflowId) : []);
     for (const id of inflowIds) {
       const found = inflows.find((i) => i.id === id);
@@ -122,17 +120,17 @@ export async function deleteInflows(input: { inflowIds: number[]; cashEntryIds: 
     }
     if (entryIds.length > 0) {
       if (!treasury) throw forbidden("Only the treasury can delete a movement of the register");
-      const entries = await tx.select().from(cashEntry).where(inArray(cashEntry.id, entryIds)).for("update");
-      const paying = await tx.select({ entryId: cashEntryLine.entryId }).from(cashEntryLine).where(inArray(cashEntryLine.entryId, entryIds)).groupBy(cashEntryLine.entryId);
+      const entries = await entriesByIds(tx, entryIds, true);
+      const paying = await payingEntries(tx, entryIds);
       for (const id of entryIds) {
         const found = entries.find((e) => e.id === id);
         if (!found) throw notFound(`Movement ${id}`);
         // this is the way to delete the money that came in: a payment is deleted in the register
-        if (Number(found.amount) <= 0) throw conflict(`"${found.description}" is money out: delete it in the register`);
-        if (paying.some((p) => p.entryId === id)) throw conflict(`"${found.description}" pays budget lines: remove them in the register first`);
+        if (found.cents <= 0) throw conflict(`"${found.description}" is money out: delete it in the register`);
+        if (paying.has(id)) throw conflict(`"${found.description}" pays budget lines: remove them in the register first`);
       }
     }
-    if (inflowIds.length > 0) await tx.delete(teamInflow).where(inArray(teamInflow.id, inflowIds));
+    await deleteInflowsIn(tx, inflowIds);
     for (const id of entryIds) await deleteEntryIn(tx, id);
   });
 }

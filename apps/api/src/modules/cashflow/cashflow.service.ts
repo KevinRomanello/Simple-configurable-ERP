@@ -1,23 +1,22 @@
-import { addDays, totalOf, type Phase } from "@erp/calc";
-import { and, asc, desc, eq, gt, gte, isNull, lte, sql } from "drizzle-orm";
-import { conflict, forbidden, invalid, notFound } from "../../core/errors";
+import { addDays, type Phase } from "@erp/calc";
+import { asc, eq, inArray, sql } from "drizzle-orm";
+import { contracts, type Db } from "../../core/contracts";
+import { forbidden, invalid, notFound } from "../../core/errors";
 import { fromCents, toCents } from "../../core/money";
 import { today } from "../../core/today";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { bankSnapshot, teamInflow } from "../../db/schema/budget";
-import { cashEntry } from "../../db/schema/treasury";
-import { inflowReceipt } from "../../db/schema/treasury-budget";
 import { canChangeInflows, canManageCash, getCurrentUser } from "../../platform/auth/auth.service";
-import { insertEntry, registerBalanceAt } from "../cash/cash.service";
-import type { ReceiveInput } from "../cash/cash.schema";
+import { currentActive } from "../../platform/platform.public";
 import { assertSeasonOpen, getCurrentSeason } from "../../platform/seasons/seasons.service";
+import { inflowDeleting, inflowReceipts, registerBank, registerSponsorship } from "../budget/budget.ports";
 
 type Reader = Pick<Tx, "select">;
 type Season = { id: number; startsOn: string; endsOn: string };
 type Bank = Awaited<ReturnType<typeof bankOf>>;
 
-/** The inflows and the BANK are the team's money: the treasury keeps them with the admins. */
+/** The BANK is the team's money: the treasury keeps it with the admins. */
 async function assertCanManageShared() {
   const actor = await getCurrentUser();
   if (!(await canManageCash(actor))) throw forbidden("You cannot change the cash flow");
@@ -57,24 +56,25 @@ export interface InflowView {
   countedCents: number;
 }
 
-export async function loadInflows(reader: Reader, season: Season, bank: Bank): Promise<InflowView[]> {
+export async function loadInflows(reader: Db, season: Season, bank: Bank): Promise<InflowView[]> {
   const registerDay = bank?.source === "register" ? bank.asOfDate : null;
   const fromRegister = registerDay !== null;
   const rows = await reader
-    .select({ inflow: teamInflow, entry: cashEntry })
+    .select()
     .from(teamInflow)
-    .leftJoin(inflowReceipt, eq(inflowReceipt.inflowId, teamInflow.id))
-    .leftJoin(cashEntry, eq(inflowReceipt.entryId, cashEntry.id))
     .where(eq(teamInflow.seasonId, season.id))
-    .orderBy(asc(sql`lower(${teamInflow.sourceName})`), asc(teamInflow.inflowDate));
+    .orderBy(asc(sql`lower(${teamInflow.sourceName})`), asc(teamInflow.inflowDate), asc(teamInflow.id));
+  // which expected inflows arrived, and with what movement of the register (none, when there is no register)
+  const receipts = new Map((await contracts.ask(inflowReceipts, currentActive(), reader, { inflowIds: rows.map((r) => r.id) })).map((r) => [r.inflowId, r]));
 
   // with the register, the actual side is its sponsorship money: typed actual inflows are not used
   const typed = rows
-    .filter(({ inflow }) => !(fromRegister && inflow.phase === "actual"))
-    .map(({ inflow, entry }): InflowView => {
+    .filter((inflow) => !(fromRegister && inflow.phase === "actual"))
+    .map((inflow): InflowView => {
+      const receipt = receipts.get(inflow.id);
       const cents = toCents(inflow.amount);
-      const received = fromRegister && entry ? { on: entry.entryOn, cents: toCents(entry.amount) } : null;
-      const late = fromRegister && !entry && inflow.phase === "estimate" && inflow.inflowDate !== null && inflow.inflowDate <= registerDay!;
+      const received = fromRegister && receipt ? { on: receipt.on, cents: receipt.cents } : null;
+      const late = fromRegister && !receipt && inflow.phase === "estimate" && inflow.inflowDate !== null && inflow.inflowDate <= registerDay!;
       return {
         id: inflow.id,
         phase: inflow.phase,
@@ -82,11 +82,11 @@ export async function loadInflows(reader: Reader, season: Season, bank: Bank): P
         amountCents: cents,
         inflowDate: inflow.inflowDate,
         // once the money is in the register, the register says whether it was sponsorship
-        sponsorship: entry && fromRegister ? entry.sponsorship : inflow.sponsorship,
+        sponsorship: receipt && fromRegister ? receipt.sponsorship : inflow.sponsorship,
         source: "typed",
-        cashEntryId: entry?.id ?? null,
-        receivedCents: entry ? toCents(entry.amount) : null,
-        receivedOn: entry?.entryOn ?? null,
+        cashEntryId: receipt?.entryId ?? null,
+        receivedCents: receipt?.cents ?? null,
+        receivedOn: receipt?.on ?? null,
         late,
         countedOn: received ? received.on : late ? addDays(registerDay!, 1) : inflow.inflowDate,
         countedCents: received ? received.cents : cents,
@@ -94,25 +94,21 @@ export async function loadInflows(reader: Reader, season: Season, bank: Bank): P
     });
   if (!fromRegister) return typed;
 
-  const sponsorship = await reader
-    .select()
-    .from(cashEntry)
-    .where(and(gt(cashEntry.amount, "0"), eq(cashEntry.sponsorship, true), gte(cashEntry.entryOn, season.startsOn), lte(cashEntry.entryOn, season.endsOn)))
-    .orderBy(asc(sql`lower(${cashEntry.description})`), asc(cashEntry.entryOn));
+  const sponsorship = await contracts.ask(registerSponsorship, currentActive(), reader, { from: season.startsOn, to: season.endsOn });
   const actual = sponsorship.map((e): InflowView => ({
     id: e.id,
     phase: "actual",
     sourceName: e.description,
-    amountCents: toCents(e.amount),
-    inflowDate: e.entryOn,
+    amountCents: e.cents,
+    inflowDate: e.on,
     sponsorship: true,
     source: "register",
     cashEntryId: e.id,
     receivedCents: null,
     receivedOn: null,
     late: false,
-    countedOn: e.entryOn,
-    countedCents: toCents(e.amount),
+    countedOn: e.on,
+    countedCents: e.cents,
   }));
   return [...typed, ...actual];
 }
@@ -154,98 +150,67 @@ export async function createInflow(input: { phase: Phase; sourceName: string; am
   });
 }
 
-/** The movements of money in that are not tied to an inflow yet, newest first: what "Mark as received" can link to. */
-export async function listReceivable() {
-  await assertCanManageShared();
-  const season = await getCurrentSeason();
-  const rows = await db
-    .select()
-    .from(cashEntry)
-    .leftJoin(inflowReceipt, eq(inflowReceipt.entryId, cashEntry.id))
-    .where(and(gt(cashEntry.amount, "0"), isNull(inflowReceipt.id), gte(cashEntry.entryOn, season.startsOn), lte(cashEntry.entryOn, season.endsOn)))
-    .orderBy(desc(cashEntry.entryOn), desc(cashEntry.id))
-    .limit(300);
-  return rows.map(({ cash_entry: e }) => ({
-    id: e.id,
-    on: e.entryOn,
-    description: e.description,
-    account: e.account,
-    amount: e.amount,
-    sponsorship: e.sponsorship,
-  }));
-}
-
-/** An expected inflow has arrived: ties it to a movement of the register, made now or already there. */
-export async function receiveInflow(inflowId: number, input: ReceiveInput) {
-  const actor = await assertCanManageShared();
-  await runWrite(actor, async (tx) => {
-    const [inflow] = await tx.select().from(teamInflow).where(eq(teamInflow.id, inflowId)).for("update");
-    if (!inflow) throw notFound("Inflow");
-    await assertSeasonOpen(tx, inflow.seasonId);
-    if (inflow.phase !== "estimate") throw invalid("Only an expected inflow can be marked as received");
-    const [received] = await tx.select({ id: inflowReceipt.id }).from(inflowReceipt).where(eq(inflowReceipt.inflowId, inflowId));
-    if (received) throw conflict("This inflow is already received: mark it as not received first");
-
-    let entryId: number;
-    if ("entryId" in input) {
-      const [entry] = await tx.select().from(cashEntry).where(eq(cashEntry.id, input.entryId));
-      if (!entry) throw notFound("Movement");
-      if (toCents(entry.amount) <= 0) throw invalid("Only money in can receive an inflow");
-      const [taken] = await tx.select({ id: inflowReceipt.id }).from(inflowReceipt).where(eq(inflowReceipt.entryId, entry.id));
-      if (taken) throw conflict("That movement already received another inflow");
-      entryId = entry.id;
-    } else {
-      const created = await insertEntry(tx, {
-        on: input.on,
-        description: input.description ?? inflow.sourceName,
-        categoryId: input.categoryId,
-        methodId: input.methodId,
-        account: input.account,
-        direction: "in",
-        amount: input.amount ?? inflow.amount,
-        invoiceChecked: false,
-        sponsorship: inflow.sponsorship,
-      });
-      entryId = created.id;
-    }
-    await tx.insert(inflowReceipt).values({ inflowId, entryId });
-  });
-}
-
-/** Takes the link back: the inflow is expected again, the movement stays in the register. */
-export async function unreceiveInflow(inflowId: number) {
-  const actor = await assertCanManageShared();
-  await runWrite(actor, async (tx) => {
-    const [inflow] = await tx.select({ seasonId: teamInflow.seasonId }).from(teamInflow).where(eq(teamInflow.id, inflowId)).for("update");
-    if (!inflow) throw notFound("Inflow");
-    await assertSeasonOpen(tx, inflow.seasonId);
-    await tx.delete(inflowReceipt).where(eq(inflowReceipt.inflowId, inflowId));
-  });
-}
-
 export async function deleteInflow(inflowId: number) {
   const actor = await assertCanChangeInflows();
-  const treasury = await canManageCash(actor);
   await runWrite(actor, async (tx) => {
     const [target] = await tx.select({ seasonId: teamInflow.seasonId }).from(teamInflow).where(eq(teamInflow.id, inflowId));
     if (target) await assertSeasonOpen(tx, target.seasonId);
-    const [received] = await tx.select({ id: inflowReceipt.id }).from(inflowReceipt).where(eq(inflowReceipt.inflowId, inflowId));
-    // a received inflow is tied to the register: taking that apart is the treasury's, as marking it received was
-    if (received && !treasury) throw forbidden("This inflow is already received: only the treasury can delete it");
+    // whoever tied the inflow to something (the register that received it) may refuse
+    await contracts.emit(inflowDeleting, currentActive(), tx, { inflowId, actor });
     const deleted = await tx.delete(teamInflow).where(eq(teamInflow.id, inflowId)).returning({ id: teamInflow.id });
     if (deleted.length === 0) throw notFound("Inflow");
   });
 }
 
+// --- what the bridge to the treasury reads and deletes of the inflows -----------------------------
+
+/** An expected or actual inflow as the budget keeps it; `amount` is the decimal as it is stored. */
+export interface InflowFact {
+  id: number;
+  seasonId: number;
+  phase: Phase;
+  sourceName: string;
+  amount: string;
+  inflowDate: string | null;
+  sponsorship: boolean;
+}
+
+const factOf = (row: typeof teamInflow.$inferSelect): InflowFact => ({
+  id: row.id,
+  seasonId: row.seasonId,
+  phase: row.phase,
+  sourceName: row.sourceName,
+  amount: row.amount,
+  inflowDate: row.inflowDate,
+  sponsorship: row.sponsorship,
+});
+
+/** The inflows with these ids (the ones that exist); `lock` keeps them from changing until the transaction ends. */
+export async function inflowsByIds(reader: Reader, ids: number[], lock = false): Promise<InflowFact[]> {
+  if (ids.length === 0) return [];
+  const query = reader.select().from(teamInflow).where(inArray(teamInflow.id, ids));
+  return (lock ? await query.for("update") : await query).map(factOf);
+}
+
+/** Every inflow of a season, expected and actual. */
+export async function inflowsOfSeason(reader: Reader, seasonId: number): Promise<InflowFact[]> {
+  return (await reader.select().from(teamInflow).where(eq(teamInflow.seasonId, seasonId))).map(factOf);
+}
+
+/** Deletes inflows inside a transaction that is already open. */
+export async function deleteInflowsIn(tx: Tx, ids: number[]) {
+  if (ids.length > 0) await tx.delete(teamInflow).where(inArray(teamInflow.id, ids));
+}
+
 /**
- * The BANK of a season: what the register holds in Cassa and Banca on a day, or the balance written
- * by hand when the register cannot say (docs/registro-di-cassa.md, section 5). The day is today, or
+ * The BANK of a season: what the register holds in Cassa and Banca on a day (the register is asked through a port, and answers only
+ * when the treasury is on), or the balance written by hand when it cannot say (docs/registro-di-cassa.md, section 5). The day is today, or
  * the last day of a season that is over. Null when there is neither.
  */
-export async function bankOf(reader: Pick<Tx, "select">, season: { id: number; endsOn: string }) {
+export async function bankOf(reader: Db, season: { id: number; endsOn: string }) {
   const day = today() < season.endsOn ? today() : season.endsOn;
-  const held = await registerBalanceAt(reader, day);
-  if (held) return { amountCents: totalOf(held), asOfDate: day, source: "register" as const };
+  const held = await contracts.ask(registerBank, currentActive(), reader, { day });
+  if (held) return { amountCents: held.amountCents, asOfDate: day, source: "register" as const };
   const [typed] = await reader.select().from(bankSnapshot).where(eq(bankSnapshot.seasonId, season.id));
   return typed ? { amountCents: toCents(typed.amount), asOfDate: typed.asOfDate, source: "typed" as const } : null;
 }

@@ -98,7 +98,7 @@ export interface Inflow {
   late: boolean;
 }
 
-/** One thing that can be deleted from CASH FLOW: an inflow (expected or actual) or a movement of the register (GET /api/inflows/related). */
+/** One thing that can be deleted from CASH FLOW: an inflow (expected or actual) or a movement of the register (GET /api/treasury-budget/inflows/related). */
 export interface RelatedVoice {
   kind: "inflow" | "entry";
   id: number;
@@ -125,7 +125,7 @@ export interface RelatedInflows {
   registerHidden: number;
 }
 
-/** GET /api/inflows/receivable: a movement of money in that can receive an expected inflow. */
+/** GET /api/treasury-budget/inflows/receivable: a movement of money in that can receive an expected inflow. */
 export interface Receivable {
   id: number;
   on: string;
@@ -135,7 +135,7 @@ export interface Receivable {
   sponsorship: boolean;
 }
 
-/** GET /api/cash/payable-lines: an ACTUAL line the team pays for (the net out of its fund and the VAT), and how much the register has paid of it. */
+/** GET /api/treasury-budget/payable-lines: an ACTUAL line the team pays for (the net out of its fund and the VAT), and how much the register has paid of it. */
 export interface PayableLine {
   lineId: number;
   item: string;
@@ -147,7 +147,7 @@ export interface PayableLine {
   paidCents: number;
 }
 
-/** GET /api/cash/to-pay: a line the team still has to pay, with the season it is of and the Voce its category starts from. */
+/** GET /api/treasury-budget/to-pay: a line the team still has to pay, with the season it is of and the Voce its category starts from. */
 export interface ToPayRow extends ToPayLine {
   seasonId: number;
   seasonName: string;
@@ -159,7 +159,7 @@ export interface ToPay {
   lastMethodId: number | null;
 }
 
-/** GET /api/cash/statement: the financial statement of a calendar year (the table of the sheet). */
+/** GET /api/treasury/statement: the financial statement of a calendar year (the table of the sheet). */
 export interface Statement {
   year: number;
   /** The years of the register, the current one included, newest first. */
@@ -167,7 +167,7 @@ export interface Statement {
   rows: StatementRow[];
 }
 
-/** GET /api/cash/to-link: a payment that pays no line of the budget yet. */
+/** GET /api/treasury-budget/to-link: a payment that pays no line of the budget yet. */
 export interface ToLinkRow {
   id: number;
   on: string;
@@ -180,7 +180,7 @@ export interface ToLinkRow {
   lines: [];
 }
 
-/** GET /api/cash/category-defaults: the Voce a payment for a line of this budget category starts from. */
+/** GET /api/treasury-budget/category-voci: the Voce a payment for a line of this budget category starts from. */
 export interface CategoryDefault {
   categoryId: number;
   name: string;
@@ -561,13 +561,20 @@ export interface PriceChoice {
 }
 
 /** What the Settings page shows (admin only): the lists with how much each entry is used, and the switches. */
+/** GET /api/settings: the core's part of the Settings page. */
 export interface SettingsView {
-  categories: { id: number; name: string; fields: ItemField[]; usedBy: number }[];
-  uncategorizedFields: ItemField[];
+  categories: { id: number; name: string; usedBy: number }[];
   vatRates: { id: number; rate: number; usedBy: number }[];
+  calculation: Calculation;
+}
+
+/** GET /api/inventory/lists: the inventory's part of the Settings page. */
+export interface InventoryLists {
+  /** The fields of each category that has some, by category id (a category not there shows none). */
+  categoryFields: Record<number, ItemField[]>;
+  uncategorizedFields: ItemField[];
   units: { id: number; name: string; usedBy: number }[];
   locations: { id: number; code: string; room: string; shelf: string; level: string; label: string; usedBy: number }[];
-  calculation: Calculation;
 }
 
 export type BankCompare = "day" | "month";
@@ -616,7 +623,7 @@ export interface CashEntryRow {
   lines: { lineId: number; item: string; cents: number }[];
 }
 
-/** GET /api/cash/register */
+/** GET /api/treasury/register */
 export interface CashRegister {
   year: number;
   years: number[];
@@ -641,7 +648,7 @@ export interface CashEntryBody {
   sponsorship: boolean;
 }
 
-/** POST /api/cash/import/preview: what the sheet holds against what the register holds, nothing saved. */
+/** POST /api/treasury/import/preview: what the sheet holds against what the register holds, nothing saved. */
 export interface ImportPreview {
   year: number;
   years: { year: number; rows: number }[];
@@ -663,7 +670,7 @@ export interface ImportPreview {
   hasOpening: boolean;
 }
 
-/** POST /api/cash/import */
+/** POST /api/treasury/import */
 export interface ImportResult {
   mode: "add" | "replace";
   year: number;

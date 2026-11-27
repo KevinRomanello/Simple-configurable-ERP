@@ -1,24 +1,21 @@
-import { computeLines, toPayLines, type CalcLine } from "@erp/calc";
-import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, lte, notExists, or, sql } from "drizzle-orm";
+import { toPayLines, type CalcLine } from "@erp/calc";
+import { eq } from "drizzle-orm";
 import { invalid, notFound } from "../../core/errors";
 import { fromCents, toCents } from "../../core/money";
 import { today } from "../../core/today";
-import { runWrite, type Tx } from "../../core/tx";
+import { runWrite } from "../../core/tx";
 import { db } from "../../db/client";
-import { budgetLine, project } from "../../db/schema/budget";
 import { category } from "../../db/schema/platform";
-import { cashCategory, cashEntry } from "../../db/schema/treasury";
 import { cashEntryLine, categoryVoce } from "../../db/schema/treasury-budget";
-import { loadSnapshot } from "../../snapshot";
 import { allSeasons, assertSeasonOpen, getCurrentSeason, getSeasonById } from "../../platform/seasons/seasons.service";
-import type { PayInput } from "./cash.schema";
-import { assertCanManageCash, insertEntry } from "./cash.service";
+import { computedLines, seasonsOfLines } from "../../modules/budget/budget.public";
+import { assertCanManageCash, entriesByIds, insertEntry, lastPaymentMethodId, paymentsBetween } from "../../modules/treasury/treasury.public";
+import { payingEntries } from "./links.service";
+import type { PayInput } from "./treasury-budget.schema";
 
 // The payments of the register tied to the lines of the budget (docs/registro-di-cassa.md, section 5.3): a
 // payment can cover several lines, and a line can be paid in instalments. A payment covers what the team pays
 // for a line: the net out of its fund first, then the VAT.
-
-type Season = { id: number; startsOn: string; endsOn: string };
 
 export interface PayableLine {
   lineId: number;
@@ -33,8 +30,6 @@ export interface PayableLine {
   paidCents: number;
 }
 
-const linesOf = async (season: Season) => computeLines(await loadSnapshot(season));
-
 const payableOf = (l: CalcLine): PayableLine => ({
   lineId: l.id,
   item: l.item,
@@ -48,7 +43,7 @@ const payableOf = (l: CalcLine): PayableLine => ({
 /** The ACTUAL lines of the season that the team pays for (the only ones a payment can be tied to), with how much is paid. */
 export async function listPayableLines(): Promise<PayableLine[]> {
   await assertCanManageCash();
-  return (await linesOf(await getCurrentSeason())).map(payableOf).filter((l) => l.totalCents > 0);
+  return (await computedLines(await getCurrentSeason())).map(payableOf).filter((l) => l.totalCents > 0);
 }
 
 /** A payment never covers more of a line than the team pays for it, with the other payments of the line. */
@@ -77,42 +72,30 @@ function amountsOf(lines: { lineId: number; amount: string }[]): Map<number, num
 export async function setEntryLines(entryId: number, lines: { lineId: number; amount: string }[]) {
   const actor = await assertCanManageCash();
   const season = await getCurrentSeason();
-  const payable = new Map((await linesOf(season)).map((l) => [l.id, payableOf(l)]));
+  const payable = new Map((await computedLines(season)).map((l) => [l.id, payableOf(l)]));
   return runWrite(actor, async (tx) => {
     await assertSeasonOpen(tx, season.id);
-    const [entry] = await tx.select().from(cashEntry).where(eq(cashEntry.id, entryId)).for("update");
+    const [entry] = await entriesByIds(tx, [entryId], true);
     if (!entry) throw notFound("Movement");
-    const outCents = -toCents(entry.amount);
+    const outCents = -entry.cents;
     if (outCents <= 0) throw invalid("Only a payment (money out) can be tied to budget lines");
 
     const wanted = amountsOf(lines);
     for (const [lineId, cents] of wanted) {
       // what the other payments paid of it, so that this one does not take it above what the team pays
-      const [others] = await tx
-        .select({ amount: sql<string | null>`sum(${cashEntryLine.amount})` })
-        .from(cashEntryLine)
-        .where(and(eq(cashEntryLine.lineId, lineId), sql`${cashEntryLine.entryId} <> ${entryId}`));
-      assertFits(payable.get(lineId), others?.amount == null ? 0 : toCents(others.amount), cents);
+      const others = await tx.select({ entryId: cashEntryLine.entryId, amount: cashEntryLine.amount }).from(cashEntryLine).where(eq(cashEntryLine.lineId, lineId));
+      const othersCents = others.filter((o) => o.entryId !== entryId).reduce((sum, o) => sum + toCents(o.amount), 0);
+      assertFits(payable.get(lineId), othersCents, cents);
     }
     // the part of this payment that stays in other seasons counts against the movement too
-    const [elsewhere] = await tx
-      .select({ amount: sql<string | null>`sum(${cashEntryLine.amount})` })
-      .from(cashEntryLine)
-      .innerJoin(budgetLine, eq(cashEntryLine.lineId, budgetLine.id))
-      .innerJoin(project, eq(budgetLine.projectId, project.id))
-      .where(and(eq(cashEntryLine.entryId, entryId), sql`${project.seasonId} <> ${season.id}`));
-    const total = [...wanted.values()].reduce((sum, c) => sum + c, 0) + (elsewhere?.amount == null ? 0 : toCents(elsewhere.amount));
+    const existing = await tx.select({ id: cashEntryLine.id, lineId: cashEntryLine.lineId, amount: cashEntryLine.amount }).from(cashEntryLine).where(eq(cashEntryLine.entryId, entryId));
+    const seasonOf = await seasonsOfLines(tx, existing.map((r) => r.lineId));
+    const inSeason = existing.filter((r) => seasonOf.get(r.lineId) === season.id);
+    const elsewhere = existing.filter((r) => seasonOf.has(r.lineId) && seasonOf.get(r.lineId) !== season.id).reduce((sum, r) => sum + toCents(r.amount), 0);
+    const total = [...wanted.values()].reduce((sum, c) => sum + c, 0) + elsewhere;
     if (total > outCents) throw invalid("The lines add up to more than the payment");
 
-    const inSeason = (
-      await tx
-        .select({ id: cashEntryLine.id })
-        .from(cashEntryLine)
-        .innerJoin(budgetLine, eq(cashEntryLine.lineId, budgetLine.id))
-        .innerJoin(project, eq(budgetLine.projectId, project.id))
-        .where(and(eq(cashEntryLine.entryId, entryId), eq(project.seasonId, season.id)))
-    ).map((r) => r.id);
-    if (inSeason.length > 0) await tx.delete(cashEntryLine).where(inArray(cashEntryLine.id, inSeason));
+    for (const row of inSeason) await tx.delete(cashEntryLine).where(eq(cashEntryLine.id, row.id));
     if (wanted.size > 0) {
       await tx.insert(cashEntryLine).values([...wanted].map(([lineId, cents]) => ({ entryId, lineId, amount: fromCents(cents) })));
     }
@@ -132,17 +115,11 @@ export async function listToPay(everySeason: boolean) {
   const voceOf = new Map((await db.select({ name: category.name, voceId: categoryVoce.voceId }).from(category).leftJoin(categoryVoce, eq(categoryVoce.categoryId, category.id))).map((c) => [c.name.toLowerCase(), c.voceId]));
   const rows = [];
   for (const season of seasons) {
-    for (const row of toPayLines(await linesOf(season), today())) {
+    for (const row of toPayLines(await computedLines(season), today())) {
       rows.push({ ...row, seasonId: season.id, seasonName: season.name, suggestedCategoryId: row.category ? (voceOf.get(row.category.toLowerCase()) ?? null) : null });
     }
   }
-  const [last] = await db
-    .select({ methodId: cashEntry.methodId })
-    .from(cashEntry)
-    .where(and(lt(cashEntry.amount, "0"), isNotNull(cashEntry.methodId)))
-    .orderBy(desc(cashEntry.entryOn), desc(cashEntry.id))
-    .limit(1);
-  return { rows, lastMethodId: last?.methodId ?? null };
+  return { rows, lastMethodId: await lastPaymentMethodId(db) };
 }
 
 /**
@@ -155,19 +132,15 @@ export async function payLines(input: PayInput) {
   const wanted = amountsOf(input.lines);
 
   // the seasons of the lines, and what the team owes for each
-  const found = await db
-    .select({ lineId: budgetLine.id, seasonId: project.seasonId })
-    .from(budgetLine)
-    .innerJoin(project, eq(budgetLine.projectId, project.id))
-    .where(inArray(budgetLine.id, [...wanted.keys()]));
-  if (found.length !== wanted.size) throw notFound("Line");
-  const seasonIds = [...new Set(found.map((f) => f.seasonId))];
+  const seasonOf = await seasonsOfLines(db, [...wanted.keys()]);
+  if (seasonOf.size !== wanted.size) throw notFound("Line");
+  const seasonIds = [...new Set(seasonOf.values())];
   const payable = new Map<number, PayableLine>();
   for (const seasonId of seasonIds) {
-    for (const l of await linesOf(await getSeasonById(seasonId))) payable.set(l.id, payableOf(l));
+    for (const l of await computedLines(await getSeasonById(seasonId))) payable.set(l.id, payableOf(l));
   }
 
-  return runWrite(actor, async (tx: Tx) => {
+  return runWrite(actor, async (tx) => {
     for (const seasonId of seasonIds) await assertSeasonOpen(tx, seasonId);
     let total = 0;
     for (const [lineId, cents] of wanted) {
@@ -196,20 +169,11 @@ export async function payLines(input: PayInput) {
 export async function listToLink() {
   await assertCanManageCash();
   const season = await getCurrentSeason();
-  const rows = await db
-    .select()
-    .from(cashEntry)
-    .where(
-      and(
-        lt(cashEntry.amount, "0"),
-        gte(cashEntry.entryOn, season.startsOn),
-        lte(cashEntry.entryOn, season.endsOn),
-        notExists(db.select({ one: sql`1` }).from(cashEntryLine).where(eq(cashEntryLine.entryId, cashEntry.id))),
-        // a payment of a Voce outside the budget is in the derived area, and one the budget ignores is nobody's: neither is for a line
-        or(isNull(cashEntry.categoryId), inArray(cashEntry.categoryId, db.select({ id: cashCategory.id }).from(cashCategory).where(eq(cashCategory.scope, "project")))),
-      ),
-    )
-    .orderBy(desc(cashEntry.entryOn), desc(cashEntry.id))
-    .limit(300);
-  return rows.map((e) => ({ id: e.id, on: e.entryOn, description: e.description, account: e.account, cents: toCents(e.amount), categoryId: e.categoryId, methodId: e.methodId, lines: [] }));
+  // a payment of a Voce outside the budget is in the derived area, and one the budget ignores is nobody's: the register leaves both out
+  const payments = await paymentsBetween(db, { from: season.startsOn, to: season.endsOn });
+  const paying = await payingEntries(db, payments.map((p) => p.id));
+  return payments
+    .filter((p) => !paying.has(p.id))
+    .slice(0, 300)
+    .map((e) => ({ id: e.id, on: e.on, description: e.description, account: e.account, cents: e.cents, categoryId: e.categoryId, methodId: e.methodId, lines: [] }));
 }

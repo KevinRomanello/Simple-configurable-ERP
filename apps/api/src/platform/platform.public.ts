@@ -15,10 +15,10 @@ export function currentActive(): Active {
 
 // --- who uses a thing of a common list ------------------------------------------------------------
 
-/** The common lists whose entries other modules write by name (the category of a line, the unit of an item). */
-export type UsageKind = "category" | "vatRate" | "unit" | "location" | "season";
+/** The common lists whose entries other modules write by name or point at (the category of a line or of an item, a VAT rate, a season). */
+export type UsageKind = "category" | "vatRate" | "season";
 
-/** One entry of a list. `key` is how the answer names it; `name` is what the rows that use it hold (the name, the rate, the code of a place). */
+/** One entry of a list. `key` is how the answer names it; `name` is what the rows that use it hold (the name, the rate). */
 export interface UsageSubject {
   key: string;
   name: string;
@@ -54,8 +54,11 @@ export const totalUse = (rows: UsageRow[] | undefined) => (rows ?? []).reduce((s
 
 // --- what happens to the data of the modules when the core changes ---------------------------------
 
-/** A category or a unit was renamed: every module that writes it by name changes its rows, whether it is on or off. */
-export const lookupRenamed = defineEvent<{ kind: "category" | "unit"; from: string; to: string }>("lookupRenamed", "data");
+/** A category was renamed: every module that writes it by name changes its rows, whether it is on or off. */
+export const lookupRenamed = defineEvent<{ kind: "category"; from: string; to: string }>("lookupRenamed", "data");
+
+/** A category was created in Settings: the owners that keep something for each category start it (the fields an item of it shows). */
+export const categoryCreated = defineEvent<{ categoryId: number }>("categoryCreated", "data");
 
 /** A season was added (`fromSeasonId`: the latest before it, if there is one): every module prepares its part of it, whether it is on or off. */
 export const seasonCreated = defineEvent<{ seasonId: number; fromSeasonId: number | null }>("seasonCreated", "data");
@@ -87,3 +90,20 @@ export const userFlags = defineDeclaration<UserFlag>("userFlags");
 
 /** The boxes of the modules that are on, in the order the modules were read. */
 export const declaredFlags = (): UserFlag[] => contracts.declared(userFlags, currentActive());
+
+// --- what a person may do ------------------------------------------------------------------------
+
+/** A rule of a permission, as the module that knows it writes it: the person's role and boxes in, yes or no out. */
+export interface PermissionRule {
+  /** The name of the permission (`canManageCash`): the interface is told it in GET /api/me. */
+  key: string;
+  rule: (user: { role: Role; flags: string[] }) => boolean;
+}
+
+/** Each module (or bridge) declares the rules of the permissions it knows: the treasury says who keeps the money, the bridge who may change the inflows. */
+export const permissionRules = defineDeclaration<PermissionRule>("permissionRules");
+
+/** Whether any rule declared for `key` by the modules that are on says yes: a bridge can widen what a module allows. */
+export function can(user: { role: Role; flags: string[] }, key: string): boolean {
+  return contracts.declared(permissionRules, currentActive()).some((p) => p.key === key && p.rule(user));
+}

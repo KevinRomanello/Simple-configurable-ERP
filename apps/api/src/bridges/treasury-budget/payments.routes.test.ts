@@ -17,9 +17,9 @@ const later = (days: number) => new Date(new Date(`${today()}T12:00:00Z`).getTim
 const year = Number(today().slice(0, 4));
 
 /** The register starts with 1000 in the bank today, so the BANK is the register's. */
-const openRegister = () => api.put("/api/cash/openings", { year, account: "bank", amount: "1000" });
+const openRegister = () => api.put("/api/treasury/openings", { year, account: "bank", amount: "1000" });
 const entry = async (body: object) => {
-  const created = await api.post("/api/cash/entries", { on: today(), description: "x", account: "bank", direction: "in", amount: "10", ...body });
+  const created = await api.post("/api/treasury/entries", { on: today(), description: "x", account: "bank", direction: "in", amount: "10", ...body });
   expect(created.status).toBe(201);
   return created.body;
 };
@@ -27,7 +27,7 @@ const inflow = async (body: object = {}) =>
   (await api.post("/api/inflows", { phase: "estimate", sourceName: "Acme", amount: "500", inflowDate: later(-5), sponsorship: true, ...body })).body;
 const inflows = async (phase = "estimate") => (await api.get(`/api/inflows?phase=${phase}`)).body;
 const cashFlow = async () => (await api.get("/api/views/cashflow")).body;
-const register = async () => (await api.get(`/api/cash/register?year=${year}`)).body;
+const register = async () => (await api.get(`/api/treasury/register?year=${year}`)).body;
 
 describe("an expected inflow that arrives", () => {
   it("is late while it has not, counted from the day after the BANK; received, it counts with the day and the amount of its movement", async () => {
@@ -37,7 +37,7 @@ describe("an expected inflow that arrives", () => {
     expect((await cashFlow()).estimate.summary.totalCashFlowCents).toBe(100_000 + 50_000);
 
     // it came in two days ago, and 20 less than expected
-    const received = await api.post(`/api/inflows/${gala.id}/receive`, { on: later(-2), account: "bank", amount: "480" });
+    const received = await api.post(`/api/treasury-budget/inflows/${gala.id}/receive`, { on: later(-2), account: "bank", amount: "480" });
     expect(received.status).toBe(204);
     expect((await inflows())[0]).toMatchObject({ late: false, receivedOn: later(-2), receivedAmount: "480.00", amount: "500.00" });
     // the movement is in the register and in the BANK: it is not counted a second time
@@ -51,7 +51,7 @@ describe("an expected inflow that arrives", () => {
     await openRegister();
     const gala = await inflow({ sponsorship: true });
     const before = (await cashFlow()).estimate.summary;
-    await api.post(`/api/inflows/${gala.id}/receive`, { on: later(-2), account: "bank" });
+    await api.post(`/api/treasury-budget/inflows/${gala.id}/receive`, { on: later(-2), account: "bank" });
     const after = (await cashFlow()).estimate.summary;
     // 11% of 500, due on the first day of the next quarter, which is after the BANK day
     expect(after.teamOutflowsCents).toBe(5_500);
@@ -65,13 +65,13 @@ describe("an expected inflow that arrives", () => {
     const wire = await entry({ on: later(-1), description: "Wire from A", amount: "500", sponsorship: true });
     const paid = await entry({ direction: "out", amount: "20" });
 
-    expect((await api.get("/api/inflows/receivable")).body.map((e: { id: number }) => e.id)).toContain(wire.id);
-    expect((await api.post(`/api/inflows/${a.id}/receive`, { entryId: wire.id })).status).toBe(204);
-    expect((await api.get("/api/inflows/receivable")).body.map((e: { id: number }) => e.id)).not.toContain(wire.id);
-    expect((await api.post(`/api/inflows/${b.id}/receive`, { entryId: wire.id })).status).toBe(409);
-    expect((await api.post(`/api/inflows/${b.id}/receive`, { entryId: paid.id })).status).toBe(400);
-    expect((await api.post(`/api/inflows/${b.id}/receive`, { entryId: 99_999 })).status).toBe(404);
-    expect((await api.post(`/api/inflows/${a.id}/receive`, { on: today(), account: "cash" })).status).toBe(409); // already received
+    expect((await api.get("/api/treasury-budget/inflows/receivable")).body.map((e: { id: number }) => e.id)).toContain(wire.id);
+    expect((await api.post(`/api/treasury-budget/inflows/${a.id}/receive`, { entryId: wire.id })).status).toBe(204);
+    expect((await api.get("/api/treasury-budget/inflows/receivable")).body.map((e: { id: number }) => e.id)).not.toContain(wire.id);
+    expect((await api.post(`/api/treasury-budget/inflows/${b.id}/receive`, { entryId: wire.id })).status).toBe(409);
+    expect((await api.post(`/api/treasury-budget/inflows/${b.id}/receive`, { entryId: paid.id })).status).toBe(400);
+    expect((await api.post(`/api/treasury-budget/inflows/${b.id}/receive`, { entryId: 99_999 })).status).toBe(404);
+    expect((await api.post(`/api/treasury-budget/inflows/${a.id}/receive`, { on: today(), account: "cash" })).status).toBe(409); // already received
   });
 
   it("goes back to expected with Not received, and when its movement is deleted; the movement does not turn into a payment", async () => {
@@ -79,16 +79,16 @@ describe("an expected inflow that arrives", () => {
     const a = await inflow({ sourceName: "A" });
     const b = await inflow({ sourceName: "B" });
     const wire = await entry({ on: later(-1), amount: "500" });
-    await api.post(`/api/inflows/${a.id}/receive`, { entryId: wire.id });
-    expect((await api.patch(`/api/cash/entries/${wire.id}`, { direction: "out" })).status).toBe(409);
+    await api.post(`/api/treasury-budget/inflows/${a.id}/receive`, { entryId: wire.id });
+    expect((await api.patch(`/api/treasury/entries/${wire.id}`, { direction: "out" })).status).toBe(409);
 
-    expect((await api.del(`/api/inflows/${a.id}/receive`)).status).toBe(204);
+    expect((await api.del(`/api/treasury-budget/inflows/${a.id}/receive`)).status).toBe(204);
     expect((await inflows()).find((i: { id: number }) => i.id === a.id)).toMatchObject({ cashEntryId: null, late: true });
     expect((await register()).entries.some((e: { id: number }) => e.id === wire.id)).toBe(true); // the movement stays
 
-    await api.post(`/api/inflows/${b.id}/receive`, { on: later(-1), account: "cash" });
+    await api.post(`/api/treasury-budget/inflows/${b.id}/receive`, { on: later(-1), account: "cash" });
     const made = (await register()).entries.find((e: { inflow: unknown }) => e.inflow);
-    expect((await api.del(`/api/cash/entries/${made.id}`)).status).toBe(204);
+    expect((await api.del(`/api/treasury/entries/${made.id}`)).status).toBe(204);
     expect((await inflows()).find((i: { id: number }) => i.id === b.id)).toMatchObject({ cashEntryId: null, late: true });
   });
 
@@ -96,19 +96,19 @@ describe("an expected inflow that arrives", () => {
     await openRegister();
     const gala = await inflow();
     for (const person of [PM, SP]) {
-      expect((await api.as(person).post(`/api/inflows/${gala.id}/receive`, { on: today(), account: "bank" })).status).toBe(403);
-      expect((await api.as(person).get("/api/inflows/receivable")).status).toBe(403);
+      expect((await api.as(person).post(`/api/treasury-budget/inflows/${gala.id}/receive`, { on: today(), account: "bank" })).status).toBe(403);
+      expect((await api.as(person).get("/api/treasury-budget/inflows/receivable")).status).toBe(403);
     }
-    expect((await api.as(TREASURER).post(`/api/inflows/${gala.id}/receive`, { on: today(), account: "bank" })).status).toBe(204);
+    expect((await api.as(TREASURER).post(`/api/treasury-budget/inflows/${gala.id}/receive`, { on: today(), account: "bank" })).status).toBe(204);
     // the sponsors box adds and deletes inflows but cannot take apart what the treasury received: not undo it, not delete it
-    expect((await api.as(SP).del(`/api/inflows/${gala.id}/receive`)).status).toBe(403);
+    expect((await api.as(SP).del(`/api/treasury-budget/inflows/${gala.id}/receive`)).status).toBe(403);
     expect((await api.as(SP).del(`/api/inflows/${gala.id}`)).status).toBe(403);
 
     // the money that arrived with the sponsorship box is also an actual inflow now, read from the register
     expect((await api.get("/api/inflows?phase=actual")).body).toMatchObject([{ sourceName: "Acme", source: "register" }]);
-    expect((await api.post("/api/inflows/99999/receive", { on: today(), account: "bank" })).status).toBe(404);
-    expect((await api.post(`/api/inflows/${gala.id}/receive`, { on: "nope", account: "bank" })).status).toBe(400);
-    expect((await api.post(`/api/inflows/${gala.id}/receive`, {})).status).toBe(400);
+    expect((await api.post("/api/treasury-budget/inflows/99999/receive", { on: today(), account: "bank" })).status).toBe(404);
+    expect((await api.post(`/api/treasury-budget/inflows/${gala.id}/receive`, { on: "nope", account: "bank" })).status).toBe(400);
+    expect((await api.post(`/api/treasury-budget/inflows/${gala.id}/receive`, {})).status).toBe(400);
   });
 
   it("is not a thing when the BANK is written by hand: the expected inflows count as they always did", async () => {
@@ -156,7 +156,7 @@ describe("a payment that paid lines of the budget", () => {
     return created.body.id as number;
   }
   const outflows = async () => (await cashFlow()).actual.summary.teamOutflowsCents as number;
-  const pay = (entryId: number, lines: { lineId: number; amount: string }[]) => api.put(`/api/cash/entries/${entryId}/lines`, { lines });
+  const pay = (entryId: number, lines: { lineId: number; amount: string }[]) => api.put(`/api/treasury-budget/entries/${entryId}/lines`, { lines });
 
   it("makes a line count only what is still to pay, on its day if that is to come", async () => {
     await openRegister();
@@ -198,7 +198,7 @@ describe("a payment that paid lines of the budget", () => {
     await openRegister(); // the register has the BANK now; it is taken away again below
     const bill = await entry({ direction: "out", amount: "400", on: later(-1) });
     await pay(bill.id, [{ lineId: sensor, amount: "400" }]);
-    await api.put("/api/cash/openings", { year, account: "bank", amount: null });
+    await api.put("/api/treasury/openings", { year, account: "bank", amount: null });
     expect((await api.get("/api/bank")).body.source).toBe("typed");
     expect(await outflows()).toBe(100_000 + 22_000);
   });
@@ -211,15 +211,15 @@ describe("a payment that paid lines of the budget", () => {
 
     const row = (await register()).entries.find((e: { id: number }) => e.id === bill.id);
     expect(row.lines).toEqual([{ lineId: sensor, item: "Sensor", cents: 25_050 }]);
-    expect((await api.get("/api/cash/payable-lines")).body).toEqual([
+    expect((await api.get("/api/treasury-budget/payable-lines")).body).toEqual([
       { lineId: sensor, item: "Sensor", project: "Steering", teamFundCents: 100_000, teamVatCents: 22_000, totalCents: 122_000, paidCents: 25_050 },
     ]);
 
     await pay(bill.id, []); // taking the links away
     expect((await register()).entries.find((e: { id: number }) => e.id === bill.id).lines).toEqual([]);
     await pay(bill.id, [{ lineId: sensor, amount: "100" }]);
-    expect((await api.del(`/api/cash/entries/${bill.id}`)).status).toBe(204);
-    expect((await api.get("/api/cash/payable-lines")).body[0].paidCents).toBe(0);
+    expect((await api.del(`/api/treasury/entries/${bill.id}`)).status).toBe(204);
+    expect((await api.get("/api/treasury-budget/payable-lines")).body[0].paidCents).toBe(0);
   });
 
   it("refuses what does not add up: more than the payment, more than the line, money in, the same line twice, a line nobody pays", async () => {
@@ -243,9 +243,9 @@ describe("a payment that paid lines of the budget", () => {
     expect((await pay(big.id, [{ lineId: sensor, amount: "820" }])).status).toBe(204);
 
     // a payment cannot shrink below its links, nor turn into money in
-    expect((await api.patch(`/api/cash/entries/${bill.id}`, { amount: "300" })).status).toBe(409);
-    expect((await api.patch(`/api/cash/entries/${bill.id}`, { direction: "in" })).status).toBe(409);
-    expect((await api.patch(`/api/cash/entries/${bill.id}`, { amount: "450" })).status).toBe(200);
+    expect((await api.patch(`/api/treasury/entries/${bill.id}`, { amount: "300" })).status).toBe(409);
+    expect((await api.patch(`/api/treasury/entries/${bill.id}`, { direction: "in" })).status).toBe(409);
+    expect((await api.patch(`/api/treasury/entries/${bill.id}`, { amount: "450" })).status).toBe(200);
   });
 
   it("is for the treasury and the admins, and not for a closed season", async () => {
@@ -253,10 +253,10 @@ describe("a payment that paid lines of the budget", () => {
     const sensor = await line(later(20));
     const bill = await entry({ direction: "out", amount: "400", on: later(-1) });
     for (const person of [PM, SP]) {
-      expect((await api.as(person).put(`/api/cash/entries/${bill.id}/lines`, { lines: [] })).status).toBe(403);
-      expect((await api.as(person).get("/api/cash/payable-lines")).status).toBe(403);
+      expect((await api.as(person).put(`/api/treasury-budget/entries/${bill.id}/lines`, { lines: [] })).status).toBe(403);
+      expect((await api.as(person).get("/api/treasury-budget/payable-lines")).status).toBe(403);
     }
-    expect((await api.as(TREASURER).put(`/api/cash/entries/${bill.id}/lines`, { lines: [{ lineId: sensor, amount: "10" }] })).status).toBe(204);
+    expect((await api.as(TREASURER).put(`/api/treasury-budget/entries/${bill.id}/lines`, { lines: [{ lineId: sensor, amount: "10" }] })).status).toBe(204);
 
     const season = (await api.get("/api/seasons/current")).body;
     await api.patch(`/api/seasons/${season.id}`, { readOnly: true });
@@ -282,10 +282,10 @@ describe("a payment covers the net first and then the VAT, in the forecast", () 
     const lineId = await bought(later(-10));
     const before = await outflows(); // the VAT (220,00) is still to come
     const net = await entry({ direction: "out", amount: "1000", on: later(-1) });
-    await api.put(`/api/cash/entries/${net.id}/lines`, { lines: [{ lineId, amount: "1000" }] });
+    await api.put(`/api/treasury-budget/entries/${net.id}/lines`, { lines: [{ lineId, amount: "1000" }] });
     expect(await outflows()).toBe(before); // the net was past and in the BANK; the VAT stays
     const vat = await entry({ direction: "out", amount: "220", on: today() });
-    await api.put(`/api/cash/entries/${vat.id}/lines`, { lines: [{ lineId, amount: "220" }] });
+    await api.put(`/api/treasury-budget/entries/${vat.id}/lines`, { lines: [{ lineId, amount: "220" }] });
     expect(await outflows()).toBe(before - 22_000); // the VAT is paid too: no longer counted on its deadline
   });
 });
@@ -303,35 +303,35 @@ describe("TO PAY: what the team still owes of the lines bought", () => {
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     return created.body.id as number;
   }
-  const toPay = async (query = "") => (await api.get(`/api/cash/to-pay${query}`)).body;
-  const pay = (body: object) => api.post("/api/cash/to-pay/pay", { on: today(), account: "bank", ...body });
+  const toPay = async (query = "") => (await api.get(`/api/treasury-budget/to-pay${query}`)).body;
+  const pay = (body: object) => api.post("/api/treasury-budget/to-pay/pay", { on: today(), account: "bank", ...body });
 
   it("lists a line bought and not paid with the net and the VAT, and the Voce its category starts from", async () => {
     const lineId = await bought(later(-3));
-    const voce = (await api.get("/api/cash/categories")).body.find((c: { name: string }) => c.name === "1.1 Attrezzature");
-    const asset = (await api.get("/api/cash/category-defaults")).body.find((c: { name: string }) => c.name === "Asset");
-    expect((await api.put(`/api/cash/category-defaults/${asset.categoryId}`, { voceId: voce.id })).status).toBe(204);
+    const voce = (await api.get("/api/treasury/categories")).body.find((c: { name: string }) => c.name === "1.1 Attrezzature");
+    const asset = (await api.get("/api/treasury-budget/category-voci")).body.find((c: { name: string }) => c.name === "Asset");
+    expect((await api.put(`/api/treasury-budget/category-voci/${asset.categoryId}`, { voceId: voce.id })).status).toBe(204);
 
     const { rows, lastMethodId } = await toPay();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ lineId, item: "Sensor", status: "due", teamFundCents: 100_000, teamVatCents: 22_000, dueCents: 122_000, daysWaiting: 3, suggestedCategoryId: voce.id });
     expect(lastMethodId).toBeNull();
     // taking the Voce away
-    await api.put(`/api/cash/category-defaults/${asset.categoryId}`, { voceId: null });
+    await api.put(`/api/treasury-budget/category-voci/${asset.categoryId}`, { voceId: null });
     expect((await toPay()).rows[0].suggestedCategoryId).toBeNull();
   });
 
   it("Pay makes the payment in the register, tied to the line, and the line is gone from the list", async () => {
     const lineId = await bought(later(-3));
-    const method = (await api.get("/api/cash/methods")).body[0];
+    const method = (await api.get("/api/treasury/methods")).body[0];
     const paid = await pay({ methodId: method.id, lines: [{ lineId, amount: "1220" }] });
     expect(paid.status).toBe(201);
     expect(paid.body).toMatchObject({ cents: -122_000, account: "bank", methodId: method.id, description: "Sensor" });
 
     expect((await toPay()).rows).toEqual([]);
-    const row = (await api.get(`/api/cash/register?year=${today().slice(0, 4)}`)).body.entries.find((e: { id: number }) => e.id === paid.body.id);
+    const row = (await api.get(`/api/treasury/register?year=${today().slice(0, 4)}`)).body.entries.find((e: { id: number }) => e.id === paid.body.id);
     expect(row.lines).toEqual([{ lineId, item: "Sensor", cents: 122_000 }]);
-    expect((await api.get("/api/cash/to-pay")).body.lastMethodId).toBe(method.id); // the next payment starts from it
+    expect((await api.get("/api/treasury-budget/to-pay")).body.lastMethodId).toBe(method.id); // the next payment starts from it
   });
 
   it("pays in part: the rest of the net and the VAT stay in the list; the net comes first", async () => {
@@ -351,7 +351,7 @@ describe("TO PAY: what the team still owes of the lines bought", () => {
     const paid = await pay({ description: "Invoice 17", lines: [{ lineId: a, amount: "122" }, { lineId: b, amount: "61" }] });
     expect(paid.status).toBe(201);
     expect(paid.body).toMatchObject({ cents: -18_300, description: "Invoice 17" });
-    const row = (await api.get(`/api/cash/register?year=${today().slice(0, 4)}`)).body.entries.find((e: { id: number }) => e.id === paid.body.id);
+    const row = (await api.get(`/api/treasury/register?year=${today().slice(0, 4)}`)).body.entries.find((e: { id: number }) => e.id === paid.body.id);
     expect(row.lines.map((l: { item: string; cents: number }) => [l.item, l.cents])).toEqual([["Sensor A", 12_200], ["Cable B", 6_100]]);
     // with no description it takes the names of the lines
     const c = await bought(later(-1), "Fan C", "10");
@@ -362,7 +362,7 @@ describe("TO PAY: what the team still owes of the lines bought", () => {
   it("refuses what does not add up, and leaves the register as it was: all or nothing", async () => {
     const a = await bought(later(-3), "Sensor A", "100");
     const b = await bought(later(-2), "Cable B", "50");
-    const count = async () => (await api.get(`/api/cash/register?year=${today().slice(0, 4)}`)).body.entries.length;
+    const count = async () => (await api.get(`/api/treasury/register?year=${today().slice(0, 4)}`)).body.entries.length;
     const before = await count();
     expect((await pay({ lines: [{ lineId: a, amount: "122" }, { lineId: b, amount: "61.01" }] })).status).toBe(400); // the second is too much
     expect((await pay({ lines: [{ lineId: a, amount: "10" }, { lineId: a, amount: "10" }] })).status).toBe(400); // twice
@@ -377,12 +377,12 @@ describe("TO PAY: what the team still owes of the lines bought", () => {
     const lineId = await bought(later(-3));
     for (const person of [PM, SP]) {
       const as = api.as(person);
-      expect((await as.get("/api/cash/to-pay")).status).toBe(403);
-      expect((await as.post("/api/cash/to-pay/pay", { on: today(), account: "bank", lines: [{ lineId, amount: "1" }] })).status).toBe(403);
-      expect((await as.get("/api/cash/to-link")).status).toBe(403);
-      expect((await as.get("/api/cash/category-defaults")).status).toBe(403);
+      expect((await as.get("/api/treasury-budget/to-pay")).status).toBe(403);
+      expect((await as.post("/api/treasury-budget/to-pay/pay", { on: today(), account: "bank", lines: [{ lineId, amount: "1" }] })).status).toBe(403);
+      expect((await as.get("/api/treasury-budget/to-link")).status).toBe(403);
+      expect((await as.get("/api/treasury-budget/category-voci")).status).toBe(403);
     }
-    expect((await api.as(TREASURER).get("/api/cash/to-pay")).status).toBe(200);
+    expect((await api.as(TREASURER).get("/api/treasury-budget/to-pay")).status).toBe(200);
     const season = (await api.get("/api/seasons/current")).body;
     await api.patch(`/api/seasons/${season.id}`, { readOnly: true });
     expect((await pay({ lines: [{ lineId, amount: "1" }] })).status).toBe(409);
@@ -394,15 +394,26 @@ describe("TO PAY: what the team still owes of the lines bought", () => {
     const loose = await entry({ direction: "out", amount: "30", description: "Loose", on: later(-2) });
     const tied = await entry({ direction: "out", amount: "100", description: "Tied", on: later(-1) });
     await entry({ direction: "in", amount: "50", description: "Money in", on: later(-1) });
-    await api.put(`/api/cash/entries/${tied.id}/lines`, { lines: [{ lineId, amount: "100" }] });
-    const list = (await api.get("/api/cash/to-link")).body;
+    await api.put(`/api/treasury-budget/entries/${tied.id}/lines`, { lines: [{ lineId, amount: "100" }] });
+    const list = (await api.get("/api/treasury-budget/to-link")).body;
     expect(list.map((e: { description: string }) => e.description)).toEqual(["Loose"]);
     expect(list[0]).toMatchObject({ id: loose.id, cents: -3_000, lines: [] });
   });
 
   it("refuses a Voce that does not exist as the default of a category", async () => {
-    const asset = (await api.get("/api/cash/category-defaults")).body.find((c: { name: string }) => c.name === "Asset");
-    expect((await api.put(`/api/cash/category-defaults/${asset.categoryId}`, { voceId: 99_999 })).status).toBe(400);
-    expect((await api.put("/api/cash/category-defaults/99999", { voceId: null })).status).toBe(404);
+    const asset = (await api.get("/api/treasury-budget/category-voci")).body.find((c: { name: string }) => c.name === "Asset");
+    expect((await api.put(`/api/treasury-budget/category-voci/${asset.categoryId}`, { voceId: 99_999 })).status).toBe(400);
+    expect((await api.put("/api/treasury-budget/category-voci/99999", { voceId: null })).status).toBe(404);
+  });
+});
+
+describe("the addresses", () => {
+  it("are the register's (/api/treasury) and the bridge's (/api/treasury-budget): the old ones are gone, with no redirect", async () => {
+    for (const old of ["/api/cash/register", "/api/cash/to-pay", "/api/cash/payable-lines", "/api/cash/category-defaults", "/api/inflows/receivable", "/api/inflows/related?inflowId=1"]) {
+      expect((await api.get(old)).status, old).toBe(404);
+    }
+    expect((await api.get("/api/treasury/register")).status).toBe(200);
+    expect((await api.get("/api/treasury-budget/to-pay")).status).toBe(200);
+    expect((await api.get("/api/treasury-budget/category-voci")).status).toBe(200);
   });
 });

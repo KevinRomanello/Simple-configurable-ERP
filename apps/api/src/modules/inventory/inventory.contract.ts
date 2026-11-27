@@ -1,11 +1,13 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { contracts } from "../../core/contracts";
 import { countRows, rowsOf } from "../../core/usage";
 import { inventoryItem, itemType } from "../../db/schema/inventory";
-import { auditLabels, auditText, lookupRenamed, usedBy } from "../../platform/platform.public";
+import { auditLabels, auditText, categoryCreated, lookupRenamed, permissionRules, usedBy } from "../../platform/platform.public";
+import { startCategoryFields } from "./lists.service";
 
-// What the inventory answers to the core and hears from it (docs/moduli-architettura.md, §5): who uses a category, a unit or a place,
-// a renamed category or unit, and the names the History gives its rows. It is read when the server starts (app.ts).
+// What the inventory answers to the core and hears from it (docs/moduli-architettura.md, §5): who uses a category, a renamed or a new
+// category, who keeps the inventory, and the names the History gives its rows. Its own lists (units, places, the fields of a category)
+// it counts and renames itself (lists.service.ts). It is read when the server starts (app.ts).
 
 contracts.answer(usedBy, "inventory", async (db, { kind, subjects }) => {
   const names = subjects.map((s) => s.name);
@@ -17,22 +19,20 @@ contracts.answer(usedBy, "inventory", async (db, { kind, subjects }) => {
       ...rowsOf(types, subjects.map((s) => ({ key: s.key, name: String(s.id) })), "item types"),
     ];
   }
-  if (kind === "unit") return rowsOf(await countRows(db, inventoryItem, inventoryItem.unit, names), subjects, "items");
-  if (kind === "location") {
-    // a movement counts once for a place, whether it is where it happened or where it went
-    if (names.length === 0) return [];
-    const codes = sql.join(names.map((name) => sql`(${name})`), sql`, `);
-    const { rows } = await db.execute<{ code: string; n: number }>(
-      sql`select c.code, count(*)::int as n from (values ${codes}) as c(code) join stock_movement m on m.location = c.code or m.to_location = c.code group by c.code`,
-    );
-    return rowsOf(new Map(rows.map((r) => [r.code, r.n])), subjects, "movements of the inventory");
-  }
   return [];
 });
 
 contracts.on(lookupRenamed, "inventory", async (tx, { kind, from, to }) => {
   if (kind === "category") await tx.update(inventoryItem).set({ category: to }).where(eq(inventoryItem.category, from));
-  if (kind === "unit") await tx.update(inventoryItem).set({ unit: to }).where(eq(inventoryItem.unit, from));
+});
+
+// a new category shows, on an item, the fields of an item without a category
+contracts.on(categoryCreated, "inventory", (tx, { categoryId }) => startCategoryFields(tx, categoryId));
+
+contracts.declare(permissionRules, "inventory", {
+  key: "canManageInventory",
+  // the inventory is kept by the people who run the projects: the admins and the project managers
+  rule: (user) => user.role === "admin" || user.role === "pm",
 });
 
 contracts.declare(auditLabels, "inventory", {
@@ -43,4 +43,8 @@ contracts.declare(auditLabels, "inventory", {
   location: (row) => ["site", "room", "shelf", "level"].map((key) => auditText(row, key)).filter((part) => part !== "").join(" / "),
   component_part: (row) => `part ${String(row.part_id ?? "")} of item ${String(row.component_id ?? "")}`,
   item_param_value: (row) => `parameter ${String(row.param_id ?? "")} of item ${String(row.item_id ?? "")}`,
+  // the tables of the bridge to the budget (they move to the bridge with its code, in G5)
+  receipt_line: (row) => `movement ${String(row.movement_id ?? "")} received for line ${String(row.line_id ?? "")}`,
+  movement_project: (row) => `movement ${String(row.movement_id ?? "")} for project ${String(row.project_id ?? "")}`,
+  item_make_project: (row) => `item ${String(row.item_id ?? "")} made for project ${String(row.project_id ?? "")}`,
 });

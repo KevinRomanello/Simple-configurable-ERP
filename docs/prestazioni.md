@@ -27,46 +27,48 @@ docker compose exec api sh -c "cd /app/apps/api && pnpm bench"
 
 **Cosa non misura:** le scritture (salvare una riga, un pagamento), più richieste insieme, la rete e il browser (la tabella e i grafici del sito).
 
-## 3. I numeri di riferimento (baseline rinnovata il 27 novembre 2026, nella tappa dei dati di G4: la stagione di prova ha ora 12 inflow ricevuti e 4 Voci di partenza)
+## 3. I numeri di riferimento (baseline rinnovata il 27 novembre 2026, alla chiusura di G4: la tesoreria in `modules/treasury` e il ponte `bridges/treasury-budget` ai loro indirizzi)
 
-Prima di G1 le pagine del budget, del registro e dell'inventario erano queste stesse, dentro il rumore; la pagina Settings è più veloce (3,3 → 1,7 ms alla taglia reale) perché conta chi usa un elenco con una query per elenco; `me` e `users` hanno un'altra forma di risposta (le spunte).
+Rispetto alla baseline di prima di G4 (stessa stagione di prova, con 12 inflow ricevuti e 4 Voci di partenza): **tutte le 64 risposte identiche**, e le pagine dentro il ±12% (il registro +1% alla taglia reale e -2% allo stress; il foglio di un'area 0% e +12%, ma quella baseline era fortunata: vedi §4). Prima di G1 le pagine del budget, del registro e dell'inventario erano queste stesse, dentro il rumore; la pagina Settings è più veloce (3,3 → 1,7 ms alla taglia reale) perché conta chi usa un elenco con una query per elenco; `me` e `users` hanno un'altra forma di risposta (le spunte).
 
 Millisecondi, mediana di 15 richieste, su questo computer (Docker su Mac). **I numeri si confrontano solo sullo stesso computer.**
 
 | Pagina | real: mediana | real: p95 | real: KB | stress: mediana | stress: p95 | stress: KB |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| calculation: snapshot of the season | 24.63 | 25.74 | 819 | 105.18 | 116.03 | 3492 |
-| me (every page starts here) | 0.79 | 0.9 | 0 | 0.6 | 0.72 | 0 |
-| core: seasons | 0.93 | 3.63 | 0 | 1.1 | 1.2 | 0 |
-| core: settings | 1.67 | 2.33 | 2 | 2.89 | 3.16 | 2 |
-| core: users | 0.8 | 0.89 | 0 | 0.83 | 0.9 | 0 |
-| core: history | 1.19 | 1.28 | 20 | 1.11 | 2.6 | 20 |
-| core: history of a table | 1.23 | 1.32 | 20 | 1.1 | 1.28 | 20 |
-| core: areas | 0.51 | 0.56 | 0 | 0.5 | 0.56 | 0 |
-| core: categories | 0.46 | 0.55 | 0 | 0.47 | 0.54 | 0 |
-| core: units | 0.48 | 0.55 | 0 | 0.46 | 0.51 | 0 |
-| core: places | 0.49 | 0.52 | 1 | 0.5 | 0.58 | 1 |
-| core: settings of the calculation | 0.61 | 0.73 | 0 | 0.63 | 0.71 | 0 |
-| budget: area sheet | 28.62 | 41.28 | 326 | 105.67 | 118.46 | 1670 |
-| budget: funds | 1.03 | 1.27 | 6 | 1.1 | 1.35 | 6 |
-| budget: CASH FLOW | 34.56 | 38.11 | 2 | 148.86 | 177.4 | 2 |
-| budget: gantt expected | 29.35 | 37.43 | 47 | 113.7 | 144.83 | 184 |
-| budget: gantt actual | 28.93 | 35.3 | 50 | 110.05 | 128.39 | 168 |
-| budget: TOTAL | 29.14 | 31.29 | 115 | 109.13 | 128.76 | 414 |
-| budget: funds summary | 29 | 32.11 | 4 | 105.73 | 121.74 | 4 |
-| budget: analysis of the funds | 35.75 | 38.07 | 30 | 136.47 | 170 | 30 |
-| budget: analysis of the suppliers | 36.4 | 50.92 | 68 | 147.48 | 171.8 | 69 |
-| budget: items view | 29.92 | 41.26 | 265 | 110.65 | 125.22 | 999 |
-| budget: inflows | 5.78 | 6.63 | 8 | 24.95 | 26.13 | 8 |
-| treasury: register | 7.38 | 7.74 | 351 | 35.68 | 51.12 | 1783 |
-| treasury: financial statement | 5.21 | 5.86 | 9 | 26.22 | 28 | 9 |
-| treasury×budget: TO PAY | 28.88 | 37.2 | 223 | 110.89 | 138.35 | 1257 |
-| treasury×budget: payments to tie | 1.14 | 1.3 | 4 | 2.76 | 2.99 | 20 |
-| treasury×budget: lines to pay | 26.5 | 27.88 | 65 | 104.18 | 123.63 | 369 |
-| inventory: items | 7.76 | 8.86 | 173 | 34.56 | 47.85 | 872 |
-| inventory×budget: PENDING | 36.47 | 52.9 | 231 | 238.51 | 407.47 | 1193 |
-| inventory: components | 13.84 | 14.99 | 4 | 239.37 | 407.88 | 21 |
-| inventory: statistics | 32.05 | 39.85 | 11 | 127.46 | 149.99 | 53 |
+| calculation: snapshot of the season | 25.3 | 28.58 | 819 | 97.02 | 112.16 | 3492 |
+| me (every page starts here) | 0.81 | 0.99 | 0 | 0.62 | 0.73 | 0 |
+| core: seasons | 0.94 | 1.21 | 0 | 1.1 | 1.17 | 0 |
+| core: settings | 1.78 | 5.04 | 2 | 2.89 | 12.4 | 2 |
+| core: users | 0.87 | 0.98 | 0 | 0.83 | 0.92 | 0 |
+| core: history | 1.16 | 1.44 | 20 | 1.18 | 1.56 | 20 |
+| core: history of a table | 1.27 | 3.2 | 20 | 1.15 | 1.32 | 20 |
+| core: areas | 0.53 | 0.61 | 0 | 0.52 | 0.59 | 0 |
+| core: categories | 0.52 | 0.55 | 0 | 0.5 | 0.54 | 0 |
+| core: units | 0.5 | 0.56 | 0 | 0.48 | 0.5 | 0 |
+| core: places | 0.55 | 0.61 | 1 | 0.54 | 1.56 | 1 |
+| core: settings of the calculation | 0.67 | 0.72 | 0 | 0.67 | 0.74 | 0 |
+| budget: area sheet | 28.64 | 39.71 | 326 | 118.12 | 141.77 | 1670 |
+| budget: funds | 1.11 | 1.3 | 6 | 1.09 | 1.27 | 6 |
+| budget: CASH FLOW | 35 | 39.58 | 2 | 150.43 | 185.66 | 2 |
+| budget: gantt expected | 30.85 | 42.93 | 47 | 121.71 | 150.46 | 184 |
+| budget: gantt actual | 28.33 | 30.83 | 50 | 115.15 | 138.52 | 168 |
+| budget: TOTAL | 30.3 | 37.46 | 115 | 114.82 | 136.39 | 414 |
+| budget: funds summary | 28.67 | 34.67 | 4 | 111.9 | 125.49 | 4 |
+| budget: analysis of the funds | 34.34 | 55.64 | 30 | 141.29 | 167.36 | 30 |
+| budget: analysis of the suppliers | 37.3 | 53.7 | 68 | 153.61 | 175.43 | 69 |
+| budget: items view | 29.46 | 32.69 | 265 | 114.61 | 130.9 | 999 |
+| budget: inflows | 6.22 | 6.63 | 8 | 25.7 | 32.68 | 8 |
+| treasury: register | 7.47 | 8.16 | 351 | 35.13 | 45.63 | 1783 |
+| treasury: financial statement | 5.32 | 5.85 | 9 | 25.86 | 28.04 | 9 |
+| treasury×budget: TO PAY | 28.7 | 38.13 | 223 | 115.38 | 156.36 | 1257 |
+| treasury×budget: payments to tie | 1.28 | 1.62 | 4 | 2.5 | 2.67 | 20 |
+| treasury×budget: lines to pay | 26.59 | 30.84 | 65 | 109.95 | 123.31 | 369 |
+| inventory: items | 7.62 | 8.79 | 173 | 33.49 | 34.8 | 872 |
+| inventory×budget: PENDING | 34.73 | 41.92 | 231 | 237.27 | 262.76 | 1193 |
+| inventory: components | 13.4 | 15.36 | 4 | 239.37 | 342.53 | 21 |
+| inventory: statistics | 31.16 | 32.5 | 11 | 132.86 | 155.65 | 53 |
+
+**Come si rinnova:** con `BENCH_SAVE=1`, solo quando il computer è libero (niente browser o build che girano: alla chiusura di G4 una corsa salvata con il pannello del browser aperto aveva pagine al +10–15%, ed è stata rifatta), poi una seconda corsa di conferma senza salvare.
 
 **Rumore:** ripetendo la corsa, la mediana cambia di circa ±5%, e fino a ±25% nelle pagine sotto i 3 ms o dove qualcos'altro gira sul computer. Un cambio sotto il 10% non vuol dire niente; il p95 è più instabile ancora.
 
@@ -78,6 +80,13 @@ Millisecondi, mediana di 15 richieste, su questo computer (Docker su Mac). **I n
 - **I contratti costano poco:** una domanda a una porta (`contracts.ask`) è circa 100 ns, contro i 6 ns di una chiamata normale; una query al database costa almeno 100.000 ns. La differenza è un millesimo di una query. Il meccanismo non tiene elenchi fatti a ogni chiamata: cerca in una mappa e scorre pochi elementi.
 - **Lo stato dei moduli** (G8) si leggerà **una volta per richiesta**, non a ogni domanda (`activeOwners` in `core/contracts.ts` lo costruisce da un'unica lettura), e solo nelle richieste di un modulo. Lo si controlla con `/api/me`, che oggi costa 0,7 ms: se dopo G8 sale, qualcosa legge più del dovuto.
 
+- **G4, tappa 3 (il ponte tesoreria×budget):** tutte le risposte identiche alla baseline, e i tempi dentro il rumore alla taglia reale e a quella da stress (due corse). Il registro era la pagina più colpita: l'elenco di ciò a cui è legato ogni movimento passava da un join a due letture più le etichette di migliaia di righe, +28% alla prima misura. Il costo era la lista di id: passata come **un solo parametro** (`anyOf`, `core/sql.ts`) la lettura delle etichette scende da 9,4 a 2,2 ms a 3.273 righe pagate, e il registro torna entro il rumore (+1% / +11% alla taglia reale, +5% / +10% allo stress). Prima della correzione, una corsa con il computer occupato aveva dato +28…+84% su pagine che il codice non ha toccato: **un cambio grande su tutte le pagine insieme è il computer, non il codice**; si ripete la corsa.
+
+- **G4, tappa 4 (gli indirizzi):** le pagine del registro e del ponte si misurano ai nuovi indirizzi (`/api/treasury/…`, `/api/treasury-budget/…`; i nomi delle righe non cambiano) e tutte le risposte sono identiche. Il registro ora legge i movimenti e i loro legami **insieme** (`Promise.all`), non uno dopo l'altro: con il ponte i legami costano due letture in più, e così il registro torna come prima (+2% alla taglia reale, +8% allo stress, dove nelle corse precedenti stava fra +5% e +13%).
+- **Il foglio di un'area allo stress** è stato fra +7% e +25% in tutte le corse di G4, ma il suo unico lavoro sul server è lo snapshot, che nelle stesse corse è fra -8% e +4%. È la baseline a essere fortunata: lì il foglio dell'area (105,7 ms) costa quanto lo snapshot da solo (105,2 ms), mentre nella baseline di prima costava 12 ms più dello snapshot (105,4 contro 93,4), come ci si aspetta dal calcolo e da 1,7 MB di risposta. Rinnovata alla chiusura di G4 (§3).
+
+- **G5, tappe 1 e 2 (i legami con il budget in tabelle del ponte; le liste dell'inventario nel suo modulo):** con il computer libero (la misura dei contratti di nuovo a 107–123 ns), tutte le risposte identiche alla baseline di fine G4 tranne una voluta: `core: settings` (`GET /api/settings`) non ha più unità, posti e campi, che stanno nella pagina nuova `inventory: lists of Settings` (`GET /api/inventory/lists`, 1,2 ms alla taglia reale). `core: units` e `core: places` si misurano ai nuovi indirizzi (`/api/inventory/units`, `/locations`) con lo stesso nome, e rispondono uguali. Tempi dentro il ±10% in tre corse; l'elenco degli articoli alla taglia reale +7…+12% (+0,5–1 ms: le due letture dei legami dei movimenti), sotto 1 ms. Prima, con il computer occupato, tutte le pagine erano al +30…+60% e la misura dei contratti a 145–195 ns: quelle corse non valgono.
+
 ## 5. La regola per i passi della fase G
 
 Alla fine di **ogni passo** (G1–G8) si rilancia il benchmark e si confronta con la baseline:
@@ -86,7 +95,7 @@ Alla fine di **ogni passo** (G1–G8) si rilancia il benchmark e si confronta co
 2. **nessuna pagina più lenta del 10% e di 1 ms** sulla mediana, a entrambe le taglie (le pagine del nucleo stanno sotto i 5 ms: lì un +10% è rumore; si ripete la corsa se il dubbio resta);
 3. se una delle due non vale, **ci si ferma** e lo si dice all'utente prima di andare avanti.
 
-Dopo G4–G6 si aggiornano gli indirizzi nell'elenco delle pagine di `perf.test.ts`; nuove pagine pesanti (gli ordini della fase D) si aggiungono all'elenco e alla baseline nello stesso lavoro.
+Dopo G4–G6 si aggiornano gli indirizzi nell'elenco delle pagine di `perf.test.ts` (fatto per G4); nuove pagine pesanti (gli ordini della fase D) si aggiungono all'elenco e alla baseline nello stesso lavoro.
 
 ## 6. Dove sta
 

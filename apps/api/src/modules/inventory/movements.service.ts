@@ -8,8 +8,10 @@ import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
 import { budgetLine, project } from "../../db/schema/budget";
 import { componentPart, inventoryItem, stockMovement } from "../../db/schema/inventory";
+import { movementProject, receiptLine } from "../../db/schema/inventory-budget";
 import { loadSnapshot } from "../../snapshot";
-import { listLocations, listVatRates } from "../../platform/lookups/lookups.service";
+import { listVatRates } from "../../platform/lookups/lookups.service";
+import { listLocations } from "./lists.service";
 import { assertCarExists } from "../../platform/seasons/seasons.service";
 import { loadInventory, movementsOf } from "./inventory.data";
 import type { buildInput, movementInput, receiveInput } from "./inventory.schema";
@@ -24,6 +26,19 @@ async function assertProject(tx: Pick<Tx, "select">, projectId: number) {
   if (!found) throw notFound("Project");
 }
 
+/** What a movement is tied to on the budget's side: the project it was for and the purchase of the budget it completes. */
+async function tieMovements(tx: Tx, movementIds: number[], ties: { projectId: number | null; lineId?: number | null }) {
+  if (ties.projectId !== null && movementIds.length > 0) await tx.insert(movementProject).values(movementIds.map((movementId) => ({ movementId, projectId: ties.projectId! })));
+  if (ties.lineId != null) await tx.insert(receiptLine).values(movementIds.map((movementId) => ({ movementId, lineId: ties.lineId! })));
+}
+
+/** A movement as the writes answer it: its row, with the project and the purchase it is tied to. */
+const answered = (movement: typeof stockMovement.$inferSelect, ties: { projectId: number | null; lineId?: number | null }) => ({
+  ...movement,
+  projectId: ties.projectId,
+  budgetLineId: ties.lineId ?? null,
+});
+
 // --- goods that arrive ----------------------------------------------------------------------------
 
 /**
@@ -37,9 +52,10 @@ export async function listPending() {
   if (pending.length === 0) return [];
 
   const earlier = await db
-    .select({ lineId: stockMovement.budgetLineId, itemId: stockMovement.itemId })
-    .from(stockMovement)
-    .where(and(eq(stockMovement.kind, "receipt"), inArray(stockMovement.budgetLineId, pending.map((p) => p.lineId))))
+    .select({ lineId: receiptLine.lineId, itemId: stockMovement.itemId })
+    .from(receiptLine)
+    .innerJoin(stockMovement, eq(stockMovement.id, receiptLine.movementId))
+    .where(and(eq(stockMovement.kind, "receipt"), inArray(receiptLine.lineId, pending.map((p) => p.lineId))))
     .orderBy(desc(stockMovement.id));
   const lastItemOfLine = new Map<number, number>();
   for (const e of earlier) if (e.lineId !== null && !lastItemOfLine.has(e.lineId)) lastItemOfLine.set(e.lineId, e.itemId);
@@ -136,13 +152,13 @@ export async function receive(input: z.infer<typeof receiveInput>) {
         unitNet: fromScaled(prices.net, 4),
         unitGross: fromScaled(prices.gross, 4),
         unitTeam: fromScaled(prices.team, 4),
-        projectId,
-        budgetLineId: input.lineId ?? null,
         carSeasonId: input.carSeasonId ?? null,
         note: input.note ?? null,
       })
       .returning();
-    return { movement: movement!, item };
+    const ties = { projectId, lineId: input.lineId ?? null };
+    await tieMovements(tx, [movement!.id], ties);
+    return { movement: answered(movement!, ties), item };
   });
 }
 
@@ -188,11 +204,12 @@ export async function addMovement(input: z.infer<typeof movementInput>) {
         spot: input.spot,
         toLocation: input.kind === "transfer" ? input.toLocation! : null,
         toSpot: input.kind === "transfer" ? (input.toSpot ?? "") : null,
-        projectId: input.projectId ?? null,
         note: input.note ?? null,
       })
       .returning();
-    return movement!;
+    const ties = { projectId: input.projectId ?? null };
+    await tieMovements(tx, [movement!.id], ties);
+    return answered(movement!, ties);
   });
 }
 
@@ -264,21 +281,23 @@ export async function build(input: z.infer<typeof buildInput>) {
         unitNet: fromScaled(prices.net, 4),
         unitGross: fromScaled(prices.gross, 4),
         unitTeam: fromScaled(prices.team, 4),
-        projectId: input.projectId,
         note: input.note ?? null,
       })
       .returning();
     // The parts are linked to the build (`builtBy`): they are used for its project and go back with it if it is undone.
     const note = `Used to build ${input.quantity} × ${made.name}`;
-    if (takes.length > 0) {
-      await tx.insert(stockMovement).values(
+    const parts = takes.length === 0 ? [] : await tx
+      .insert(stockMovement)
+      .values(
         takes.map((t) => ({
           itemId: t.itemId, kind: "use" as const, occurredOn: input.builtOn, quantity: fromScaled(t.quantityMilli, 3),
-          location: t.location, spot: t.spot, projectId: input.projectId, builtBy: movement!.id, note,
+          location: t.location, spot: t.spot, builtBy: movement!.id, note,
         })),
-      );
-    }
-    return { movement: movement!, used: takes.length };
+      )
+      .returning({ id: stockMovement.id });
+    const ties = { projectId: input.projectId };
+    await tieMovements(tx, [movement!.id, ...parts.map((p) => p.id)], ties);
+    return { movement: answered(movement!, ties), used: takes.length };
   });
 }
 

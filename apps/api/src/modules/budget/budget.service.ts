@@ -1,5 +1,7 @@
-import { areaSheet, grossCents, netCents, type AreaSheet, type Phase } from "@erp/calc";
+import { areaSheet, computeLines, grossCents, netCents, type AreaSheet, type CalcLine, type Phase } from "@erp/calc";
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
+import type { Db } from "../../core/contracts";
+import { anyOf } from "../../core/sql";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { toCents, toScaled } from "../../core/money";
 import { LIMITS } from "../../core/validation";
@@ -19,6 +21,25 @@ export async function getAreaSheet(areaCode: string): Promise<AreaSheet> {
   const snapshot = await loadSnapshot();
   if (!snapshot.areas.some((a) => a.code === areaCode)) throw notFound(`Area "${areaCode}"`);
   return areaSheet(snapshot, areaCode);
+}
+
+/** The lines of a season as the calculation sees them (what the bridge to the treasury builds TO PAY and the payments of lines on). */
+export async function computedLines(season: { id: number; startsOn: string; endsOn: string }): Promise<CalcLine[]> {
+  return computeLines(await loadSnapshot(season));
+}
+
+/** The season each of these lines is in, by line (a line that does not exist is not there). */
+export async function seasonsOfLines(reader: Db, lineIds: number[]): Promise<Map<number, number>> {
+  if (lineIds.length === 0) return new Map();
+  const rows = await reader.select({ id: budgetLine.id, seasonId: project.seasonId }).from(budgetLine).innerJoin(project, eq(budgetLine.projectId, project.id)).where(anyOf(budgetLine.id, lineIds));
+  return new Map(rows.map((r) => [r.id, r.seasonId]));
+}
+
+/** The name (the item) of each of these lines, by line. */
+export async function lineLabels(reader: Db, lineIds: number[]): Promise<Map<number, string>> {
+  if (lineIds.length === 0) return new Map();
+  const rows = await reader.select({ id: budgetLine.id, item: budgetLine.item }).from(budgetLine).where(anyOf(budgetLine.id, lineIds));
+  return new Map(rows.map((r) => [r.id, r.item]));
 }
 
 // --- writes ------------------------------------------------------------------------------------

@@ -9,4 +9,5 @@ export * from "./schema/treasury";
 export * from "./schema/inventory";
 export * from "./schema/registry";
 export * from "./schema/treasury-budget";
+export * from "./schema/inventory-budget";
 export * from "./schema/registry-access";

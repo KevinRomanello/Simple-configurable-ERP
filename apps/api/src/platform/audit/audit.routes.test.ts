@@ -122,9 +122,9 @@ describe("reading the history", () => {
   });
 
   it("names the rows of each owner's tables the way the owner says: the register, the inventory, the places and the core", async () => {
-    await api.post("/api/cash/entries", { on: "2026-12-06", description: "Bank fee", account: "bank", direction: "out", amount: "3" });
+    await api.post("/api/treasury/entries", { on: "2026-12-06", description: "Bank fee", account: "bank", direction: "out", amount: "3" });
     await api.post("/api/inventory/receive", { newItem: { name: "Washer" }, quantity: "10", receivedOn: "2026-10-01", location: "s1-r1", unitNet: "1", vatRate: 22 });
-    await api.post("/api/settings/locations", { room: "Lab", shelf: "A", levels: ["2"] });
+    await api.post("/api/inventory/locations", { room: "Lab", shelf: "A", levels: ["2"] });
     const labels = async (table: string) => (await history(`?table=${table}`)).entries.map((e) => e.label as string);
     expect(await labels("cash_entry")).toEqual(["Bank fee"]);
     expect(await labels("inventory_item")).toEqual(["Washer"]);

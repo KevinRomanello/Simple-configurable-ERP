@@ -39,11 +39,11 @@ const arrivalOf = async (areaCode: string) => (await api.get(`/api/areas/${areaC
 
 describe("the lists the forms are built from", () => {
   it("offers the locations, the units and which fields each category shows", async () => {
-    const locations = (await api.get("/api/inventory/../lookups/locations")).body;
+    const locations = (await api.get("/api/inventory/locations")).body;
     expect(locations[0]).toEqual({ code: "s1-r1", room: "Site 1 - Room 1", shelf: "", level: "", label: "Site 1 - Room 1" });
     expect(locations).toHaveLength(10);
-    expect((await api.get("/api/lookups/units")).body).toContain("pcs");
-    const fields = (await api.get("/api/lookups/category-fields")).body;
+    expect((await api.get("/api/inventory/units")).body).toContain("pcs");
+    const fields = (await api.get("/api/inventory/category-fields")).body;
     expect(fields.byCategory.Consumable).toEqual(expect.arrayContaining(["safetyCodes", "disposal"]));
     expect(fields.byCategory.Components).not.toContain("safetyCodes");
     expect(fields.fallback).toEqual(["purpose", "storageNotes"]);
@@ -400,7 +400,7 @@ describe("who may do what", () => {
   it("lets everybody look and only admins and project managers change", async () => {
     const item = await itemWithStock();
     const as = api.as(viewer);
-    for (const url of ["/api/inventory/items", `/api/inventory/items/${item.id}`, "/api/inventory/pending", "/api/inventory/components", "/api/inventory/stats", "/api/lookups/locations"]) {
+    for (const url of ["/api/inventory/items", `/api/inventory/items/${item.id}`, "/api/inventory/pending", "/api/inventory/components", "/api/inventory/stats", "/api/inventory/locations"]) {
       expect([url, (await as.get(url)).status]).toEqual([url, 200]);
     }
     const attempts = [

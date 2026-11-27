@@ -30,7 +30,7 @@ export const FOLDER_OWNERS: Record<string, Owner> = {
   suppliers: "budget",
   views: "budget",
   cashflow: "budget",
-  cash: "treasury",
+  treasury: "treasury",
   inventory: "inventory",
   registry: "registry",
 };
@@ -42,7 +42,7 @@ export const SNAPSHOT_OWNER: Owner = "budget";
  * The schema files of `db/schema/` (the tables of each owner, nothing else): a table is reached by importing the file of its owner, so the
  * rules on imports are also the rules on tables. `db/schema.ts` has them all, for the client of the database, the tools and the tests.
  */
-export const SCHEMA_FILES: Owner[] = ["platform", "budget", "treasury", "inventory", "registry", "treasury-budget", "registry-access"];
+export const SCHEMA_FILES: Owner[] = ["platform", "budget", "treasury", "inventory", "registry", "treasury-budget", "inventory-budget", "registry-access"];
 
 /**
  * Where the code reaches into another owner's files or tables today, as `file → what it imports`, from `apps/api/src` (a table is its owner's
@@ -50,37 +50,19 @@ export const SCHEMA_FILES: Owner[] = ["platform", "budget", "treasury", "invento
  * step of the plan (G1–G6) has to untie; when it does, the line goes.
  */
 export const IMPORT_EXCEPTIONS: string[] = [
-  // the links between modules that are columns (docs/moduli-architettura.md, §2.3): the two of the treasury are tables of the bridge now
-  // (`inflow_receipt`, `category_voce`); the three of the inventory become tables of its bridge, G5
-  "db/schema/inventory → db/schema/budget", // stock_movement.budget_line_id and project_id, inventory_item.make_project_id
-  // treasury (cash) pays lines of the budget, ties movements to them, and asks the budget's calculation: bridge, G4
-  "modules/cash/cash-links.service → db/schema/budget",
-  "modules/cash/cash-links.service → db/schema/treasury-budget",
-  "modules/cash/cash-lists.service → db/schema/treasury-budget",
-  "modules/cash/cash-links.service → snapshot",
-  "modules/cash/cash.service → db/schema/budget",
-  "modules/cash/cash.service → db/schema/treasury-budget",
-  "modules/cash/outside-budget.service → db/schema/treasury-budget",
-  // the cash flow of the budget writes the register's movements (inflow received, inflow deleted) and uses its own functions: bridge, G4
-  "modules/cashflow/cashflow.routes → modules/cash/cash.schema",
-  "modules/cashflow/cashflow.service → db/schema/treasury",
-  "modules/cashflow/cashflow.service → db/schema/treasury-budget",
-  "modules/cashflow/cashflow.service → modules/cash/cash.schema",
-  "modules/cashflow/cashflow.service → modules/cash/cash.service",
-  "modules/cashflow/inflow-delete.service → db/schema/treasury",
-  "modules/cashflow/inflow-delete.service → db/schema/treasury-budget",
-  "modules/cashflow/inflow-delete.service → modules/cash/cash.service",
+  // the links between the inventory and the budget are tables of their bridge now (`receipt_line`, `movement_project`, `item_make_project`,
+  // G5 tappa 1): the inventory and the calculation still read and write them, until the bridge's code holds them (G5 tappa 3)
+  "modules/inventory/inventory.data → db/schema/inventory-budget",
+  "modules/inventory/items.service → db/schema/inventory-budget",
+  "modules/inventory/movements.service → db/schema/inventory-budget",
+  "modules/inventory/stats.service → db/schema/inventory-budget",
+  "snapshot → db/schema/inventory-budget",
   // the inventory reads the projects and the lines of the budget (PENDING, the project of a movement, the statistics): bridge, G5
   "modules/inventory/items.service → db/schema/budget",
   "modules/inventory/movements.service → db/schema/budget",
   "modules/inventory/movements.service → snapshot",
   "modules/inventory/stats.service → db/schema/budget",
   "modules/inventory/stats.service → snapshot",
-  // the common lists and Settings keep the inventory's lists (units, places, fields of a category): they move with the inventory, G5
-  "platform/lookups/lookups.service → db/schema/inventory",
-  "platform/settings/settings.service → db/schema/inventory",
-  // the calculation reads what the register paid, what it says is outside the budget and what arrived: ports, G6
+  // the calculation reads what arrived in the inventory: a port, G6
   "snapshot → db/schema/inventory",
-  "snapshot → modules/cash/cash.service",
-  "snapshot → modules/cash/outside-budget.service",
 ];

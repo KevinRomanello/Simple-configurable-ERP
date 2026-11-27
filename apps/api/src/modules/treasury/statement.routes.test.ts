@@ -14,23 +14,23 @@ interface Row { row: number; kind: string; label: string; cents: number | null; 
 
 /** A movement of the register: `cents` positive for money in, negative for money out. */
 async function move(voce: string | null, cents: number, over: { account?: string; on?: string } = {}) {
-  const category = voce === null ? undefined : (await api.get("/api/cash/categories")).body.find((c: { name: string }) => c.name === voce);
+  const category = voce === null ? undefined : (await api.get("/api/treasury/categories")).body.find((c: { name: string }) => c.name === voce);
   if (voce !== null) expect(category, `the Voce ${voce}`).toBeDefined();
-  const created = await api.post("/api/cash/entries", {
+  const created = await api.post("/api/treasury/entries", {
     on: over.on ?? "2026-03-10", description: "Test", account: over.account ?? "bank", direction: cents < 0 ? "out" : "in",
     amount: (Math.abs(cents) / 100).toFixed(2), categoryId: category?.id,
   });
   expect(created.status).toBe(201);
 }
-const statement = async (year = 2026) => (await api.get(`/api/cash/statement?year=${year}`)).body as { year: number; years: number[]; rows: Row[] };
+const statement = async (year = 2026) => (await api.get(`/api/treasury/statement?year=${year}`)).body as { year: number; years: number[]; rows: Row[] };
 const rowOf = (rows: Row[], row: number) => rows.find((r) => r.row === row)!;
 
 describe("who can see the financial statement", () => {
   it("the admins and the treasury can; a project manager without the box and a viewer cannot", async () => {
-    expect((await api.get("/api/cash/statement")).status).toBe(200);
-    expect((await api.as(TREASURER).get("/api/cash/statement")).status).toBe(200);
-    expect((await api.as(PM).get("/api/cash/statement")).status).toBe(403);
-    expect((await api.as(VIEWER).get("/api/cash/statement")).status).toBe(403);
+    expect((await api.get("/api/treasury/statement")).status).toBe(200);
+    expect((await api.as(TREASURER).get("/api/treasury/statement")).status).toBe(200);
+    expect((await api.as(PM).get("/api/treasury/statement")).status).toBe(403);
+    expect((await api.as(VIEWER).get("/api/treasury/statement")).status).toBe(403);
   });
 });
 

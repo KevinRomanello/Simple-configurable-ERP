@@ -1,7 +1,8 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { type Person, resetData, sponsorId, testApp } from "../../../test/helpers";
 
-// The Settings page: the lists and the switches that used to be written in the code.
+// The Settings page: the lists and the switches that used to be written in the code. The lists of the inventory (units, places,
+// the fields of a category) are the inventory's: modules/inventory/lists.routes.test.ts.
 const api = testApp();
 // the last test leaves its changes behind: put the lists and switches back for the files that run after this one
 afterAll(async () => {
@@ -27,15 +28,15 @@ describe("who", () => {
     const user = api.as(pm);
     expect((await user.get("/api/settings")).status).toBe(200);
     const category = await user.post("/api/settings/categories", { name: "Tools" });
-    const unit = await user.post("/api/settings/units", { name: "drum" });
-    const place = await user.post("/api/settings/locations", { room: "Lab", shelf: "Shelf" });
+    const unit = await user.post("/api/inventory/units", { name: "drum" });
+    const place = await user.post("/api/inventory/locations", { room: "Lab", shelf: "Shelf" });
     expect([category.status, unit.status, place.status]).toEqual([201, 201, 201]);
     expect((await user.patch(`/api/settings/categories/${category.body.id}`, { name: "Tools 2" })).status).toBe(204);
-    expect((await user.put("/api/settings/uncategorized-fields", { fields: ["purpose"] })).status).toBe(204);
-    expect((await user.patch(`/api/settings/units/${unit.body.id}`, { name: "drum 2" })).status).toBe(204);
-    expect((await user.patch(`/api/settings/locations/${place.body.id}`, { shelf: "Shelf 2" })).status).toBe(204);
-    expect((await user.del(`/api/settings/locations/${place.body.id}`)).status).toBe(204);
-    expect((await user.del(`/api/settings/units/${unit.body.id}`)).status).toBe(204);
+    expect((await user.put("/api/inventory/uncategorized-fields", { fields: ["purpose"] })).status).toBe(204);
+    expect((await user.patch(`/api/inventory/units/${unit.body.id}`, { name: "drum 2" })).status).toBe(204);
+    expect((await user.patch(`/api/inventory/locations/${place.body.id}`, { shelf: "Shelf 2" })).status).toBe(204);
+    expect((await user.del(`/api/inventory/locations/${place.body.id}`)).status).toBe(204);
+    expect((await user.del(`/api/inventory/units/${unit.body.id}`)).status).toBe(204);
     expect((await user.del(`/api/settings/categories/${category.body.id}`)).status).toBe(204);
 
     // the switches of the calculation, the VAT rates and the seasons stay with the admin
@@ -49,13 +50,14 @@ describe("who", () => {
     const viewing = api.as(viewer);
     const tries = [
       await viewing.get("/api/settings"),
+      await viewing.get("/api/inventory/lists"),
       await viewing.post("/api/settings/categories", { name: "Tools" }),
-      await viewing.post("/api/settings/units", { name: "drum" }),
-      await viewing.post("/api/settings/locations", { room: "Lab", shelf: "Shelf" }),
+      await viewing.post("/api/inventory/units", { name: "drum" }),
+      await viewing.post("/api/inventory/locations", { room: "Lab", shelf: "Shelf" }),
       await viewing.post("/api/settings/vat-rates", { rate: 5 }),
       await viewing.patch("/api/settings/calculation", { inflowVatRate: 10 }),
     ];
-    expect(tries.map((r) => r.status)).toEqual([403, 403, 403, 403, 403, 403]);
+    expect(tries.map((r) => r.status)).toEqual([403, 403, 403, 403, 403, 403, 403]);
     expect((await api.get("/api/me")).body.permissions.canManageSettings).toBe(true);
     expect((await user.get("/api/me")).body.permissions.canManageSettings).toBe(false);
   });
@@ -64,9 +66,10 @@ describe("who", () => {
     const s = await settings();
     expect(s.categories.map((c: { name: string }) => c.name)).toEqual(["Components", "Manufacturing", "Consumable", "Asset", "Logistic", "Administration", "Software"]);
     expect(s.vatRates.map((r: { rate: number }) => r.rate)).toEqual([0, 11, 22]);
-    expect(s.units).toHaveLength(8);
-    expect(s.locations).toHaveLength(10);
-    expect(s.uncategorizedFields).toEqual(["purpose", "storageNotes"]);
+    const lists = (await api.get("/api/inventory/lists")).body;
+    expect(lists.units).toHaveLength(8);
+    expect(lists.locations).toHaveLength(10);
+    expect(lists.uncategorizedFields).toEqual(["purpose", "storageNotes"]);
     expect(s.calculation).toEqual({ varianceThreshold: 0.15, vatBaseWhenTotalSponsor: "net", inflowVatRate: 11, bankCompare: { summary: "day", timeline: "month" } });
   });
 });
@@ -75,7 +78,7 @@ describe("categories", () => {
   it("a new one comes last, with the fields of an item without a category, and names stay unique", async () => {
     expect((await api.post("/api/settings/categories", { name: "Tools" })).status).toBe(201);
     expect((await api.get("/api/lookups/categories")).body.at(-1)).toBe("Tools");
-    expect((await api.get("/api/lookups/category-fields")).body.byCategory.Tools).toEqual(["purpose", "storageNotes"]);
+    expect((await api.get("/api/inventory/category-fields")).body.byCategory.Tools).toEqual(["purpose", "storageNotes"]);
     expect((await api.post("/api/settings/categories", { name: "tools" })).status).toBe(409);
     expect((await api.post("/api/settings/categories", { name: "  " })).status).toBe(400);
   });
@@ -118,16 +121,6 @@ describe("categories", () => {
     expect((await api.put("/api/settings/categories/order", { ids: ids.slice(1) })).status).toBe(400); // one missing
     expect((await api.put("/api/settings/categories/order", { ids: [ids[0], ...ids.slice(0, -1)] })).status).toBe(400); // one twice
   });
-
-  it("says which fields an item shows, also without a category", async () => {
-    const id = await categoryId("Software");
-    expect((await api.patch(`/api/settings/categories/${id}`, { fields: ["disposal", "purpose"] })).status).toBe(204);
-    expect((await api.put("/api/settings/uncategorized-fields", { fields: ["purpose"] })).status).toBe(204);
-    const fields = (await api.get("/api/lookups/category-fields")).body;
-    expect(fields.byCategory.Software).toEqual(["purpose", "disposal"]); // always in the order of the form
-    expect(fields.fallback).toEqual(["purpose"]);
-    expect((await api.patch(`/api/settings/categories/${id}`, { fields: ["colour"] })).status).toBe(400);
-  });
 });
 
 describe("VAT rates", () => {
@@ -147,96 +140,6 @@ describe("VAT rates", () => {
     expect(used.usedBy).toBe(1);
     expect((await api.del(`/api/settings/vat-rates/${used.id}`)).status).toBe(409);
     expect((await api.del(`/api/settings/vat-rates/${rates.find((r) => r.rate === 0)!.id}`)).status).toBe(204);
-  });
-});
-
-describe("units", () => {
-  it("are added, renamed with the items counted in them, and deleted only when unused", async () => {
-    const item = (await api.post("/api/inventory/items", { name: "Cable", unit: "m" })).body;
-    const created = await api.post("/api/settings/units", { name: "pair" });
-    expect(created.status).toBe(201);
-    const metres = (await settings()).units.find((u: { name: string }) => u.name === "m");
-    expect((await api.patch(`/api/settings/units/${metres.id}`, { name: "metre" })).status).toBe(204);
-    expect((await api.get(`/api/inventory/items/${item.id}`)).body.item.unit).toBe("metre");
-    expect((await api.del(`/api/settings/units/${metres.id}`)).status).toBe(409);
-    expect((await api.del(`/api/settings/units/${created.body.id}`)).status).toBe(204);
-    expect((await api.get("/api/lookups/units")).body).not.toContain("pair");
-  });
-});
-
-describe("places", () => {
-  it("a new place gets a code that never changes, even when it is renamed", async () => {
-    const created = await api.post("/api/settings/locations", { room: "Workshop", shelf: "Back shelf" });
-    expect(created.status).toBe(201);
-    expect(created.body.code).toBe("workshop--back-shelf");
-    expect((await api.post("/api/settings/locations", { room: "workshop", shelf: "back SHELF" })).status).toBe(409);
-    expect((await api.patch(`/api/settings/locations/${created.body.id}`, { shelf: "Store" })).status).toBe(204);
-    const place = (await api.get("/api/lookups/locations")).body.find((l: { code: string }) => l.code === "workshop--back-shelf");
-    expect(place).toEqual({ code: "workshop--back-shelf", room: "Workshop", shelf: "Store", level: "", label: "Workshop / Store" });
-  });
-
-  it("is a room, and on it a shelf and a level, all plain text; the label has the parts there are", async () => {
-    await api.post("/api/settings/locations", { room: "Lab" });
-    await api.post("/api/settings/locations", { room: "Lab", shelf: "A" });
-    await api.post("/api/settings/locations", { room: "Lab", shelf: "A", levels: ["Top"] });
-    const places = (await api.get("/api/lookups/locations")).body as { code: string; label: string }[];
-    expect(places.slice(-3).map((p) => [p.code, p.label])).toEqual([["lab", "Lab"], ["lab--a", "Lab / A"], ["lab--a--top", "Lab / A / Top"]]);
-    // a room with the same name is another place only if its shelf or level is different
-    expect((await api.post("/api/settings/locations", { room: "LAB" })).status).toBe(409);
-  });
-
-  it("makes one place for each level named, all or none, and a level needs a shelf", async () => {
-    const count = async () => ((await settings()).locations as unknown[]).length;
-    const before = await count();
-    const made = await api.post("/api/settings/locations", { room: "Lab", shelf: "A", levels: ["1", "2", "3", "4"] });
-    expect(made.status).toBe(201);
-    expect(made.body).toMatchObject({ code: "lab--a--1", created: 4 });
-    expect(await count()).toBe(before + 4);
-    expect((await api.get("/api/lookups/locations")).body.slice(-4).map((p: { label: string }) => p.label)).toEqual(["Lab / A / 1", "Lab / A / 2", "Lab / A / 3", "Lab / A / 4"]);
-
-    // one that is there already (or named twice) stops the lot: nothing is made
-    expect((await api.post("/api/settings/locations", { room: "Lab", shelf: "A", levels: ["5", "6", "2"] })).status).toBe(409);
-    expect((await api.post("/api/settings/locations", { room: "Lab", shelf: "B", levels: ["1", "1"] })).status).toBe(409);
-    expect(await count()).toBe(before + 4);
-
-    // a level is a level of a shelf
-    expect((await api.post("/api/settings/locations", { room: "Lab", levels: ["1"] })).status).toBe(400);
-    const room = await api.post("/api/settings/locations", { room: "Cellar" });
-    expect((await api.patch(`/api/settings/locations/${room.body.id}`, { level: "2" })).status).toBe(400);
-    expect((await api.patch(`/api/settings/locations/${room.body.id}`, { shelf: "C", level: "2" })).status).toBe(204);
-    // and a shelf can be taken away only with its level
-    expect((await api.patch(`/api/settings/locations/${room.body.id}`, { shelf: "" })).status).toBe(400);
-    expect((await api.post("/api/settings/locations", { room: "" })).status).toBe(400);
-  });
-
-  it("holds the stock: an arrival on a level shows its whole name, and the place cannot be deleted while it is used", async () => {
-    const made = await api.post("/api/settings/locations", { room: "Lab", shelf: "A", levels: ["2"] });
-    const received = await api.post("/api/inventory/receive", { newItem: { name: "Washer" }, quantity: "10", receivedOn: "2026-10-01", location: made.body.code, spot: "red box", unitNet: "1", vatRate: 22 });
-    expect(received.status).toBe(201);
-    const item = (await api.get(`/api/inventory/items/${received.body.itemId ?? received.body.item?.id}`)).body;
-    expect(item.stock[0]).toMatchObject({ location: "lab--a--2", label: "Lab / A / 2", spot: "red box" });
-    expect((await api.del(`/api/settings/locations/${made.body.id}`)).status).toBe(409);
-  });
-
-  it("a place that things were only moved to is used too", async () => {
-    const bolt = (await api.post("/api/inventory/receive", { newItem: { name: "Bolt" }, quantity: "5", receivedOn: "2026-10-01", location: "s1-r1", unitNet: "1", vatRate: 22 })).body;
-    const moved = await api.post("/api/inventory/movements", { itemId: bolt.itemId ?? bolt.item?.id, kind: "transfer", quantity: "2", occurredOn: "2026-10-02", location: "s1-r1", spot: "", toLocation: "s2-r1", toSpot: "" });
-    expect(moved.status).toBe(201);
-    const destination = ((await settings()).locations as { id: number; code: string; usedBy: number }[]).find((p) => p.code === "s2-r1")!;
-    expect(destination.usedBy).toBe(1);
-    expect((await api.del(`/api/settings/locations/${destination.id}`)).status).toBe(409);
-  });
-
-  it("a place with movements cannot be deleted; the order is kept", async () => {
-    await api.post("/api/inventory/receive", { newItem: { name: "Bolt" }, quantity: "1", receivedOn: "2026-10-01", location: "s1-r1", unitNet: "1", vatRate: 22 });
-    const places = (await settings()).locations as { id: number; code: string; usedBy: number }[];
-    const used = places.find((p) => p.code === "s1-r1")!;
-    expect(used.usedBy).toBe(1);
-    expect((await api.del(`/api/settings/locations/${used.id}`)).status).toBe(409);
-    expect((await api.del(`/api/settings/locations/${places.find((p) => p.code === "s2-r5")!.id}`)).status).toBe(204);
-    const ids = (await settings()).locations.map((p: { id: number }) => p.id);
-    expect((await api.put("/api/settings/locations/order", { ids: [...ids].reverse() })).status).toBe(204);
-    expect((await api.get("/api/lookups/locations")).body[0].code).toBe("s2-r4");
   });
 });
 

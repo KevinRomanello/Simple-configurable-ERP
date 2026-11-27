@@ -12,7 +12,7 @@ Sette richieste dell'utente:
 | D | **TO PAY** visibile a chi tiene il budget, e gli **ordini** (più righe comprate in un solo ordine) | medio-grande |
 | E | **Non perdere quello che si sta scrivendo** quando si cambia pagina (bozze) | medio — **fatta** (26 novembre 2026, in due passi: E1 la base e i form più usati, E2 tutti gli altri) |
 | F | **Ctrl+Z** (annulla) e Ctrl+Shift+Z (rifai) | grande |
-| G | **I moduli**: budget, tesoreria, inventario e anagrafiche spegnibili, che si parlano solo con «API come funzioni». Design a parte: [moduli-architettura.md](moduli-architettura.md) (ADR-2) | molto grande, a passi — **G0, G1, G2 e G3 fatti** (26–27 novembre 2026) |
+| G | **I moduli**: budget, tesoreria, inventario e anagrafiche spegnibili, che si parlano solo con «API come funzioni». Design a parte: [moduli-architettura.md](moduli-architettura.md) (ADR-2) | molto grande, a passi — **G0, G1, G2, G3 e G4 fatti** (26–27 novembre 2026) |
 
 **Ordine consigliato: A → B → C → E → G → D → F.**
 - **Prima le fasi che toccano solo il sito o poco più** (A, B, C, E).
@@ -144,26 +144,26 @@ Ciò che descriveva è passato nei documenti stabili: come funziona il pannello 
 ### 4.4 API
 
 **Gli indirizzi dopo la fase G** (ordine consigliato). Ogni indirizzo del ponte è sotto `/api/treasury-budget/` ([moduli-architettura.md](moduli-architettura.md) §8.2):
-- `/api/cash/to-pay` diventa `/api/treasury-budget/to-pay`;
-- `/api/cash/payable-lines` diventa `/api/treasury-budget/payable-lines`;
+- `/api/treasury-budget/to-pay` (era `/api/cash/to-pay`: spostato nel passo G4);
+- `/api/treasury-budget/payable-lines` (era `/api/cash/payable-lines`);
 - gli ordini nascono come `/api/treasury-budget/orders`.
 
-Qui sotto i nomi di oggi, per ritrovare il codice.
+Qui sotto gli indirizzi di oggi (dal passo G4 sono già sotto `/api/treasury-budget/`).
 
 - **Permessi**: due voci nuove, mandate al sito in `/me`.
   - `canSeeToPay` = admin o pm;
   - `canGroupOrders` = admin o pm.
 
   Dopo la fase G le dichiara il ponte tesoreria×budget, invece di scriverle in `permissionsOf` (`auth.service.ts`). `canManageCash` continua a dire chi paga.
-- **`GET /api/cash/to-pay`** (`listToPay` in `cash-links.service.ts`):
+- **`GET /api/treasury-budget/to-pay`** (`listToPay` in `payments.service.ts`, già nel ponte `bridges/treasury-budget/` dalla tappa 3 di G4):
   - si apre a `canSeeToPay`;
   - ogni riga porta `orderId`, `orderName` e `canGroup` (se la persona può mettere o togliere quella riga);
   - la risposta porta anche gli ordini (`id`, nome, stagione, `canChange`);
   - `lastMethodId` solo a chi paga, `null` agli altri.
 
   Il raggruppamento in righe d'ordine lo fa il sito. `packages/calc` (`toPayLines`) non cambia: l'ordine si aggiunge dopo il calcolo, nel servizio, dalla tabella.
-- **`GET /api/cash/payable-lines`** (per `PayLines`, solo tesoreria): ogni riga con `orderId` e `orderName`.
-- **`GET /api/cash/to-link`** e **`POST /api/cash/to-pay/pay`**: invariati (tesoreria).
+- **`GET /api/treasury-budget/payable-lines`** (per `PayLines`, solo tesoreria): ogni riga con `orderId` e `orderName`.
+- **`GET /api/treasury-budget/to-link`** e **`POST /api/treasury-budget/to-pay/pay`**: invariati (tesoreria).
 - **Ordini**: nel ponte tesoreria×budget (`bridges/treasury-budget/orders.service.ts`), che usa `budget.public.ts` per le righe e i loro permessi. Senza la fase G, nel modulo `budget`.
   - `POST /api/treasury-budget/orders` `{ name, lineIds }`, almeno due righe → l'ordine creato. Le righe che erano in un altro ordine si spostano.
   - `PATCH /api/treasury-budget/orders/:id` `{ name?, addLineIds?, removeLineIds? }`.
@@ -541,7 +541,7 @@ Le tabelle senza storico (`item_image`, `item_datasheet_file`, `reg_file`, `reg_
 | Fase | Endpoint |
 | --- | --- |
 | A | nessuno (il form manda le due fasi, come se fossero scritte a mano) |
-| C | `GET /api/inflows/related`, `POST /api/inflows/delete`. Nel passo G4 la parte del registro va sotto `/api/treasury-budget/` |
+| C | `GET /api/treasury-budget/inflows/related`, `POST /api/treasury-budget/inflows/delete` (erano sotto `/api/inflows/`: spostati nel passo G4) |
 | D (dopo G) | `GET /api/treasury-budget/to-pay` aperto a chi tiene il budget (con gli ordini), `GET /api/treasury-budget/payable-lines` (con gli ordini), `POST/PATCH/DELETE /api/treasury-budget/orders`, `/me` con `canSeeToPay` e `canGroupOrders` |
 | G | tutti gli indirizzi di budget, tesoreria, inventario e ponti sotto il loro nome: tabella in [moduli-architettura.md](moduli-architettura.md) §8.2 |
 | F | `POST /api/changes/undo`, intestazione `X-Change-Ids` su ogni scrittura |

@@ -1,4 +1,5 @@
 import { AppError, forbidden } from "../../core/errors";
+import { can } from "../platform.public";
 import { userStorage } from "./auth.context";
 
 export type Role = "admin" | "pm" | "viewer";
@@ -48,8 +49,13 @@ export async function canManageSuppliers(user: User): Promise<boolean> {
   return runsProjects(user);
 }
 
-/** The inventory is kept by the people who run the projects: admins and project managers. */
+/** The inventory: who keeps it, the inventory declares (`inventory.contract.ts`: admins and project managers). */
 export async function canManageInventory(user: User): Promise<boolean> {
+  return can(user, "canManageInventory");
+}
+
+/** The categories (Settings): the people who write the lines and the items with them, admins and project managers. */
+export async function canKeepCategories(user: User): Promise<boolean> {
   return runsProjects(user);
 }
 
@@ -69,7 +75,7 @@ export async function canManageFunds(user: User): Promise<boolean> {
  * are not part of it.
  */
 export async function canManageCash(user: User): Promise<boolean> {
-  return user.role === "admin" || (user.role === "pm" && hasFlag(user, "treasury"));
+  return can(user, "canManageCash"); // the treasury declares who keeps the money of the team (treasury.contract.ts)
 }
 
 /**
@@ -77,8 +83,11 @@ export async function canManageCash(user: User): Promise<boolean> {
  * Marking an inflow as received (it is tied to the register) and the BANK stay with the treasury (`canManageCash`).
  */
 export async function canChangeInflows(user: User): Promise<boolean> {
-  return user.role === "admin" || (user.role === "pm" && (hasFlag(user, "treasury") || hasFlag(user, "sponsors")));
+  return changesInflows(user);
 }
+
+/** The admins and the sponsors may change the inflows; the bridge to the treasury adds the treasury (`treasury-budget.contract.ts`). */
+const changesInflows = (user: User) => user.role === "admin" || (user.role === "pm" && hasFlag(user, "sponsors")) || can(user, "canChangeInflows");
 
 export function requireAdmin(user: User): void {
   if (user.role !== "admin") throw forbidden("Only an admin can do this");
@@ -88,10 +97,10 @@ export function requireAdmin(user: User): void {
 export function permissionsOf(user: User) {
   return {
     canEditShared: user.role === "admin" || (user.role === "pm" && hasFlag(user, "sponsors")),
-    canManageCash: user.role === "admin" || (user.role === "pm" && hasFlag(user, "treasury")),
-    canChangeInflows: user.role === "admin" || (user.role === "pm" && (hasFlag(user, "treasury") || hasFlag(user, "sponsors"))),
+    canManageCash: can(user, "canManageCash"),
+    canChangeInflows: changesInflows(user),
     canManageSuppliers: runsProjects(user),
-    canManageInventory: runsProjects(user),
+    canManageInventory: can(user, "canManageInventory"),
     canViewHistory: runsProjects(user),
     canManageUsers: user.role === "admin",
     canManageSettings: user.role === "admin",

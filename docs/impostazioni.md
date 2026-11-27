@@ -34,9 +34,9 @@ La pagina non è più una colonna di undici riquadri: ha **cinque sezioni** (le 
 
 Regole comuni:
 
-- **Si cancella solo ciò che non è usato, e chi lo usa lo dice il modulo che lo usa** (dal 26 novembre 2026: il nucleo non legge più le tabelle del budget e dell'inventario, fa la domanda «chi usa questo?» e ogni modulo risponde con i suoi conti, in una query per elenco: [moduli-architettura.md](moduli-architettura.md), §5). Rinominare una categoria o un'unità manda un evento che ogni modulo ascolta per le sue righe, anche se è spento. La colonna **USED BY** dice quante volte (righe e articoli per una categoria, sponsor e righe per un'aliquota, articoli per un'unità, movimenti per un posto); il cestino è spento finché è usato, e il server rifiuta comunque (`409`, con cosa lo usa).
+- **Si cancella solo ciò che non è usato, e chi lo usa lo dice il modulo che lo usa** (dal 26 novembre 2026: il nucleo non legge più le tabelle del budget e dell'inventario, fa la domanda «chi usa questo?» e ogni modulo risponde con i suoi conti, in una query per elenco: [moduli-architettura.md](moduli-architettura.md), §5). Rinominare una categoria manda un evento che ogni modulo ascolta per le sue righe, anche se è spento. Unità, posti e campi per categoria, dal 27 novembre 2026 (G5), sono **liste dell'inventario**: li conta e li rinomina l'inventario stesso, e una categoria nuova riceve i campi degli articoli senza categoria dall'evento `categoryCreated` del nucleo. La colonna **USED BY** dice quante volte (righe e articoli per una categoria, sponsor e righe per un'aliquota, articoli per un'unità, movimenti per un posto); il cestino è spento finché è usato, e il server rifiuta comunque (`409`, con cosa lo usa).
 - **Nomi unici** senza badare alle maiuscole (`409` se esiste già).
-- **L'admin** legge e scrive tutta la pagina. **I pm** (`canManageInventory`, come il resto dell'inventario) leggono `GET /api/settings` e cambiano **Categories** (con i loro campi e l'ordine), **Units**, **Places** e **Item types**; restano **solo dell'admin** i **switch del calcolo** (Calculation), le **aliquote IVA** (VAT rates) e le **stagioni** (Seasons and cars): per loro il server risponde `403`. Una categoria serve anche al budget (i blocchi di TOTAL e del Gantt): chi la aggiunge o la rinomina cambia anche quelle pagine, e una categoria in uso non si cancella. **Le liste del registro**, che sono anche dei **pm con la spunta Treasury** (`canManageCash`). Il menù mostra Settings **a ogni ruolo**; ognuno vede solo i suoi riquadri. **Il riquadro «Appearance» (tema chiaro, scuro o come il dispositivo) è di tutti, anche del viewer**, che per il resto vede la pagina vuota: non passa dall'API e la scelta resta nel browser ([stile-interfaccia.md](stile-interfaccia.md), punto 14).
+- **L'admin** legge e scrive tutta la pagina. **I pm** leggono `GET /api/settings` e cambiano **Categories** (nome e ordine: la regola è del nucleo, admin e pm, `canKeepCategories`) e, con `canManageInventory` come il resto dell'inventario, i **campi** delle categorie, **Units**, **Places** e **Item types** (da `GET /api/inventory/lists`); restano **solo dell'admin** i **switch del calcolo** (Calculation), le **aliquote IVA** (VAT rates) e le **stagioni** (Seasons and cars): per loro il server risponde `403`. Una categoria serve anche al budget (i blocchi di TOTAL e del Gantt): chi la aggiunge o la rinomina cambia anche quelle pagine, e una categoria in uso non si cancella. **Le liste del registro**, che sono anche dei **pm con la spunta Treasury** (`canManageCash`). Il menù mostra Settings **a ogni ruolo**; ognuno vede solo i suoi riquadri. **Il riquadro «Appearance» (tema chiaro, scuro o come il dispositivo) è di tutti, anche del viewer**, che per il resto vede la pagina vuota: non passa dall'API e la scelta resta nel browser ([stile-interfaccia.md](stile-interfaccia.md), punto 14).
 - Le priorità (High, Medium, Low) **non** sono qui: sono fisse per scelta (i colori del foglio).
 
 ### Modificare dal telefono: «Editing on a phone» (16 novembre 2026)
@@ -64,28 +64,30 @@ Cambiarla cambia subito tutte le righe pagate da uno sponsor così. La pagina lo
 
 | Cosa | Dove |
 | --- | --- |
-| tabelle | `category`, `category_field` (categoria × campo; `category_id` vuoto = articoli senza categoria), `vat_rate`, `unit`, `location`, `setting` (una riga sola): migrazione `0010_admin_settings.sql`, che le crea **già riempite con i valori di prima** (quindi all'inizio non cambia niente) e mette il trigger dello storico |
+| tabelle | `category`, `category_field` (categoria × campo; `category_id` vuoto = articoli senza categoria; dell'inventario), `vat_rate`, `unit` e `location` (dell'inventario), `setting` (una riga sola): migrazione `0010_admin_settings.sql`, che le crea **già riempite con i valori di prima** (quindi all'inizio non cambia niente) e mette il trigger dello storico |
 | valori di partenza | `apps/api/src/platform/lookups/defaults.ts` (`LOOKUP_DEFAULTS`): gli stessi della migrazione. Li usano i test (ogni test riparte da lì) e la riconciliazione col foglio |
-| lettura | le stesse funzioni di prima (`listCategories`, `listVatRates`, `getSettings`, `listLocations`, `listUnits`, `getCategoryFields` in `lookups.service.ts`): è cambiato **solo il loro corpo**, che ora legge il database (regola 4). Chi le chiamava non è cambiato |
-| scrittura | `apps/api/src/platform/settings/` (servizio e rotte), solo admin |
+| lettura | `listCategories`, `listVatRates`, `getSettings` in `platform/lookups/lookups.service.ts`; `listLocations`, `listUnits`, `getCategoryFields` in `modules/inventory/lists.service.ts` (dal passo G5): leggono il database (regola 4) |
+| scrittura | `apps/api/src/platform/settings/` (categorie, aliquote, interruttori); `apps/api/src/modules/inventory/lists.service.ts` (campi delle categorie, unità, posti) |
 | pagina | `apps/web/src/pages/SettingsPage.tsx` (una sezione alla volta, §1), fatta con i modelli dell'interfaccia ([stile-interfaccia.md](stile-interfaccia.md)); non c'è un riferimento Figma, come per Users e History |
 | permesso | `canManageSettings` in `permissionsOf` (`auth.service.ts`) |
 
-**API** (con login; admin, e i pm per le liste dell'inventario: categorie, unità, posti; il calcolo e le aliquote IVA solo admin):
+**API** (con login; admin, e i pm per le categorie e le liste dell'inventario; il calcolo e le aliquote IVA solo admin):
 
 | Metodo | Percorso | Cosa fa |
 | --- | --- | --- |
-| `GET` | `/api/settings` | tutto ciò che la pagina mostra, con USED BY |
-| `POST` / `PATCH` / `DELETE` | `/api/settings/categories[/:id]` | nuova (`name`, `fields` facoltativi), rinomina e/o campi, cancella |
+| `GET` | `/api/settings` | ciò che la parte del nucleo mostra (categorie, aliquote, interruttori), con USED BY |
+| `POST` / `PATCH` / `DELETE` | `/api/settings/categories[/:id]` | nuova (`name`), rinomina, cancella |
 | `PUT` | `/api/settings/categories/order` | `{ ids }`: il nuovo ordine, con ogni categoria una volta |
-| `PUT` | `/api/settings/uncategorized-fields` | `{ fields }` degli articoli senza categoria |
 | `POST` / `DELETE` | `/api/settings/vat-rates[/:id]` | `{ rate }` |
-| `POST` / `PATCH` / `DELETE` | `/api/settings/units[/:id]` | `{ name }` |
-| `POST` / `PATCH` / `DELETE` | `/api/settings/locations[/:id]` | creazione `{ room, shelf?, levels?[] }` (un posto per ripiano, tutti o nessuno; restituisce il primo e quanti ne ha fatti), modifica `{ room?, shelf?, level? }` |
-| `PUT` | `/api/settings/locations/order` | `{ ids }` |
+| `GET` | `/api/inventory/lists` | la parte dell'inventario: i campi di ogni categoria (per id) e degli articoli senza categoria, le unità e i posti con USED BY |
+| `PUT` | `/api/inventory/category-fields/:id` | `{ fields }` di una categoria |
+| `PUT` | `/api/inventory/uncategorized-fields` | `{ fields }` degli articoli senza categoria |
+| `POST` / `PATCH` / `DELETE` | `/api/inventory/units[/:id]` | `{ name }` |
+| `POST` / `PATCH` / `DELETE` | `/api/inventory/locations[/:id]` | creazione `{ room, shelf?, levels?[] }` (un posto per ripiano, tutti o nessuno; restituisce il primo e quanti ne ha fatti), modifica `{ room?, shelf?, level? }` |
+| `PUT` | `/api/inventory/locations/order` | `{ ids }` |
 | `PATCH` | `/api/settings/calculation` | `varianceThreshold` (0–1), `inflowVatRate` (%), `vatBaseWhenTotalSponsor`, `bankCompare.summary` / `.timeline` (`day`/`month`); ciò che manca resta com'è |
 
-Le letture per le altre pagine restano quelle di prima (`GET /api/lookups/...`), aperte a chi ha fatto l'accesso.
+Le letture per le altre pagine sono `GET /api/lookups/...` (categorie, priorità, aliquote, interruttori) e, per i moduli dell'inventario, `GET /api/inventory/locations`, `/units`, `/category-fields` (prima `/api/lookups/…`), aperte a chi ha fatto l'accesso.
 
 **La riconciliazione col foglio** (`pnpm reconcile`) usa i valori del vecchio foglio (`defaultLookups()`), **non** quelli scelti dall'admin: deve confrontare col foglio com'era, qualunque cosa sia cambiata dopo. Il caricamento del foglio nel database (`load`) usa invece quelli del database.
 

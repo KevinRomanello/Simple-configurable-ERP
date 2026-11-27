@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { ownerDb } from "../../src/db/owner";
 import { budgetLine, fund, fundContract, lineFigures, lineFund, project, supplier, teamInflow } from "../../src/db/schema/budget";
 import { componentPart, inventoryItem, location, stockMovement } from "../../src/db/schema/inventory";
+import { movementProject, receiptLine } from "../../src/db/schema/inventory-budget";
 import { area, auditLog, category, season } from "../../src/db/schema/platform";
 import { cashCategory, cashEntry, cashMethod, cashOpening } from "../../src/db/schema/treasury";
 import { cashEntryLine, categoryVoce, inflowReceipt } from "../../src/db/schema/treasury-budget";
@@ -127,12 +128,20 @@ export async function buildSeason(size: Size) {
     // what the team makes is made of a few of the parts
     const bought = items.filter((item) => item.origin === "bought");
     await tx.insert(componentPart).values(items.filter((item) => item.origin === "made").flatMap((item, i) => Array.from({ length: 5 }, (_, k) => ({ componentId: item.id, partId: bought[(i * 5 + k) % bought.length]!.id, quantity: String(between(1, 6)) }))));
-    const moves: (typeof stockMovement.$inferInsert)[] = items.flatMap((item, i) => {
+    // a movement with what it is tied to on the budget's side (the purchase it completes, the project it was for), which goes in the tables of the bridge
+    type Move = typeof stockMovement.$inferInsert & { budgetLineId?: number | null; projectId?: number | null };
+    const moves: Move[] = items.flatMap((item, i) => {
       const net = between(50, 5000);
       const receipt = { itemId: item.id, kind: "receipt" as const, occurredOn: seasonDay(between(0, 100)), quantity: String(between(5, 200)), location: pick(places).code, unitNet: money(net), unitGross: money(Math.round(net * 1.22)), unitTeam: money(Math.round(net * 1.22)), budgetLineId: i % 2 === 0 ? lines[i % lines.length]!.id : null, projectId: i % 2 === 0 ? projects[i % projects.length]!.id : null };
       return rand() < 0.6 ? [receipt, { itemId: item.id, kind: "use" as const, occurredOn: seasonDay(between(101, 200)), quantity: String(between(1, 4)), location: receipt.location, projectId: pick(projects).id }] : [receipt];
     });
-    for (const part of chunks(moves, 1500)) await tx.insert(stockMovement).values(part);
+    for (const part of chunks(moves, 1500)) {
+      const made = await tx.insert(stockMovement).values(part.map(({ budgetLineId: _line, projectId: _project, ...move }) => move)).returning({ id: stockMovement.id });
+      const lines = part.flatMap((m, k) => (m.budgetLineId ? [{ movementId: made[k]!.id, lineId: m.budgetLineId }] : []));
+      const projectsOf = part.flatMap((m, k) => (m.projectId ? [{ movementId: made[k]!.id, projectId: m.projectId }] : []));
+      if (lines.length > 0) await tx.insert(receiptLine).values(lines);
+      if (projectsOf.length > 0) await tx.insert(movementProject).values(projectsOf);
+    }
 
     // the History grows with every change: the pages of the History read a long table
     const changed = [

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { id } from "../../core/validation";
+import { id, shortText } from "../../core/validation";
+import { ITEM_FIELDS } from "../../platform/lookups/defaults";
 import { addPart, getComponent, getPlan, listComponents, removePart, updatePart } from "./components.service";
 import { addDatasheet, getDatasheet, removeDatasheet } from "./datasheets.service";
 import {
@@ -8,12 +9,22 @@ import {
   orderInput, paramFilters, partInput, planQuery, priceQuery, receiveInput, statsQuery, updateItemInput, updateParamInput, updatePartInput, updateTypeInput,
 } from "./inventory.schema";
 import { createItem, deleteItem, getImage, getItem, listItems, removeImage, setImage, updateItem } from "./items.service";
+import {
+  createLocation, createUnit, deleteLocation, deleteUnit, getCategoryFields, listLocations, listUnits, orderLocations, readLists, renameUnit,
+  setCategoryFields, setUncategorizedFields, updateLocation,
+} from "./lists.service";
 import { addMovement, build, listPending, receive, undoMovement } from "./movements.service";
 import { getStats, listProjects } from "./stats.service";
 import { addParam, createType, deleteParam, deleteType, listTypes, orderParams, updateParam, updateType } from "./types.service";
 
 const itemParam = z.object({ id });
 const partParams = z.object({ id, partId: id });
+
+/** The optional fields of an item a category shows. */
+const fields = z.array(z.enum(ITEM_FIELDS)).max(ITEM_FIELDS.length);
+/** The room, shelf or level of a place: a name; the shelf and the level can be nothing. */
+const placeName = shortText(60);
+const placePart = z.union([z.literal(""), placeName]);
 
 export async function inventoryRoutes(app: FastifyInstance) {
   // items
@@ -119,6 +130,44 @@ export async function inventoryRoutes(app: FastifyInstance) {
   app.patch("/inventory/params/:id", (request) => updateParam(itemParam.parse(request.params).id, updateParamInput.parse(request.body)));
   app.delete("/inventory/params/:id", async (request, reply) => {
     await deleteParam(itemParam.parse(request.params).id);
+    return reply.code(204).send();
+  });
+
+  // the lists the inventory is written with: what the forms offer, and the Settings page that keeps them
+  app.get("/inventory/locations", () => listLocations());
+  app.get("/inventory/units", () => listUnits());
+  app.get("/inventory/category-fields", () => getCategoryFields());
+  app.get("/inventory/lists", () => readLists());
+  app.put("/inventory/category-fields/:id", async (request, reply) => {
+    await setCategoryFields(itemParam.parse(request.params).id, z.object({ fields }).parse(request.body).fields);
+    return reply.code(204).send();
+  });
+  app.put("/inventory/uncategorized-fields", async (request, reply) => {
+    await setUncategorizedFields(z.object({ fields }).parse(request.body).fields);
+    return reply.code(204).send();
+  });
+  app.post("/inventory/units", async (request, reply) => reply.code(201).send(await createUnit(z.object({ name: shortText(20) }).parse(request.body).name)));
+  app.patch("/inventory/units/:id", async (request, reply) => {
+    await renameUnit(itemParam.parse(request.params).id, z.object({ name: shortText(20) }).parse(request.body).name);
+    return reply.code(204).send();
+  });
+  app.delete("/inventory/units/:id", async (request, reply) => {
+    await deleteUnit(itemParam.parse(request.params).id);
+    return reply.code(204).send();
+  });
+  app.post("/inventory/locations", async (request, reply) =>
+    reply.code(201).send(await createLocation(z.object({ room: placeName, shelf: placePart.optional(), levels: z.array(placeName).min(1).max(40).optional() }).parse(request.body))),
+  );
+  app.patch("/inventory/locations/:id", async (request, reply) => {
+    await updateLocation(itemParam.parse(request.params).id, z.object({ room: placeName.optional(), shelf: placePart.optional(), level: placePart.optional() }).parse(request.body));
+    return reply.code(204).send();
+  });
+  app.delete("/inventory/locations/:id", async (request, reply) => {
+    await deleteLocation(itemParam.parse(request.params).id);
+    return reply.code(204).send();
+  });
+  app.put("/inventory/locations/order", async (request, reply) => {
+    await orderLocations(orderInput.parse(request.body).ids);
     return reply.code(204).send();
   });
 

@@ -6,16 +6,17 @@ import { env } from "./core/env";
 import { AppError, badValueMessage, postgresCode, retryMessage } from "./core/errors";
 import { addSecurity, DEFAULT_RATE_LIMITS, type RateLimits } from "./core/security";
 // what the modules answer to the core and hear from it: read once, at the start, in this order (the Treasury box comes before the Sponsors one, and the budget is named first in a message)
-import "./modules/cash/cash.contract";
+import "./modules/treasury/treasury.contract";
 import "./modules/budget/budget.contract";
 import "./modules/inventory/inventory.contract";
+import "./bridges/treasury-budget/treasury-budget.contract";
 import { addModuleGate, appModulesRoutes } from "./platform/appmodules/appmodules.routes";
 import { addAuthHook, authRoutes } from "./platform/auth/auth.routes";
 import { createGoogleClient, type GoogleClient } from "./platform/auth/google";
 import { areasRoutes } from "./platform/areas/areas.routes";
 import { auditRoutes } from "./platform/audit/audit.routes";
 import { budgetRoutes } from "./modules/budget/budget.routes";
-import { cashRoutes } from "./modules/cash/cash.routes";
+import { cashRoutes } from "./modules/treasury/cash.routes";
 import { cashflowRoutes } from "./modules/cashflow/cashflow.routes";
 import { fundsRoutes } from "./modules/funds/funds.routes";
 import { healthRoutes } from "./platform/health/health.routes";
@@ -28,6 +29,7 @@ import { viewsRoutes } from "./modules/views/views.routes";
 import { settingsRoutes } from "./platform/settings/settings.routes";
 import { registryRoutes } from "./modules/registry/registry.routes";
 import { rolesyncRoutes } from "./bridges/registry-access/rolesync.routes";
+import { treasuryBudgetRoutes } from "./bridges/treasury-budget/treasury-budget.routes";
 
 export interface AppOptions {
   /** Defaults to the values of the environment. */
@@ -94,7 +96,9 @@ export function buildApp(options: AppOptions = {}) {
       await api.register(suppliersRoutes);
       await api.register(inventoryRoutes);
       await api.register(cashflowRoutes);
-      await api.register(cashRoutes);
+      // a module and a bridge answer under their own name: /api/treasury/…, /api/treasury-budget/… (docs/moduli-architettura.md, §8)
+      await api.register(cashRoutes, { prefix: "/treasury" });
+      await api.register(treasuryBudgetRoutes, { prefix: "/treasury-budget" });
       await api.register(viewsRoutes);
       await api.register(settingsRoutes);
       await api.register(registryRoutes);

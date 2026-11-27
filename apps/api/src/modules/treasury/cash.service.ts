@@ -1,15 +1,16 @@
 import { balancesAt, registerTimeline, totalOf, zeroBalances, CASH_ACCOUNTS, type Balances, type CashAccount, type Opening, type RegisterEntry, type YearBalances } from "@erp/calc";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { conflict, forbidden, invalid, notFound } from "../../core/errors";
 import { fromCents, toCents } from "../../core/money";
 import { today } from "../../core/today";
+import { contracts } from "../../core/contracts";
 import { runWrite, type Tx } from "../../core/tx";
 import { db } from "../../db/client";
-import { budgetLine, project, teamInflow } from "../../db/schema/budget";
 import { cashCategory, cashEntry, cashMethod, cashOpening } from "../../db/schema/treasury";
-import { cashEntryLine, inflowReceipt } from "../../db/schema/treasury-budget";
 import { canManageCash, getCurrentUser } from "../../platform/auth/auth.service";
+import { currentActive } from "../../platform/platform.public";
 import type { CreateEntryInput, UpdateEntryInput } from "./cash.schema";
+import { entryChanging, entryLinks, type EntryLink } from "./treasury.links";
 
 // The register of the team's money (docs/registro-di-cassa.md): every movement on Cassa, Banca and
 // Paypal. Balances are never stored: they are worked out from the movements at every reading.
@@ -62,11 +63,11 @@ export async function getRegister(year?: number) {
   await assertCanManageCash();
   const thisYear = Number(today().slice(0, 4));
   const shown = year ?? thisYear;
-  const { entries, openings } = await loadRegister();
+  // the movements and what they are tied to are two separate reads: they go to the database together
+  const [{ entries, openings }, links] = await Promise.all([loadRegister(), loadLinks()]);
   const { rows, years } = registerTimeline(entries, openings);
   const balances = yearBalances(years, shown);
   const opened = new Set(openings.filter((o) => o.year === shown).map((o) => o.account));
-  const links = await loadLinks();
   return {
     year: shown,
     years: [...new Set([thisYear, ...years.keys()])].sort((a, b) => b - a),
@@ -77,40 +78,18 @@ export async function getRegister(year?: number) {
     total: { opening: totalOf(balances.opening), closing: totalOf(balances.closing) },
     entries: rows
       .filter((r) => r.entry.on.startsWith(String(shown)))
-      .map((r) => ({ ...r.entry, balances: r.balances, total: totalOf(r.balances), ...(links.get(r.entry.id) ?? NO_LINKS) })),
+      .map((r) => ({ ...r.entry, balances: r.balances, total: totalOf(r.balances), ...tiesOf(links.get(r.entry.id)) })),
   };
 }
 
-/** What a movement is tied to: the expected inflow it received, or the budget lines it paid. */
-const NO_LINKS = { inflow: null, lines: [] } as { inflow: { id: number; sourceName: string } | null; lines: { lineId: number; item: string; cents: number }[] };
-
-async function loadLinks(reader: Reader = db) {
-  const [inflows, lines] = await Promise.all([
-    reader.select({ entryId: inflowReceipt.entryId, id: teamInflow.id, sourceName: teamInflow.sourceName }).from(inflowReceipt).innerJoin(teamInflow, eq(inflowReceipt.inflowId, teamInflow.id)),
-    reader
-      .select({ entryId: cashEntryLine.entryId, lineId: cashEntryLine.lineId, item: budgetLine.item, amount: cashEntryLine.amount })
-      .from(cashEntryLine)
-      .innerJoin(budgetLine, eq(cashEntryLine.lineId, budgetLine.id))
-      .orderBy(asc(cashEntryLine.id)),
-  ]);
-  const byEntry = new Map<number, typeof NO_LINKS>();
-  const of = (entryId: number) => byEntry.get(entryId) ?? byEntry.set(entryId, { inflow: null, lines: [] }).get(entryId)!;
-  for (const i of inflows) of(i.entryId!).inflow = { id: i.id, sourceName: i.sourceName };
-  for (const l of lines) of(l.entryId).lines.push({ lineId: l.lineId, item: l.item, cents: toCents(l.amount) });
-  return byEntry;
+/** What a movement is tied to, from whoever ties them (the bridge to the budget): by movement; a movement tied to nothing is not there. */
+async function loadLinks() {
+  const links = await contracts.ask(entryLinks, currentActive(), db, {});
+  return new Map<number, EntryLink>(links.map((l) => [l.entryId, l]));
 }
 
-/** What the payments of the register have paid of each ACTUAL line of a season, in cents. */
-export async function loadPayments(reader: Reader, seasonId: number) {
-  const rows = await reader
-    .select({ lineId: cashEntryLine.lineId, amount: sql<string>`sum(${cashEntryLine.amount})` })
-    .from(cashEntryLine)
-    .innerJoin(budgetLine, eq(cashEntryLine.lineId, budgetLine.id))
-    .innerJoin(project, eq(budgetLine.projectId, project.id))
-    .where(eq(project.seasonId, seasonId))
-    .groupBy(cashEntryLine.lineId);
-  return rows.map((r) => ({ lineId: r.lineId, cents: toCents(r.amount) }));
-}
+/** What a movement is tied to, as the register shows it (a movement tied to nothing has none). */
+const tiesOf = (link: EntryLink | undefined): Pick<EntryLink, "inflow" | "lines"> => ({ inflow: link?.inflow ?? null, lines: link?.lines ?? [] });
 
 /** What the accounts held at the end of a day, for the BANK of CASH FLOW; null if the register knows nothing up to then. */
 export async function registerBalanceAt(reader: Reader, date: string): Promise<Balances | null> {
@@ -159,16 +138,6 @@ export async function createEntry(input: CreateEntryInput) {
   return runWrite(actor, (tx) => insertEntry(tx, input));
 }
 
-/** A movement that received an inflow stays money in, and one that paid budget lines stays a payment of at least that much. */
-async function assertLinksHold(tx: Tx, entryId: number, direction: "in" | "out", cents: number) {
-  const [inflow] = await tx.select({ id: inflowReceipt.id }).from(inflowReceipt).where(eq(inflowReceipt.entryId, entryId));
-  const [linked] = await tx.select({ amount: sql<string | null>`sum(${cashEntryLine.amount})` }).from(cashEntryLine).where(eq(cashEntryLine.entryId, entryId));
-  const paid = linked?.amount == null ? 0 : toCents(linked.amount);
-  if (direction === "out" && inflow) throw conflict("This movement received an expected inflow: mark it as not received first");
-  if (direction === "in" && paid > 0) throw conflict("This movement paid budget lines: unlink them first");
-  if (direction === "out" && cents < paid) throw conflict("This movement paid budget lines for more than that: change the links first");
-}
-
 export async function updateEntry(entryId: number, input: UpdateEntryInput) {
   const actor = await assertCanManageCash();
   return runWrite(actor, async (tx) => {
@@ -178,7 +147,8 @@ export async function updateEntry(entryId: number, input: UpdateEntryInput) {
     const cents = toCents(current.amount);
     const direction = input.direction ?? (cents > 0 ? "in" : "out");
     const amount = input.amount ?? fromCents(Math.abs(cents));
-    await assertLinksHold(tx, entryId, direction, toCents(amount));
+    // whoever tied the movement to something (an inflow it received, budget lines it paid) may refuse the change
+    await contracts.emit(entryChanging, currentActive(), tx, { entryId, direction, cents: toCents(amount) });
     const [updated] = await tx
       .update(cashEntry)
       .set({
