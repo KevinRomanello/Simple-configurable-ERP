@@ -9,7 +9,7 @@ Sette richieste dell'utente:
 | A | La spunta **«ACTUAL same as EXPECTED»** nel form «Add item» | piccolo — **fatta** (26 novembre 2026) |
 | B | Le azioni di una riga (collegare, pagare, ricevere, cambiare…) si aprono in un **popup** invece che in cima alla pagina | piccolo-medio — **fatta** (26 novembre 2026) |
 | C | **Cancellare un inflow** di CASH FLOW scegliendo da dove: EXPECTED, ACTUAL, registro di cassa | piccolo-medio — **fatta** (26 novembre 2026) |
-| D | **TO PAY** visibile a chi tiene il budget, e gli **ordini** (più righe comprate in un solo ordine) | medio-grande — **tappe 1 (server) e 2 (sito) fatte** (27 novembre 2026); resta la chiusura (tappa 3: il giro nel browser e i documenti) |
+| D | **TO PAY** visibile a chi tiene il budget, e gli **ordini** (più righe comprate in un solo ordine) | medio-grande — **fatta** (27 novembre 2026, in tre tappe: server, sito, chiusura) |
 | E | **Non perdere quello che si sta scrivendo** quando si cambia pagina (bozze) | medio — **fatta** (26 novembre 2026, in due passi: E1 la base e i form più usati, E2 tutti gli altri) |
 | F | **Ctrl+Z** (annulla) e Ctrl+Shift+Z (rifai) | grande |
 | G | **I moduli**: budget, tesoreria, inventario e anagrafiche spegnibili, che si parlano solo con «API come funzioni». Design a parte: [moduli-architettura.md](moduli-architettura.md) (ADR-2) | molto grande, a passi — **fatta**: G0–G8 (26–27 novembre 2026) |
@@ -76,143 +76,16 @@ Ciò che descriveva è passato nei documenti stabili: come funziona il pannello 
 
 ---
 
-## 4. Fase D — TO PAY per chi tiene il budget, e gli ordini
+## 4. Fase D — TO PAY per chi tiene il budget, e gli ordini: **fatta** (27 novembre 2026)
 
-### 4.1 Cosa vede l'utente
+Ciò che descriveva è passato nei documenti stabili: chi vede TO PAY e cosa può fare chi non paga, l'ordine (regole, API, la riga dell'ordine, raggruppare, aggiungere, rinominare, sciogliere, pagare un ordine, gli ordini in «Link to lines») in [registro-di-cassa.md](registro-di-cassa.md) (§5.3, §5.4 e §5.4bis); i permessi `canSeeToPay` e `canGroupOrders` in [accesso-e-storico.md](accesso-e-storico.md); le tabelle `purchase_order` e `order_line` in [schema-database.md](schema-database.md); il menù (un gruppo senza voci visibili non si disegna) in [moduli-architettura.md](moduli-architettura.md) (§7) e [stile-interfaccia.md](stile-interfaccia.md); le prove delle tre tappe in [collaudo.md](collaudo.md). Il codice è nel ponte tesoreria×budget: `apps/api/src/bridges/treasury-budget/orders.service.ts` e, nel sito, `bridges/treasury-budget/toPayOrders.ts`, `OrderForms.tsx`, `ToPayPage.tsx`, `PayLines.tsx`.
 
-**Chi vede TO PAY**
-- Oggi solo la tesoreria e gli admin (`canManageCash`).
-- Dopo: **tutti quelli che possono modificare il budget**, cioè admin e User (`pm`), con o senza le spunte. Il viewer no.
-- Un pm vede **tutte le righe** del TO PAY della stagione, di tutte le aree (decisione: un ordine può avere pezzi di più aree, per esempio Amazon US per HW e MT). Mette negli ordini solo le righe che può modificare.
-
-**Cosa può fare chi non è della tesoreria**
-- Niente pulsanti **Pay**, niente «Pay the N ticked», niente sezione «Payments to tie to a line». Quella è il registro, che non vede.
-- Può **raggruppare** le righe in ordini e **cambiare** gli ordini.
-
-**Ordine**
-- È **più righe del budget comprate insieme**: due pezzi, un solo ordine, una sola fattura, un solo bonifico.
-- In TO PAY un ordine è **una riga sola**: nome, numero di righe, BOUGHT FROM (quello comune, oppure «several»), BOUGHT ON (la prima data), WAITING (la più lunga), TO PAY e PAID (somme), STATE.
-- STATE si legge così: «Overpaid» se una riga lo è; «Part paid» se qualcosa è pagato; «Planned» se tutte sono pianificate; altrimenti «To pay».
-- Una freccia apre l'ordine e mostra le sue righe, rientrate, ognuna con «Take out of the order».
-
-**Raggruppare**
-- Si spuntano almeno due righe e si preme «Group as one order».
-- Il popup (fase B) chiede il nome. Di base: «<BOUGHT FROM> <BOUGHT ON>» della prima riga; si può cambiare.
-- Se una riga spuntata era già in un altro ordine, il popup lo dice e la sposta.
-- **Aggiungere a un ordine che c'è già**: spuntate le righe, «Add to order…» fa scegliere l'ordine. È il caso di un ordine di più aree: il pm di HW crea l'ordine Amazon US con le sue righe, quello di MT ci aggiunge le sue.
-
-**Gestire un ordine**
-- Il nome si cambia sul posto (come le caselle del registro, `EditCell`).
-- «Ungroup» (con conferma) scioglie l'ordine: le righe tornano sole.
-
-**Pagare un ordine (tesoreria)**
-- «Pay» sulla riga dell'ordine apre `PayForm` con tutte le sue righe ancora da pagare: è il pagamento di più righe che c'è già.
-- Titolo «Pay order <nome> (N lines)», descrizione di base il nome dell'ordine.
-
-**Legare un pagamento del registro** (`PayLines`, da CASH REGISTER e da TO PAY)
-- Le righe di un ordine compaiono insieme sotto il nome dell'ordine.
-- Il pulsante «Rest» sull'ordine riempie le sue righe, una dopo l'altra, finché basta il pagamento. È il caso dell'utente: un movimento, più righe.
-- La ricerca trova anche il nome dell'ordine.
-
-**Nel budget**
-- Niente colonna «ORDER», per ora (decisione dell'utente).
-
-**Telefono**
-- La scheda dell'ordine con le sue righe elencate (la tabella è già a schede: `phone-cards`).
-
-### 4.2 Regole
-
-- **Un ordine è di una stagione**, come le sue righe. Con «All seasons» non si possono raggruppare righe di stagioni diverse: «Lines of different seasons cannot be one order».
-- **Una riga sta al massimo in un ordine.**
-- **Fornitori diversi**: l'ordine si fa comunque, ma la riga dell'ordine mostra «several» e un avviso. Due pezzi dello stesso ordine di solito hanno lo stesso fornitore, e una riga senza BOUGHT FROM non deve impedire di raggruppare.
-- **Chi cambia gli ordini:**
-  - mettere una riga in un ordine o toglierla vuol dire modificare quella riga: serve `canWrite` sulla sua area. La tesoreria e gli admin possono su tutte (raggruppano per pagare);
-  - cambiare il nome o sciogliere un ordine: tesoreria e admin sempre; un pm se può modificare **tutte** le righe dell'ordine;
-  - la stagione dev'essere aperta (`assertSeasonOpen`).
-- **Un ordine senza righe sparisce da solo**, nella stessa transazione. Succede quando si toglie l'ultima riga, la si cancella o la si sposta.
-- **Nomi unici nella stagione**, senza contare le maiuscole (409 «There is already an order "<nome>"»).
-- **Pagare resta della tesoreria** (`payLines` con `canManageCash`, com'è).
-
-### 4.3 Database
-
-- Tabella nuova **`purchase_order`**: `id`, `season_id` (→ `season`), `name` (testo, non vuoto), `created_at`. Unico su `(season_id, lower(name))`. Con il trigger dello storico (`audit_row()`), come tutte le tabelle con `id` intero. Il nome `purchase_order` evita la parola `order` di SQL.
-- **Il legame riga → ordine** è sulla riga e non sulle cifre ACTUAL: un ordine è un acquisto, e TO PAY lavora già per riga.
-  - **Con la fase G già fatta** (ordine consigliato): una tabella del ponte tesoreria×budget, **`order_line`** (`id` intero per lo storico; `line_id` **unico** → `budget_line` con `on delete cascade`; `order_id` → `purchase_order` con `on delete cascade`). Così la tabella del budget non sa degli ordini ([moduli-architettura.md](moduli-architettura.md) §6).
-  - **Senza la fase G**: la colonna `budget_line.order_id` → `purchase_order(id)`, `on delete set null`, con indice.
-- **Dove sta il codice**: con la fase G, ordini e TO PAY sono nel ponte tesoreria×budget (`bridges/treasury-budget/`), che usa le funzioni pubbliche del budget e della tesoreria.
-
-### 4.4 API
-
-**Gli indirizzi dopo la fase G** (ordine consigliato). Ogni indirizzo del ponte è sotto `/api/treasury-budget/` ([moduli-architettura.md](moduli-architettura.md) §8.2):
-- `/api/treasury-budget/to-pay` (era `/api/cash/to-pay`: spostato nel passo G4);
-- `/api/treasury-budget/payable-lines` (era `/api/cash/payable-lines`);
-- gli ordini nascono come `/api/treasury-budget/orders`.
-
-Qui sotto gli indirizzi di oggi (dal passo G4 sono già sotto `/api/treasury-budget/`).
-
-- **Permessi**: due voci nuove, mandate al sito in `/me`.
-  - `canSeeToPay` = admin o pm;
-  - `canGroupOrders` = admin o pm.
-
-  Dopo la fase G le dichiara il ponte tesoreria×budget, invece di scriverle in `permissionsOf` (`auth.service.ts`). `canManageCash` continua a dire chi paga.
-- **`GET /api/treasury-budget/to-pay`** (`listToPay` in `payments.service.ts`, già nel ponte `bridges/treasury-budget/` dalla tappa 3 di G4):
-  - si apre a `canSeeToPay`;
-  - ogni riga porta `orderId`, `orderName` e `canGroup` (se la persona può mettere o togliere quella riga);
-  - la risposta porta anche gli ordini (`id`, nome, stagione, `canChange`);
-  - `lastMethodId` solo a chi paga, `null` agli altri.
-
-  Il raggruppamento in righe d'ordine lo fa il sito. `packages/calc` (`toPayLines`) non cambia: l'ordine si aggiunge dopo il calcolo, nel servizio, dalla tabella.
-- **`GET /api/treasury-budget/payable-lines`** (per `PayLines`, solo tesoreria): ogni riga con `orderId` e `orderName`.
-- **`GET /api/treasury-budget/to-link`** e **`POST /api/treasury-budget/to-pay/pay`**: invariati (tesoreria).
-- **Ordini**: nel ponte tesoreria×budget (`bridges/treasury-budget/orders.service.ts`), che usa `budget.public.ts` per le righe e i loro permessi. Senza la fase G, nel modulo `budget`.
-  - `POST /api/treasury-budget/orders` `{ name, lineIds }`, almeno due righe → l'ordine creato. Le righe che erano in un altro ordine si spostano.
-  - `PATCH /api/treasury-budget/orders/:id` `{ name?, addLineIds?, removeLineIds? }`.
-  - `DELETE /api/treasury-budget/orders/:id` → scioglie: le righe restano, senza ordine.
-
-  Tutte in una transazione (`runWrite`), con i controlli del §4.2. Gli errori dicono la riga: «You cannot change "<item>" (area <area>)».
-- **Le funzioni che cancellano righe o le tolgono da un ordine** chiamano la stessa pulizia degli ordini vuoti (per esempio `deleteEmptyOrders(tx)`).
-
-### 4.5 Sito
-
-- **Menù** (i manifesti: `modules/treasury/index.tsx` e `bridges/treasury-budget/index.tsx`):
-  - TO PAY si vede con `canSeeToPay` (il `shown` della sua voce);
-  - il gruppo «Treasury» si mostra a chi vede almeno una delle sue pagine (il suo `useShown`). Per un pm senza la spunta Treasury contiene solo TO PAY;
-  - gli indirizzi che aprono il gruppo restano quelli di oggi.
-- **`bridges/treasury-budget/ToPayPage.tsx`**:
-  - la pagina si apre con `canSeeToPay`;
-  - righe d'ordine e righe dentro;
-  - le caselle di spunta servono a raggruppare (pm) e a pagare (tesoreria);
-  - «Group as one order» e «Pay the N ticked» compaiono secondo i permessi;
-  - `ToLink` solo con `canManageCash`;
-  - la descrizione in cima cambia per chi non paga: «… you can group lines bought in one order; the treasury pays them».
-- **`bridges/treasury-budget/PayLines.tsx`**: gruppi per ordine e «Rest» dell'ordine.
-- **`bridges/treasury-budget/PayForm.tsx`**: titolo e descrizione per un ordine.
-- **«Add to order…»** in `ToPayPage.tsx`, con la scelta fra gli ordini della stagione.
-
-### 4.6 Prove
-
-- **API:**
-  - chi vede TO PAY: admin, pm, pm con le spunte sì; viewer 403;
-  - chi paga: solo tesoreria e admin, anche con gli ordini;
-  - creare un ordine con righe di due aree: il pm di una sola area è rifiutato, la tesoreria no;
-  - spostare una riga da un ordine all'altro;
-  - togliere l'ultima riga cancella l'ordine;
-  - cancellare una riga del budget che era l'ultima dell'ordine;
-  - nome doppio → 409;
-  - righe di stagioni diverse → 400;
-  - stagione in sola lettura;
-  - `orderId` e `orderName` in TO PAY e in `payable-lines`;
-  - `lastMethodId` nascosto a chi non paga;
-  - lo storico ha l'ordine.
-- **Sito**: una funzione pura che raggruppa le righe di TO PAY in ordini (somme, stato, fornitore comune o «several», ordinamento) con il suo test, per esempio `bridges/treasury-budget/toPayOrders.ts`.
-- **Browser**:
-  - un pm senza spunte vede TO PAY senza Pay, raggruppa due righe sue e non quelle di un'altra area;
-  - la tesoreria paga un ordine intero;
-  - il «Rest» dell'ordine in «Link to budget lines» del registro.
-
-### 4.7 Documenti da aggiornare
-
-[registro-di-cassa.md](registro-di-cassa.md) §5.3–5.4 (TO PAY, ordini, legare), [accesso-e-storico.md](accesso-e-storico.md) (tabella dei permessi), [schema-database.md](schema-database.md) (tabella e colonna), [collaudo.md](collaudo.md).
+**Decisioni prese facendola:**
+- fatta dopo la fase G, quindi il legame riga → ordine è la tabella del ponte `order_line` (migrazione `0043`), e il budget non sa degli ordini;
+- un ordine rimasto senza righe lo toglie un **trigger del database**, invece di una funzione da chiamare in ogni punto che cancella o sposta righe: vale anche quando il budget cancella una riga;
+- la riga dell'ordine prende il posto della sua prima riga; la ricerca, se trova una riga dell'ordine, mostra l'ordine intero;
+- un ordine pagato **resta** (non si vede più in TO PAY perché le sue righe non ci sono più, e il suo nome resta usato nella stagione); se si cancella il pagamento, le righe tornano in TO PAY nel loro ordine;
+- facendola è venuto fuori un errore di «Link to lines» che c'era già: contava due volte la parte di un pagamento su righe fuori dall'elenco. È stato corretto nella tappa 2.
 
 ---
 
@@ -443,7 +316,7 @@ Il modulo `changes` **non conosce nessun modulo**, come `appmodules`. Sono i mod
 
 | Modulo | Tabelle | Controllo (lo stesso del servizio che scrive) |
 | --- | --- | --- |
-| budget | `project`, `budget_line`, `line_figures`, `line_fund`, `purchase_order` (fase D) | `canWrite` sull'area del progetto della riga; stagione aperta (`assertSeasonOpen`). Gli ordini come al §4.2. |
+| budget | `project`, `budget_line`, `line_figures`, `line_fund`, `purchase_order` e `order_line` (fase D, del ponte tesoreria×budget) | `canWrite` sull'area del progetto della riga; stagione aperta (`assertSeasonOpen`). Gli ordini con le loro regole ([registro-di-cassa.md](registro-di-cassa.md), §5.4bis). |
 | funds | `fund`, `fund_contract` | `canManageFunds`; stagione aperta |
 | cashflow | `team_inflow`, `bank_snapshot` | come oggi: aggiungere e cancellare inflow `canChangeInflows`, ricevuti e BANK `canManageCash`; stagione aperta |
 | cash | `cash_entry`, `cash_entry_line`, `cash_opening`, `cash_category`, `cash_method` | `canManageCash` (le liste come in Settings) |
@@ -532,7 +405,7 @@ Le tabelle senza storico (`item_image`, `item_datasheet_file`, `reg_file`, `reg_
 | Fase | Cosa |
 | --- | --- |
 | A | nessuna (solo il sito) |
-| D | tabella `purchase_order` (con lo storico) e il legame riga → ordine (`order_line` dopo la fase G, altrimenti `budget_line.order_id`) |
+| D | tabelle `purchase_order` e `order_line` del ponte tesoreria×budget (con lo storico; migrazione `0043`) |
 | G | le tabelle dei ponti al posto delle colonne che attraversano i moduli ([moduli-architettura.md](moduli-architettura.md) §6) |
 | F | sequenza `change_seq`, `audit_log.change_id`, `audit_row()` riscritta, permesso `USAGE` sulla sequenza al ruolo dell'API |
 
