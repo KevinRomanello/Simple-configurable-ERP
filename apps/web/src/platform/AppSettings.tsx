@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { platformApi } from "./api";
 import { Chips } from "../core/Chips";
-import { Loading, Panel } from "../core/ui";
+import { Field, Loading, Panel } from "../core/ui";
 import { useMe } from "./auth";
 import { ROW_ACTION_MODES, useRowActionMode } from "../core/rowAction";
 import { useTheme, type ThemeChoice } from "../core/theme";
@@ -60,17 +60,22 @@ function AppearancePanel() {
   const [theme, setTheme] = useTheme();
   const [rowAction, setRowAction] = useRowActionMode();
   return (
-    <Panel title="Appearance">
-      <p className="muted">
-        The colours of the site: light or dark. «Like my device» follows the light or dark of your computer or phone. The choices here are for this browser only:
-        on another computer or phone you choose again.
-      </p>
-      <Chips label="Theme" options={THEMES} value={theme} onChange={setTheme} />
-      <p className="muted">
-        Where an action on a row opens (Pay, Receive, Change…): in a panel under the row, in a dialog in the middle of the page, in a side panel, or in a small popover by the button.
-        The popover is for the actions that have a short form (Pay, Mark as received); the others open as a dialog. An action that belongs to no row opens as a dialog when the choice is «Under the row».
-      </p>
-      <Chips label="Row actions" options={ROW_ACTION_MODES} value={rowAction} onChange={setRowAction} />
+    <Panel title="Appearance" help={<>
+        <p>
+          The colours of the site: light or dark. «Like my device» follows the light or dark of your computer or phone. The choices here are for this browser only:
+          on another computer or phone you choose again.
+        </p>
+        <p>
+          Where an action on a row opens (Pay, Receive, Change…): in a panel under the row, in a dialog in the middle of the page, in a side panel, or in a small popover by the button.
+          The popover is for the actions that have a short form (Pay, Mark as received); the others open as a dialog. An action that belongs to no row opens as a dialog when the choice is «Under the row».
+        </p>
+      </>}>
+      <Field label="Theme">
+        <Chips label="Theme" options={THEMES} value={theme} onChange={setTheme} />
+      </Field>
+      <Field label="Row actions">
+        <Chips label="Row actions" options={ROW_ACTION_MODES} value={rowAction} onChange={setRowAction} />
+      </Field>
     </Panel>
   );
 }
@@ -93,11 +98,10 @@ function ModulesPanel() {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
   return (
-    <Panel title="Modules">
-      <p className="muted">
+    <Panel title="Modules" help={<>
         The parts of the ERP that can be turned off. A module that is <strong>Off</strong> does not appear in the menu or anywhere else, and nothing can reach it (not even the keys of the services): what it
         keeps is not touched, and everything comes back when it is turned on again.
-      </p>
+      </>}>
       {modules.data.map((m) => (
         <div key={m.key} className="stack tight">
           <strong>{m.label}</strong>
@@ -115,12 +119,11 @@ function PhonePanel() {
   const act = useAction();
   const { editOnPhone } = useMe();
   return (
-    <Panel title="Editing on a phone">
-      <p className="muted">
+    <Panel title="Editing on a phone" help={<>
         On a phone it is easy to touch something by mistake. When this is <strong>Off</strong>, the site is read-only for everybody on a phone (a screen up to 767 px wide): they can look, search
         and download, but there are no buttons to add, change or delete. Computers and tablets are not affected. It is not a lock: it only hides the commands, and what someone is
         allowed to do stays as it is. To turn it on again, use a computer.
-      </p>
+      </>}>
       <Chips
         label="Editing on a phone"
         options={[{ value: "on", label: "On" }, { value: "off", label: "Off" }]}

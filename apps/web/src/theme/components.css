@@ -220,55 +220,140 @@
   flex-direction: column;
   gap: var(--space-2xl);
 }
-/* the title and what the page is for, then under them what you can do: the main action first, Download last and apart */
-.page-header {
+/* The top of a page (components/ui/PageHeader.tsx): one row with the title and its ⓘ at the left and the commands at the right
+   (the main one last), then the tabs of the page and a notice that stays in sight, close together. */
+.page-top {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
   gap: var(--space-m);
 }
-.page-header > div:first-child {
+.page-header {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-s) var(--space-l);
+  min-height: var(--control-h);
 }
-/* the line on what the page is for: a readable measure, at most two lines until it is opened */
-.page-intro {
-  max-width: 78ch;
-  color: var(--text-sub);
-  font-size: 13px;
-  line-height: 1.55;
-}
-.page-intro.clamped {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-}
-.page-intro-toggle {
-  align-self: flex-start;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-soft);
-  font-size: 12px;
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
-  cursor: pointer;
-}
-.page-intro-toggle:hover {
-  color: var(--text-strong);
+.page-title,
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-width: 0;
 }
 .page-header .actions {
   display: flex;
   gap: var(--space-xs);
-  align-items: flex-end;
+  align-items: center;
   flex-wrap: wrap;
 }
-/* Download is a tool of the page, not an action on its data: it goes to the far end of the row */
-.page-header .actions > .download {
-  margin-left: auto;
+/* a state of the page (a read-only season, nothing can be changed here): a quiet line, always in sight */
+.page-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  max-width: 82ch;
+  padding: var(--space-xs) var(--space-s);
+  border-radius: var(--radius-s);
+  background: var(--bg-soft);
+  color: var(--text-sub);
+  font-size: 12px;
+}
+/* the ⓘ beside a title (components/ui/Info.tsx): quiet until it is pointed at or open */
+.info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.info-btn:hover,
+.info-btn.on {
+  background: var(--bg-soft);
+  color: var(--text-strong);
+}
+/* what the ⓘ says: a small card by it, over the page; prose at a readable measure */
+.info-pop {
+  position: fixed;
+  z-index: 70;
+  max-width: min(46ch, calc(100vw - 16px));
+  padding: var(--space-s) var(--space-m);
+  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-m);
+  background: var(--bg-null);
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.55;
+  box-shadow: var(--shadow-float);
+  white-space: normal;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 450;
+}
+.info-pop:focus {
+  outline: none;
+}
+.info-pop p + p {
+  margin-top: var(--space-xs);
+}
+/* the views of a page (components/ui/Tabs.tsx): where you are, underlined; they scroll sideways on a phone instead of wrapping */
+.tabs {
+  display: flex;
+  gap: var(--space-2xs);
+  border-bottom: 1px solid var(--stroke-sub);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: var(--control-h);
+  margin-bottom: -1px;
+  padding: 0 var(--space-s);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 550;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab:hover {
+  color: var(--text-strong);
+}
+.tab.on {
+  border-bottom-color: var(--stroke-full);
+  color: var(--text-strong);
+  font-weight: 700;
+}
+.tab-count {
+  min-width: 20px;
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: var(--bg-soft);
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+.tab.on .tab-count {
+  background: var(--primary-default);
+  color: var(--on-primary);
 }
 
 /* Blocks of a page one under the other, with room between them; `tight` for the inside of a box. */
@@ -489,6 +574,25 @@ textarea.input {
   max-width: none;
 }
 
+/* The filters of a list (INVENTORY): the ones used most on one row over the list, the others opened under it on a quiet ground
+   («More filters»), so the list starts high on the page. */
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
+}
+/* the search gives way first, so the row of the filters fits on a laptop */
+.filters .inline-form .field.grow {
+  flex-basis: 180px;
+}
+.filters-more {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-m);
+  padding: var(--space-m);
+  border-radius: var(--radius-m);
+  background: var(--bg-weak);
+}
 /* the filters of a list: groups of boxes (what to find, which price), one under the other, divided by a line */
 .filter-group {
   display: flex;
@@ -573,8 +677,7 @@ textarea.input {
 }
 /* the explanation of a section keeps a readable measure, like the one of a page */
 .panel > p.muted,
-.panel > .muted > p,
-.setting .muted {
+.panel > .muted > p {
   max-width: 82ch;
 }
 .panel .table-wrap {
@@ -614,8 +717,80 @@ textarea.input {
 .panel-head .spacer {
   flex: 1;
 }
-/* a closed project of a budget sheet: its lines are hidden, the column titles and the subtotal row stay (the grid still holds every line, so a download has them) */
-.panel.project-closed .ag-grid-scrolling-rows {
+/* A bar over a list: the choices of what is shown at the left, the commands on the list at the right (the budget: the phases, then
+   Close all / Open all). */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-m);
+}
+/* the filters of a bar take the room the commands leave them, on one row while they fit */
+.toolbar > .inline-form {
+  flex: 1 1 auto;
+}
+.toolbar-end {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-left: auto;
+}
+/* The projects of an area: the bar, then one box per project, close together (a list, not sections of the page). */
+.projects {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-m);
+}
+/* A project is one box: its heading on a quiet ground (handle, arrow, name, owner, its subtotal always in sight, Add item), the grid
+   under it without a frame of its own, and the form of a new line at the bottom. */
+.panel.project {
+  gap: 0;
+  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-m);
+  background: var(--bg-null);
+  overflow: hidden;
+}
+.panel.project > .panel-head {
+  padding: var(--space-2xs) var(--space-s) var(--space-2xs) var(--space-2xs);
+  background: var(--bg-weak);
+  border-bottom: 1px solid var(--stroke-sub);
+  min-height: 48px;
+}
+.panel.project > .panel-head h2 {
+  font-size: 15px;
+}
+.panel.project.project-closed > .panel-head,
+.panel.project.project-folded > .panel-head {
+  border-bottom: 0;
+}
+.panel.project .ag-root-wrapper {
+  border: 0;
+  border-radius: 0;
+}
+.project-sums {
+  display: inline-flex;
+  gap: var(--space-m);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.project-sums strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+.project-empty {
+  padding: var(--space-m);
+  color: var(--text-soft);
+}
+.project-add {
+  padding: var(--space-s);
+  border-top: 1px solid var(--stroke-sub);
+}
+/* a closed project of a budget sheet: only its heading, with the subtotal (the grid is still there, hidden, so a download has every line) */
+.panel.project-closed > :not(.panel-head) {
   display: none;
 }
 /* moving a project or a row of a table: the handle, the one in hand, the line where it will land (docs/stile-interfaccia.md) */
@@ -861,17 +1036,19 @@ textarea.input {
 .th-sort .faint {
   opacity: 0.35;
 }
-/* a line where a group of columns begins (expected / actual): the only vertical line of a table */
-.data-table .group-start {
-  border-left: 1px solid var(--stroke-strong);
-}
-/* rows parted by a fine line, columns by their space: no grid of lines over the data */
+/* a sheet of figures: every cell has its lines, so a value is read in its row and in its column (the person asked for it back
+   on 28 November 2026: without the vertical lines the tables did not read); a group of columns (expected / actual) starts with a
+   stronger one */
 .data-table th,
 .data-table td {
   padding: var(--space-xs) var(--space-s);
-  border-bottom: 1px solid var(--stroke-soft);
+  border-bottom: 1px solid var(--stroke-sub);
+  border-left: 1px solid var(--stroke-sub);
   text-align: left;
   white-space: nowrap;
+}
+.data-table .group-start {
+  border-left-color: var(--stroke-strong);
 }
 .data-table tbody tr:last-child > td {
   border-bottom: 0;
@@ -950,10 +1127,10 @@ textarea.input {
   background: var(--bg-soft);
   font-weight: 700;
 }
-/* a column that sums up its row (SUM, FINAL, LEFT VALUE, VALUE...) is set apart by a line and a shade */
+/* a column that sums up its row (SUM, FINAL, LEFT VALUE, VALUE...) is set apart by a stronger line and a shade */
 .data-table th.sum,
 .data-table td.sum {
-  border-left: 1px solid var(--stroke-sub);
+  border-left-color: var(--stroke-strong);
   background: var(--bg-weak);
   font-weight: 700;
 }
@@ -1614,22 +1791,22 @@ textarea.input {
 }
 
 /* --- Settings: a switch with its explanation beside it ----------------------------------------- */
+/* a switch of Settings: its box (or boxes), and what it does behind the ⓘ at its side, level with the box */
 .setting {
-  display: grid;
-  grid-template-columns: minmax(220px, 320px) 1fr;
-  gap: var(--space-m) var(--space-xl);
-  align-items: start;
-  padding-bottom: var(--space-m);
-  border-bottom: 1px solid var(--stroke-soft);
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
 }
-.setting .muted p,
-.setting .muted ul {
-  margin: 0 0 var(--space-2xs);
+.setting > .field {
+  width: min(320px, 100%);
 }
-@media (max-width: 760px) {
-  .setting {
-    grid-template-columns: 1fr;
-  }
+.setting > .info-btn {
+  margin-bottom: 3px;
+}
+.info-pop ul {
+  margin: var(--space-2xs) 0;
+  padding-left: var(--space-m);
 }
 
 /* the budget on a phone: one card per line, touched to change it (LineCards.tsx) */
@@ -1798,7 +1975,7 @@ body.no-scroll {
   .card .value {
     font-size: 18px;
   }
-  /* the commands of a page in one row that wraps, all the same height; Download stays at the end */
+  /* the commands of a page in one row that wraps, all the same height */
   .page-header .actions .btn {
     min-height: var(--control-h);
     padding: 0 var(--space-s);
@@ -1843,9 +2020,15 @@ body.no-scroll {
   .panel.form-panel {
     padding: var(--space-m);
   }
+  /* on a phone the panel of Download spans the screen under the top bar, wherever its button is in the row */
   .download-panel {
+    position: fixed;
+    top: calc(56px + var(--space-xs));
+    left: var(--space-m);
+    right: var(--space-m);
     min-width: 0;
-    width: calc(100vw - 2 * var(--space-m));
+    max-width: none;
+    max-height: calc(100vh - 56px - 2 * var(--space-m));
   }
 }
 
@@ -2002,8 +2185,17 @@ body.no-scroll {
     width: 40px;
     height: 40px;
   }
+  /* the ⓘ keeps its small mark but a finger-sized target */
+  .info-btn {
+    width: 40px;
+    height: 40px;
+    margin: -8px;
+  }
   .chip {
     min-height: 36px;
+  }
+  .tab {
+    min-height: 40px;
   }
 }
 
@@ -2887,4 +3079,13 @@ tr.row-selected > td,
   width: 100%;
   padding-right: var(--space-l);
   text-overflow: ellipsis;
+}
+
+/* the name of a half of a pair (EXPECTED, ACTUAL: modules/budget/PhasePair.tsx): a label, the subject is the title of the row */
+.phase-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-sub);
 }

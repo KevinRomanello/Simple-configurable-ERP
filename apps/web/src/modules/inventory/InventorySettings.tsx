@@ -83,8 +83,7 @@ function UnitsPanel({ units }: { units: InventoryLists["units"] }) {
     { key: "delete", header: "", num: true, cell: (u) => <DeleteButton label={u.name} usedBy={u.usedBy} onDelete={() => act(() => inventoryApi.deleteUnit(u.id))} /> },
   ];
   return (
-    <Panel title="Units">
-      <p className="muted">How an item is counted. Renaming a unit renames it on every item counted in it.</p>
+    <Panel title="Units" help={<>How an item is counted. Renaming a unit renames it on every item counted in it.</>}>
       <DataTable title="Units" columns={columns} rows={units} rowKey={(u) => u.id} empty="No units" />
       <QuickAdd id="new-unit" noun="unit" label="Name" onAdd={(name) => act(() => inventoryApi.createUnit(name))} />
     </Panel>
@@ -141,12 +140,11 @@ function LocationsPanel({ locations }: { locations: InventoryLists["locations"] 
   ];
 
   return (
-    <Panel title="Places">
-      <p className="muted">
+    <Panel title="Places" help={<>
         Where things are kept: a room, and on it a shelf and a level (plain text; the shelf and the level are optional, a level needs a shelf).
         The exact spot, "red box", is written with each arrival. The code is what the movements of the inventory store: it never changes, so
         renaming a place keeps its history right. Used by: movements of the inventory.
-      </p>
+      </>}>
       <DataTable title="Places" columns={columns} rows={locations} rowKey={(l) => l.id} empty="No places" reorder={{ label: (l) => l.label, onOrder: (order) => act(() => inventoryApi.orderLocations(order)) }} />
       <AddSection label="New place" draftKey="new-place" form={(close) => <NewPlace onDone={close} />} />
     </Panel>

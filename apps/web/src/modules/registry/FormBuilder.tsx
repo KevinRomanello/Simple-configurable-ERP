@@ -8,7 +8,7 @@ import { Button, IconButton } from "../../core/Button";
 import { Chips } from "../../core/Chips";
 import { DraftNote } from "../../core/DraftNote";
 import { SearchSelect } from "../../core/SearchSelect";
-import { Field, FormPanel, Panel, RowAction, Table, TableScroll } from "../../core/ui";
+import { Field, FormPanel, Info, Panel, RowAction, Table, TableScroll } from "../../core/ui";
 import { COMPUTED } from "./registry";
 import { useAction } from "../../core/useAction";
 import { fieldSetter, useDraft, useRemembered } from "../../core/useDraft";
@@ -197,8 +197,10 @@ function FormEditor({ table, view, onDone }: { table: RegTable; view: RegView | 
         <SearchSelect label="Add a question" value="" choices={[{ value: "", label: "Add a question…" }, ...askable.map((f) => ({ value: String(f.id), label: f.name }))]} onChange={(v) => v && set({ fields: [...form.fields, { fieldId: Number(v) }] })} />
       )}
 
-      <h3>Set by itself on submit</h3>
-      <p className="muted">A fixed value, or today, now, @me (the person filling it in). With a condition, only when the answers match it.</p>
+      <div className="panel-title">
+        <h3>Set by itself on submit</h3>
+        <Info label="About what is set by itself">A fixed value, or today, now, @me (the person filling it in). With a condition, only when the answers match it.</Info>
+      </div>
       {(form.set ?? []).map((s, i) => {
         const field = table.fields.find((f) => f.id === s.fieldId);
         return (
@@ -266,8 +268,7 @@ function PersonalLinks({ table, forms }: { table: RegTable; forms: RegView[] }) 
   const [days, setDays] = useState(14);
   const [link, setLink] = useState<string | null>(null);
   return (
-    <Panel title="Personal links">
-      <p className="muted">The link opens the form on one record only, and expires. Make one per person (or let the bot make them with a token: POST /api/registry/forms/&lt;id&gt;/links).</p>
+    <Panel title="Personal links" help={<>The link opens the form on one record only, and expires. Make one per person (or let the bot make them with a token: POST /api/registry/forms/&lt;id&gt;/links).</>}>
       <div className="inline-form">
         <select className="input small" aria-label="Form" value={formId} onChange={(e) => setFormId(Number(e.target.value))}>
           {forms.map((v) => <option key={v.id} value={v.id}>{v.config.form?.title ?? v.name}</option>)}

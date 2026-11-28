@@ -6,6 +6,7 @@ import type { TotalsView } from "./types";
 import { BarsChart } from "../../core/BarsChart";
 import { Chips } from "../../core/Chips";
 import { DataTable, Field, Loading, PageHeader, Panel, type Column } from "../../core/ui";
+import { TotalTabs } from "./viewTabs";
 import { blockTitle } from "./blocks";
 import { date, money, ratio } from "../../core/format";
 import { useSeasons } from "../../platform/season";
@@ -131,12 +132,12 @@ export function TotalPage({ kind }: { kind: TotalsKind }) {
   const a = nameOf(value);
   const b = nameOf(compareWith);
   const undated = data.undated && (data.undated.estimate > 0 || data.undated.actual > 0)
-    ? ` Without a purchase date, in no year: ${money(data.undated.estimate)} expected, ${money(data.undated.actual)} actual.`
-    : "";
+    ? `Without a purchase date, in no year: ${money(data.undated.estimate)} expected, ${money(data.undated.actual)} actual.`
+    : undefined;
 
   return (
     <>
-      <PageHeader title={text.title} description={text.description + undated} />
+      <PageHeader title="TOTAL" description={text.description} notice={undated} tabs={<TotalTabs />} />
       <Panel>
         <div className="inline-form">
           <Field label={text.what} htmlFor="total-choice">
@@ -247,12 +248,11 @@ function MoneyInPanel({ money: moneyIn, outflow, name }: { money: MoneyIn; outfl
     { key: "actual", header: "ACTUAL", num: true, cellClass: (r) => (r.actual < 0 ? "cell-negative" : undefined), cell: (r) => money(r.actual) },
   ];
   return (
-    <Panel title="Money in">
-      <p className="muted">
+    <Panel title="Money in" help={<>
         The money of the sponsors, the inflows of CASH FLOW and, for a season, the BANK, against the outflow of every line (block ALL). What came
         in outside the budget (a membership fee, from the register) is a row of its own; a season shows only what came after the day of the BANK,
         the rest is in the BANK. The VAT the team owes on its inflows is not here: CASH FLOW has it.
-      </p>
+      </>}>
       <DataTable title={`Money in and out ${name}`} columns={balanceColumns} rows={balance} rowKey={(r) => r.label} rowClass={(r) => (r.label === "MONEY IN - OUTFLOW" ? "total" : undefined)} />
       <DataTable
         title={`Money in ${name}`}

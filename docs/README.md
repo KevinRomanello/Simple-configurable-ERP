@@ -13,7 +13,7 @@
 | [schema-database.md](schema-database.md) | **Com'è organizzato il database**: la mappa dei sei gruppi di tabelle e i ponti fra loro, un diagramma ER per area (budget, fondi e CASH FLOW, registro di cassa, inventario, accesso e impostazioni), i collegamenti per nome, cosa fa rispettare il database e cosa finisce nello storico |
 | [regole-script-attuale.md](regole-script-attuale.md) | Le regole di calcolo estratte dallo script e verificate sul foglio reale (la specifica di parità), con i casi di prova |
 | [hardcoded-registry.md](hardcoded-registry.md) | Tutto ciò che è hardcoded per ora, in quale funzione-API vive e cosa diventerà |
-| [stile-interfaccia.md](stile-interfaccia.md) | Da dove vengono gli stili dell'interfaccia (Figma), il restyling del 28 novembre 2026 (neutri tintati, contrasti, sezioni invece di riquadri) e come si applicano |
+| [stile-interfaccia.md](stile-interfaccia.md) | Da dove vengono gli stili dell'interfaccia (Figma), il restyling del 28 novembre 2026 (neutri tintati, contrasti, sezioni invece di riquadri), **la ristrutturazione delle pagine** dello stesso giorno (intestazione su una riga, spiegazioni nell'ⓘ, schede, menù con GANTT/ANALYSES/TOTAL, budget a riquadri, CASH FLOW per righe) e come si applicano |
 | [avvio.md](avvio.md) | **Tutorial**: dal computer vuoto all'app funzionante, comandi di ogni giorno, problemi comuni |
 | [tecnologie.md](tecnologie.md) | Cosa fa ogni tecnologia usata (Docker, PostgreSQL, Drizzle, Fastify, Zod, React, AG Grid…), spiegata dal problema che risolve |
 | [come-funziona.md](come-funziona.md) | Il funzionamento passo per passo: aprire una pagina, modificare una cella, la vita di un importo, dove mettere le mani |

@@ -45,7 +45,7 @@ export function PendingPage() {
     <>
       <PageHeader
         title="PENDING"
-        description="Purchases of the budget (the ACTUAL columns) that have not fully arrived. Receive what came, even in parts: the budget then shows it as arrived."
+        description="Purchases of the budget (the ACTUAL columns) that have not fully arrived. Receive what came, even in parts: the budget then shows it as arrived. Prices per unit are the ones of the budget, frozen on the shelf at the moment the goods arrive."
       />
 
       <Panel>
@@ -107,12 +107,6 @@ export function PendingPage() {
             </tbody>
           </Table>
         </TableBox>
-        {rows.length > 0 && (
-          <p className="muted">
-            Prices per unit are the ones of the budget: {moneyE4(rows[0]?.prices.net)} net for the first line, for example. They are frozen on
-            the shelf at the moment the goods arrive.
-          </p>
-        )}
       </Panel>
     </>
   );

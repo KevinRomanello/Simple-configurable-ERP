@@ -43,7 +43,7 @@ describe("the sections of Settings, from the manifests", () => {
 describe("the menu and the pages, from the manifests", () => {
   it("draws the groups in the order of the sheets of the Excel file, then the ones it does not have", () => {
     const groups = MANIFESTS.flatMap((m) => m.menuGroups ?? []).sort(byOrder).map((g) => g.id);
-    expect(groups).toEqual(["budget", "views", "cash", "treasury", "total", "inventory", "registry", "admin"]);
+    expect(groups).toEqual(["budget", "views", "cash", "treasury", "inventory", "registry", "admin"]);
   });
 
   it("puts every entry in a group that exists, once per place", () => {

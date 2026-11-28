@@ -98,16 +98,19 @@ function FieldsTab({ table }: { table: RegTable }) {
     },
   ];
   return (
-    <Panel title="Fields" actions={<Button small icon={faPlus} onClick={() => setEditing("new")}>Add a field</Button>}>
+    <Panel
+      title="Fields"
+      help={<>
+        The <FontAwesomeIcon icon={faStar} /> marks the field that is the <strong>name of the records</strong>: its value is what a link from another table, the title of a record, a card or a list shows for each one. There is one for the table and you can change it
+        whenever you like (the values do not change); a text, a number, a date, a choice or a formula can be it.
+      </>}
+      actions={<Button small icon={faPlus} onClick={() => setEditing("new")}>Add a field</Button>}
+    >
       {editing === "new" && (
         <RowAction loose eyebrow="New field" title={`In ${table.name}`} onClose={() => setEditing(null)}>
           <FieldForm table={table} field={null} onDone={() => setEditing(null)} />
         </RowAction>
       )}
-      <p className="muted">
-        The <FontAwesomeIcon icon={faStar} /> marks the field that is the <strong>name of the records</strong>: its value is what a link from another table, the title of a record, a card or a list shows for each one. There is one for the table and you can change it
-        whenever you like (the values do not change); a text, a number, a date, a choice or a formula can be it.
-      </p>
       {/* the order is the handle of the row, as in every list (docs/stile-interfaccia.md, point 22) */}
       <DataTable
         title="Fields"
@@ -654,11 +657,10 @@ function AccessTab({ table }: { table: RegTable }) {
     return { kind: "everyone" };
   };
   return (
-    <Panel title="Who sees and changes this table" actions={<Button small icon={faPlus} onClick={() => setRules([...rules, { who: { kind: "everyone" }, level: "read" }])}>Add a rule</Button>}>
-      <p className="muted">
+    <Panel title="Who sees and changes this table" actions={<Button small icon={faPlus} onClick={() => setRules([...rules, { who: { kind: "everyone" }, level: "read" }])}>Add a rule</Button>} help={<>
         The admins of the ERP always manage everything. The rules add up: the highest level wins; a field is seen if one rule shows it. Without rules, only the admins see the table.
         {groups.length === 0 && " There are no groups yet: a group is a view of the people table marked as a group."}
-      </p>
+      </>}>
       <DraftNote draft={saved} name="The access rules" />
       {rules.map((r, i) => (
         <div key={i} className="rule stack tight">
@@ -702,13 +704,16 @@ function WebhooksTab({ table }: { table: RegTable }) {
   const log = useQuery({ queryKey: ["registry-webhook-log", logOf], queryFn: () => registry.webhookLog(logOf!), enabled: logOf !== null });
   return (
     <>
-      <Panel title="Webhooks" actions={<Button small icon={faPlus} onClick={() => setEditing("new")}>Add a webhook</Button>}>
+      <Panel
+        title="Webhooks"
+        help="After a change is saved the server sends the record to the address (n8n), signed: header X-Registry-Signature = sha256=HMAC of the body with the secret."
+        actions={<Button small icon={faPlus} onClick={() => setEditing("new")}>Add a webhook</Button>}
+      >
         {editing === "new" && (
           <RowAction loose eyebrow="New webhook" title={`In ${table.name}`} onClose={() => setEditing(null)}>
             <WebhookForm key="new" table={table} hook={null} onDone={() => setEditing(null)} />
           </RowAction>
         )}
-        <p className="muted">After a change is saved the server sends the record to the address (n8n), signed: header X-Registry-Signature = sha256=HMAC of the body with the secret.</p>
         <TableScroll>
           <Table>
             <thead><tr><th>NAME</th><th>ADDRESS</th><th>EVENTS</th><th>SECRET</th><th /></tr></thead>
@@ -832,8 +837,7 @@ function ImportTab({ table }: { table: RegTable }) {
   const [result, setResult] = useState<Awaited<ReturnType<typeof registry.importCsv>> | null>(null);
   const run = (dryRun: boolean) => act(async () => setResult(await registry.importCsv(table.id, { csv, mode, key: mode === "upsert" ? key : undefined, dryRun })));
   return (
-    <Panel title="Import a CSV or an Excel file">
-      <p className="muted">The first row names the fields (of an Excel file, the first sheet). Links by the name of the linked record (import the linked tables first). Checked first; nothing is saved unless every row is right.</p>
+    <Panel title="Import a CSV or an Excel file" help={<>The first row names the fields (of an Excel file, the first sheet). Links by the name of the linked record (import the linked tables first). Checked first; nothing is saved unless every row is right.</>}>
       <div className="stack tight">
         <input type="file" accept=".csv,text/csv,.xlsx" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setCsv(f.name.toLowerCase().endsWith(".xlsx") ? await sheetAsCsv(f) : await f.text()); setResult(null); }} />
         <Chips label="How" value={mode} onChange={setMode} options={[{ value: "create", label: "Add every row" }, { value: "upsert", label: "Change the matching records, add the others" }]} />

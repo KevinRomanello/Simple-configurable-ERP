@@ -12,7 +12,7 @@ import { CommitInput } from "../../core/CommitInput";
 import { EditCell } from "../../core/EditCell";
 import { TableBox } from "../../core/ExportBlocks";
 import { SearchSelect } from "../../core/SearchSelect";
-import { Cards, Field, FormPanel, Loading, Message, MoneyCard, PageHeader, RowAction, Table } from "../../core/ui";
+import { Cards, Field, FormPanel, Loading, Message, MoneyCard, PageHeader, RowAction, Table, Tabs } from "../../core/ui";
 import { SortTh } from "../../core/SortTh";
 import { useMe } from "../../platform/auth";
 import { date, decimalText, money } from "../../core/format";
@@ -261,16 +261,9 @@ export function CashRegisterPage() {
         title="CASH REGISTER"
         description="The movements of the team's money (Cassa, Banca, Paypal), as in the sheet of the treasury. New movement adds one; click a box of a row to change it, the pencil changes the whole movement. The balances are worked out from the movements and are those of the whole year, even when a filter hides rows. The funds of the sponsors are not here."
         add={{ label: "New movement", draftKey: "cash-movement:new", form: (close) => <MovementForm categories={voci} methods={methods.data} onClose={close} /> }}
-        actions={
-          <>
-            <Field label="Year" htmlFor="register-year">
-              <select id="register-year" className="input small" value={data.year} onChange={(e) => setYear(Number(e.target.value))}>
-                {data.years.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </Field>
-            <Button variant="ghost" icon={faFileExcel} onClick={() => setImporting(!importing)}>{importing ? "Close import" : "Import from Excel"}</Button>
-          </>
-        }
+        actions={<Button variant="ghost" icon={faFileExcel} onClick={() => setImporting(!importing)}>{importing ? "Close import" : "Import from Excel"}</Button>}
+        // the register is kept a year at a time, as the sheet of the treasury: each year is a view of the page
+        tabs={<Tabs label="Year" value={String(data.year)} onChange={(y) => setYear(Number(y))} tabs={data.years.map((y) => ({ key: String(y), label: String(y) }))} />}
       />
       {importing && <CashImport categories={voci} methods={methods.data} onClose={() => setImporting(false)} />}
       <Cards>
@@ -280,8 +273,13 @@ export function CashRegisterPage() {
         <MoneyCard caption="Totale (cassa + banca)" cents={data.total.closing} />
       </Cards>
 
-      <div className="inline-form">
-        <Chips label="Conto" value={account} onChange={setAccount} options={[{ value: "all", label: "All accounts" }, ...ACCOUNTS.map((a) => ({ value: a.value, label: a.label }))]} />
+      <div className="inline-form" role="search" aria-label="Find in the register">
+        <Field label="Search" htmlFor="register-search" className="grow">
+          <input id="register-search" className="input small" placeholder="Descrizione" value={text} onChange={(e) => setText(e.target.value)} />
+        </Field>
+        <Field label="Conto" className="fit">
+          <Chips label="Conto" value={account} onChange={setAccount} options={[{ value: "all", label: "All accounts" }, ...ACCOUNTS.map((a) => ({ value: a.value, label: a.label }))]} />
+        </Field>
         <Field label="Month" htmlFor="register-month">
           <select id="register-month" className="input small" value={month} onChange={(e) => setMonth(e.target.value)}>
             <option value="">All</option>
@@ -294,16 +292,13 @@ export function CashRegisterPage() {
             {voci.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
         </Field>
-        <Field label="Search" htmlFor="register-search">
-          <input id="register-search" className="input small" placeholder="Descrizione" value={text} onChange={(e) => setText(e.target.value)} />
-        </Field>
         <label className="checkbox">
           <input type="checkbox" checked={toCheck} onChange={(e) => setToCheck(e.target.checked)} />
           Invoice not checked
         </label>
       </div>
 
-      {sort.state && <p className="muted">Sorted by a column: the Progressivo columns follow the order of the days, so they add up row by row only in the original order (click the header again to get it back).</p>}
+      {sort.state && <p className="hint">Sorted by a column: the Progressivo columns follow the order of the days, so they add up row by row only in the original order (click the header again to get it back).</p>}
 
       <TableBox title={`Cash register ${data.year}`}>
         <Table className="register">

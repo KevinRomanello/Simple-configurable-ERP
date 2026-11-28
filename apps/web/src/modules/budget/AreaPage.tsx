@@ -1,4 +1,4 @@
-import { faCheck, faChevronDown, faChevronRight, faGripVertical, faPen, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faChevronDown, faChevronRight, faGripVertical, faPen, faPlus, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
@@ -10,6 +10,7 @@ import type { AreaSheet, CalcLine, Phase } from "../../core/calcTypes";
 import { Button, IconButton } from "../../core/Button";
 import { Chips } from "../../core/Chips";
 import { DraftNote } from "../../core/DraftNote";
+import { DraftGuardContext, useAdder } from "../../core/draftGuard";
 import { useMe } from "../../platform/auth";
 import { money } from "../../core/format";
 import { canEditArea } from "../../platform/permissions";
@@ -19,14 +20,14 @@ import { SCREEN, useMaxWidth } from "../../core/screen";
 import { useAction } from "../../core/useAction";
 import { useDragOrder } from "../../core/useDragOrder";
 import { fieldSetter, useDraft } from "../../core/useDraft";
-import { useProjectView } from "./useProjectView";
+import { usePhaseView, useProjectView, type PhaseView } from "./useProjectView";
 import { gridTheme } from "../../theme/grid";
-import { areaColumns, mostStatusIcons, needsMoreFunds, type Commit, type GridLookups, type MoreFunds, type Row, type SubtotalRow } from "./areaColumns";
+import { areaColumns, mostStatusIcons, needsMoreFunds, withPhases, type Commit, type GridLookups, type MoreFunds, type Row, type SubtotalRow } from "./areaColumns";
 import { VatReportTable } from "./VatReportTable";
 import { useExportBlock } from "../../core/ExportBlocks";
 import { tableFromGrid } from "../../core/export/table";
 import { GridSortHeader } from "./GridSortHeader";
-import { AddSection, DataTable, Field, FormPanel, Loading, Message, PageHeader, Panel, type Column } from "../../core/ui";
+import { Card, Cards, DataTable, Field, FormPanel, Loading, Message, PageHeader, Panel, type Column } from "../../core/ui";
 import { LineCards } from "./LineCards";
 import { NewLine } from "./NewLine";
 import { gridCompare } from "../../core/sort";
@@ -58,7 +59,9 @@ export function AreaPage() {
   const knowsArrivals = useSlot(arrivals).length > 0;
   // on a phone the grid does not fit: each project is a list of cards, of one phase at a time
   const phone = useMaxWidth(SCREEN.phone);
-  const [phase, setPhase] = useState<Phase>("estimate");
+  // the phases the grids show (EXPECTED, ACTUAL or both), remembered in this browser; the cards of a phone show one at a time
+  const [phases, setPhases] = usePhaseView();
+  const phase: Phase = phases === "actual" ? "actual" : "estimate";
   // which projects this person closed and the order they put them in: kept in this browser
   const view = useProjectView(code);
   const shown = orderProjects(sheet.data?.projects ?? [], view.order);
@@ -94,8 +97,8 @@ export function AreaPage() {
   const canEdit = sheet.data ? canEditArea(me, sheet.data.area.id) && seasonOpen : false;
   // the columns of a project depend on whether a line of it needs another fund (ALSO FROM), so each panel builds its own
   const buildColumns = useMemo(
-    () => (lookups ? (moreFunds: MoreFunds, iconsInStatus: number) => areaColumns(lookups, commit, removeLine, canEdit, moreFunds, iconsInStatus) : null),
-    [lookups, canEdit], // eslint-disable-line react-hooks/exhaustive-deps
+    () => (lookups ? (moreFunds: MoreFunds, iconsInStatus: number) => withPhases(areaColumns(lookups, commit, removeLine, canEdit, moreFunds, iconsInStatus), phases) : null),
+    [lookups, canEdit, phases], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // the derived area (what is outside the budget) has no page of its own: it is in TOTAL, the Gantt and the analyses
@@ -108,44 +111,71 @@ export function AreaPage() {
       <PageHeader
         title={data.area.name}
         description={
-          canEdit
-            ? phone
-              ? "Budget lines by project. Touch a line to change it; amounts are calculated."
-              : "Budget lines by project. Click a cell to edit it; amounts are calculated."
-            : seasonOpen
-              ? "Budget lines by project. You can look but not change this area."
-              : "Budget lines by project. This season is read-only: nothing in its budget can be changed."
+          phone
+            ? "Budget lines by project, a card per line. Touch a line to change it; amounts are calculated. The figures at the top are the whole area: what the team pays out of its own money (OUTFLOW)."
+            : "Budget lines by project. Click a cell to edit it; amounts are calculated. The figures at the top are the whole area: what the team pays out of its own money (OUTFLOW). EXPECTED and ACTUAL can be shown side by side, as in the sheet, or one at a time."
+        }
+        notice={
+          canEdit ? undefined : seasonOpen ? "You can look but not change this area." : "This season is read-only: nothing in its budget can be changed."
         }
         add={canEdit ? { label: "New project", draftKey: `new-project:${code}`, form: (close) => <NewProject areaCode={code} onDone={close} /> } : undefined}
-        actions={
-          shown.length > 1 && (
-            <>
-              <Button variant="ghost" onClick={() => view.setAll(shownIds, true)} disabled={shownIds.every((id) => view.closed.includes(id))}>Close all</Button>
-              <Button variant="ghost" onClick={() => view.setAll(shownIds, false)} disabled={shownIds.every((id) => !view.closed.includes(id))}>Open all</Button>
-              {view.order.length > 0 && <Button variant="ghost" onClick={view.resetOrder}>Original order</Button>}
-            </>
-          )
-        }
       />
 
-      {phone && <Chips label="Phase" value={phase} onChange={setPhase} options={[{ value: "estimate", label: "EXPECTED" }, { value: "actual", label: "ACTUAL" }]} />}
-      {data.projects.length === 0 && <Message>{canEdit ? "No projects yet: add the first one." : "No projects yet."}</Message>}
-      {shown.map((project) => (
-        <div key={project.id} {...drag.boxProps(project.id)} className={`project-box ${drag.classOf(project.id)}`.trim()}>
-          <ProjectPanel project={project} buildColumns={buildColumns} canEdit={canEdit} lookups={lookups}
-            cards={phone ? { phase, onRemove: removeLine } : null}
-            closed={view.closed.includes(project.id)} onToggle={() => view.toggle(project.id)}
-            // while one project is in hand every project folds to its heading, so that they all fit on the screen
-            folded={drag.draggedId !== null}
-            // the handle only when there is something to move
-            handle={shown.length > 1 ? drag.handle(project.id) : null} />
+      <AreaFigures total={data.total} />
+
+      <div className="projects">
+        <div className="toolbar">
+          <Chips
+            label="Phases shown"
+            value={phone && phases === "both" ? "estimate" : phases}
+            onChange={setPhases}
+            options={[
+              ...(phone ? [] : [{ value: "both" as PhaseView, label: "EXPECTED and ACTUAL" }]),
+              { value: "estimate" as PhaseView, label: "EXPECTED" },
+              { value: "actual" as PhaseView, label: "ACTUAL" },
+            ]}
+          />
+          {shown.length > 1 && (
+            <div className="toolbar-end">
+              <Button small variant="ghost" onClick={() => view.setAll(shownIds, true)} disabled={shownIds.every((id) => view.closed.includes(id))}>Close all</Button>
+              <Button small variant="ghost" onClick={() => view.setAll(shownIds, false)} disabled={shownIds.every((id) => !view.closed.includes(id))}>Open all</Button>
+              {view.order.length > 0 && <Button small variant="ghost" onClick={view.resetOrder}>Original order</Button>}
+            </div>
+          )}
         </div>
-      ))}
+        {data.projects.length === 0 && <Message>{canEdit ? "No projects yet: add the first one with New project." : "No projects yet."}</Message>}
+        {shown.map((project) => (
+          <div key={project.id} {...drag.boxProps(project.id)} className={`project-box ${drag.classOf(project.id)}`.trim()}>
+            <ProjectPanel project={project} buildColumns={buildColumns} canEdit={canEdit} lookups={lookups}
+              cards={phone ? { phase, onRemove: removeLine } : null}
+              closed={view.closed.includes(project.id)} onToggle={() => view.toggle(project.id)}
+              // while one project is in hand every project folds to its heading, so that they all fit on the screen
+              folded={drag.draggedId !== null}
+              // the handle only when there is something to move
+              handle={shown.length > 1 ? drag.handle(project.id) : null} />
+          </div>
+        ))}
+      </div>
 
       <VatReportTable areaCode={code} />
 
       <AreaTotal total={data.total} />
     </>
+  );
+}
+
+/** The whole area at a glance, before its projects: what the team pays out of its own money, expected and actual. */
+function AreaFigures({ total }: { total: AreaSheet["total"] }) {
+  const figure = (caption: string, amounts: Amounts) => (
+    <Card caption={caption} negative={amounts.outflowCents < 0} hint={<span className="hint">net {money(amounts.netCents)} · VAT {money(amounts.teamVatCents)}</span>}>
+      {money(amounts.outflowCents)}
+    </Card>
+  );
+  return (
+    <Cards>
+      {figure("EXPECTED OUTFLOW", total.estimate)}
+      {figure("ACTUAL OUTFLOW", total.actual)}
+    </Cards>
   );
 }
 
@@ -201,8 +231,13 @@ function ProjectPanel({ project, buildColumns, canEdit, lookups, cards, closed, 
   const more = needsMoreFunds(project.lines);
   const iconsInStatus = mostStatusIcons(project.lines, lookups.arrivals);
   const columns = useMemo(() => buildColumns(more, iconsInStatus), [buildColumns, more.estimate, more.actual, iconsInStatus]); // eslint-disable-line react-hooks/exhaustive-deps
-  // a column that appears (or goes away) changes what the others can share: fit them again
-  useEffect(() => gridRef.current?.api?.autoSizeAllColumns(true), [columns]);
+  // a column that appears (or goes away) changes what the others can share, and a closed project was not measured: fit them again
+  useEffect(() => {
+    if (!closed) gridRef.current?.api?.autoSizeAllColumns(true);
+  }, [columns, closed]);
+  // «Add item» is in the heading of the project, its form under the lines
+  const adder = useAdder(`new-line:${project.id}`);
+  const empty = project.lines.length === 0;
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(project.name);
   const [owner, setOwner] = useState(project.ownerName ?? "");
@@ -221,7 +256,7 @@ function ProjectPanel({ project, buildColumns, canEdit, lookups, cards, closed, 
   return (
     <Panel
       ref={panel}
-      className={[closed ? "project-closed" : "", folded ? "project-folded" : ""].filter(Boolean).join(" ") || undefined}
+      className={["project", closed ? "project-closed" : "", folded ? "project-folded" : ""].filter(Boolean).join(" ")}
       head={
         <>
           {editing ? (
@@ -238,22 +273,27 @@ function ProjectPanel({ project, buildColumns, canEdit, lookups, cards, closed, 
               <h2>{project.name}</h2>
               {project.ownerName && <span className="owner">{project.ownerName}</span>}
               {canEdit && <IconButton icon={faPen} label="Rename project" onClick={() => setEditing(true)} />}
-              {/* closed, the figures of the subtotal are in the heading: the grid's own are to the right, past the columns of the lines */}
-              {closed && (
-                <span className="muted" title="What the team pays out of its own money (the subtotal row, OUTFLOW)">
-                  Outflow: expected {money(project.subtotal.estimate.outflowCents)} · actual {money(project.subtotal.actual.outflowCents)}
-                </span>
-              )}
             </>
           )}
           <span className="spacer" />
+          {/* the subtotal of the project, always in sight (what the team pays out of its own money, the OUTFLOW of the subtotal row) */}
+          <span className="project-sums" title="What the team pays out of its own money (the subtotal row, OUTFLOW)">
+            <span>EXPECTED <strong>{money(project.subtotal.estimate.outflowCents)}</strong></span>
+            <span>ACTUAL <strong>{money(project.subtotal.actual.outflowCents)}</strong></span>
+          </span>
+          {canEdit && !editing && (
+            <Button small variant="ghost" icon={faPlus} onClick={() => { if (closed) onToggle(); adder.toggle(); }}>
+              {adder.adding && !closed ? "Close" : "Add item"}
+            </Button>
+          )}
           {canEdit && <IconButton icon={faTrash} label="Delete project" danger onClick={remove} />}
         </>
       }
     >
-
       {cards ? (
         <LineCards project={project} phase={cards.phase} lookups={lookups} canEdit={canEdit} onRemove={cards.onRemove} closed={closed} />
+      ) : empty ? (
+        <p className="project-empty">No lines yet{canEdit ? ": Add item writes the first one." : "."}</p>
       ) : (
         <AgGridReact<Row>
           ref={gridRef}
@@ -284,7 +324,13 @@ function ProjectPanel({ project, buildColumns, canEdit, lookups, cards, closed, 
         />
       )}
 
-      {canEdit && !closed && <AddSection label="Add item" draftKey={`new-line:${project.id}`} form={(close) => <NewLine project={project} lookups={lookups} onDone={close} />} />}
+      {canEdit && adder.adding && !closed && (
+        <div className="project-add">
+          <DraftGuardContext.Provider value={adder.report}>
+            <NewLine project={project} lookups={lookups} onDone={adder.hide} />
+          </DraftGuardContext.Provider>
+        </div>
+      )}
     </Panel>
   );
 }
@@ -328,8 +374,10 @@ const TOTAL_COLUMNS: Column<{ label: string; amounts: Amounts }>[] = [
 /** The two lines of the whole area, EXPECTED and ACTUAL. */
 function AreaTotal({ total }: { total: AreaSheet["total"] }) {
   return (
-    <Panel>
-      <p className="muted">The VAT here is only what the team pays out of its own money (its fund, the counter-invoice of goods from a sponsor): the VAT that a fund covers is not counted.</p>
+    <Panel
+      title="Area total"
+      help="The VAT here is only what the team pays out of its own money (its fund, the counter-invoice of goods from a sponsor): the VAT that a fund covers is not counted."
+    >
       <DataTable
         title="Area total"
         columns={TOTAL_COLUMNS}

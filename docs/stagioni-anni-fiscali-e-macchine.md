@@ -16,7 +16,7 @@
 - **Settings › Seasons and cars** (solo admin). È la tabella delle stagioni:
   - date, macchina (si rinomina sul posto), casella **READ-ONLY**, numero di righe del budget;
   - il pulsante **New season**: si sceglie l'anno di settembre in cui parte e il nome della macchina.
-- **Il gruppo Total nel menù**: SEASON TOTAL, YEAR TOTAL e CAR TOTAL (§3bis). Sono le uniche pagine che **non seguono il selettore**: ognuna sceglie da sé la stagione, l'anno solare o la macchina, partendo da quella di oggi, e lì la striscia gialla non compare.
+- **La voce TOTAL nel menù** (gruppo Views), con le schede SEASON, YEAR e CAR (§3bis). Sono le uniche pagine che **non seguono il selettore**: ognuna sceglie da sé la stagione, l'anno solare o la macchina, partendo da quella di oggi, e lì la striscia gialla non compare.
 - **INVENTORY STATS.**
   - Contano ciò che è **arrivato o è stato usato nei giorni della stagione scelta**, mentre lo scaffale è sempre quello di oggi.
   - C'è il taglio nuovo **By car**: compra e «on its way» per la macchina a cui ogni acquisto è destinato. I prelievi non dicono su che macchina vanno, quindi lì non contano.
@@ -38,7 +38,7 @@
 
 ## 3bis. Le tre pagine TOTAL
 
-Nel menù, gruppo **Total** (le aveva chieste l'utente il 6/11/2026 come tre pagine, non come schede di una pagina sola). Hanno la stessa forma:
+Nel menù sono **una voce, TOTAL**, nel gruppo Views, e le tre pagine sono le sue **schede** SEASON, YEAR e CAR, ognuna con il suo indirizzo (`/total/season`, `/total/year`, `/total/car`; `/total` porta alla prima). L'utente le aveva chieste il 6/11/2026 come tre pagine, non come schede di una pagina sola: restano tre pagine, e dal 28 novembre 2026, con il piano della ristrutturazione approvato dall'utente, il menù ne mostra una voce sola ([stile-interfaccia.md](stile-interfaccia.md), «La ristrutturazione»). Hanno la stessa forma:
 
 - in alto la **scelta**: la stagione, l'anno solare o la macchina (di base quella di oggi: la stagione in corso, l'anno in corso, la macchina della stagione in corso), e **Compare with**;
 - **Rows**: *Areas* (le righe del vecchio TOTAL) o *Projects* (ogni progetto con la sua area); **Block**: ALL o una categoria, come prima;

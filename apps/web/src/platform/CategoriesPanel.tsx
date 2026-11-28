@@ -24,11 +24,10 @@ export function CategoriesPanel({ categories, itemFields }: { categories: Settin
   ];
 
   return (
-    <Panel title="Categories">
-      <p className="muted">
+    <Panel title="Categories" help={<>
         The categories of the budget and of the inventory, in their order (the blocks of TOTAL and of the Gantt follow it)
         {itemFields ? ", and which optional fields an item of each category shows" : ""}. Renaming a category renames it on every line and item.
-      </p>
+      </>}>
       <DataTable
         title="Categories"
         columns={columns}

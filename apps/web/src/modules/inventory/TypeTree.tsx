@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { ItemType } from "./types";
 import { buildTree, canMove, type TypeBranch } from "./typeBranches";
 import { Button, IconButton } from "../../core/Button";
+import { Info } from "../../core/ui";
 
 /**
  * The types of the inventory drawn as a tree, to see how they are laid out and to move them: drag a type onto another to put
@@ -100,10 +101,13 @@ export function TypeTree({ types, openId, onOpen, onAdd, onMove }: {
 
   return (
     <div className="type-tree">
-      <p className="muted">
-        Drag a type onto another to put it under it, or onto the strip to make it a type of its own. Click a type to open its parameters;
-        the arrows button picks it up (for a phone or a keyboard), and the next click puts it down. A type cannot go under itself or under
-        one of its own sub-types.
+      <p className="hint">
+        Drag a type onto another to put it under it.
+        <Info label="How to move the types">
+          Drag a type onto another to put it under it, or onto the strip to make it a type of its own. Click a type to open its parameters;
+          the arrows button picks it up (for a phone or a keyboard), and the next click puts it down. A type cannot go under itself or under
+          one of its own sub-types.
+        </Info>
       </p>
       {carrying !== null && (
         <div className="type-tree-carrying" role="status">

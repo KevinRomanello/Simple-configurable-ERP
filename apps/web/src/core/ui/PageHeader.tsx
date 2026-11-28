@@ -1,8 +1,9 @@
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { DraftGuardContext, useAdder } from "../draftGuard";
 import { Button } from "../Button";
 import { DownloadMenu } from "../DownloadMenu";
+import { Info } from "./Info";
 
 /** Something the page lets you add: the yellow button of the header and the form it opens. */
 export interface AddAction {
@@ -15,61 +16,41 @@ export interface AddAction {
 }
 
 /**
- * The top of every page: the title, a line on what the page is for and, under them, what you can
- * do: the yellow button to add something (it opens its form under the header), the page's own
- * commands and Download, always last (it shows only when the page has tables or charts).
+ * The top of every page, one row: the title with its ⓘ (what the page is for, shown on a click) at the left; at the right what you can
+ * do: the page's own commands, Download (it shows only when the page has tables or charts) and, last, the yellow button that adds
+ * something (its form opens under the header). Under the row: the tabs of the page, when it has several views, and a notice that must
+ * stay in sight (a read-only season, a warning), which is a state and not an explanation.
  */
-export function PageHeader({ title, description, add, actions }: {
+export function PageHeader({ title, description, notice, tabs, add, actions }: {
   title: ReactNode;
+  /** What the page is for: behind the ⓘ. */
   description?: ReactNode;
+  /** A state the person must see without asking (read-only, nothing can be changed here): always in sight under the header. */
+  notice?: ReactNode;
+  /** The views of the page (`Tabs`). */
+  tabs?: ReactNode;
   add?: AddAction;
   actions?: ReactNode;
 }) {
   const { adding, toggle, hide, report } = useAdder(add?.draftKey);
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>{title}</h1>
-          {description && <Intro>{description}</Intro>}
-        </div>
-        <div className="actions">
-          {add && <Button icon={faPlus} onClick={toggle}>{adding ? "Close" : add.label}</Button>}
-          {actions}
-          <DownloadMenu />
-        </div>
-      </header>
+      <div className="page-top">
+        <header className="page-header">
+          <div className="page-title">
+            <h1>{title}</h1>
+            {description && <Info label="About this page">{description}</Info>}
+          </div>
+          <div className="actions">
+            {actions}
+            <DownloadMenu />
+            {add && <Button icon={faPlus} onClick={toggle}>{adding ? "Close" : add.label}</Button>}
+          </div>
+        </header>
+        {tabs}
+        {notice && <p className="page-notice">{notice}</p>}
+      </div>
       {add && adding && <DraftGuardContext.Provider value={report}>{add.form(hide)}</DraftGuardContext.Provider>}
-    </>
-  );
-}
-
-/**
- * What the page is for: two lines at most, with «More» to read the rest when it is longer (the work of the page comes first; the
- * text stays all there). The button shows only when something is hidden, measured on the page as it is drawn.
- */
-function Intro({ children }: { children: ReactNode }) {
-  const text = useRef<HTMLParagraphElement>(null);
-  const [open, setOpen] = useState(false);
-  const [hidden, setHidden] = useState(false);
-  useLayoutEffect(() => {
-    const el = text.current;
-    if (!el || open) return;
-    const measure = () => setHidden(el.scrollHeight > el.clientHeight + 1);
-    measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [open, children]);
-  return (
-    <>
-      <p ref={text} className={open ? "page-intro" : "page-intro clamped"}>{children}</p>
-      {(hidden || open) && (
-        <button type="button" className="page-intro-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? "Less" : "More"}
-        </button>
-      )}
     </>
   );
 }

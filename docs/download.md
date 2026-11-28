@@ -1,6 +1,6 @@
 # Scaricare tabelle e grafici (PDF ed Excel)
 
-Ogni pagina con tabelle o grafici ha un pulsante **Download** tra i comandi dell'intestazione, sotto la descrizione. Si apre un riquadro con l'elenco di quello che c'è nella pagina in quel momento (le tabelle con l'icona della tabella, i grafici con quella del grafico, nell'ordine in cui compaiono): si spunta cosa mettere nel file, si sceglie **PDF** o **Excel** e si preme **Download**.
+Ogni pagina con tabelle o grafici ha un pulsante **Download** tra i comandi dell'intestazione, a destra del titolo (prima del pulsante giallo, se c'è). Si apre un riquadro con l'elenco di quello che c'è nella pagina in quel momento (le tabelle con l'icona della tabella, i grafici con quella del grafico, nell'ordine in cui compaiono): si spunta cosa mettere nel file, si sceglie **PDF** o **Excel** e si preme **Download**.
 
 **I file li fa il browser, non il server.** Il sito non manda niente da nessuna parte: il PDF e il file Excel si costruiscono nella pagina, da quello che la persona sta guardando. Quindi il file contiene esattamente ciò che si vede (stessi filtri, stesso blocco scelto, stesso prezzo selezionato) e non servono né un'API né un permesso in più: chi vede la pagina può scaricarla.
 
@@ -30,7 +30,7 @@ flowchart LR
 - **Un blocco** è una parte della pagina che si può scaricare. Si dichiara in un solo modo, scelto per il tipo di parte:
   - `TableBox` (`core/ExportBlocks.tsx`) al posto del vecchio `<div className="table-wrap">`: legge la tabella HTML così com'è (`tableFromDom`); scrive anche il contenuto delle caselle e delle tendine, non solo il testo;
   - `ChartFigure` (stesso file), già dentro `BarsChart` e `LineChart`: quindi **ogni grafico nuovo si scarica senza fare niente**;
-  - la griglia del budget (AG Grid) si registra con `useExportBlock` in `AreaPage.tsx` e si legge dall'API della griglia (`tableFromGrid`: colonne come sono mostrate, gruppi EXPECTED/ACTUAL, riga dei subtotali).
+  - la griglia del budget (AG Grid) si registra con `useExportBlock` in `AreaPage.tsx` e si legge dall'API della griglia (`tableFromGrid`: colonne come sono mostrate, gruppi EXPECTED/ACTUAL, riga dei subtotali). Con una sola fase scelta nella barra sopra i progetti (dal 28 novembre 2026) si scarica solo quella; un progetto senza righe non ha griglia e non dà niente.
 - I blocchi si registrano quando compaiono e si tolgono quando spariscono (si cambia blocco o si apre un altro progetto: l'elenco segue la pagina). L'ordine dell'elenco è quello dello schermo.
 - `DownloadMenu` (`core/DownloadMenu.tsx`) sta nell'intestazione di ogni pagina; senza blocchi non si vede.
 - **Le librerie si caricano solo quando si scarica** (`import()` dinamico): `jspdf` + `jspdf-autotable` per il PDF, `exceljs` per l'Excel. Chi non scarica non le scarica.

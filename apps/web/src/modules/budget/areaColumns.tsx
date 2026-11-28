@@ -424,6 +424,13 @@ export function needsMoreFunds(lines: CalcLine[]): MoreFunds {
   return { estimate: needs("estimate"), actual: needs("actual") };
 }
 
+/** The columns of the phases that are shown: the group of a phase that is hidden goes (the download follows what is shown). */
+export function withPhases(columns: Columns, phases: "both" | "estimate" | "actual"): Columns {
+  if (phases === "both") return columns;
+  const hidden = phases === "estimate" ? "ACTUAL" : "EXPECTED";
+  return columns.filter((c) => !("children" in c && c.headerName === hidden));
+}
+
 export function areaColumns(
   lookups: GridLookups,
   commit: Commit,

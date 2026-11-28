@@ -1,13 +1,14 @@
 import { faPen, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useQuery } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { Fragment, useState, type FormEvent } from "react";
 import { budgetApi } from "./api";
 import type { Bank, Inflow } from "./types";
 import type { Phase } from "../../core/calcTypes";
 import { Button, IconButton } from "../../core/Button";
 import { DraftNote } from "../../core/DraftNote";
-import { MonthlyInflows } from "./MonthlyInflows";
-import { Cards, DataTable, Field, FormPanel, MoneyCard, PageHeader, Panel, RowAction, type Column } from "../../core/ui";
+import { MonthlyChart, MonthlyTable } from "./MonthlyInflows";
+import { PhasePair } from "./PhasePair";
+import { Card, Cards, DataTable, Field, FormPanel, MoneyCard, PageHeader, Panel, RowAction, type Column } from "../../core/ui";
 import { DraftGuardContext, useAdder } from "../../core/draftGuard";
 import { date, moneyFromDecimal } from "../../core/format";
 import { useCanChangeInflows, useCanManageCash } from "../../platform/season";
@@ -18,14 +19,19 @@ import { fieldSetter, useDraft, useRemembered } from "../../core/useDraft";
 
 const TITLE: Record<Phase, string> = { estimate: "EXPECTED", actual: "ACTUAL" };
 
-/** CASH FLOW: the money coming in and what is left after the team's spending, then the BANK balance (the order of the sheet). */
+/**
+ * CASH FLOW: what is left after the team's spending and the BANK first, then the money coming in, EXPECTED and ACTUAL side by side as in
+ * the sheet, a subject per row (the inflows, by month, the chart).
+ */
 export function CashFlowPage() {
   const canEdit = useCanManageCash();
   const canChange = useCanChangeInflows();
   // the BANK form starts open when it has a draft; closing it with the button asks first when something is written
   const bankForm = useAdder("bank");
+  const bank = useQuery({ queryKey: ["bank"], queryFn: budgetApi.bank });
+  const view = useQuery({ queryKey: ["cashflow"], queryFn: budgetApi.cashFlow });
   // a BANK that the register gives is not written here
-  const fromRegister = useQuery({ queryKey: ["bank"], queryFn: budgetApi.bank }).data?.source === "register";
+  const fromRegister = bank.data?.source === "register";
 
   return (
     <>
@@ -39,33 +45,41 @@ export function CashFlowPage() {
           )
         }
       />
-      <div className="two-columns">
-        <PhaseCashFlow phase="estimate" />
-        <PhaseCashFlow phase="actual" />
-      </div>
-      <DraftGuardContext.Provider value={bankForm.report}>
-        <BankBox editing={bankForm.adding} onDone={bankForm.hide} />
-      </DraftGuardContext.Provider>
-    </>
-  );
-}
-
-function BankBox({ editing, onDone }: { editing: boolean; onDone: () => void }) {
-  const canEdit = useCanManageCash();
-  const bank = useQuery({ queryKey: ["bank"], queryFn: budgetApi.bank });
-
-  return (
-    <Panel title="BANK">
-      <p>
-        {bank.data
-          ? `${moneyFromDecimal(bank.data.amount)}${bank.data.asOfDate ? ` on ${date(bank.data.asOfDate)}` : ""}`
-          : "Not set"}
-      </p>
-      {bank.data?.source === "register" && (
-        <p className="muted">From the register: Cassa + Banca at the end of that day. To change it, change the movements of the register.</p>
+      {canEdit && bankForm.adding && bank.isFetched && !fromRegister && (
+        <DraftGuardContext.Provider value={bankForm.report}>
+          <Panel title="BANK" className="form-panel">
+            <BankForm bank={bank.data ?? null} onDone={bankForm.hide} />
+          </Panel>
+        </DraftGuardContext.Provider>
       )}
-      {canEdit && editing && bank.isFetched && bank.data?.source !== "register" && <BankForm bank={bank.data ?? null} onDone={onDone} />}
-    </Panel>
+
+      <Cards>
+        {(["estimate", "actual"] as const).map((phase) => {
+          const summary = view.data?.[phase].summary;
+          return summary ? (
+            <Fragment key={phase}>
+              <MoneyCard caption={`${TITLE[phase]} LEFT VALUE`} cents={summary.leftValueCents} />
+              <MoneyCard caption={`${TITLE[phase]} TOTAL CASH FLOW`} cents={summary.totalCashFlowCents} />
+            </Fragment>
+          ) : null;
+        })}
+        <Card
+          caption="BANK"
+          hint={bank.data && <span className="hint">{bank.data.asOfDate ? `on ${date(bank.data.asOfDate)}` : "no date"}{fromRegister ? " · from the register" : ""}</span>}
+        >
+          {bank.data ? moneyFromDecimal(bank.data.amount) : "Not set"}
+        </Card>
+      </Cards>
+
+      <PhasePair
+        title="Inflows"
+        help="EXPECTED: the money the team expects, written here. ACTUAL: what came in; with the register, the sponsorship movements of the register in this season, as they are there (add or change them in the register). The BANK, when the register has it, is Cassa + Banca at the end of that day: to change it, change the movements of the register."
+      >
+        {(phase) => <PhaseInflows phase={phase} />}
+      </PhasePair>
+      <PhasePair title="Per month">{(phase) => <MonthlyTable phase={phase} monthly={view.data?.[phase].monthly ?? []} />}</PhasePair>
+      <PhasePair title="Timeline">{(phase) => <MonthlyChart phase={phase} monthly={view.data?.[phase].monthly ?? []} />}</PhasePair>
+    </>
   );
 }
 
@@ -166,22 +180,20 @@ function NewInflow({ fromRegister, onDone }: { fromRegister: boolean; onDone: ()
   );
 }
 
-function PhaseCashFlow({ phase }: { phase: Phase }) {
+/** The inflows of a phase, with the actions the others add to them (receiving into the register, deleting with the register's). */
+function PhaseInflows({ phase }: { phase: Phase }) {
   const actions = useSlot(inflowActions);
   const act = useAction();
   const canChange = useCanChangeInflows();
   // without the register (the treasury off) nobody lends the delete that lists the company's movements too: the budget deletes the inflow alone
   const ownDelete = !actions.some((a) => a.key === "delete");
   const inflows = useQuery({ queryKey: ["inflows", phase], queryFn: () => budgetApi.inflows(phase) });
-  const view = useQuery({ queryKey: ["cashflow"], queryFn: budgetApi.cashFlow });
-  const summary = view.data?.[phase].summary;
   // the inflow whose action is open, one at a time, remembered with its form: coming back to the page the panel is open with what was
   // written (deleting has no form to keep: it starts closed)
   const [open, setOpen] = useRemembered<{ key: string; id: number } | null>(`cash-flow:${phase}:open`, null, (o) =>
     o === null ? null : (actions.find((a) => a.key === o.key)?.draftKey?.(o.id) ?? null),
   );
   const close = () => setOpen(null);
-  const fromRegister = inflows.data?.some((i) => i.source === "register") ?? false;
 
   const columns: Column<Inflow>[] = [
     { key: "company", header: "COMPANY", sort: (i) => i.sourceName, cell: (i) => i.sourceName },
@@ -217,8 +229,6 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
   ];
 
   return (
-    <Panel title={TITLE[phase]}>
-      {phase === "actual" && fromRegister && <p className="muted">The sponsorship movements of the register in this season, as they are there (add or change them in the register).</p>}
       <DataTable
         title={`${phase === "estimate" ? "Expected" : "Actual"} cash inflows`}
         columns={columns}
@@ -244,13 +254,5 @@ function PhaseCashFlow({ phase }: { phase: Phase }) {
         }}
         empty="No inflows yet"
       />
-      {summary && (
-        <Cards>
-          <MoneyCard caption="Total cash flow" cents={summary.totalCashFlowCents} />
-          <MoneyCard caption="Left value" cents={summary.leftValueCents} />
-        </Cards>
-      )}
-      <MonthlyInflows phase={phase} monthly={view.data?.[phase].monthly ?? []} />
-    </Panel>
   );
 }

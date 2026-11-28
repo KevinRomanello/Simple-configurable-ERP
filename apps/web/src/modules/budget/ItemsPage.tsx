@@ -4,6 +4,7 @@ import { budgetApi } from "./api";
 import { platformApi } from "../../platform/api";
 import type { ItemsView } from "../../core/calcTypes";
 import { DataTable, Field, PageHeader, Panel, type Column } from "../../core/ui";
+import { AnalysisTabs } from "./viewTabs";
 import { date, money } from "../../core/format";
 
 type ItemLine = ItemsView["rows"][number];
@@ -52,7 +53,7 @@ export function ItemsPage() {
 
   return (
     <>
-      <PageHeader title="CATEGORY ANALYSES" description="Items without a category are not listed here." />
+      <PageHeader title="ANALYSES" description="Spending per item, by category. Items without a category are not listed here." tabs={<AnalysisTabs />} />
 
       <Panel>
         <div className="toggle-row" role="group" aria-label="Categories">

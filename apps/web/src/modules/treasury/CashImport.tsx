@@ -114,11 +114,10 @@ export function CashImport({ categories, methods, onClose }: { categories: CashL
   const canApply = preview !== null && !busy && (mode === "add" ? preview.addedCount > 0 || (updateChanged && preview.changedCount > 0) : confirm === String(preview.year));
 
   return (
-    <Panel title="Import from Excel" actions={<Button small variant="ghost" onClick={onClose}>Close</Button>}>
-      <p className="muted">
+    <Panel title="Import from Excel" actions={<Button small variant="ghost" onClick={onClose}>Close</Button>} help={<>
         Choose the sheet of the treasury (the .xlsx, with the sheet «movimenti cassa e banca»). It is read here, in the browser, and checked against the register:
         nothing is saved until you apply it.
-      </p>
+      </>}>
       <Field label="File" htmlFor="import-file">
         <input id="import-file" type="file" accept=".xlsx" onChange={(e) => void choose(e.target.files?.[0])} />
       </Field>

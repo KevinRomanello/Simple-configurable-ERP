@@ -23,8 +23,7 @@ export function TokensPanel() {
   const [made, setMade] = useState<string | null>(null);
   return (
     <>
-      <Panel title="API tokens">
-        <p className="muted">A key for a service (n8n, the bot, the website): sent as Authorization: Bearer &lt;key&gt;, it acts as the user chosen, with that user's permissions. Shown once only.</p>
+      <Panel title="API tokens" help={<>A key for a service (n8n, the bot, the website): sent as Authorization: Bearer &lt;key&gt;, it acts as the user chosen, with that user's permissions. Shown once only.</>}>
         {made && (
           <p className="hint warning mono">
             {made} <IconButton icon={faCopy} label="Copy the key" onClick={() => navigator.clipboard.writeText(made)} /> Copy it now: it will not be shown again.

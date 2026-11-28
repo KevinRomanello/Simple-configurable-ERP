@@ -5,7 +5,7 @@ import { FormActions } from "./FormActions";
 import { Panel } from "./Panel";
 
 /**
- * The box of a form that adds something: title, a line of explanation if needed, the fields and,
+ * The box of a form that adds something: title (with its explanation, if needed, behind an ⓘ), the fields and,
  * last, the same two buttons everywhere (the one that adds, and Cancel). `layout="inline"` puts
  * the fields and the buttons on one row; `"stack"` for a longer form (fields in rows or sections). Inside the panel of an
  * action (`RowAction`) it has no box of its own and its buttons are the bar at the bottom of the panel.
@@ -31,8 +31,7 @@ export function FormPanel({ title, description, submitLabel, canSubmit = true, o
     </>
   );
   return (
-    <Panel title={title} className="form-panel">
-      {description && <p className="muted">{description}</p>}
+    <Panel title={title} help={description} className="form-panel">
       {layout === "inline" ? (
         <form className="inline-form" onSubmit={submit}>
           {children}

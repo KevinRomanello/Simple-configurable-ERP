@@ -26,11 +26,10 @@ export function CategoryVoci() {
     },
   ];
   return (
-    <Panel title="Register: Voce of a payment, by budget category">
-      <p className="muted">
+    <Panel title="Register: Voce of a payment, by budget category" help={<>
         When a line of the budget is paid from TO PAY, the payment starts from the Voce of the category of the line (Asset → 1.1 Attrezzature, for example).
         It can always be changed in the form of the payment.
-      </p>
+      </>}>
       <DataTable title="Voce by budget category" columns={columns} rows={defaults.data} rowKey={(c) => c.categoryId} empty="No categories" />
     </Panel>
   );

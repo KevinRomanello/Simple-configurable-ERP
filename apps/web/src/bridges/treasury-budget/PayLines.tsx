@@ -4,7 +4,7 @@ import { treasuryBudgetApi } from "./api";
 import type { PayableLine } from "./types";
 import type { CashEntryRow } from "../../modules/treasury/public";
 import { Button } from "../../core/Button";
-import { FormActions, Loading, Table, TableScroll } from "../../core/ui";
+import { FormActions, Info, Loading, Table, TableScroll } from "../../core/ui";
 import { decimalText, money } from "../../core/format";
 import { useAction } from "../../core/useAction";
 import { useDraft } from "../../core/useDraft";
@@ -89,10 +89,18 @@ export function PayLines({ entry, onClose }: { entry: Payment; onClose: () => vo
   return (
     <div className="stack tight">
       <DraftNote draft={saved} />
-      <p className="muted">
-        Which lines of the budget this payment of {money(payment)} paid (ACTUAL: what the team pays for them, the net out of its fund and the VAT; a payment covers the net first). A line with payments counts in the cash flow only what is still to pay.
-        {elsewhere > 0 && ` ${money(elsewhere)} of it is on lines that are not in this list: saving keeps the ones of other seasons, and unties the ones the team no longer pays for.`}
-      </p>
+      <div className="panel-title">
+        <strong>Which lines of the budget this payment of {money(payment)} paid</strong>
+        <Info label="About the lines of a payment">
+          ACTUAL: what the team pays for them, the net out of its fund and the VAT; a payment covers the net first. A line with payments counts in the cash flow
+          only what is still to pay.
+        </Info>
+      </div>
+      {elsewhere > 0 && (
+        <p className="hint warning">
+          {money(elsewhere)} of it is on lines that are not in this list: saving keeps the ones of other seasons, and unties the ones the team no longer pays for.
+        </p>
+      )}
       <input className="input small" aria-label="Search lines" placeholder="Search a line, a project or an order" value={text} onChange={(e) => setText(e.target.value)} />
       <TableScroll>
         <Table>

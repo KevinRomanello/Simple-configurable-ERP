@@ -10,6 +10,7 @@ import { money, month } from "../../core/format";
 import { TableBox } from "../../core/ExportBlocks";
 import { SortTh } from "../../core/SortTh";
 import { Loading, Message, PageHeader, Panel, Table } from "../../core/ui";
+import { GanttTabs } from "./viewTabs";
 import { useSort } from "../../core/sort";
 
 type ProjectRow = Gantt["blocks"][number]["areas"][number]["rows"][number];
@@ -29,8 +30,9 @@ export function GanttPage() {
   return (
     <>
       <PageHeader
-        title={`${current === "estimate" ? "EXPECTED" : "ACTUAL"} GANTT`}
-        description="Outflow per month. When the team pays the VAT, only the net leaves on the purchase date and the VAT leaves on its deadline."
+        title="GANTT"
+        description="Outflow per month, EXPECTED or ACTUAL. When the team pays the VAT, only the net leaves on the purchase date and the VAT leaves on its deadline."
+        tabs={<GanttTabs />}
       />
 
       {data.blocks.length === 0 ? (

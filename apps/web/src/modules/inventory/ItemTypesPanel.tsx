@@ -115,22 +115,27 @@ export function ItemTypesPanel({ categories }: { categories: BudgetCategory[] })
   const unlinked = types.data.filter((t) => t.categoryId === null).length;
 
   return (
-    <Panel title="Item types">
-      <p className="muted">
-        The kinds of things each area keeps (Resistor, Capacitor, Screw…) and what is written about each item of them: a number with its unit
-        (10k, 100n with k, M, m, µ…), one of a list, a text, a yes or no. Admins and users keep them; everybody sees them in the
-        inventory, where they filter the list. A type of no area is offered to every area.
-      </p>
-      <p className="muted">
-        A type can be a <strong>kind of another</strong> (Op-amp under IC): <em>Add sub-type</em> makes one, and <em>Under</em> moves one. A sub-type has
-        everything written about its parents, and its own on top; choosing IC in the inventory shows the op-amps too. Types under the same
-        parent have different names; a parameter is written once along a line.
-      </p>
-      <p className="muted">
-        Every type is linked to a <strong>category of the budget</strong>: its items take it from there (it is not asked on the item), and the
-        statistics by category and the optional fields of the form follow it. Changing it changes it for all the items of the type.
-        {unlinked > 0 && <> <strong>{unlinked} {unlinked === 1 ? "type has" : "types have"} none yet</strong>: their items keep the category they have until you choose.</>}
-      </p>
+    <Panel title="Item types" help={<>
+        <p>
+          The kinds of things each area keeps (Resistor, Capacitor, Screw…) and what is written about each item of them: a number with its unit
+          (10k, 100n with k, M, m, µ…), one of a list, a text, a yes or no. Admins and users keep them; everybody sees them in the
+          inventory, where they filter the list. A type of no area is offered to every area.
+        </p>
+        <p>
+          A type can be a <strong>kind of another</strong> (Op-amp under IC): <em>Add sub-type</em> makes one, and <em>Under</em> moves one. A sub-type has
+          everything written about its parents, and its own on top; choosing IC in the inventory shows the op-amps too. Types under the same
+          parent have different names; a parameter is written once along a line.
+        </p>
+        <p>
+          Every type is linked to a <strong>category of the budget</strong>: its items take it from there (it is not asked on the item), and the
+          statistics by category and the optional fields of the form follow it. Changing it changes it for all the items of the type.
+        </p>
+      </>}>
+      {unlinked > 0 && (
+        <p className="hint warning">
+          {unlinked} {unlinked === 1 ? "type has" : "types have"} no category of the budget yet: their items keep the category they have until you choose.
+        </p>
+      )}
       <div className="icon-row">
         <Button variant="ghost" icon={faSitemap} aria-pressed={tree} onClick={() => setTree(!tree)}>{tree ? "Hide the tree" : "Show as a tree"}</Button>
       </div>
@@ -260,12 +265,11 @@ function ParamsPanel({ type, types }: { type: ItemType; types: ItemType[] }) {
     { key: "delete", header: "", num: true, cell: (p) => (p.inherited ? null : <IconButton icon={faTrash} label={`Delete ${p.name}`} danger onClick={() => remove(p)} />) },
   ];
   return (
-    <Panel title={`What is written about each ${type.name}`}>
-      {type.params.some((p) => p.inherited) && <p className="muted">The ones that come from a parent are changed on the parent: its sub-types follow.</p>}
-      <p className="muted">
+    <Panel title={`What is written about each ${type.name}`} help={<>
         Renaming is always possible. The kind changes only while nothing is written in it. Changing the unit does not convert what is
         written: 10 stays 10. A choice that items have can be renamed (they follow), not taken away.
-      </p>
+      </>}>
+      {type.params.some((p) => p.inherited) && <p className="hint">The ones that come from a parent are changed on the parent: its sub-types follow.</p>}
       <DataTable title={`Parameters of ${type.name}`} columns={columns} rows={type.params} rowKey={(p) => p.id} empty="Nothing yet: add the first parameter"
         reorder={{ label: (p) => p.name, movable: (p) => !p.inherited, onOrder: (order) => act(() => inventoryApi.orderParams(type.id, order)) }} />
       <AddSection label="Add parameter" draftKey={`new-param:${type.id}`} form={(close) => <NewParam typeId={type.id} onDone={close} />} />

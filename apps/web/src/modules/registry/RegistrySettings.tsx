@@ -31,8 +31,7 @@ function PeoplePanel() {
   const email = emailId === undefined ? (settings.data?.emailFieldId ?? null) : emailId;
   if (!settings.data) return <Loading />;
   return (
-    <Panel title="The people of the registry">
-      <p className="muted">The table of the people, and the field with the email they sign in with: the registry then knows who is looking, its views can be groups, and the roles of the ERP can come from it.</p>
+    <Panel title="The people of the registry" help={<>The table of the people, and the field with the email they sign in with: the registry then knows who is looking, its views can be groups, and the roles of the ERP can come from it.</>}>
       <div className="inline-form">
         <Field label="Table of the people" htmlFor="people-table">
           <select id="people-table" className="input small" value={chosen ?? ""} onChange={(e) => { setTableId(e.target.value === "" ? null : Number(e.target.value)); setEmailId(null); }}>
@@ -73,10 +72,9 @@ function RoleSyncPanel() {
   const areaName = (id: unknown) => areas.data?.find((a) => a.id === id)?.name ?? String(id);
   const show = (key: string, v: unknown) => (Array.isArray(v) ? (key === "areaIds" ? v.map(areaName) : v).join(", ") || "none" : v === null ? "—" : String(v));
   return (
-    <Panel title="The roles of the ERP from the registry">
-      <p className="muted">
+    <Panel title="The roles of the ERP from the registry" help={<>
         Each permission of the ERP from a group of the people table. Turned on, every change of the registry changes the accounts at once (and the Users page shows them read-only); the emails of ADMIN_EMAILS stay admins. People not in the registry stay as they are.
-      </p>
+      </>}>
       {sync.data.peopleTableId === null ? (
         <p className="hint warning">Choose the table of the people first.</p>
       ) : (

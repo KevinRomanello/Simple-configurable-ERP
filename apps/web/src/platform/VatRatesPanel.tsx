@@ -14,8 +14,7 @@ export function VatRatesPanel({ rates }: { rates: SettingsView["vatRates"] }) {
     { key: "delete", header: "", num: true, cell: (r) => <DeleteButton label={`${r.rate}%`} usedBy={r.usedBy} onDelete={() => act(() => platformApi.deleteVatRate(r.id))} /> },
   ];
   return (
-    <Panel title="VAT rates">
-      <p className="muted">The rates a line, a sponsor or an arrival can use. Used by: sponsors and budget lines.</p>
+    <Panel title="VAT rates" help={<>The rates a line, a sponsor or an arrival can use. Used by: sponsors and budget lines.</>}>
       <DataTable title="VAT rates" columns={columns} rows={rates} rowKey={(r) => r.id} empty="No rates" />
       <QuickAdd id="new-vat-rate" noun="VAT rate" label="Rate (%)" type="number" onAdd={(rate) => act(() => platformApi.createVatRate(Number(rate)))} />
     </Panel>

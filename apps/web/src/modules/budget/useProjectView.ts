@@ -48,3 +48,33 @@ export function useProjectView(areaCode: string) {
     resetOrder: () => setOrder([]),
   };
 }
+
+/** Which phases the grids of the budget show: both side by side (as the sheet does), or only one of them. */
+export type PhaseView = "both" | "estimate" | "actual";
+
+const PHASES_KEY = "erp.budget-phases";
+
+/**
+ * The phases this person chose to see in the budget, the same for every area and remembered in this browser (and fine without it:
+ * both). On a phone the cards show one phase at a time, so «both» shows EXPECTED there.
+ */
+export function usePhaseView() {
+  const [phases, setPhases] = useState<PhaseView>(() => {
+    try {
+      const saved = localStorage.getItem(PHASES_KEY);
+      return saved === "estimate" || saved === "actual" ? saved : "both";
+    } catch {
+      return "both";
+    }
+  });
+  const choose = (next: PhaseView) => {
+    try {
+      if (next === "both") localStorage.removeItem(PHASES_KEY);
+      else localStorage.setItem(PHASES_KEY, next);
+    } catch {
+      // private window or blocked storage: the choice lasts until the page is closed
+    }
+    setPhases(next);
+  };
+  return [phases, choose] as const;
+}

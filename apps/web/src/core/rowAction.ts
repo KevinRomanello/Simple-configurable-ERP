@@ -96,11 +96,15 @@ export interface Box {
 }
 
 /**
- * Where the popover of a button goes on the screen (`fixed` position): below the button with its right edge on the button's, kept inside
- * the screen, and above the button when there is no room below. `arrow` is how far from its left edge the pointer to the button is.
+ * Where the popover of a button goes on the screen (`fixed` position): below the button with its right edge on the button's (`end`, a
+ * button at the right of a row) or its left edge on the button's (`start`, the ⓘ beside a title), kept inside the screen, and above the
+ * button when there is no room below. `arrow` is how far from its left edge the pointer to the button is.
  */
-export function popoverPlace(button: Box, size: { width: number; height: number }, screen: { width: number; height: number }, gap = 8, margin = 8) {
-  const left = Math.max(margin, Math.min(screen.width - size.width - margin, button.right - size.width));
+export function popoverPlace(
+  button: Box, size: { width: number; height: number }, screen: { width: number; height: number }, gap = 8, margin = 8, align: "start" | "end" = "end",
+) {
+  const wanted = align === "end" ? button.right - size.width : button.left;
+  const left = Math.max(margin, Math.min(screen.width - size.width - margin, wanted));
   const below = button.bottom + gap;
   const above = button.top - gap - size.height;
   const fitsBelow = below + size.height + margin <= screen.height;

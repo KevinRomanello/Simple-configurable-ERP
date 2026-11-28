@@ -5,6 +5,7 @@ import type { Analysis } from "../../core/calcTypes";
 import { BarsChart } from "../../core/BarsChart";
 import { Chips } from "../../core/Chips";
 import { DataTable, Loading, PageHeader, Panel, type Column } from "../../core/ui";
+import { AnalysisTabs } from "./viewTabs";
 import { blockTitle } from "./blocks";
 import { money } from "../../core/format";
 
@@ -81,7 +82,7 @@ export function AnalysisPage({ kind }: { kind: Kind }) {
 
   return (
     <>
-      <PageHeader title={copy.title} description={copy.hint} />
+      <PageHeader title="ANALYSES" description={copy.hint} tabs={<AnalysisTabs />} />
       <Panel>
         <Chips
           label="Block"

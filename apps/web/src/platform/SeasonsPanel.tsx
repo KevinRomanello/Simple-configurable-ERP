@@ -59,13 +59,12 @@ export function SeasonsPanel() {
   ];
 
   return (
-    <Panel title="Seasons and cars">
-      <p className="muted">
+    <Panel title="Seasons and cars" help={<>
         Each season (1 September - 31 August) has its own budget and the car the team builds in it; the menu chooses the season the whole
         site shows. A line is for the car of its season unless another one is chosen on it. A read-only season can be looked at but its
         budget, sponsors and cash flow cannot be changed. A new season starts from the latest one: the same projects without their
         lines, the same sponsors without their money.
-      </p>
+      </>}>
       <DataTable title="Seasons" columns={columns} rows={seasons} rowKey={(s) => s.id} empty="No seasons" />
       {seasons && <AddSection label="New season" draftKey="new-season" form={(close) => <NewSeason seasons={seasons} onDone={close} />} />}
     </Panel>

@@ -115,10 +115,13 @@ export function InventoryPage() {
   // the filters of one type mean nothing for another: they start again when the type changes
   const areaType = useAreaTypeFilter(lookups, () => setParams({}));
   const { areaCode, areas, type } = areaType;
-  // on a phone the filters other than the search are behind a button that says how many are on
+  // the search, the area, the type and the place are always in sight; the rest (kind, hazards, the parameters of the type, the prices)
+  // is behind «More filters», which says how many of them are on. On a phone every filter but the search is behind «Filters».
   const phone = useMaxWidth(SCREEN.phone);
   const [filtersShown, setFiltersShown] = useState(false);
+  const [moreShown, setMoreShown] = useState(false);
   const showFilters = !phone || filtersShown;
+  const showMore = phone ? filtersShown : moreShown;
 
   const paramQuery = paramFilterQuery(type, params);
 
@@ -129,6 +132,7 @@ export function InventoryPage() {
     ...(type?.hazards === false ? {} : Object.fromEntries(HAZARDS.filter((h) => hazards[h.key]).map((h) => [h.key, "true"]))),
   };
   const filtersOn = Object.keys(filters).filter((key) => key !== "search" && filters[key as keyof typeof filters] !== undefined).length;
+  const moreOn = Object.keys(filters).filter((key) => !["search", "area", "type", "location"].includes(key) && filters[key as keyof typeof filters] !== undefined).length;
   const items = useQuery({ queryKey: ["inventory-items", price, filters], queryFn: () => inventoryApi.inventoryItems(price, filters) });
   const everything = useQuery({ queryKey: ["inventory-items", price, {}], queryFn: () => inventoryApi.inventoryItems(price) });
 
@@ -162,9 +166,8 @@ export function InventoryPage() {
       </Cards>
 
       <Panel>
-        <section className="filter-group" aria-label="What to find">
-          <div className="filter-title">Find</div>
-          <div className="inline-form">
+        <div className="filters">
+          <div className="inline-form" role="search" aria-label="Find in the inventory">
             <div className="search-row">
               <Field label="Search" htmlFor="inventory-search" className="grow">
                 <input id="inventory-search" className="input small" placeholder="Name, code, what it is for…" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -177,43 +180,50 @@ export function InventoryPage() {
             </div>
             {showFilters && (
               <>
-                <Field label="Kind" htmlFor="inventory-origin">
-                  <select id="inventory-origin" className="input small" value={origin} onChange={(e) => setOrigin(e.target.value)}>
-                    <option value="">Bought and made</option>
-                    <option value="bought">Bought</option>
-                    <option value="made">Made by the team</option>
-                  </select>
-                </Field>
+                <AreaTypeFields filter={areaType} idPrefix="inventory" />
                 <Field label="Where" htmlFor="inventory-location">
                   <SearchSelect id="inventory-location" value={location} onChange={setLocation} choices={[{ value: "", label: "Anywhere" }, ...(lookups?.locations ?? []).map((l) => ({ value: l.code, label: l.label }))]} />
                 </Field>
-                {type?.hazards !== false && <HazardChecks value={hazards} onChange={(key, checked) => setHazards({ ...hazards, [key]: checked })} />}
               </>
             )}
+            {!phone && (
+              <Button small variant="ghost" aria-expanded={moreShown} onClick={() => setMoreShown(!moreShown)}>
+                {moreShown ? "Fewer filters" : `More filters${moreOn > 0 ? ` (${moreOn})` : ""}`}
+              </Button>
+            )}
           </div>
-          {showFilters && (
-            <div className="inline-form">
-              <AreaTypeFields filter={areaType} idPrefix="inventory" />
+          {showMore && (
+            <div className="filters-more">
+              <section className="filter-group" aria-label="What kind">
+                <div className="inline-form">
+                  <Field label="Kind" htmlFor="inventory-origin">
+                    <select id="inventory-origin" className="input small" value={origin} onChange={(e) => setOrigin(e.target.value)}>
+                      <option value="">Bought and made</option>
+                      <option value="bought">Bought</option>
+                      <option value="made">Made by the team</option>
+                    </select>
+                  </Field>
+                  {type?.hazards !== false && <HazardChecks value={hazards} onChange={(key, checked) => setHazards({ ...hazards, [key]: checked })} />}
+                </div>
+              </section>
+              {type && type.params.length > 0 && (
+                <section className="filter-group" aria-label={`What is written about each ${type.name}`}>
+                  <div className="filter-title">{type.path}</div>
+                  <div className="inline-form">
+                    {type.params.map((param) => (
+                      <ParamFilter key={param.id} param={param} params={params} errors={paramQuery.errors} onChange={(key, text) => setParams({ ...params, [key]: text })} />
+                    ))}
+                  </div>
+                  {type.params.some((p) => p.kind === "number" && p.prefixes) && <span className="hint">Numbers take k, M, m, µ, n, p: 4.7k, 4k7, 100n.</span>}
+                </section>
+              )}
+              <section className="filter-group" aria-label="Which price">
+                <div className="filter-title">Prices</div>
+                <PriceSelector value={price} onChange={setPrice} date />
+              </section>
             </div>
           )}
-        </section>
-        {showFilters && type && type.params.length > 0 && (
-          <section className="filter-group" aria-label={`What is written about each ${type.name}`}>
-            <div className="filter-title">{type.path}</div>
-            <div className="inline-form">
-              {type.params.map((param) => (
-                <ParamFilter key={param.id} param={param} params={params} errors={paramQuery.errors} onChange={(key, text) => setParams({ ...params, [key]: text })} />
-              ))}
-            </div>
-            {type.params.some((p) => p.kind === "number" && p.prefixes) && <span className="hint">Numbers take k, M, m, µ, n, p: 4.7k, 4k7, 100n.</span>}
-          </section>
-        )}
-        {showFilters && (
-          <section className="filter-group" aria-label="Which price">
-            <div className="filter-title">Prices</div>
-            <PriceSelector value={price} onChange={setPrice} date />
-          </section>
-        )}
+        </div>
 
         <DataTable title="Inventory" columns={columnsFor(type, areas, lookups?.types ?? [])} rows={items.data} rowKey={(r) => r.id} empty="Nothing here yet" />
       </Panel>

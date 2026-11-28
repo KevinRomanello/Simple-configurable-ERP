@@ -13,7 +13,7 @@ import { PayForm } from "./PayForm";
 import { PayLines } from "./PayLines";
 import { isOrder, SORT, toPayEntries, type OrderRow } from "./toPayOrders";
 import { SortTh } from "../../core/SortTh";
-import { EmptyRow, Field, Loading, Message, PageHeader, Panel, RowAction, Table } from "../../core/ui";
+import { Card, Cards, EmptyRow, Field, Loading, Message, MoneyCard, PageHeader, Panel, RowAction, Table, Tabs } from "../../core/ui";
 import { useMe } from "../../platform/auth";
 import { date, money } from "../../core/format";
 import { useAction } from "../../core/useAction";
@@ -57,7 +57,10 @@ export function ToPayPage() {
   const [grouping, setGrouping] = useRemembered<Grouping | null>("to-pay:grouping", null, (g) => (g ? `order:${g.how}` : null));
   const [picked, setPicked] = useState<number[]>([]);
   const [opened, setOpened] = useState<number[]>([]);
+  // the two lists of the treasury, as tabs: back on the payments to tie only while a link to lines is half written
+  const [list, setList] = useRemembered<"pay" | "tie">("to-pay:list", "pay", (l) => (l === "tie" ? "pay-lines:*" : null));
   const toPay = useQuery({ queryKey: ["to-pay", allSeasons], queryFn: () => treasuryBudgetApi.toPay(allSeasons), enabled: canSeeToPay });
+  const toLink = useQuery({ queryKey: ["to-link"], queryFn: treasuryBudgetApi.toLink, enabled: canManageCash });
   const sort = useSort(SORT);
 
   if (!canSeeToPay) return <Message>Only who keeps the budget can see what is to pay.</Message>;
@@ -206,69 +209,95 @@ export function ToPayPage() {
         title="TO PAY"
         description={
           canManageCash
-            ? "The purchases of the budget (the ACTUAL columns) that the team has not paid yet: the net out of its fund and the VAT. Pay makes the payment in the register, tied to the lines; tick several lines to pay them with one payment, or to group the lines bought in one order. The budget then shows them as paid."
+            ? "The purchases of the budget (the ACTUAL columns) that the team has not paid yet: the net out of its fund and the VAT. Pay makes the payment in the register, tied to the lines; tick several lines to pay them with one payment, or to group the lines bought in one order. The budget then shows them as paid. A payment covers the net first and then the VAT. Payments to tie are the payments of the register that pay no line yet."
             : "The purchases of the budget (the ACTUAL columns) that the team has not paid yet: the net out of its fund and the VAT. Tick the lines bought in one order to group them; the treasury pays them."
         }
-        actions={
-          <>
-            <Field label="Search" htmlFor="to-pay-search">
-              <input id="to-pay-search" className="input small" placeholder="Line, project, supplier, order" value={text} onChange={(e) => setText(e.target.value)} />
-            </Field>
-            <label className="checkbox">
-              <input type="checkbox" checked={allSeasons} onChange={(e) => setAllSeasons(e.target.checked)} />
-              All seasons
-            </label>
-            {groupable && chosen.length > 1 && (
-              <Button icon={faLayerGroup} variant="ghost" onClick={() => setGrouping({ how: "new", lineIds: ids(chosen) })}>Group as one order</Button>
-            )}
-            {ordersToJoin.length > 0 && (
-              <Button icon={faPlus} variant="ghost" onClick={() => setGrouping({ how: "add", lineIds: ids(chosen) })}>Add to order…</Button>
-            )}
-            {chosen.length > 1 && chosen.every(mayPay) && (
-              <Button icon={faMoneyBillWave} onClick={() => pay(chosen)}>Pay the {chosen.length} ticked</Button>
-            )}
-          </>
+        tabs={
+          canManageCash && (
+            <Tabs
+              label="Lists"
+              value={list}
+              onChange={setList}
+              tabs={[
+                { key: "pay", label: "To pay", count: all.length },
+                { key: "tie", label: "Payments to tie", count: toLink.data?.length },
+              ]}
+            />
+          )
         }
       />
 
-      {paying && !payingLine && !payOrder && payRows.length > 0 && payAction()}
-      {grouping && groupRows.length > 0 && (
-        <RowAction loose eyebrow={grouping.how === "new" ? "Group as one order" : "Add to order"} title={lineCount(groupRows.length)} context={[["Lines", groupRows.map((r) => r.item).join(", ")]]} onClose={done}>
-          {grouping.how === "new" ? (
-            <NewOrder rows={groupRows} onDone={done} />
-          ) : (
-            <AddToOrder rows={groupRows} orders={orders.filter((o) => o.seasonId === groupRows[0]!.seasonId)} onDone={done} />
-          )}
-        </RowAction>
+      {list === "tie" && canManageCash ? (
+        <ToLink />
+      ) : (
+        <>
+          <Cards>
+            <MoneyCard caption="LEFT TO PAY" cents={sumDue(listed)} />
+            <Card caption="LINES">{listed.length}</Card>
+          </Cards>
+
+          <div className="stack tight">
+            <div className="toolbar">
+              <div className="inline-form">
+                <Field label="Search" htmlFor="to-pay-search" className="grow">
+                  <input id="to-pay-search" className="input small" placeholder="Line, project, supplier, order" value={text} onChange={(e) => setText(e.target.value)} />
+                </Field>
+                <label className="checkbox">
+                  <input type="checkbox" checked={allSeasons} onChange={(e) => setAllSeasons(e.target.checked)} />
+                  All seasons
+                </label>
+              </div>
+              {(chosen.length > 1 || ordersToJoin.length > 0) && (
+                <div className="toolbar-end">
+                  {groupable && chosen.length > 1 && (
+                    <Button small icon={faLayerGroup} variant="ghost" onClick={() => setGrouping({ how: "new", lineIds: ids(chosen) })}>Group as one order</Button>
+                  )}
+                  {ordersToJoin.length > 0 && (
+                    <Button small icon={faPlus} variant="ghost" onClick={() => setGrouping({ how: "add", lineIds: ids(chosen) })}>Add to order…</Button>
+                  )}
+                  {chosen.length > 1 && chosen.every(mayPay) && (
+                    <Button small icon={faMoneyBillWave} onClick={() => pay(chosen)}>Pay the {chosen.length} ticked</Button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {paying && !payingLine && !payOrder && payRows.length > 0 && payAction()}
+            {grouping && groupRows.length > 0 && (
+              <RowAction loose eyebrow={grouping.how === "new" ? "Group as one order" : "Add to order"} title={lineCount(groupRows.length)} context={[["Lines", groupRows.map((r) => r.item).join(", ")]]} onClose={done}>
+                {grouping.how === "new" ? (
+                  <NewOrder rows={groupRows} onDone={done} />
+                ) : (
+                  <AddToOrder rows={groupRows} orders={orders.filter((o) => o.seasonId === groupRows[0]!.seasonId)} onDone={done} />
+                )}
+              </RowAction>
+            )}
+
+            <TableBox title="To pay" cards>
+              <Table className="phone-cards">
+                <thead>
+                  <tr>
+                    <th />
+                    <SortTh sort={sort} by="item">LINE</SortTh>
+                    <SortTh sort={sort} by="project">PROJECT</SortTh>
+                    <SortTh sort={sort} by="supplier">BOUGHT FROM</SortTh>
+                    <SortTh sort={sort} by="boughtOn">BOUGHT ON</SortTh>
+                    <SortTh sort={sort} by="waiting" className="num">WAITING</SortTh>
+                    <SortTh sort={sort} by="due" className="num">TO PAY</SortTh>
+                    <SortTh sort={sort} by="paid" className="num">PAID</SortTh>
+                    <SortTh sort={sort} by="state">STATE</SortTh>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map((entry) => (isOrder(entry) ? orderRows(entry) : lineRow(entry, false)))}
+                  {entries.length === 0 && <EmptyRow colSpan={10}>{all.length === 0 ? "Everything that was bought has been paid" : "No line matches the search"}</EmptyRow>}
+                </tbody>
+              </Table>
+            </TableBox>
+          </div>
+        </>
       )}
-
-      <Panel>
-        <TableBox title="To pay" cards>
-          <Table className="phone-cards">
-            <thead>
-              <tr>
-                <th />
-                <SortTh sort={sort} by="item">LINE</SortTh>
-                <SortTh sort={sort} by="project">PROJECT</SortTh>
-                <SortTh sort={sort} by="supplier">BOUGHT FROM</SortTh>
-                <SortTh sort={sort} by="boughtOn">BOUGHT ON</SortTh>
-                <SortTh sort={sort} by="waiting" className="num">WAITING</SortTh>
-                <SortTh sort={sort} by="due" className="num">TO PAY</SortTh>
-                <SortTh sort={sort} by="paid" className="num">PAID</SortTh>
-                <SortTh sort={sort} by="state">STATE</SortTh>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((entry) => (isOrder(entry) ? orderRows(entry) : lineRow(entry, false)))}
-              {entries.length === 0 && <EmptyRow colSpan={10}>{all.length === 0 ? "Everything that was bought has been paid" : "No line matches the search"}</EmptyRow>}
-            </tbody>
-          </Table>
-        </TableBox>
-        {listed.length > 0 && <p className="muted">Left to pay in this list: {money(sumDue(listed))}. A payment covers the net first and then the VAT.</p>}
-      </Panel>
-
-      {canManageCash && <ToLink />}
     </>
   );
 }
@@ -277,54 +306,49 @@ export function ToPayPage() {
 function ToLink() {
   const list = useQuery({ queryKey: ["to-link"], queryFn: treasuryBudgetApi.toLink });
   const [linking, setLinking] = useRemembered<number | null>("to-pay:linking", null, (id) => (id === null ? null : `pay-lines:${id}`));
-  const [open, setOpen] = useState(linking !== null);
-  if (!list.data) return null;
+  if (!list.data) return <Loading />;
   const rows: ToLinkRow[] = list.data;
 
   return (
-    <Panel title={`Payments to tie to a line (${rows.length})`}>
-      <p className="muted">
+    <Panel title="Payments to tie to a line" help={<>
         Payments of the register that do not pay any line of the budget yet: the ones made by hand or loaded from the sheet. Tie each one to the lines it
         paid, and they are no longer owed here. Only the Voci that are spent on a project are here: the ones outside the budget (a stamp duty) are in the
         area ADMINISTRATION, and the ones the budget ignores (VAT) are nobody&apos;s.
-      </p>
-      <Button small variant="ghost" onClick={() => setOpen(!open)}>{open ? "Hide the list" : "Show the list"}</Button>
-      {open && (
-        <TableBox title="Payments to tie" cards>
-          <Table className="phone-cards">
-            <thead>
-              <tr><th>DATE</th><th>DESCRIPTION</th><th>ACCOUNT</th><th className="num">AMOUNT</th><th /></tr>
-            </thead>
-            <tbody>
-              {rows.map((e) => (
-                <Fragment key={e.id}>
-                  <tr className={linking === e.id ? "row-selected" : undefined}>
-                    <td>{date(e.on)}</td>
-                    <td className="cell-title">{e.description}</td>
-                    <td>{e.account === "cash" ? "CASSA" : e.account === "bank" ? "BANCA" : "PAYPAL"}</td>
-                    <td className="num">{money(-e.cents)}</td>
-                    <td className="num">
-                      <Button small onClick={() => setLinking(e.id)}>Link to lines</Button>
-                    </td>
-                  </tr>
-                  {linking === e.id && (
-                    <RowAction
-                      colSpan={5}
-                      eyebrow="Link to lines"
-                      title={e.description || "this payment"}
-                      context={[["Date", date(e.on)], ["Account", e.account === "cash" ? "CASSA" : e.account === "bank" ? "BANCA" : "PAYPAL"], ["Paid", money(-e.cents)]]}
-                      onClose={() => setLinking(null)}
-                    >
-                      <PayLines entry={e} onClose={() => setLinking(null)} />
-                    </RowAction>
-                  )}
-                </Fragment>
-              ))}
-              {rows.length === 0 && <EmptyRow colSpan={5}>Every payment of this season pays a line</EmptyRow>}
-            </tbody>
-          </Table>
-        </TableBox>
-      )}
+      </>}>
+      <TableBox title="Payments to tie" cards>
+        <Table className="phone-cards">
+          <thead>
+            <tr><th>DATE</th><th>DESCRIPTION</th><th>ACCOUNT</th><th className="num">AMOUNT</th><th /></tr>
+          </thead>
+          <tbody>
+            {rows.map((e) => (
+              <Fragment key={e.id}>
+                <tr className={linking === e.id ? "row-selected" : undefined}>
+                  <td>{date(e.on)}</td>
+                  <td className="cell-title">{e.description}</td>
+                  <td>{e.account === "cash" ? "CASSA" : e.account === "bank" ? "BANCA" : "PAYPAL"}</td>
+                  <td className="num">{money(-e.cents)}</td>
+                  <td className="num">
+                    <Button small onClick={() => setLinking(e.id)}>Link to lines</Button>
+                  </td>
+                </tr>
+                {linking === e.id && (
+                  <RowAction
+                    colSpan={5}
+                    eyebrow="Link to lines"
+                    title={e.description || "this payment"}
+                    context={[["Date", date(e.on)], ["Account", e.account === "cash" ? "CASSA" : e.account === "bank" ? "BANCA" : "PAYPAL"], ["Paid", money(-e.cents)]]}
+                    onClose={() => setLinking(null)}
+                  >
+                    <PayLines entry={e} onClose={() => setLinking(null)} />
+                  </RowAction>
+                )}
+              </Fragment>
+            ))}
+            {rows.length === 0 && <EmptyRow colSpan={5}>Every payment of this season pays a line</EmptyRow>}
+          </tbody>
+        </Table>
+      </TableBox>
     </Panel>
   );
 }

@@ -7,7 +7,7 @@ import { SeasonsPanel } from "../../platform/SeasonsPanel";
 import { VatRatesPanel } from "../../platform/VatRatesPanel";
 import { Button } from "../../core/Button";
 import { DraftNote } from "../../core/DraftNote";
-import { Field, Loading, Panel } from "../../core/ui";
+import { Field, Info, Loading, Panel } from "../../core/ui";
 import { useAction } from "../../core/useAction";
 import { useDraft } from "../../core/useDraft";
 
@@ -26,12 +26,12 @@ export function BudgetSettings() {
   );
 }
 
-/** One switch: its box on the left, what it does on the right. */
+/** One switch: its box, and what it does behind the ⓘ beside it. */
 function Setting({ children, explanation }: { children: ReactNode; explanation: ReactNode }) {
   return (
     <div className="setting">
       {children}
-      <div className="muted">{explanation}</div>
+      <Info label="What this does">{explanation}</Info>
     </div>
   );
 }

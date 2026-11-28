@@ -44,16 +44,17 @@ function Voci() {
     { key: "delete", header: "", num: true, cell: (v) => <DeleteButton label={v.name} usedBy={v.usedBy} onDelete={() => act(() => treasuryApi.deleteCashCategory(v.id))} /> },
   ];
   return (
-    <Panel title="Register: Voci">
-      <p className="muted">
-        The Voce of a movement, as in the sheet of the treasury. Money in on a Voce with the box ticked starts as sponsorship (it owes 11% VAT,
-        like an inflow of CASH FLOW): the box of the movement itself stays the one to decide. Renaming a Voce renames it on every movement.
-      </p>
-      <p className="muted">
-        <strong>Counts</strong> says where the money of a Voce goes in the budget. <em>On a project</em>: it is spent on a budget line, so it counts through the
-        line it is tied to (TO PAY lists the payments still to tie). <em>Outside the budget</em>: a stamp duty, a membership fee, an insurance: it counts in the
-        area ADMINISTRATION, in TOTAL, the Gantt and the analyses, as if it were a project. <em>Ignored</em>: the budget already counts it (sponsorship, VAT).
-      </p>
+    <Panel title="Register: Voci" help={<>
+        <p>
+          The Voce of a movement, as in the sheet of the treasury. Money in on a Voce with the box ticked starts as sponsorship (it owes 11% VAT,
+          like an inflow of CASH FLOW): the box of the movement itself stays the one to decide. Renaming a Voce renames it on every movement.
+        </p>
+        <p>
+          <strong>Counts</strong> says where the money of a Voce goes in the budget. <em>On a project</em>: it is spent on a budget line, so it counts through the
+          line it is tied to (TO PAY lists the payments still to tie). <em>Outside the budget</em>: a stamp duty, a membership fee, an insurance: it counts in the
+          area ADMINISTRATION, in TOTAL, the Gantt and the analyses, as if it were a project. <em>Ignored</em>: the budget already counts it (sponsorship, VAT).
+        </p>
+      </>}>
       <DataTable title="Voci" columns={columns} rows={voci.data} rowKey={(v) => v.id} empty="No Voci" reorder={{ label: (v) => v.name, onOrder: (order) => act(() => treasuryApi.orderCashCategories(order)) }} />
       <QuickAdd id="new-voce" noun="Voce" label="Name" onAdd={(name) => act(() => treasuryApi.createCashCategory({ name }))} />
     </Panel>
@@ -69,8 +70,7 @@ function Methods() {
     { key: "delete", header: "", num: true, cell: (m) => <DeleteButton label={m.name} usedBy={m.usedBy} onDelete={() => act(() => treasuryApi.deleteCashMethod(m.id))} /> },
   ];
   return (
-    <Panel title="Register: payment methods">
-      <p className="muted">How a payment was made (bonifico, visa, Paypal…). It is not the account: a payment with Paypal can leave the bank account.</p>
+    <Panel title="Register: payment methods" help={<>How a payment was made (bonifico, visa, Paypal…). It is not the account: a payment with Paypal can leave the bank account.</>}>
       <DataTable title="Payment methods" columns={columns} rows={methods.data} rowKey={(m) => m.id} empty="No methods" reorder={{ label: (m) => m.name, onOrder: (order) => act(() => treasuryApi.orderCashMethods(order)) }} />
       <QuickAdd id="new-method" noun="method" label="Name" onAdd={(name) => act(() => treasuryApi.createCashMethod(name))} />
     </Panel>

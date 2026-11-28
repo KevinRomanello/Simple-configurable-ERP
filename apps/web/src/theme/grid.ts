@@ -10,7 +10,7 @@ export const gridTheme = themeQuartz.withParams({
   browserColorScheme: "inherit",
   fontFamily: "var(--font)",
   fontSize: 13,
-  // the grid is a sheet to type in, so its columns keep a line each: the faintest stroke, so the data reads first
+  // the grid is a sheet to type in: every cell has its lines, as in the tables (components.css, .data-table)
   backgroundColor: "var(--bg-null)",
   foregroundColor: "var(--text-strong)",
   headerBackgroundColor: "var(--bg-weak)",
@@ -25,9 +25,9 @@ export const gridTheme = themeQuartz.withParams({
   wrapperBorderRadius: 6,
   spacing: 6,
   cellHorizontalPadding: 10,
-  columnBorder: { style: "solid", width: 1, color: "var(--stroke-soft)" },
-  headerColumnBorder: { style: "solid", width: 1, color: "var(--stroke-soft)" },
-  rowBorder: { style: "solid", width: 1, color: "var(--stroke-soft)" },
+  columnBorder: { style: "solid", width: 1, color: "var(--stroke-sub)" },
+  headerColumnBorder: { style: "solid", width: 1, color: "var(--stroke-sub)" },
+  rowBorder: { style: "solid", width: 1, color: "var(--stroke-sub)" },
   rowHeight: 34,
   headerHeight: 36,
   inputBorder: "1px solid var(--stroke-sub)",

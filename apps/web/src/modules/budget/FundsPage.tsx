@@ -9,7 +9,8 @@ import { IconButton } from "../../core/Button";
 import { DraftNote } from "../../core/DraftNote";
 import { CommitInput } from "../../core/CommitInput";
 import { TableBox } from "../../core/ExportBlocks";
-import { MonthlyInflows } from "./MonthlyInflows";
+import { MonthlyChart, MonthlyTable } from "./MonthlyInflows";
+import { PhasePair } from "./PhasePair";
 import { SortTh } from "../../core/SortTh";
 import { DataTable, EmptyRow, Field, FormPanel, PageHeader, Panel, Table, type Column } from "../../core/ui";
 import { date, money, moneyFromDecimal } from "../../core/format";
@@ -43,10 +44,9 @@ export function FundsPage() {
         add={canEdit ? { label: "New sponsor", draftKey: "new-sponsor", form: (close) => <NewSponsor onDone={close} /> } : undefined}
       />
       <SponsorsPanel />
-      <div className="two-columns">
-        <PhaseSummary phase="estimate" />
-        <PhaseSummary phase="actual" />
-      </div>
+      <PhasePair title="What is left of each sponsor">{(phase) => <FundsLeft phase={phase} />}</PhasePair>
+      <PhasePair title="Per month">{(phase) => <FundsMonthly phase={phase} />}</PhasePair>
+      <PhasePair title="Timeline">{(phase) => <FundsMonthly phase={phase} chart />}</PhasePair>
     </>
   );
 }
@@ -331,13 +331,15 @@ const SUMMARY_COLUMNS: Column<FundSummaryRow>[] = [
   },
 ];
 
-/** What the sponsors' money comes to in a phase: what is left of each fund and when the money arrives. */
-function PhaseSummary({ phase }: { phase: Phase }) {
+/** What the sponsors' money comes to in a phase: what is left of each fund. */
+function FundsLeft({ phase }: { phase: Phase }) {
   const summary = useQuery({ queryKey: ["funds-summary", phase], queryFn: () => budgetApi.fundsSummary(phase) });
-  return (
-    <Panel title={TITLE[phase]}>
-      <DataTable title={`${TITLE[phase]} cash left per sponsor`} columns={SUMMARY_COLUMNS} rows={summary.data?.rows} rowKey={(r) => r.fundId} />
-      <MonthlyInflows phase={phase} monthly={summary.data?.monthly ?? []} />
-    </Panel>
-  );
+  return <DataTable title={`${TITLE[phase]} cash left per sponsor`} columns={SUMMARY_COLUMNS} rows={summary.data?.rows} rowKey={(r) => r.fundId} />;
+}
+
+/** When the sponsors' money arrives in a phase, as a table or as a chart (the same query: it is asked once). */
+function FundsMonthly({ phase, chart = false }: { phase: Phase; chart?: boolean }) {
+  const summary = useQuery({ queryKey: ["funds-summary", phase], queryFn: () => budgetApi.fundsSummary(phase) });
+  const monthly = summary.data?.monthly ?? [];
+  return chart ? <MonthlyChart phase={phase} monthly={monthly} /> : <MonthlyTable phase={phase} monthly={monthly} />;
 }
