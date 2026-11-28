@@ -7,7 +7,7 @@ import type { Resolved } from "./types";
 const FILL: Record<NonNullable<Cell["fill"]>, string> = {
   head: "FF464646",
   band: "FFCCCCCC", // the gray of the heading of a group of rows (an area): only the sums are yellow
-  total: "FFF3FF17", // the yellow of the total rows on the screen
+  total: "FFF9FE94", // the yellow tint of the total rows on the screen (--total-bg, light)
 };
 const THIN = { style: "thin" as const, color: { argb: "FFBEBEBE" } };
 

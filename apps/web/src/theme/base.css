@@ -2,8 +2,15 @@
 @import "./tokens.css";
 
 /*
- * Typography styles of the Figma design system. Everything is Fira Code, letter spacing -1%.
- * Weights: Light 300, Retina 450, Bold 700. Labels are uppercase.
+ * Typography. Everything is Fira Code, the face of the brand: it is a tool of numbers and codes, so the monospace is the data, not
+ * a costume. One family, few roles, told apart by size AND weight AND case (docs/stile-interfaccia.md, «Il restyling»):
+ *   page title    20–26 px, bold, tight              h1
+ *   section       16 px, bold                        h2
+ *   sub-section   14 px, bold                        h3
+ *   body, data    13 px, line 1.5                    the page
+ *   label         11 px, uppercase, tracked, semi    .label-*, column headers, captions
+ *   meta          12 px                              hints, notes
+ * The page title grows a little with the window (a clamp), the rest keeps its size: a tool is read at one distance.
  */
 
 *,
@@ -18,15 +25,29 @@ body,
   height: 100%;
 }
 
+html {
+  /* the scrollbars of the page and of every box that scrolls take the colours of the theme */
+  scrollbar-color: var(--stroke-strong) transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   background: var(--bg-weak);
   color: var(--text-strong);
   font-family: var(--font);
-  font-size: 13px; /* Body Medium */
+  font-size: 13px;
   font-weight: 450;
-  line-height: 1.4;
+  line-height: 1.5;
   letter-spacing: -0.01em;
+  font-variant-ligatures: none; /* «!=» and «->» are text here, not code: no joined glyphs */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--primary-default);
+  color: var(--on-primary);
 }
 
 h1,
@@ -37,32 +58,44 @@ p {
 }
 
 h1 {
-  font-size: 19px; /* Heading 2 */
+  font-size: clamp(20px, 1.1rem + 0.45vw, 26px);
   font-weight: 700;
-  line-height: 1.28;
-  letter-spacing: 0;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
 }
-h2,
-h3 {
-  font-size: 15px; /* Heading 3 */
+h2 {
+  font-size: 16px;
   font-weight: 700;
-  line-height: 1.28;
-  letter-spacing: 0;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+h3 {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+p {
+  text-wrap: pretty;
 }
 
 .body-xl { font-size: 17px; }
 .body-l { font-size: 15px; }
 .body-m { font-size: 13px; }
-.body-s { font-size: 11px; }
-.body-xs { font-size: 9px; }
+.body-s { font-size: 12px; }
+.body-xs { font-size: 11px; }
 .label-l, .label-m, .label-s, .label-xs {
-  line-height: 1.28;
+  line-height: 1.3;
   text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 550;
 }
-.label-l { font-size: 15px; }
-.label-m { font-size: 13px; }
+.label-l { font-size: 13px; }
+.label-m { font-size: 12px; }
 .label-s { font-size: 11px; }
-.label-xs { font-size: 9px; }
+.label-xs { font-size: 10px; }
 .light { font-weight: 300; }
 .retina { font-weight: 450; }
 .bold { font-weight: 700; }
@@ -71,20 +104,38 @@ h3 {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
   letter-spacing: inherit;
 }
 
 a {
   color: inherit;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
 }
 
 :focus-visible {
   outline: 2px solid var(--secondary-default);
-  outline-offset: 1px;
+  outline-offset: 2px;
+}
+
+input,
+textarea {
+  caret-color: var(--secondary-default);
 }
 
 table {
   border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

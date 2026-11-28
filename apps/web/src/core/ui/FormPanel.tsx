@@ -31,7 +31,7 @@ export function FormPanel({ title, description, submitLabel, canSubmit = true, o
     </>
   );
   return (
-    <Panel title={title}>
+    <Panel title={title} className="form-panel">
       {description && <p className="muted">{description}</p>}
       {layout === "inline" ? (
         <form className="inline-form" onSubmit={submit}>

@@ -1,14 +1,21 @@
 /*
- * Design tokens from the Figma file "Telemetry App - Redesign ITA" (page "Design System").
- * This file is the only place in the web app where colours and measures are written down:
- * everything else uses var(--token). Names follow Figma: color/<group>/<group>-<level>,
- * spaces/spacing/<size>, spaces/radius/<size>. See docs/stile-interfaccia.md.
+ * Design tokens. They start from the Figma file "Telemetry App - Redesign ITA" (page "Design System"): the yellow and the blue of the
+ * brand, the colours of the states, the series of the charts, the spacing. This file is the only place in the web app where colours
+ * and measures are written down: everything else uses var(--token). See docs/stile-interfaccia.md.
+ *
+ * The restyling of 28 November 2026 (asked by the user) keeps the identity and changes three things:
+ *   - the greys are not pure any more: the same ladder of lightness as Figma, leaning a little towards the yellow of the brand (OKLCH
+ *     hue 108, chroma 0.004–0.010), with no pure white and no pure black;
+ *   - every text colour passes WCAG AA (4.5:1) on the grounds it sits on: the soft grey of the descriptions, and the text colours of
+ *     the states (`--*-text`), which are the strong shade in light and the bright one in dark;
+ *   - the rows that sum up are a tint of the yellow, not the full yellow (`--total-*`).
+ * The values are written in hex (computed from OKLCH), because the charts read them back to draw what is downloaded.
  */
 
 :root {
   color-scheme: light;
 
-  /* Light mode */
+  /* Brand */
   --primary-strong: #c1cc00;
   --primary-default: #f3ff17;
   --primary-soft: #fbffb2;
@@ -16,37 +23,50 @@
   --secondary-default: #0039e5;
   --secondary-soft: #99b2ff;
 
-  --bg-full: #1a1a1a;
-  --bg-strong: #4d4d4d;
-  --bg-sub: #ccc;
-  --bg-soft: #e6e6e6;
-  --bg-weak: #f7f7f7;
-  --bg-null: #fff;
+  /* Grounds, from the page down to the deepest fill */
+  --bg-full: #1a1a15;
+  --bg-strong: #50504b;
+  --bg-sub: #d9d9d4;
+  --bg-soft: #ecece8;
+  --bg-weak: #f6f6f2;
+  --bg-null: #fdfdfa;
 
-  --text-strong: #1a1a1a;
-  --text-sub: #4d4d4d;
-  --text-soft: #999;
-  --text-disabled: #ccc;
-  --text-null: #fff;
+  --text-strong: #1a1a15;
+  --text-sub: #484842;
+  --text-soft: #5e5e58; /* 4.6:1 on --bg-sub, 6:1 on the page */
+  --text-disabled: #b1b1ad;
+  --text-null: #fdfdfa;
 
-  --stroke-full: #1a1a1a;
-  --stroke-strong: #b3b3b3;
-  --stroke-sub: #ccc; /* the palette page says #e6e6e6; the components use #ccc */
-  --stroke-soft: #f7f7f7;
-  --stroke-null: #fff;
+  --stroke-full: #1a1a15;
+  --stroke-strong: #a8a8a2;
+  --stroke-sub: #d3d3ce;
+  --stroke-soft: #e6e6e2;
+  --stroke-null: #fdfdfa;
 
   --error-strong: #b20000;
   --error-default: #fa0000;
   --error-soft: #fcc;
-  --warning-strong: #b27400;
+  --warning-strong: #8b5600; /* Figma #b27400 is 3.2:1 on the soft ground: darker, so a label on it reads */
   --warning-default: #faa200;
   --warning-soft: #ffe4b2;
-  --success-strong: #11883d;
-  --success-default: #16b651; /* the palette page says #19ce5c; the components use #16b651 */
+  --success-strong: #0b6b2e; /* Figma #11883d is 4:1 on the soft ground */
+  --success-default: #16b651;
   --success-soft: #d2f9e0;
   --info-strong: #075bab;
   --info-default: #0a7ff0;
   --info-soft: #cee6fd;
+
+  /* A text, an icon or a number in the colour of a state, on the page or a box: always 4.5:1 or more */
+  --error-text: #b20000;
+  --warning-text: #8b5600;
+  --success-text: #0b6b2e;
+  --info-text: #075bab;
+
+  /* The rows that sum up (totals and subtotals): the yellow of the brand, mixed with the ground */
+  --total-bg: #f9fe94;
+  --total-fg: #1a1a15;
+  --total-negative: #b20000;
+  --total-positive: #0b6b2e;
 
   /* Series colours for charts (Figma "Utility") */
   --utility-1: #00aeed;
@@ -56,15 +76,20 @@
   --utility-5: #e1ca00;
   --utility-6: #d00000;
 
-  /* The Figma button: black pill with yellow text on light, the reverse on dark */
-  --button-bg: #0d0d0d;
+  /* The button of the brand: a dark pill with yellow text on light, the reverse on dark */
+  --button-bg: #161611;
+  --button-bg-hover: #2e2e27;
   --button-fg: #f3ff17;
   /* Text on a yellow (primary) background is dark in both modes; a red or a green on it is a darker one */
-  --on-primary: #1a1a1a;
+  --on-primary: #1a1a15;
   --on-primary-negative: #b20000;
   --on-primary-positive: #0b6b2e;
 
-  /* Spacing (spaces/spacing/*) and radius (spaces/radius/*) */
+  /* What floats over the page (a list, a menu, a notice, a dialog): a soft shadow with an offset, never a hard one */
+  --shadow-float: 0 8px 24px rgb(26 26 21 / 0.12), 0 1px 3px rgb(26 26 21 / 0.08);
+  --shadow-dialog: 0 24px 64px rgb(26 26 21 / 0.28);
+
+  /* Spacing: a 4 px base, read in steps of 8 (spaces/spacing/* of Figma) */
   --space-3xs: 2px;
   --space-2xs: 4px;
   --space-xs: 8px;
@@ -76,9 +101,15 @@
   --space-3xl: 56px;
   --space-4xl: 80px;
   --space-5xl: 112px;
+  /* Radius: boxes are almost square (the brand), controls a touch softer, buttons and chips are pills */
   --radius-3xs: 2px;
+  --radius-s: 4px;
+  --radius-m: 6px;
   --radius-full: 999px;
   --dimension-m: 16px;
+  /* The height of a control: a button, a box to type in, a list; a small one in tables and toolbars */
+  --control-h: 36px;
+  --control-h-small: 30px;
 
   --font: "Fira Code Variable", ui-monospace, monospace;
 }
@@ -96,34 +127,42 @@
     --secondary-strong: #99b2ff;
     --secondary-default: #3366ff;
     --secondary-soft: #0033cc;
-    --bg-full: #e6e6e6;
-    --bg-strong: #b3b3b3;
-    --bg-sub: #4d4d4d;
-    --bg-soft: #333;
-    --bg-weak: #1a1a1a;
-    --bg-null: #0d0d0d;
-    --text-strong: #fff;
-    --text-sub: #ccc;
-    --text-soft: #999;
-    --text-disabled: #4d4d4d;
-    --text-null: #1a1a1a;
-    --stroke-full: #fff;
-    --stroke-strong: #808080;
-    --stroke-sub: #4d4d4d;
-    --stroke-soft: #333;
-    --stroke-null: #1a1a1a;
+    --bg-full: #e8e8e2;
+    --bg-strong: #a5a59f;
+    --bg-sub: #373732;
+    --bg-soft: #23231f;
+    --bg-weak: #191915;
+    --bg-null: #11110e;
+    --text-strong: #f0f1eb;
+    --text-sub: #cbcbc4;
+    --text-soft: #a5a59e;
+    --text-disabled: #5b5b56;
+    --text-null: #191915;
+    --stroke-full: #f0f1eb;
+    --stroke-strong: #72726d;
+    --stroke-sub: #3d3d39;
+    --stroke-soft: #2c2c28;
+    --stroke-null: #191915;
     --error-strong: #fcc;
     --error-default: #ff4d4d;
     --error-soft: #900;
     --warning-strong: #ffe4b2;
     --warning-default: #ffae17;
-    --warning-soft: #996300;
+    --warning-soft: #6b4500;
     --success-strong: #bbf7d1;
     --success-default: #1bde63;
     --success-soft: #0e7133;
     --info-strong: #b6d9fc;
     --info-default: #238ef6;
     --info-soft: #064e93;
+    --error-text: #ff6b6b;
+    --warning-text: #ffae17;
+    --success-text: #1bde63;
+    --info-text: #5aa9f8;
+    --total-bg: #404215;
+    --total-fg: #f3ff17;
+    --total-negative: #ff8a8a;
+    --total-positive: #7fe3a4;
     --utility-1: #00f5f1;
     --utility-2: #ff40d9;
     --utility-3: #2fff00;
@@ -131,7 +170,10 @@
     --utility-5: #ffe500;
     --utility-6: #fc0d0d;
     --button-bg: #f3ff17;
-    --button-fg: #1a1a1a;
+    --button-bg-hover: #ebe61b;
+    --button-fg: #1a1a15;
+    --shadow-float: 0 8px 24px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.35);
+    --shadow-dialog: 0 24px 64px rgb(0 0 0 / 0.6);
   }
 }
 
@@ -142,34 +184,42 @@
   --secondary-strong: #99b2ff;
   --secondary-default: #3366ff;
   --secondary-soft: #0033cc;
-  --bg-full: #e6e6e6;
-  --bg-strong: #b3b3b3;
-  --bg-sub: #4d4d4d;
-  --bg-soft: #333;
-  --bg-weak: #1a1a1a;
-  --bg-null: #0d0d0d;
-  --text-strong: #fff;
-  --text-sub: #ccc;
-  --text-soft: #999;
-  --text-disabled: #4d4d4d;
-  --text-null: #1a1a1a;
-  --stroke-full: #fff;
-  --stroke-strong: #808080;
-  --stroke-sub: #4d4d4d;
-  --stroke-soft: #333;
-  --stroke-null: #1a1a1a;
+  --bg-full: #e8e8e2;
+  --bg-strong: #a5a59f;
+  --bg-sub: #373732;
+  --bg-soft: #23231f;
+  --bg-weak: #191915;
+  --bg-null: #11110e;
+  --text-strong: #f0f1eb;
+  --text-sub: #cbcbc4;
+  --text-soft: #a5a59e;
+  --text-disabled: #5b5b56;
+  --text-null: #191915;
+  --stroke-full: #f0f1eb;
+  --stroke-strong: #72726d;
+  --stroke-sub: #3d3d39;
+  --stroke-soft: #2c2c28;
+  --stroke-null: #191915;
   --error-strong: #fcc;
   --error-default: #ff4d4d;
   --error-soft: #900;
   --warning-strong: #ffe4b2;
   --warning-default: #ffae17;
-  --warning-soft: #996300;
+  --warning-soft: #6b4500;
   --success-strong: #bbf7d1;
   --success-default: #1bde63;
   --success-soft: #0e7133;
   --info-strong: #b6d9fc;
   --info-default: #238ef6;
   --info-soft: #064e93;
+  --error-text: #ff6b6b;
+  --warning-text: #ffae17;
+  --success-text: #1bde63;
+  --info-text: #5aa9f8;
+  --total-bg: #404215;
+  --total-fg: #f3ff17;
+  --total-negative: #ff8a8a;
+  --total-positive: #7fe3a4;
   --utility-1: #00f5f1;
   --utility-2: #ff40d9;
   --utility-3: #2fff00;
@@ -177,5 +227,8 @@
   --utility-5: #ffe500;
   --utility-6: #fc0d0d;
   --button-bg: #f3ff17;
-  --button-fg: #1a1a1a;
+  --button-bg-hover: #ebe61b;
+  --button-fg: #1a1a15;
+  --shadow-float: 0 8px 24px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.35);
+  --shadow-dialog: 0 24px 64px rgb(0 0 0 / 0.6);
 }

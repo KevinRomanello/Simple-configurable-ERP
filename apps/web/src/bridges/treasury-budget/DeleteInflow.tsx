@@ -44,7 +44,7 @@ export function DeleteInflow({ from, onClose }: { from: { inflowId: number } | {
   const group = (title: string, voices: RelatedVoice[]) =>
     voices.length > 0 && (
       <div className="stack tight" key={title}>
-        <span className="eyebrow">{title}</span>
+        <h4 className="group-label">{title}</h4>
         <TableScroll>
           <Table>
             <thead>

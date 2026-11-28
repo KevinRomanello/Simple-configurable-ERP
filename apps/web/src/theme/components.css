@@ -3,20 +3,22 @@
 /* --- page frame -------------------------------------------------------------------------- */
 .shell {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 248px 1fr;
   min-height: 100%;
 }
+/* the menu is the second ground of the app: a step darker than the page, with no shadow and one fine line */
 .sidebar {
   background: var(--bg-soft);
-  border-right: 1px solid var(--stroke-sub);
-  padding: var(--space-l) var(--space-s);
+  border-right: 1px solid var(--stroke-soft);
+  padding: var(--space-l) var(--space-s) var(--space-m);
   display: flex;
   flex-direction: column;
-  gap: var(--space-m);
+  gap: var(--space-l);
   position: sticky;
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  scrollbar-width: thin;
 }
 .brand {
   display: flex;
@@ -45,16 +47,18 @@
   top: var(--space-s);
   left: var(--space-s);
   z-index: 20;
-  width: 32px;
-  height: 32px;
+  width: var(--control-h);
+  height: var(--control-h);
   border: 1px solid var(--stroke-sub);
-  background: var(--bg-soft);
+  border-radius: var(--radius-s);
+  background: var(--bg-null);
   color: var(--text-strong);
+  box-shadow: var(--shadow-float);
 }
 .brand strong {
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
 }
 /* The season the whole site shows: chosen under the name of the team, said again at the top of the
    page when it is not the season of today (docs/stagioni-anni-fiscali-e-macchine.md). */
@@ -68,27 +72,29 @@
   align-items: center;
   gap: var(--space-xs);
   margin-left: calc(-1 * var(--space-xs));
-  padding: var(--space-3xs) var(--space-xs);
+  padding: var(--space-2xs) var(--space-xs);
   border: 1px solid transparent;
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
   background: transparent;
   color: var(--text-sub);
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
 }
 .season-button:hover,
 .season-button[aria-expanded="true"] {
-  border-color: var(--stroke-strong);
+  background: var(--bg-sub);
   color: var(--text-strong);
 }
 .season-list {
   margin: 0;
-  padding: var(--space-2xs) 0;
+  padding: var(--space-2xs);
   list-style: none;
   border: 1px solid var(--stroke-sub);
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-m);
   background: var(--bg-null);
+  box-shadow: var(--shadow-float);
 }
 .season-list button {
   display: flex;
@@ -96,8 +102,9 @@
   align-items: flex-start;
   gap: var(--space-3xs);
   width: 100%;
-  padding: var(--space-2xs) var(--space-s);
+  padding: var(--space-xs) var(--space-s);
   border: 0;
+  border-radius: var(--radius-s);
   background: transparent;
   color: var(--text-strong);
   font: inherit;
@@ -106,7 +113,7 @@
   cursor: pointer;
 }
 .season-list button:hover {
-  background: var(--bg-sub);
+  background: var(--bg-soft);
 }
 .season-list button.chosen {
   font-weight: 700;
@@ -118,7 +125,7 @@
   flex-wrap: wrap;
   gap: var(--space-s);
   padding: var(--space-xs) var(--space-m);
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-m);
   background: var(--primary-default);
   color: var(--on-primary);
   font-weight: 700;
@@ -133,16 +140,22 @@
   flex-direction: column;
   gap: var(--space-3xs);
 }
+/* the name of a group of the menu: small, uppercase, quiet; it folds the group */
 .nav-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: var(--space-xs) var(--space-xs) var(--space-2xs);
+  padding: var(--space-2xs) var(--space-xs);
   border: 0;
+  border-radius: var(--radius-s);
   background: none;
   color: var(--text-soft);
   font-family: inherit;
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   text-align: left;
   cursor: pointer;
 }
@@ -167,39 +180,85 @@
 .nav-items[hidden] {
   display: none;
 }
+/* an entry of the menu: a row as tall as a small control (easy to hit), the icon in the same column for all */
 .nav-link {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-s);
+  min-height: 32px;
   padding: var(--space-2xs) var(--space-xs);
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
   color: var(--text-sub);
+  font-size: 12px;
+  letter-spacing: 0.02em;
   text-decoration: none;
+  transition: background-color 0.15s, color 0.15s;
+}
+.nav-link svg {
+  width: 14px;
+  color: var(--text-soft);
 }
 .nav-link:hover {
   background: var(--bg-sub);
   color: var(--text-strong);
 }
+/* where you are: the yellow of the brand, the one loud colour of the menu */
 .nav-link.active {
   background: var(--primary-default);
   color: var(--on-primary);
   font-weight: 700;
 }
+.nav-link.active svg {
+  color: var(--on-primary);
+}
 .main {
   /* the lists that open from the grid's cells are placed inside it (see AreaPage.tsx, popupParent) */
   position: relative;
   min-width: 0;
-  padding: var(--space-m) var(--space-l) var(--space-2xl);
+  padding: var(--space-l) var(--space-xl) var(--space-4xl);
   display: flex;
   flex-direction: column;
-  gap: var(--space-xl);
+  gap: var(--space-2xl);
 }
-/* the title and what the page is for, then under them what you can do (add something, download) */
+/* the title and what the page is for, then under them what you can do: the main action first, Download last and apart */
 .page-header {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: var(--space-m);
+}
+.page-header > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+/* the line on what the page is for: a readable measure, at most two lines until it is opened */
+.page-intro {
+  max-width: 78ch;
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.page-intro.clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.page-intro-toggle {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-soft);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+.page-intro-toggle:hover {
+  color: var(--text-strong);
 }
 .page-header .actions {
   display: flex;
@@ -207,12 +266,16 @@
   align-items: flex-end;
   flex-wrap: wrap;
 }
+/* Download is a tool of the page, not an action on its data: it goes to the far end of the row */
+.page-header .actions > .download {
+  margin-left: auto;
+}
 
 /* Blocks of a page one under the other, with room between them; `tight` for the inside of a box. */
 .stack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xl);
+  gap: var(--space-2xl);
 }
 .stack.tight {
   gap: var(--space-m);
@@ -226,58 +289,81 @@
 }
 
 /* --- Button (Figma: pill, 8px 16px, Button Large) ----------------------------------------- */
+/* The main action of a place is the pill of the brand (dark with yellow text on light, yellow on dark); everything else is a ghost:
+   one loud button per view, the rest quiet. Two heights, from the 8 px grid. */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2xs);
-  padding: var(--space-xs) var(--space-m);
+  gap: var(--space-xs);
+  min-height: var(--control-h);
+  padding: 0 var(--space-m);
   border: 1px solid transparent;
   border-radius: var(--radius-full);
   background: var(--button-bg);
   color: var(--button-fg);
-  font-size: 15px;
-  font-weight: 450;
-  line-height: 1.28;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0;
   cursor: pointer;
   white-space: nowrap;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
 }
 .btn:hover:not(:disabled) {
-  filter: brightness(1.25);
+  background: var(--button-bg-hover);
 }
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+/* not yet possible (a form not filled in): still a button, in grey, on any ground */
 .btn:disabled {
-  background: var(--bg-soft);
-  color: var(--text-disabled);
+  background: var(--bg-sub);
+  color: var(--text-soft);
   cursor: not-allowed;
 }
 .btn.small {
-  padding: var(--space-2xs) var(--space-s);
-  font-size: 13px;
+  min-height: var(--control-h-small);
+  padding: 0 var(--space-s);
+  font-size: 12px;
 }
 .btn.ghost {
   background: transparent;
   color: var(--text-strong);
-  border-color: var(--stroke-strong);
+  border-color: var(--stroke-sub);
+  font-weight: 500;
 }
 .btn.ghost:hover:not(:disabled) {
   background: var(--bg-soft);
-  filter: none;
+  border-color: var(--stroke-strong);
+}
+.btn.ghost:disabled {
+  background: transparent;
+  border-color: var(--stroke-soft);
+}
+.btn svg {
+  font-size: 0.9em;
 }
 .icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: 0;
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
   background: transparent;
-  color: var(--text-sub);
+  color: var(--text-soft);
   cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
 }
 .icon-btn:hover {
   background: var(--bg-soft);
   color: var(--text-strong);
+}
+.icon-btn:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
 }
 .icon-btn.danger:hover {
   background: var(--error-soft);
@@ -301,61 +387,81 @@
 }
 
 /* --- Text input (Figma: label left, 1px border, radius 2px, 4px 8px) ---------------------- */
+/* A box to fill in: its label above, small and uppercase; the box on the brightest ground, a fine border that darkens on hover
+   and turns blue with a soft ring when it is being written in. */
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3xs);
+  gap: var(--space-2xs);
   min-width: 0;
 }
 .field > label,
 .field .label,
 .filter-title {
   font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-sub);
 }
 .input {
   width: 100%;
   min-width: 0;
-  padding: var(--space-2xs) var(--space-xs);
+  min-height: var(--control-h);
+  padding: var(--space-2xs) var(--space-s);
   border: 1px solid var(--stroke-sub);
-  border-radius: var(--radius-3xs);
-  background: var(--bg-weak);
+  border-radius: var(--radius-s);
+  background: var(--bg-null);
   color: var(--text-strong);
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.4;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+textarea.input {
+  padding-block: var(--space-xs);
 }
 .input::placeholder {
   color: var(--text-soft);
 }
+.input:hover:not(:disabled):not(:focus) {
+  border-color: var(--stroke-strong);
+}
 .input:focus {
-  border-color: var(--stroke-full);
+  border-color: var(--secondary-default);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--secondary-default) 22%, transparent);
   outline: none;
+}
+.input:disabled,
+.input[readonly] {
+  background: var(--bg-soft);
+  color: var(--text-sub);
 }
 .input.error {
   border-color: var(--error-default);
 }
 .input.small {
+  min-height: var(--control-h-small);
+  padding-inline: var(--space-xs);
   font-size: 13px;
 }
 .hint {
   display: flex;
   align-items: center;
-  gap: var(--space-3xs);
-  padding: 0 var(--space-2xs);
-  font-size: 11px;
-  color: var(--text-sub);
+  gap: var(--space-2xs);
+  padding: 0;
+  font-size: 12px;
+  color: var(--text-soft);
 }
 .hint.error {
-  color: var(--error-default);
+  color: var(--error-text);
 }
 .hint.warning {
-  color: var(--warning-default);
+  color: var(--warning-text);
 }
 .inline-form {
   display: flex;
   align-items: flex-end;
-  gap: var(--space-xs);
+  gap: var(--space-s) var(--space-m);
   flex-wrap: wrap;
 }
 /* the note of a form that came back with what was written (DraftNote): a line of its own at the top, not a box of the row */
@@ -406,9 +512,9 @@
   width: 88px;
 }
 .filter-group + .filter-group {
-  margin-top: var(--space-s);
-  padding-top: var(--space-s);
-  border-top: 1px solid var(--stroke-sub);
+  margin-top: var(--space-xs);
+  padding-top: var(--space-m);
+  border-top: 1px solid var(--stroke-soft);
 }
 
 /* --- notices --------------------------------------------------------------------------------- */
@@ -426,44 +532,84 @@
   display: flex;
   gap: var(--space-xs);
   align-items: flex-start;
-  padding: var(--space-xs) var(--space-s);
+  padding: var(--space-s) var(--space-m);
   border: 1px solid var(--stroke-sub);
-  border-radius: var(--radius-3xs);
-  background: var(--bg-soft);
+  border-radius: var(--radius-m);
+  background: var(--bg-null);
   color: var(--text-strong);
+  box-shadow: var(--shadow-float);
 }
 .notice.error {
-  border-color: var(--error-default);
+  border-color: color-mix(in srgb, var(--error-default) 45%, transparent);
   background: var(--error-soft);
   color: var(--error-strong);
 }
 
 /* --- sections and tables ---------------------------------------------------------------------- */
-/* Every block of a page is a box of its own, with room between boxes (.main sets the gap). */
+/* A block of a page is a section, not a box: its title, its contents, and room around it. Two sections one after the other are
+   told apart by a fine line and the space of the page; only a table (or a chart) has an edge of its own. So nothing is boxed
+   twice, and the data is what stands out. A form that is open to add something is the exception: it sits on a tinted ground
+   (.form-panel), so that it is clear what is being written. */
 .panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-s);
-  padding: var(--space-s) var(--space-m);
-  border: 1px solid var(--stroke-sub);
-  border-radius: var(--radius-3xs);
-  background: var(--bg-weak);
+  gap: var(--space-m);
+  min-width: 0;
+}
+.panel ~ .panel {
+  padding-top: var(--space-2xl);
+  border-top: 1px solid var(--stroke-soft);
+}
+/* the space of the page already parts a section from the one before: the line goes in the middle of it */
+.main > .panel ~ .panel,
+.stack > .panel ~ .panel {
+  margin-top: calc(-1 * var(--space-m));
+}
+/* sections side by side (EXPECTED and ACTUAL of CASH FLOW) start at the same height: the line is only for one under the other */
+.two-columns > .panel ~ .panel {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+/* the explanation of a section keeps a readable measure, like the one of a page */
+.panel > p.muted,
+.panel > .muted > p,
+.setting .muted {
+  max-width: 82ch;
 }
 .panel .table-wrap {
   background: var(--bg-null);
+}
+/* a button alone in a section is as wide as its words, not as the section */
+.panel > .btn {
+  align-self: flex-start;
+}
+.panel.form-panel {
+  padding: var(--space-l);
+  border: 0;
+  border-radius: var(--radius-m);
+  background: var(--bg-soft);
+}
+.panel.form-panel ~ .panel,
+.panel ~ .panel.form-panel {
+  margin-top: 0;
+}
+.panel.form-panel .input:not(:focus) {
+  border-color: var(--stroke-sub);
 }
 .subsection {
   display: flex;
   flex-direction: column;
   gap: var(--space-s);
   padding-top: var(--space-m);
-  border-top: 1px solid var(--stroke-sub);
+  border-top: 1px solid var(--stroke-soft);
 }
 .panel-head {
   display: flex;
   align-items: center;
-  gap: var(--space-s);
+  gap: var(--space-xs) var(--space-s);
   flex-wrap: wrap;
+  min-height: var(--control-h-small);
 }
 .panel-head .spacer {
   flex: 1;
@@ -518,33 +664,41 @@
 .owner {
   color: var(--text-soft);
 }
+/* The figures at the top of a page: a strip, not a row of boxes. Each one is its caption and its number, and a fine line parts
+   one from the next. */
 .cards {
   display: flex;
-  gap: var(--space-m);
   flex-wrap: wrap;
+  gap: var(--space-m) 0;
 }
 .card {
-  min-width: 200px;
-  padding: var(--space-s) var(--space-m);
-  border: 1px solid var(--stroke-sub);
-  border-radius: var(--radius-3xs);
-  background: var(--bg-weak);
+  min-width: 160px;
+  padding: var(--space-2xs) var(--space-xl) var(--space-2xs) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-2xs);
 }
+.card + .card {
+  padding-left: var(--space-xl);
+  border-left: 1px solid var(--stroke-sub);
+}
 .card .value {
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 700;
-  letter-spacing: 0;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 .card .value.negative {
-  color: var(--error-default);
+  color: var(--error-text);
 }
+/* a table has the one edge of a section: a fine border and soft corners, the rows on the brightest ground */
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--stroke-sub);
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-m);
+  background: var(--bg-null);
+  scrollbar-width: thin;
 }
 .data-table {
   width: 100%;
@@ -597,7 +751,7 @@
   min-height: var(--node-height);
   padding: 0 var(--space-xs);
   border: 1px solid var(--stroke-strong);
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
   background: var(--bg-soft);
   color: var(--text-strong);
   cursor: grab;
@@ -649,7 +803,7 @@
   margin-bottom: var(--space-s);
   padding: var(--space-xs) var(--space-s);
   border: 1px dashed var(--stroke-strong);
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
 }
 .type-tree-root.can-drop {
   border-color: var(--secondary-default);
@@ -707,21 +861,33 @@
 .th-sort .faint {
   opacity: 0.35;
 }
-/* a thicker line where a group of columns begins (expected / actual) */
+/* a line where a group of columns begins (expected / actual): the only vertical line of a table */
 .data-table .group-start {
-  border-left: 2px solid var(--stroke-strong);
+  border-left: 1px solid var(--stroke-strong);
 }
+/* rows parted by a fine line, columns by their space: no grid of lines over the data */
 .data-table th,
 .data-table td {
-  padding: var(--space-2xs) var(--space-xs);
-  border-bottom: 1px solid var(--stroke-sub);
-  border-left: 1px solid var(--stroke-sub); /* the cells are told apart by a fine vertical line */
+  padding: var(--space-xs) var(--space-s);
+  border-bottom: 1px solid var(--stroke-soft);
   text-align: left;
   white-space: nowrap;
 }
+.data-table tbody tr:last-child > td {
+  border-bottom: 0;
+}
+.data-table tbody tr:hover > td {
+  background: var(--bg-weak);
+}
+/* the column titles: small, uppercase, quiet, on the ground of the page; they stay in sight while the rows scroll */
 .data-table th {
-  background: var(--bg-soft);
-  font-weight: 700;
+  background: var(--bg-weak);
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom-color: var(--stroke-sub);
   position: sticky;
   top: 0;
 }
@@ -769,28 +935,30 @@
 .data-table.sized td .input {
   max-width: 100%;
 }
-/* the rows that sum up (totals and subtotals, in the tables and in the grid) are yellow, so that they stand out */
-.data-table tr.total td {
-  background: var(--primary-default);
-  color: var(--on-primary);
+/* the rows that sum up (totals and subtotals, in the tables and in the grid) are a tint of the yellow, so that they stand out */
+.data-table tr.total td,
+.data-table tbody tr.total:hover > td {
+  background: var(--total-bg);
+  color: var(--total-fg);
   font-weight: 700;
+  border-bottom-color: transparent;
 }
-.data-table tr.total td.cell-negative { color: var(--on-primary-negative); }
-.data-table tr.total td.cell-positive { color: var(--on-primary-positive); }
+.data-table tr.total td.cell-negative { color: var(--total-negative); }
+.data-table tr.total td.cell-positive { color: var(--total-positive); }
 /* a last row that is not a total (the settings of the items without a category) keeps the quiet shade */
 .data-table tr.footer-row td {
   background: var(--bg-soft);
   font-weight: 700;
 }
-/* a column that sums up its row (SUM, FINAL, LEFT VALUE, VALUE...) is set apart by a thick bar and a shade */
+/* a column that sums up its row (SUM, FINAL, LEFT VALUE, VALUE...) is set apart by a line and a shade */
 .data-table th.sum,
 .data-table td.sum {
-  border-left: 2px solid var(--stroke-strong);
-  background: var(--bg-soft);
+  border-left: 1px solid var(--stroke-sub);
+  background: var(--bg-weak);
   font-weight: 700;
 }
 .data-table tr.total td.sum {
-  background: var(--primary-default);
+  background: var(--total-bg);
 }
 /* a wide table (the Gantt): the name column stays at the left and the column that sums up the row at the right while the rest scrolls */
 .data-table th {
@@ -809,7 +977,7 @@
   z-index: 3;
 }
 .data-table.frozen tr.total td:first-child:not([colspan]) {
-  background: var(--primary-default);
+  background: var(--total-bg);
 }
 .data-table.frozen th.sum-last,
 .data-table.frozen td.sum-last {
@@ -826,9 +994,9 @@
 .data-table td.lines {
   white-space: normal;
 }
-/* the heading of a group of rows (an area in the Gantt) is gray: only the rows that sum up are yellow */
+/* the heading of a group of rows (an area in the Gantt) is a quiet shade: only the rows that sum up are yellow */
 .data-table tr.group td {
-  background: var(--bg-sub);
+  background: var(--bg-soft);
   color: var(--text-strong);
   font-weight: 700;
 }
@@ -842,7 +1010,7 @@
   gap: var(--space-2xs);
 }
 .data-table tr.order-line > td.cell-title {
-  padding-left: calc(var(--space-xs) + 28px + var(--space-2xs)); /* under the name, after the arrow (an .icon-btn is 28px) */
+  padding-left: calc(var(--space-s) + 32px + var(--space-2xs)); /* under the name, after the arrow (an .icon-btn is 32px) */
 }
 /* several buttons in one cell, side by side */
 .cell-buttons {
@@ -851,7 +1019,7 @@
   align-items: center;
 }
 .negative {
-  color: var(--error-default);
+  color: var(--error-text);
 }
 .cell-negative {
   background: var(--error-soft);
@@ -865,12 +1033,15 @@
   background: var(--warning-soft);
   color: var(--warning-strong);
 }
+/* a short state beside a value (High, pending, made…): a tinted pill, its text dark enough on its tint */
 .pill {
   display: inline-block;
-  padding: 0 var(--space-xs);
+  padding: 1px var(--space-xs);
   border-radius: var(--radius-full);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 .pill.High { background: var(--error-soft); color: var(--error-strong); }
 .pill.Medium { background: var(--warning-soft); color: var(--warning-strong); }
@@ -880,7 +1051,7 @@
 .pill.car { background: var(--warning-soft); color: var(--warning-strong); }
 .pill.hazard { background: var(--error-soft); color: var(--error-strong); margin-left: var(--space-3xs); }
 .empty {
-  padding: var(--space-l);
+  padding: var(--space-xl) var(--space-l);
   text-align: center;
   color: var(--text-soft);
 }
@@ -918,14 +1089,23 @@
   flex-wrap: wrap;
   align-items: center;
 }
+/* a choice among a few (an area, a phase, a tab of Settings): a quiet pill; the chosen one is the yellow of the brand */
 .chip {
-  padding: var(--space-3xs) var(--space-s);
-  border: 1px solid var(--stroke-strong);
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 var(--space-s);
+  border: 1px solid var(--stroke-sub);
   border-radius: var(--radius-full);
-  background: transparent;
-  color: var(--text-strong);
+  background: var(--bg-null);
+  color: var(--text-sub);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.chip:hover:not(.on) {
+  border-color: var(--stroke-strong);
+  color: var(--text-strong);
 }
 /* a pill that is a link (the tabs of Settings) looks like the pills that are buttons */
 a.chip {
@@ -946,11 +1126,12 @@ a.chip {
 /* the box over a point of a price chart: the price, and the price of each part */
 .chart-tip {
   padding: var(--space-xs) var(--space-s);
-  background: var(--bg-soft);
+  background: var(--bg-null);
   border: 1px solid var(--stroke-sub);
-  border-radius: 2px;
+  border-radius: var(--radius-m);
   color: var(--text-strong);
   font-size: 12px;
+  box-shadow: var(--shadow-float);
 }
 .chart-tip-head {
   display: flex;
@@ -970,11 +1151,11 @@ a.chip {
 }
 .chart-tip tr.up td:nth-child(3),
 .chart-tip tr.up td:nth-child(4) {
-  color: var(--error-default);
+  color: var(--error-text);
 }
 .chart-tip tr.down td:nth-child(3),
 .chart-tip tr.down td:nth-child(4) {
-  color: var(--success-default);
+  color: var(--success-text);
 }
 .checks {
   display: flex;
@@ -995,24 +1176,31 @@ a.chip {
   height: 16px;
 }
 
-/* AG Grid: group headers carry the phase (expected / actual) */
-.ag-header-group-cell.phase-estimate { background: var(--bg-sub); }
-.ag-header-group-cell.phase-actual { background: var(--primary-soft); color: var(--text-strong); }
+/* AG Grid: group headers carry the phase (expected / actual): a grey band and a yellow one, the two words in the titles' style */
+.ag-header-group-cell.phase-estimate { background: var(--bg-soft); }
+.ag-header-group-cell.phase-actual { background: var(--total-bg); color: var(--total-fg); }
+.ag-header-group-cell-label,
+.ag-header-cell-text {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
 .ag-cell.calc { color: var(--text-sub); text-align: right; }
 /* a price that is worked out from the other one (net from gross, gross from net) */
 .ag-cell.cell-derived { color: var(--text-soft); font-style: italic; }
-/* a thicker bar where a group of columns begins: expected | actual */
+/* a stronger line where a group of columns begins: expected | actual */
 .ag-cell.phase-start,
 .ag-header-cell.phase-start,
 .ag-header-group-cell.phase-start,
 .ag-cell.sum,
-.ag-header-cell.sum { border-left: 2px solid var(--stroke-strong); }
+.ag-header-cell.sum { border-left: 1px solid var(--stroke-strong) !important; }
 /* the column that sums up a line (OUTFLOW) has a shade, like the summary columns of the tables */
-.ag-cell.sum { background: var(--bg-soft); }
-.ag-cell.num { text-align: right; }
-.ag-row-pinned .ag-cell { font-weight: 700; background: var(--primary-default); color: var(--on-primary); }
-.ag-row-pinned .ag-cell.cell-negative { color: var(--on-primary-negative); }
-.ag-row-pinned .ag-cell.cell-positive { color: var(--on-primary-positive); }
+.ag-cell.sum { background: var(--bg-weak); font-weight: 600; }
+.ag-cell.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* the subtotal of a project: the tint of the yellow of every row that sums up */
+.ag-row-pinned .ag-cell { font-weight: 700; background: var(--total-bg); color: var(--total-fg); }
+.ag-row-pinned .ag-cell.cell-negative { color: var(--total-negative); }
+.ag-row-pinned .ag-cell.cell-positive { color: var(--total-positive); }
 
 /* On macOS the scrollbars are the "overlay" ones. AG Grid draws the horizontal one over the bottom
    of the rows, just above the row of subtotals, and with a single line of data it covers it. Keep
@@ -1041,15 +1229,17 @@ a.chip {
 }
 
 /* --- charts ------------------------------------------------------------------------------------ */
+/* a chart is data like a table: the same edge, the same bright ground, its title in the style of the section titles */
 .chart {
   margin: 0;
-  padding: var(--space-s) var(--space-m);
+  padding: var(--space-m) var(--space-l) var(--space-s);
   border: 1px solid var(--stroke-sub);
-  border-radius: var(--radius-3xs);
-  background: var(--bg-weak);
+  border-radius: var(--radius-m);
+  background: var(--bg-null);
 }
 .chart figcaption {
-  margin-bottom: var(--space-xs);
+  margin-bottom: var(--space-s);
+  font-weight: 700;
 }
 .charts {
   display: grid;
@@ -1072,21 +1262,22 @@ a.chip {
   background: var(--bg-weak);
 }
 .login-card {
-  width: min(360px, 100%);
+  width: min(380px, 100%);
   display: flex;
   flex-direction: column;
-  gap: var(--space-m);
-  padding: var(--space-l);
+  gap: var(--space-l);
+  padding: var(--space-xl);
   border: 1px solid var(--stroke-sub);
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-m);
   background: var(--bg-null);
+  box-shadow: var(--shadow-float);
 }
 .login-card .brand {
   padding: 0;
 }
 .sidebar-footer {
   position: sticky;
-  bottom: calc(-1 * var(--space-l));
+  bottom: calc(-1 * var(--space-m));
   margin-top: auto;
   display: flex;
   align-items: center;
@@ -1130,8 +1321,8 @@ a.chip {
   align-items: center;
   justify-content: center;
   flex: none;
-  border-radius: var(--radius-3xs);
-  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-s);
+  border: 1px solid var(--stroke-soft);
   background: var(--bg-soft);
   color: var(--text-soft);
   object-fit: cover;
@@ -1151,8 +1342,8 @@ a.chip {
   width: 32px;
   height: 32px;
   object-fit: cover;
-  border-radius: var(--radius-3xs);
-  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-s);
+  border: 1px solid var(--stroke-soft);
   vertical-align: middle;
 }
 /* the big picture over the page: everything of the page stays where it is under it */
@@ -1164,14 +1355,14 @@ a.chip {
   align-items: center;
   justify-content: center;
   padding: var(--space-m);
-  background: rgb(0 0 0 / 0.8);
+  background: rgb(17 17 14 / 0.86);
   cursor: zoom-out;
 }
 .viewer img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
   background: var(--bg-null);
 }
 .viewer-close {
@@ -1215,7 +1406,7 @@ a.chip {
   font-weight: 600;
 }
 .verdict.ok { color: var(--success-strong); }
-.verdict.short { color: var(--error-default); }
+.verdict.short { color: var(--error-text); }
 .pill.ok { background: var(--success-soft); color: var(--success-strong); }
 .pill.short { background: var(--error-soft); color: var(--error-strong); }
 .form-grid {
@@ -1237,27 +1428,26 @@ textarea.input {
   gap: var(--space-s);
   padding: var(--space-s) 0;
 }
+/* what is written about an item: captions and values in columns, with no box around each (the safety codes are the one tinted) */
 .facts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--space-s);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-l) var(--space-xl);
   margin: 0;
 }
 .fact {
-  padding: var(--space-xs) var(--space-s);
-  border: 1px solid var(--stroke-sub);
-  border-radius: var(--radius-3xs);
-  background: var(--bg-weak);
+  min-width: 0;
 }
 .fact dt {
   color: var(--text-sub);
 }
 .fact dd {
-  margin: var(--space-3xs) 0 0;
+  margin: var(--space-2xs) 0 0;
   white-space: pre-wrap;
 }
 .fact.danger {
-  border-color: var(--warning-default);
+  padding: var(--space-s) var(--space-m);
+  border-radius: var(--radius-m);
   background: var(--warning-soft);
   color: var(--warning-strong);
 }
@@ -1273,7 +1463,7 @@ textarea.input {
 .pill.arrival-received { background: var(--success-soft); color: var(--success-strong); }
 .pill.arrival-over { background: var(--error-soft); color: var(--error-strong); }
 
-/* --- the yellow button that adds something inside a box, and its form right under it -------------- */
+/* --- the button that adds something inside a section, and its form right under it ---------------------- */
 .add-section {
   display: flex;
   flex-direction: column;
@@ -1308,12 +1498,13 @@ textarea.input {
   min-width: 100%;
   max-height: 240px;
   overflow-y: auto;
-  margin: var(--space-3xs) 0 0;
-  padding: 0;
+  margin: var(--space-2xs) 0 0;
+  padding: var(--space-2xs);
   list-style: none;
   background: var(--bg-null);
-  border: 1px solid var(--stroke-strong);
-  border-radius: var(--radius-3xs);
+  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-float);
   font-size: 13px;
 }
 /* the list of a box in a form floats over the page (SearchSelect: in the body, placed by the box), above even the record that opens over it */
@@ -1323,7 +1514,8 @@ textarea.input {
   margin: 0;
 }
 .search-list li {
-  padding: var(--space-2xs) var(--space-xs);
+  padding: var(--space-xs) var(--space-s);
+  border-radius: var(--radius-s);
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1344,8 +1536,9 @@ textarea.input {
   margin-left: calc(-1 * var(--search-editor-shift, 0px));
   padding: var(--space-2xs);
   background: var(--bg-null);
-  border: 1px solid var(--stroke-strong);
-  border-radius: var(--radius-3xs);
+  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-float);
 }
 .search-editor .search-list {
   position: static;
@@ -1370,10 +1563,11 @@ textarea.input {
   display: flex;
   flex-direction: column;
   gap: var(--space-s);
-  padding: var(--space-s) var(--space-m);
+  padding: var(--space-m);
   background: var(--bg-null);
-  border: 1px solid var(--stroke-strong);
-  border-radius: var(--radius-3xs);
+  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-float);
   font-size: 13px;
 }
 .download-panel ul {
@@ -1388,8 +1582,8 @@ textarea.input {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-xs) var(--space-m);
-  padding-top: var(--space-xs);
-  border-top: 1px solid var(--stroke-sub);
+  padding-top: var(--space-s);
+  border-top: 1px solid var(--stroke-soft);
 }
 .faint {
   opacity: 0.5;
@@ -1403,13 +1597,13 @@ textarea.input {
   align-items: center;
 }
 .tone-warning {
-  color: var(--warning-default);
+  color: var(--warning-text);
 }
 .tone-error {
-  color: var(--error-default);
+  color: var(--error-text);
 }
 .tone-success {
-  color: var(--success-default);
+  color: var(--success-text);
 }
 /* the boxes of a project heading while it is renamed */
 .panel-head .input.edit-name {
@@ -1423,10 +1617,10 @@ textarea.input {
 .setting {
   display: grid;
   grid-template-columns: minmax(220px, 320px) 1fr;
-  gap: var(--space-m);
+  gap: var(--space-m) var(--space-xl);
   align-items: start;
-  padding-bottom: var(--space-s);
-  border-bottom: 1px solid var(--stroke-sub);
+  padding-bottom: var(--space-m);
+  border-bottom: 1px solid var(--stroke-soft);
 }
 .setting .muted p,
 .setting .muted ul {
@@ -1452,9 +1646,9 @@ textarea.input {
   justify-content: space-between;
   gap: var(--space-s);
   width: 100%;
-  padding: var(--space-xs) var(--space-s);
+  padding: var(--space-s) var(--space-m);
   border: 1px solid var(--stroke-sub);
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-m);
   background: var(--bg-null);
   color: var(--text-strong);
   font: inherit;
@@ -1522,10 +1716,10 @@ body.no-scroll {
     align-items: center;
     justify-content: space-between;
     gap: var(--space-s);
-    height: 52px;
+    height: 56px;
     padding: 0 var(--space-m);
     background: var(--bg-soft);
-    border-bottom: 1px solid var(--stroke-sub);
+    border-bottom: 1px solid var(--stroke-soft);
   }
   .topbar strong,
   .shell.compact .brand strong {
@@ -1535,7 +1729,7 @@ body.no-scroll {
     width: 40px;
     height: 40px;
     border: 1px solid var(--stroke-sub);
-    border-radius: var(--space-xs);
+    border-radius: var(--radius-m);
     font-size: 17px;
     color: var(--text-strong);
   }
@@ -1568,7 +1762,7 @@ body.no-scroll {
     position: fixed;
     inset: 0;
     z-index: 40;
-    background: rgb(0 0 0 / 0.45);
+    background: rgb(17 17 14 / 0.5);
   }
   .shell.compact .nav-link {
     min-height: 40px;
@@ -1579,25 +1773,35 @@ body.no-scroll {
     padding: var(--space-s) var(--space-m);
   }
   .main {
-    padding: var(--space-m) var(--space-m) var(--space-2xl);
-    gap: var(--space-l);
+    padding: var(--space-l) var(--space-m) var(--space-3xl);
+    gap: var(--space-xl);
+  }
+  .panel ~ .panel {
+    padding-top: var(--space-xl);
   }
 }
 
 /* phones: the blocks of a page one under the other */
 @media (max-width: 767px) {
-  .page-header h1,
-  .item-title h1 {
-    font-size: 19px;
-  }
+  /* the figures two by two, with no line between them */
   .cards {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-xs);
+    gap: var(--space-m) var(--space-l);
   }
-  .card {
+  .card,
+  .card + .card {
     min-width: 0;
-    padding: var(--space-xs) var(--space-s);
+    padding: 0;
+    border: 0;
+  }
+  .card .value {
+    font-size: 18px;
+  }
+  /* the commands of a page in one row that wraps, all the same height; Download stays at the end */
+  .page-header .actions .btn {
+    min-height: var(--control-h);
+    padding: 0 var(--space-s);
   }
   .search-row {
     display: flex;
@@ -1636,8 +1840,8 @@ body.no-scroll {
   .facts {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   }
-  .panel {
-    padding: var(--space-s);
+  .panel.form-panel {
+    padding: var(--space-m);
   }
   .download-panel {
     min-width: 0;
@@ -1668,10 +1872,13 @@ body.no-scroll {
     flex-direction: column;
     gap: var(--space-3xs);
     margin-bottom: var(--space-xs);
-    padding: var(--space-xs) var(--space-s);
+    padding: var(--space-s) var(--space-m);
     border: 1px solid var(--stroke-sub);
-    border-radius: var(--radius-3xs);
+    border-radius: var(--radius-m);
     background: var(--bg-null);
+  }
+  .data-table.phone-cards tbody tr:hover > td {
+    background: none;
   }
   .data-table.phone-cards tr:last-child {
     margin-bottom: 0;
@@ -1702,6 +1909,7 @@ body.no-scroll {
     margin-right: var(--space-s);
     color: var(--text-sub);
     font-size: 11px;
+    letter-spacing: 0.05em;
     line-height: 18px;
     text-transform: uppercase;
     text-align: left;
@@ -1732,12 +1940,13 @@ body.no-scroll {
     font-weight: 700;
   }
   /* the rows that sum up stay yellow, like in the tables */
-  .data-table.phone-cards tr.total {
-    background: var(--primary-default);
-    border-color: var(--primary-default);
+  .data-table.phone-cards tr.total,
+  .data-table.phone-cards tbody tr.total:hover > td {
+    background: var(--total-bg);
+    border-color: transparent;
   }
   .data-table.phone-cards tr.total td::before {
-    color: var(--on-primary);
+    color: var(--total-fg);
   }
   .data-table.phone-cards td.empty {
     display: block;
@@ -1804,9 +2013,10 @@ body.no-scroll {
   display: block;
   width: 100%;
   min-height: 1.6em;
-  padding: 0 var(--space-3xs);
+  padding: 0 var(--space-2xs);
+  margin-inline: calc(-1 * var(--space-2xs));
   border: 1px solid transparent;
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
   background: none;
   color: inherit;
   font: inherit;
@@ -1848,16 +2058,25 @@ body.no-scroll {
   color: var(--text-strong);
   outline: none;
 }
-.eyebrow {
+/* the label of a group inside a panel (EXPECTED, ACTUAL, CASH REGISTER of the deletion of an inflow) */
+.group-label {
+  margin: 0;
   font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-sub);
 }
 .ra-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-s);
-  padding: var(--space-s) var(--space-m) var(--space-xs);
+  padding: var(--space-m) var(--space-m) var(--space-s) var(--space-l);
+}
+/* the action, before the name of the row in the same title: quieter, so the row reads first */
+.ra-verb {
+  color: var(--text-soft);
+  font-weight: 500;
 }
 .ra-title {
   flex: 1;
@@ -1870,24 +2089,27 @@ body.no-scroll {
   overflow-wrap: anywhere;
 }
 .ra-more {
-  padding: var(--space-3xs) var(--space-2xs);
+  padding: var(--space-2xs) var(--space-xs);
   border: 0;
+  border-radius: var(--radius-s);
   background: none;
   color: var(--text-sub);
-  font-size: 11px;
-  text-transform: uppercase;
+  font-size: 12px;
   text-decoration: underline;
+  text-underline-offset: 0.2em;
   white-space: nowrap;
   cursor: pointer;
 }
+.ra-more:hover {
+  color: var(--text-strong);
+}
+/* what the row is (its date, amount, project…): a quiet band of captions and values, no lines around it */
 .ra-ctx {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2xs) var(--space-l);
-  padding: var(--space-xs) var(--space-m);
+  gap: var(--space-xs) var(--space-xl);
+  padding: var(--space-s) var(--space-l);
   background: var(--bg-soft);
-  border-top: 1px solid var(--stroke-sub);
-  border-bottom: 1px solid var(--stroke-sub);
 }
 .ra-ctx > div {
   display: flex;
@@ -1896,6 +2118,7 @@ body.no-scroll {
 }
 .ra-ctx span {
   font-size: 11px;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-sub);
 }
@@ -1907,9 +2130,9 @@ body.no-scroll {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-s);
+  gap: var(--space-m);
   min-height: 0;
-  padding: var(--space-m) var(--space-m) 0;
+  padding: var(--space-l) var(--space-l) 0;
   overflow: auto;
 }
 /* the space under the contents, unless the bar of the buttons ends them */
@@ -1926,10 +2149,10 @@ body.no-scroll {
   position: sticky;
   bottom: 0;
   z-index: 1;
-  margin: var(--space-3xs) calc(-1 * var(--space-m)) 0;
-  padding: var(--space-xs) var(--space-m);
+  margin: var(--space-3xs) calc(-1 * var(--space-l)) 0;
+  padding: var(--space-s) var(--space-l);
   background: var(--bg-null);
-  border-top: 1px solid var(--stroke-sub);
+  border-top: 1px solid var(--stroke-soft);
   align-items: center;
 }
 .ra .form-grid,
@@ -1945,14 +2168,17 @@ body.no-scroll {
   background: var(--bg-weak);
   white-space: normal;
 }
-/* the panel has a border of its own, in the yellow of the row it belongs to: without it, it would look like more rows of the table */
+/* the panel stands over the rows (an edge and a soft shadow): without it, it would look like more rows of the table; the row it
+   belongs to is the tinted one just above */
 .ra-under-box {
   position: sticky;
   left: var(--space-xs);
   width: calc(var(--w, 100%) - 2 * var(--space-xs));
+  overflow: hidden;
   background: var(--bg-null);
-  border: 1px solid var(--primary-default);
-  border-radius: var(--radius-3xs);
+  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-float);
   white-space: normal; /* the cells of a table do not wrap their text, a panel in one does */
 }
 div.ra-under .ra-under-box {
@@ -1971,12 +2197,10 @@ div.ra-under .ra-under-box {
 .data-table td .ra .field input.input.wide {
   width: 100%;
 }
-/* the row an action is open for */
-tr.row-selected > td {
-  background: var(--bg-soft);
-}
-tr.row-selected > td:first-child {
-  box-shadow: inset 3px 0 0 var(--primary-default);
+/* the row an action is open for: a tint of the yellow, the same family as the rows that sum up */
+tr.row-selected > td,
+.data-table tbody tr.row-selected:hover > td {
+  background: color-mix(in srgb, var(--primary-default) 18%, var(--bg-null));
 }
 /* A: a dialog */
 .ra-scrim {
@@ -1987,13 +2211,15 @@ tr.row-selected > td:first-child {
   align-items: center;
   justify-content: center;
   padding: var(--space-l);
-  background: rgb(0 0 0 / 0.45);
+  background: rgb(17 17 14 / 0.5);
 }
 .ra-dialog {
   width: min(780px, 100%);
   max-height: 100%;
-  border: 1px solid var(--stroke-strong);
-  border-radius: var(--radius-3xs);
+  overflow: hidden;
+  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-dialog);
 }
 /* C: a side panel */
 .ra-side {
@@ -2003,7 +2229,8 @@ tr.row-selected > td:first-child {
   bottom: 0;
   z-index: 60;
   width: min(460px, 100%);
-  border-left: 1px solid var(--stroke-strong);
+  border-left: 1px solid var(--stroke-sub);
+  box-shadow: var(--shadow-dialog);
 }
 /* D: a popover, by the button that opened it (its place is worked out in lib/rowAction.ts) */
 .ra-pop {
@@ -2011,8 +2238,9 @@ tr.row-selected > td:first-child {
   z-index: 60;
   width: 340px;
   max-height: calc(100vh - 16px);
-  border: 1px solid var(--stroke-strong);
-  border-radius: var(--radius-3xs);
+  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-float);
 }
 .ra-pop::before {
   content: "";
@@ -2022,8 +2250,8 @@ tr.row-selected > td:first-child {
   width: 10px;
   height: 10px;
   background: var(--bg-weak);
-  border-left: 1px solid var(--stroke-strong);
-  border-top: 1px solid var(--stroke-strong);
+  border-left: 1px solid var(--stroke-sub);
+  border-top: 1px solid var(--stroke-sub);
   transform: rotate(45deg);
 }
 .ra-pop.above::before {
@@ -2060,7 +2288,7 @@ tr.row-selected > td:first-child {
   align-items: center;
   justify-content: center;
   padding: var(--space-l);
-  background: rgb(0 0 0 / 0.55);
+  background: rgb(17 17 14 / 0.55);
 }
 .peek {
   display: flex;
@@ -2069,9 +2297,9 @@ tr.row-selected > td:first-child {
   height: min(860px, 100%);
   overflow: hidden;
   background: var(--bg-null);
-  border: 1px solid var(--stroke-strong);
-  border-radius: var(--radius-3xs);
-  box-shadow: 0 24px 64px rgb(0 0 0 / 0.45);
+  border: 1px solid var(--stroke-sub);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-dialog);
   outline: none;
 }
 .peek-head {
@@ -2117,7 +2345,7 @@ tr.row-selected > td:first-child {
 }
 .peek-rows {
   border: 1px solid var(--stroke-sub);
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
 }
 .peek-row {
   display: grid;
@@ -2262,7 +2490,7 @@ tr.row-selected > td:first-child {
 }
 .rule {
   border: 1px solid var(--stroke-sub);
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
   padding: var(--space-s);
 }
 .link-list {
@@ -2311,7 +2539,7 @@ tr.row-selected > td:first-child {
   text-align: left;
   padding: var(--space-s);
   border: 1px solid var(--stroke-sub);
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
   background: var(--bg-weak);
   color: var(--text-strong);
   font: inherit;
@@ -2327,7 +2555,7 @@ tr.row-selected > td:first-child {
   aspect-ratio: 4 / 3;
   object-fit: cover;
   background: var(--bg-soft);
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
 }
 .card-line {
   font-size: 12px;
@@ -2347,7 +2575,7 @@ tr.row-selected > td:first-child {
   gap: var(--space-xs);
   padding: var(--space-xs);
   background: var(--bg-soft);
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
   min-height: 120px;
 }
 .kanban-column.over {
@@ -2369,9 +2597,9 @@ tr.row-selected > td:first-child {
   padding: var(--space-2xs) var(--space-xs);
   background: var(--primary-default);
   color: var(--on-primary);
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
   font-weight: 700;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+  box-shadow: var(--shadow-float);
 }
 .kanban-card.dragging {
   opacity: 0.4;
@@ -2427,7 +2655,7 @@ tr.row-selected > td:first-child {
   font-size: 12px;
   padding: 1px var(--space-2xs);
   border: 0;
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
   background: var(--bg-sub);
   color: var(--text-strong);
   cursor: pointer;
@@ -2481,7 +2709,7 @@ tr.row-selected > td:first-child {
   top: 3px;
   bottom: 3px;
   border: 0;
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
   background: var(--secondary-default);
   color: var(--text-null);
   font: inherit;
@@ -2530,7 +2758,7 @@ tr.row-selected > td:first-child {
 .color-value .swatch {
   width: 14px;
   height: 14px;
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
   border: 1px solid var(--stroke-sub);
 }
 .history-list li.resolved {
@@ -2590,8 +2818,8 @@ tr.row-selected > td:first-child {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(70 70 70 / 0.6);
-  color: #fff;
+  background: rgb(26 26 21 / 0.55);
+  color: #fdfdfa;
   font-size: 14px;
   opacity: 0;
   transition: opacity 0.15s;
@@ -2605,10 +2833,10 @@ tr.row-selected > td:first-child {
   width: 14px;
   height: 14px;
   margin: -7px 0 0 -7px;
-  border: 2px solid #fff;
+  border: 2px solid #fdfdfa; /* on the map, light in both themes */
   border-radius: 50%;
   background: var(--secondary-default);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 1px 3px rgb(17 17 14 / 0.5);
   cursor: pointer;
   padding: 0;
 }
@@ -2618,10 +2846,10 @@ tr.row-selected > td:first-child {
   top: -4px;
   white-space: nowrap;
   font-size: 11px;
-  background: rgba(255, 255, 255, 0.85);
-  color: #000;
+  background: rgb(253 253 250 / 0.88); /* on the map, light in both themes */
+  color: #1a1a15;
   padding: 0 3px;
-  border-radius: var(--radius-3xs);
+  border-radius: var(--radius-s);
   pointer-events: none;
 }
 .map-credit {
@@ -2629,8 +2857,8 @@ tr.row-selected > td:first-child {
   right: 0;
   bottom: 0;
   font-size: 10px;
-  background: rgba(255, 255, 255, 0.8);
-  color: #000;
+  background: rgb(253 253 250 / 0.82);
+  color: #1a1a15;
   padding: 1px 4px;
 }
 .map-credit a {
@@ -2638,7 +2866,7 @@ tr.row-selected > td:first-child {
 }
 .code-picture {
   display: inline-block;
-  background: #fff;
+  background: #fff; /* pure white on purpose: a scanner reads a code best on the most contrast there is */
   vertical-align: middle;
 }
 .view-folder {

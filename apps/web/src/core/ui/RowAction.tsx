@@ -28,8 +28,10 @@ function Card({ eyebrow, title, context, onClose, more, children }: CardProps) {
     <>
       <div className="ra-head">
         <div className="ra-title">
-          <span className="eyebrow">{eyebrow}</span>
-          <h3>{title}</h3>
+          {/* the action and the row it is about, on one line: «Pay · Brake pads» */}
+          <h3>
+            <span className="ra-verb">{eyebrow} ·</span> {title}
+          </h3>
         </div>
         {more && <button type="button" className="ra-more" onClick={more}>More options</button>}
         <IconButton icon={faXmark} label="Close" onClick={onClose} />

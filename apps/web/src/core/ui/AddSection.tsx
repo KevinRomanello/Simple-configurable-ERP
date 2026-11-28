@@ -4,7 +4,7 @@ import { DraftGuardContext, useAdder } from "../draftGuard";
 import { Button } from "../Button";
 
 /**
- * How something is added inside a box (a project, a list): the yellow button, and nothing else.
+ * How something is added inside a section (a project, a list): a quiet button with a «+» (the loud one is the page's main action).
  * Pressing it opens the form with all its boxes right under it (the button then says "Close"),
  * like the yellow button of a page header does for the page.
  */
@@ -19,7 +19,7 @@ export function AddSection({ label, form, draftKey }: {
   const { adding, toggle, hide, report } = useAdder(draftKey);
   return (
     <div className="add-section">
-      <Button icon={faPlus} onClick={toggle}>{adding ? "Close" : label}</Button>
+      <Button small variant="ghost" icon={faPlus} onClick={toggle}>{adding ? "Close" : label}</Button>
       {adding && <DraftGuardContext.Provider value={report}>{form(hide)}</DraftGuardContext.Provider>}
     </div>
   );

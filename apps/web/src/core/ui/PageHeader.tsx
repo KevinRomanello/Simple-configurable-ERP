@@ -1,5 +1,5 @@
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { DraftGuardContext, useAdder } from "../draftGuard";
 import { Button } from "../Button";
 import { DownloadMenu } from "../DownloadMenu";
@@ -31,7 +31,7 @@ export function PageHeader({ title, description, add, actions }: {
       <header className="page-header">
         <div>
           <h1>{title}</h1>
-          {description && <p className="muted">{description}</p>}
+          {description && <Intro>{description}</Intro>}
         </div>
         <div className="actions">
           {add && <Button icon={faPlus} onClick={toggle}>{adding ? "Close" : add.label}</Button>}
@@ -40,6 +40,36 @@ export function PageHeader({ title, description, add, actions }: {
         </div>
       </header>
       {add && adding && <DraftGuardContext.Provider value={report}>{add.form(hide)}</DraftGuardContext.Provider>}
+    </>
+  );
+}
+
+/**
+ * What the page is for: two lines at most, with «More» to read the rest when it is longer (the work of the page comes first; the
+ * text stays all there). The button shows only when something is hidden, measured on the page as it is drawn.
+ */
+function Intro({ children }: { children: ReactNode }) {
+  const text = useRef<HTMLParagraphElement>(null);
+  const [open, setOpen] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  useLayoutEffect(() => {
+    const el = text.current;
+    if (!el || open) return;
+    const measure = () => setHidden(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [open, children]);
+  return (
+    <>
+      <p ref={text} className={open ? "page-intro" : "page-intro clamped"}>{children}</p>
+      {(hidden || open) && (
+        <button type="button" className="page-intro-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {open ? "Less" : "More"}
+        </button>
+      )}
     </>
   );
 }
